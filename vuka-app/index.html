@@ -18,9 +18,8 @@
     (function () {
       try {
         var v = localStorage.getItem('gj-theme');
-        var t = v === 'light' || v === 'dark'
-          ? v
-          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        // Default to light (white) on first load; remember an explicit choice.
+        var t = v === 'light' || v === 'dark' ? v : 'light';
         document.documentElement.setAttribute('data-theme', t);
       } catch (e) { /* default stays light */ }
     })();

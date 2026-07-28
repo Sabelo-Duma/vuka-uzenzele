@@ -24,12 +24,13 @@ function systemTheme(): ResolvedTheme {
 }
 
 function readStoredMode(): ThemeMode {
-  if (typeof window === 'undefined') return 'system';
+  // Default to light (white) on first load; honour an explicit stored choice.
+  if (typeof window === 'undefined') return 'light';
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return v === 'light' || v === 'dark' ? v : 'system';
+    return v === 'light' || v === 'dark' ? v : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 
