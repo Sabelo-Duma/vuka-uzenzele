@@ -1,0 +1,26 @@
+/* spacing.css — generated from ux-design-specification.md §2.4 (4px grid). */
+
+:root {
+  --gj-sp-1: 4px;
+  --gj-sp-2: 8px;
+  --gj-sp-3: 12px;
+  --gj-sp-4: 16px;
+  --gj-sp-5: 20px;
+  --gj-sp-6: 24px;   /* card padding */
+  --gj-sp-7: 32px;
+  --gj-sp-8: 40px;
+  --gj-sp-9: 48px;
+  --gj-sp-10: 56px;
+  --gj-sp-11: 60px;  /* section padding desktop */
+  --gj-sp-12: 80px;
+
+  /* Layout */
+  --gj-container: 1250px;
+  --gj-gutter: 24px;          /* desktop grid gutter */
+  --gj-gutter-mobile: 16px;
+  --gj-header-h: 71px;
+  --gj-header-h-mobile: 60px;
+  --gj-form-h: 42px;          /* pill field height */
+  --gj-section-pad: 60px;
+  --gj-section-pad-mobile: 40px;
+}

@@ -1,0 +1,10 @@
+# Netlify deploy config for Vuka Uzenzele
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback — serve the app for any path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

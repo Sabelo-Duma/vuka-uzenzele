@@ -1,0 +1,10 @@
+/* animations.css — generated from ux-design-specification.md §2.4 (motion). */
+
+:root {
+  --gj-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --gj-dur-fast: 150ms;    /* hover/focus */
+  --gj-dur-brand: 250ms;   /* buttons/links (brand .25s ease) */
+  --gj-dur-panel: 300ms;   /* panels/modals */
+  --gj-dur-page: 400ms;    /* page-level */
+  --gj-dur-shimmer: 1200ms; /* skeleton shimmer, linear infinite */
+}

@@ -1,0 +1,334 @@
+/* ==========================================================================
+   GIJIMA BRAND STYLE SHEET — gijima-styles.css
+   ==========================================================================
+   Extracted from the live site https://www.gijima.com (WordPress / Woodmart
+   theme, verified 2026-07-15) and cross-checked against Gijima's official
+   corporate brand assets.
+
+   Drop this file into any new project:
+     <link rel="stylesheet" href="gijima-styles.css">
+
+   FONT NOTE
+   Proxima Nova is Gijima's brand font, served via Adobe Fonts (Typekit).
+   Weights used on gijima.com: 100 (display), 400, 600, 700 (+ italics).
+   Add your Adobe Fonts kit in the <head>, e.g.:
+     <link rel="stylesheet" href="https://use.typekit.net/XXXXXXX.css">
+   Fallbacks (Arial/Helvetica) match the live site's stack.
+
+   PALETTE NOTE
+   Web brand (gijima.com):   red #F20023 · navy #0E355A
+   Corporate collateral:     red #EF382B · navy #1A3B68 (Word docs)
+                             dark navy #0D182B (2024 PowerPoint template)
+   Use the web palette for websites; collateral values are included as
+   tokens for cross-media consistency.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. DESIGN TOKENS
+   -------------------------------------------------------------------------- */
+:root {
+  /* ---- Brand colours (web) ---- */
+  --gj-red:              #F20023;  /* primary — links, CTAs, accents, logo dots */
+  --gj-navy:             #0E355A;  /* alternative — text, header, footer, titles */
+  --gj-heading-dark:     #242424;  /* h3-style headings, link hover */
+  --gj-entity-title:     #333333;  /* card/product titles */
+
+  /* ---- Brand colours (corporate collateral, for reference) ---- */
+  --gj-red-print:        #EF382B;  /* Word/PowerPoint red */
+  --gj-navy-print:       #1A3B68;  /* Word document navy */
+  --gj-navy-deep:        #0D182B;  /* 2024 PowerPoint dark navy */
+
+  /* ---- Text ---- */
+  --gj-text:             var(--gj-navy);   /* base body colour */
+  --gj-text-muted:       #777777;          /* paragraphs */
+  --gj-text-subtle:      #A5A5A5;          /* eyebrows, captions */
+  --gj-text-on-dark:     rgba(255,255,255,0.8);
+  --gj-link:             var(--gj-red);
+  --gj-link-hover:       #242424;
+
+  /* ---- Surfaces ---- */
+  --gj-bg:               #FFFFFF;
+  --gj-bg-light:         #F7F7F7;  /* light sections, default buttons */
+  --gj-bg-hover:         #EFEFEF;  /* default button hover */
+  --gj-border:           rgba(0,0,0,0.1);   /* form fields */
+  --gj-border-strong:    rgba(0,0,0,0.2);
+  --gj-border-card:      #F1F1F1;           /* partner/logo cards */
+
+  /* ---- Status (Woodmart theme defaults in use) ---- */
+  --gj-success:          #18CE0F;
+  --gj-info:             #2CA8FF;
+  --gj-warning:          #FFB236;
+  --gj-danger:           #FF5062;
+  --gj-secondary:        #6C757D;
+
+  /* ---- Typography ---- */
+  --gj-font:             "proxima-nova", "Proxima Nova", Arial, Helvetica, sans-serif;
+  --gj-fs-base:          15px;    /* body */
+  --gj-lh-base:          1.6;     /* 24px on 15px */
+  --gj-fw-text:          400;
+  --gj-fw-title:         600;     /* standard headings, nav, buttons */
+  --gj-fw-display:       100;     /* big section titles ("Our Partners") */
+  --gj-fw-hero:          700;     /* hero slider headlines */
+
+  /* ---- Type scale (from live site) ---- */
+  --gj-fs-hero:          42px;    /* hero headline, lh 1.0–1.2, w700, white */
+  --gj-fs-display:       40px;    /* section title, lh 50px, w100, navy */
+  --gj-fs-h3:            30px;    /* lh 40px, w600, #242424 */
+  --gj-fs-h4:            22px;    /* block heading, w600, navy */
+  --gj-fs-widget:        16px;    /* widget titles, w600, UPPERCASE */
+  --gj-fs-nav:           15px;    /* nav links, w600, UPPERCASE */
+  --gj-fs-small:         14px;    /* forms, eyebrows */
+  --gj-fs-btn:           12px;    /* small buttons, w600, UPPERCASE */
+
+  /* ---- Layout ---- */
+  --gj-container:        1250px;
+  --gj-block-spacing:    20px;
+  --gj-header-h:         71px;
+  --gj-header-h-mobile:  60px;
+
+  /* ---- Components ---- */
+  --gj-radius-pill:      35px;    /* buttons + form fields are pills */
+  --gj-form-h:           42px;
+
+  /* ---- Breakpoints (reference — used in media queries below)
+       desktop ≥1025px · tablet 769–1024px · mobile ≤768px · small ≤600px
+       extra: 1200px (wide), 992px                                        ---- */
+}
+
+/* --------------------------------------------------------------------------
+   2. BASE
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--gj-font);
+  font-size: var(--gj-fs-base);
+  font-weight: var(--gj-fw-text);
+  line-height: var(--gj-lh-base);
+  color: var(--gj-text);
+  background: var(--gj-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+p { margin: 0 0 20px; color: var(--gj-text-muted); }
+
+a {
+  color: var(--gj-link);
+  text-decoration: none;
+  transition: color .25s ease, background-color .25s ease, opacity .25s ease;
+}
+a:hover { color: var(--gj-link-hover); }
+
+img { max-width: 100%; height: auto; }
+
+/* --------------------------------------------------------------------------
+   3. TYPOGRAPHY
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--gj-font);
+  font-weight: var(--gj-fw-title);
+  color: var(--gj-navy);
+  margin: 0 0 20px;
+}
+
+/* Hero headline — white on dark imagery */
+.gj-hero-title,
+h1 { font-size: var(--gj-fs-hero); line-height: 1.15; font-weight: var(--gj-fw-hero); }
+
+/* Big, light section title — e.g. "Our Partners" */
+.gj-display,
+h2 { font-size: var(--gj-fs-display); line-height: 1.25; font-weight: var(--gj-fw-display); }
+
+h3 { font-size: var(--gj-fs-h3); line-height: 1.33; color: var(--gj-heading-dark); }
+
+h4 { font-size: var(--gj-fs-h4); line-height: 1.35; }
+
+h5, .gj-widget-title {
+  font-size: var(--gj-fs-widget);
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+h6 { font-size: var(--gj-fs-small); text-transform: uppercase; }
+
+/* Eyebrow label above headings — "INFORMATION QUESTIONS" pattern */
+.gj-eyebrow {
+  display: block;
+  font-size: var(--gj-fs-small);
+  font-weight: 400;
+  color: var(--gj-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 8px;
+}
+
+/* Red dot accent — end headings with <span class="gj-dot">.</span>
+   (signature element of the 2024 corporate identity) */
+.gj-dot { color: var(--gj-red); }
+
+/* Text on dark/navy/red sections */
+.gj-on-dark, .gj-on-dark h1, .gj-on-dark h2, .gj-on-dark h3,
+.gj-on-dark h4, .gj-on-dark h5 { color: #fff; }
+.gj-on-dark p { color: var(--gj-text-on-dark); }
+
+/* --------------------------------------------------------------------------
+   4. LAYOUT
+   -------------------------------------------------------------------------- */
+.gj-container {
+  max-width: var(--gj-container);
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.gj-section { padding: 60px 0; }
+.gj-section--light { background: var(--gj-bg-light); }
+.gj-section--navy  { background: var(--gj-navy); }
+.gj-section--red   { background: var(--gj-red); }   /* CTA band */
+
+/* --------------------------------------------------------------------------
+   5. BUTTONS  (pill-shaped, uppercase)
+   -------------------------------------------------------------------------- */
+.gj-btn {
+  display: inline-block;
+  font-family: var(--gj-font);
+  font-size: var(--gj-fs-btn);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border: 0;
+  border-radius: var(--gj-radius-pill);
+  padding: 12px 30px;
+  cursor: pointer;
+  transition: background-color .25s ease, color .25s ease, opacity .25s ease;
+}
+
+/* Primary (accented) — red */
+.gj-btn--primary { background: var(--gj-red); color: #fff; }
+.gj-btn--primary:hover { background: #D40020; color: #fff; }
+
+/* Default — light grey */
+.gj-btn--default { background: var(--gj-bg-light); color: #333; }
+.gj-btn--default:hover { background: var(--gj-bg-hover); color: #333; }
+
+/* Outline — for use on imagery/dark sections (hero "Contact Us") */
+.gj-btn--outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+}
+.gj-btn--outline:hover { border-color: #fff; color: #fff; }
+
+/* Sizes */
+.gj-btn--sm { padding: 8px 18px; }
+.gj-btn--lg { font-size: 16px; font-weight: 700; padding: 14px 34px; }
+
+/* --------------------------------------------------------------------------
+   6. FORMS  (pill fields, 42px)
+   -------------------------------------------------------------------------- */
+.gj-input, .gj-select, .gj-textarea {
+  width: 100%;
+  height: var(--gj-form-h);
+  padding: 0 20px;
+  font-family: var(--gj-font);
+  font-size: var(--gj-fs-small);
+  color: var(--gj-navy);
+  background: transparent;
+  border: 1px solid var(--gj-border);
+  border-radius: var(--gj-radius-pill);
+  outline: none;
+  transition: border-color .25s ease;
+}
+.gj-textarea { height: auto; min-height: 140px; padding: 14px 20px; border-radius: 25px; resize: vertical; }
+.gj-input:focus, .gj-select:focus, .gj-textarea:focus { border-color: var(--gj-border-strong); }
+.gj-label { display: block; margin: 0 0 8px; font-size: var(--gj-fs-small); color: var(--gj-navy); }
+::placeholder { color: var(--gj-text-subtle); }
+
+/* --------------------------------------------------------------------------
+   7. HEADER / NAVIGATION  (navy bar, sticky, 71px)
+   -------------------------------------------------------------------------- */
+.gj-header {
+  background: var(--gj-navy);
+  height: var(--gj-header-h);
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+/* Over hero imagery on the homepage the bar starts transparent:
+   .gj-header--transparent { background: transparent; position: absolute; width: 100%; } */
+
+.gj-header .gj-container { display: flex; align-items: center; justify-content: space-between; }
+
+.gj-logo img { height: 40px; display: block; }  /* white logo w/ red dots on navy */
+
+.gj-nav { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; }
+.gj-nav a {
+  font-size: var(--gj-fs-nav);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.8);
+}
+.gj-nav a:hover, .gj-nav a.is-active { color: #fff; }
+
+/* --------------------------------------------------------------------------
+   8. FOOTER  (navy)
+   -------------------------------------------------------------------------- */
+.gj-footer {
+  background: var(--gj-navy);
+  color: var(--gj-text-on-dark);
+  padding: 60px 0 40px;
+}
+.gj-footer .gj-widget-title { color: #fff; margin-bottom: 18px; }
+.gj-footer a { color: rgba(255,255,255,0.6); }
+.gj-footer a:hover { color: #fff; }
+.gj-footer ul { list-style: none; margin: 0; padding: 0; }
+.gj-footer li { margin-bottom: 10px; }
+
+/* --------------------------------------------------------------------------
+   9. CARDS & MISC
+   -------------------------------------------------------------------------- */
+/* Partner/logo card */
+.gj-card {
+  background: #fff;
+  border: 1px solid var(--gj-border-card);
+  padding: 30px;
+}
+
+/* Circular carousel arrow */
+.gj-arrow {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--gj-border-strong);
+  background: transparent;
+  color: var(--gj-heading-dark);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.gj-arrow:hover { border-color: var(--gj-navy); }
+
+/* Status badges */
+.gj-badge { display: inline-block; padding: 3px 12px; border-radius: var(--gj-radius-pill);
+            font-size: 12px; font-weight: 600; color: #fff; text-transform: uppercase; }
+.gj-badge--success { background: var(--gj-success); }
+.gj-badge--info    { background: var(--gj-info); }
+.gj-badge--warning { background: var(--gj-warning); }
+.gj-badge--danger  { background: var(--gj-danger); }
+
+/* --------------------------------------------------------------------------
+   10. RESPONSIVE  (Woodmart breakpoints)
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {              /* tablet */
+  .gj-header { height: var(--gj-header-h-mobile); }
+  .gj-nav { display: none; }              /* site switches to off-canvas menu */
+  h1, .gj-hero-title { font-size: 34px; }
+  h2, .gj-display    { font-size: 32px; line-height: 1.3; }
+}
+
+@media (max-width: 768px) {               /* mobile */
+  .gj-section { padding: 40px 0; }
+  h1, .gj-hero-title { font-size: 28px; }
+  h2, .gj-display    { font-size: 26px; }
+  h3 { font-size: 24px; }
+}

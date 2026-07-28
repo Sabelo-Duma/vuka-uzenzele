@@ -1,0 +1,15 @@
+Plan a project: Gijima want to develop a new IntelliSource platform for our Procurement Business Unit that is an AI-driven, end-to-end sourcing & contracting platform that turns plain-language needs into RFx events, automates supplier discovery, evaluates bids, orchestrates stakeholders in Teams, and drives to contract award with full auditability that is detailed in "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\_input\Rough Draft - IntelliSource_Expanded_Business_Case v1.pdf"
+
+Architecture Design Principles: The platform must adhere to the following Architecture Design Principles "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\_input\Architecture Design Principles.txt"
+
+Branding: The UX design style should follow Gijima Branding as per "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\_input\gijima-styles.css"
+
+Deep Research: In the context of the above do deep research on the web, evaluate competitors, extract relevant functionality and create user stories that define the Business Requirements. For aditional reference and user stories for RFx look at the Hulamin Procurement Supplier Sourcing System project located in this folder "C:\Users\10022118\Hulamin\Procurement Supplier Sourcing System\Hulamin Procurement Supplier Sourcing System"
+
+
+
+
+
+
+
+Create a professional Gijima branded document with rich diagrams for the architecture and business prcess, that provides the full detail of the Plan pipeline located in the folder "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\_bmad-output\planning-artifacts"  that I can send to our Procurement team for review starting with the Product Brief "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\_bmad-output\planning-artifacts\product-brief.md" and follow the sequence as per each markdown file footer, ensure all files in the folder is included and implementation-readiness-report-2026-07-24.md is last. The design system to create a design template view to create mockup UX screens for reference is locate here "C:\Users\10022118\Documents\Claude\Projects\IntelliSource\design-system"

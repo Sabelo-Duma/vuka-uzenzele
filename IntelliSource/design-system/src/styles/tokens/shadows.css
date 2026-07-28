@@ -1,0 +1,14 @@
+/* shadows.css — generated from ux-design-specification.md §2.4 (elevation). */
+
+:root {
+  --gj-shadow-1: 0 1px 3px rgba(13, 24, 43, 0.08);   /* cards */
+  --gj-shadow-2: 0 4px 12px rgba(13, 24, 43, 0.12);  /* dropdowns, popovers */
+  --gj-shadow-3: 0 12px 32px rgba(13, 24, 43, 0.18); /* modals */
+}
+
+[data-theme='dark'] {
+  /* Same geometry, deeper alpha (UX spec §2.4) */
+  --gj-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --gj-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --gj-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+}

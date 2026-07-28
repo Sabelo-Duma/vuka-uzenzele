@@ -1,0 +1,25 @@
+# Render.com blueprint — deploys Vuka Uzenzele as one Docker web service
+# (API + SPA). Push this repo to GitHub, then: Render → New → Blueprint →
+# pick the repo. Everything below is provisioned automatically.
+services:
+  - type: web
+    name: vuka-uzenzele
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt          # closest Render region to South Africa
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VUKA_JWT_SECRET
+        generateValue: true    # Render generates a strong secret
+      # Data is ephemeral on the free plan (reseeds on each deploy).
+      # For persistence, add a paid instance + a disk and set VUKA_DB:
+      # - key: VUKA_DB
+      #   value: /data/data.db
+      # disk:
+      #   name: vuka-data
+      #   mountPath: /data
+      #   sizeGB: 1

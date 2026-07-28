@@ -1,0 +1,43 @@
+/* typography.css — generated from ux-design-specification.md §2.3 (gijima-styles.css exact). */
+
+:root {
+  --gj-font: 'proxima-nova', 'Proxima Nova', Arial, Helvetica, sans-serif;
+  --gj-font-mono: 'JetBrains Mono', Consolas, monospace;
+
+  /* Type scale (px, from live gijima.com + UX spec) */
+  --gj-fs-hero: 42px;      /* lh 1.15, w700 — hero/login headline */
+  --gj-fs-display: 40px;   /* lh 50px, w100 — display titles + red dot */
+  --gj-fs-h3: 30px;        /* lh 40px, w600 — page titles */
+  --gj-fs-h4: 22px;        /* lh 1.35, w600 — card/panel headings */
+  --gj-fs-widget: 16px;    /* lh 1.4, w600, UPPERCASE — widget/table headers */
+  --gj-fs-base: 15px;      /* lh 1.6, w400 — body */
+  --gj-fs-small: 14px;     /* lh 1.5, w400 — forms, eyebrows, captions */
+  --gj-fs-btn: 12px;       /* lh 1, w600, UPPERCASE, ls .3px — buttons */
+  --gj-fs-mono: 13px;      /* lh 1.5 — RFx numbers, hashes, audit IDs */
+
+  /* Weights */
+  --gj-fw-display: 100;
+  --gj-fw-text: 400;
+  --gj-fw-title: 600;
+  --gj-fw-hero: 700;
+
+  /* Letter spacing */
+  --gj-ls-btn: 0.3px;
+  --gj-ls-eyebrow: 0.5px;
+}
+
+/* Responsive type (UX spec §2.4 / gijima-styles.css breakpoints) */
+@media (max-width: 1024px) {
+  :root {
+    --gj-fs-hero: 34px;
+    --gj-fs-display: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --gj-fs-hero: 28px;
+    --gj-fs-display: 26px;
+    --gj-fs-h3: 24px;
+  }
+}

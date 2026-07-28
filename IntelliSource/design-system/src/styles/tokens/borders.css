@@ -1,0 +1,8 @@
+/* borders.css — generated from ux-design-specification.md §2.4 (radii). */
+
+:root {
+  --gj-radius-pill: 35px;      /* buttons, inputs, badges — brand signature */
+  --gj-radius-card: 8px;       /* cards, modals, tables */
+  --gj-radius-textarea: 25px;
+  --gj-radius-chip: 16px;
+}

@@ -1,0 +1,80 @@
+/* colors.css — generated from ux-design-specification.md §2.1 (light) / §2.2 (dark).
+   Every token has a dark override. Components must reference tokens, never hex. */
+
+:root {
+  /* Brand */
+  --gj-red: #F20023;              /* primary CTAs, accents, logo dot */
+  --gj-red-hover: #D40020;        /* primary hover; AA red for text links (5.5:1) */
+  --gj-navy: #0E355A;             /* headings, body, header/footer bars */
+  --gj-heading-dark: #242424;     /* h3-level headings, link hover */
+  --gj-entity-title: #333333;     /* card/product titles (gijima-styles.css) */
+
+  /* Text */
+  --gj-text: #0E355A;
+  --gj-text-muted: #767676;       /* AA 4.54:1 (adjusted from brand #777777 = 4.48:1) */
+  --gj-text-subtle: #A5A5A5;      /* ≥18px or decorative only (2.6:1) */
+  --gj-text-on-dark: rgba(255, 255, 255, 0.8);
+  --gj-link: #D40020;             /* AA-compliant red for body links */
+
+  /* Surfaces */
+  --gj-bg: #FFFFFF;
+  --gj-bg-light: #F7F7F7;
+  --gj-bg-hover: #EFEFEF;
+  --gj-border: rgba(0, 0, 0, 0.10);
+  --gj-border-strong: rgba(0, 0, 0, 0.20);
+
+  /* Semantic (text/icon values are AA on --gj-bg) */
+  --gj-success: #0E8A09;          /* 4.6:1 on white (adjusted from theme #18CE0F) */
+  --gj-success-fill: #18CE0F;     /* badge fill */
+  --gj-success-on-fill: #0B3D09;  /* text on success fill */
+  --gj-info: #1273B8;             /* 4.6:1 (adjusted from #2CA8FF) */
+  --gj-warning: #8A5A00;          /* warning text */
+  --gj-warning-fill: #FFB236;     /* badge fill */
+  --gj-warning-on-fill: #3D2A00;  /* text on warning fill */
+  --gj-danger: #C41230;           /* error text/borders (4.9:1) */
+  --gj-danger-fill: #FF5062;      /* fills, white text ≥18px only */
+  --gj-ai: #5B21B6;               /* AI-generated content accent (6.6:1) */
+  --gj-seal: #B45309;             /* sealed/embargoed indicators */
+
+  /* Focus ring (universal, §3) */
+  --gj-focus-ring: #0E355A;
+}
+
+[data-theme='dark'] {
+  /* Brand on dark (derived from 2024 corporate deep navy) */
+  --gj-red: #F20023;              /* primary buttons (white text, ≥3:1 as UI component) */
+  --gj-red-hover: #FF1A3C;
+  --gj-navy: #3E6FA3;             /* structural accents on dark */
+  --gj-heading-dark: #E8EDF4;
+  --gj-entity-title: #E8EDF4;
+
+  /* Text */
+  --gj-text: #E8EDF4;             /* 13.9:1 on #0D182B */
+  --gj-text-muted: #A8B4C4;       /* 7.1:1 */
+  --gj-text-subtle: #7A8699;      /* decorative/large only */
+  --gj-text-on-dark: rgba(255, 255, 255, 0.8);
+  --gj-link: #FF4D66;             /* text links on dark (5.5:1) */
+
+  /* Surfaces */
+  --gj-bg: #0D182B;               /* brand deep navy */
+  --gj-bg-light: #152238;         /* raised surfaces, cards */
+  --gj-bg-hover: #1D2C47;
+  --gj-border: rgba(255, 255, 255, 0.12);
+  --gj-border-strong: rgba(255, 255, 255, 0.24);
+
+  /* Semantic */
+  --gj-success: #4ADE80;          /* 8.4:1 on bg */
+  --gj-success-fill: #4ADE80;
+  --gj-success-on-fill: #0D182B;
+  --gj-info: #60A5FA;             /* 6.9:1 */
+  --gj-warning: #FBBF24;          /* 9.6:1 */
+  --gj-warning-fill: #FBBF24;
+  --gj-warning-on-fill: #0D182B;
+  --gj-danger: #F87181;           /* 6.3:1 */
+  --gj-danger-fill: #F87181;
+  --gj-ai: #C4B5FD;               /* 9.2:1 */
+  --gj-seal: #FBBF24;
+
+  /* Focus ring on dark */
+  --gj-focus-ring: #FF4D66;
+}

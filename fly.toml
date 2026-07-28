@@ -1,0 +1,31 @@
+# Fly.io config — Vuka Uzenzele single-service (API + SPA).
+# Deploy with: fly launch --copy-config --now  (then set the JWT secret).
+app = "vuka-uzenzele"
+primary_region = "jnb"          # Johannesburg
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  # For persistent data, create a volume and uncomment:
+  # VUKA_DB = "/data/data.db"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"
+
+# Persistent data (optional):
+# [mounts]
+#   source = "vuka_data"
+#   destination = "/data"

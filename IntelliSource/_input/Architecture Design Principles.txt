@@ -1,0 +1,22 @@
+Architecture Design Principles:
+
+1. The backend must follow Clean Architecture in .NET 10
+2. The frontend must follow Microsoft's Model-View-Controller (MVC) pattern + React + Tailwind
+3. The database must use Entity Framework to Postgres
+4. For local development and testing use Docker for Desktop deployment
+5. The final solution deployment must target cloud native containers running on Kubernetes
+6. Security Architecture must follow Zero Trust and Defence in-Depth principles
+7. API-first with OpenAPI Specification (OAS) version 3.2.0 and swagger
+8. Comply to POPIA
+9. Authentication: User management, SSO integration with Intra ID and MFA services
+10. Full Audit Trail with Full Compliance & Audit Capabilities
+11. Scalable Microservices Design Principles - Single responsibility, Autonomous deployment
+12. API-based communication
+13. Code base must be optimized for Speed for 10k+ concurrent users with less than 2 seconds response times
+14. Operational Excellence that Reduced manual processing
+15. Enhanced User Experience & User Profile Management
+16. Real-Time Consolidated Dashboard Views
+17. Enhanced Dashboard Reporting & Analytics with charts, slices and pies. Export to CSV or PDF
+18. Application Uptime 99.5% 
+19. Infrastructure Uptime 99.99%
+20. Strict Boundary Enforcement

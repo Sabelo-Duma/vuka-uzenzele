@@ -1,0 +1,24 @@
+<!--
+  Gijima brand font: Proxima Nova via Adobe Fonts (Typekit).
+  Replace XXXXXXX with the project kit ID (PRD dependency D5).
+  Fallback stack (Arial/Helvetica) renders until the kit is configured.
+-->
+<!-- <link rel="stylesheet" href="https://use.typekit.net/XXXXXXX.css"> -->
+<script>
+  // No-flash theme bootstrap (mirrors guidance for the MVC host layout):
+  // apply persisted/system theme before first paint.
+  (function () {
+    try {
+      var stored = window.localStorage.getItem('gj-theme');
+      var theme =
+        stored === 'light' || stored === 'dark'
+          ? stored
+          : window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>

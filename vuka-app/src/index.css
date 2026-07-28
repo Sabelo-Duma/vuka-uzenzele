@@ -1,0 +1,134 @@
+/* ============================================================
+   Vuka Uzenzele — global styles & Gijima design tokens
+   Token values sourced verbatim from the Gijima IntelliSource
+   design system (colors/typography/spacing/shadows/borders).
+   Every token has a dark override via [data-theme='dark'].
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand */
+  --gj-red: #F20023;
+  --gj-red-hover: #D40020;
+  --gj-navy: #0E355A;
+  --gj-navy-2: #1A3B68;
+  --gj-navy-deep: #0D182B;
+
+  /* Text */
+  --gj-text: #0E355A;
+  --gj-text-muted: #767676;
+  --gj-text-subtle: #A5A5A5;
+  --gj-link: #D40020;
+
+  /* Surfaces */
+  --gj-bg: #FFFFFF;
+  --gj-bg-light: #F7F7F7;
+  --gj-bg-hover: #EFEFEF;
+  --gj-border: rgba(0, 0, 0, 0.10);
+  --gj-border-strong: rgba(0, 0, 0, 0.20);
+
+  /* Semantic (AA on light bg) */
+  --gj-success: #0E8A09;
+  --gj-info: #1273B8;
+  --gj-warning: #8A5A00;
+  --gj-danger: #C41230;
+
+  /* Tier accents */
+  --t-starter: #0E8A09;
+  --t-trusted: #B45309;
+  --t-pro: #0E355A;
+  --t-elite: #D97706;
+
+  /* Elevation */
+  --gj-shadow-1: 0 1px 3px rgba(13, 24, 43, 0.08);
+  --gj-shadow-2: 0 4px 12px rgba(13, 24, 43, 0.12);
+  --gj-shadow-3: 0 12px 32px rgba(13, 24, 43, 0.18);
+
+  /* App canvas (the dark stage behind the phone on desktop) */
+  --gj-stage: radial-gradient(1100px 640px at 12% -8%, #12365b 0%, transparent 55%),
+    radial-gradient(900px 560px at 112% 8%, #1c2c48 0%, transparent 52%),
+    linear-gradient(165deg, #0D182B 0%, #0E243f 62%, #0b1526 100%);
+
+  --gj-focus: #0E355A;
+}
+
+[data-theme='dark'] {
+  --gj-red: #F20023;
+  --gj-red-hover: #FF1A3C;
+  --gj-navy: #3E6FA3;
+  --gj-navy-2: #4b7cb0;
+  --gj-navy-deep: #0D182B;
+
+  --gj-text: #E8EDF4;
+  --gj-text-muted: #A8B4C4;
+  --gj-text-subtle: #7A8699;
+  --gj-link: #FF4D66;
+
+  --gj-bg: #0D182B;
+  --gj-bg-light: #152238;
+  --gj-bg-hover: #1D2C47;
+  --gj-border: rgba(255, 255, 255, 0.12);
+  --gj-border-strong: rgba(255, 255, 255, 0.24);
+
+  --gj-success: #4ADE80;
+  --gj-info: #60A5FA;
+  --gj-warning: #FBBF24;
+  --gj-danger: #F87181;
+
+  --t-starter: #4ADE80;
+  --t-trusted: #F59E0B;
+  --t-pro: #60A5FA;
+  --t-elite: #FBBF24;
+
+  --gj-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --gj-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --gj-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  --gj-stage: linear-gradient(165deg, #060c16 0%, #0a1424 100%);
+
+  --gj-focus: #FF4D66;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: 'proxima-nova', 'Proxima Nova', Arial, Helvetica, sans-serif;
+  color: var(--gj-text);
+  background: var(--gj-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible, brand-coloured focus ring everywhere (a11y). */
+:focus-visible {
+  outline: 3px solid var(--gj-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Thin, unobtrusive scrollbars */
+.scroll-area { scrollbar-width: thin; }
+.scroll-area::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-area::-webkit-scrollbar-thumb { background: var(--gj-border-strong); border-radius: 999px; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Confetti (tier-up / completion celebration) */
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 60; }
+.confetti i { position: absolute; top: -14px; width: 9px; height: 9px; border-radius: 2px; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(760px) rotate(560deg); opacity: 0.9; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

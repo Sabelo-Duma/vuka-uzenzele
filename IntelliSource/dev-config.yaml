@@ -1,0 +1,83 @@
+# IntelliSource — Development Configuration
+# Consumed by bmad-develop, bmad-frontend-design, bmad-quality, bmad-user-manual
+# Generated: 2026-07-24
+
+project:
+  name: IntelliSource
+  description: AI-driven, end-to-end sourcing & contracting platform (Source-to-Contract) for Gijima Procurement BU
+  root: C:\Users\10022118\Documents\Claude\Projects\IntelliSource
+  planning_artifacts: _bmad-output/planning-artifacts
+  implementation_artifacts: _bmad-output/implementation-artifacts
+  sprint_status: _bmad-output/sprint-status.yaml
+
+tech_stack:
+  backend: ".NET 10 LTS, Clean Architecture, CQRS (MediatR), FluentValidation"
+  frontend: "ASP.NET Core MVC host + React 18 islands (Vite) + Tailwind (Gijima tokens)"
+  database: "PostgreSQL Flexible Server + EF Core 10 (schema-per-service, RLS tenant isolation)"
+  messaging: "Azure Service Bus (outbox/inbox), SignalR (Redis backplane)"
+  ai: "Microsoft Agent Framework + Azure OpenAI/Foundry, Azure AI Search (hybrid RAG), model router with POPIA s72 policy"
+  identity: "Entra ID OIDC + MFA (internal), ASP.NET Identity (suppliers)"
+  storage: "Azure Blob (AES-256, per-event DEK envelope encryption for sealed bids)"
+  deployment: "Docker (local) → AKS multi-AZ (Azure South Africa North), Helm, deployment stamps for in-tenant"
+  api: "REST, OpenAPI 3.2.0, /api/v1, RFC 7807 errors"
+
+flags:
+  accessibility_enabled: true          # WCAG 2.1 AA (target 2.2 AA); axe CI gate; ACR at GA
+  frontend_design_enabled: true        # run bmad-frontend-design before story implementation
+  user_manual_mode: true               # run bmad-user-manual after retrospective
+  api_first: true                      # OpenAPI 3.2 spec is a first-class deliverable; oasdiff breaking-change gate
+
+performance_targets:
+  api_p95_ms: 500
+  api_median_ms: 100
+  page_lcp_ms: 2500
+  page_inp_ms: 200
+  initial_js_kb_gzip: 300
+  route_chunk_kb_gzip: 200
+  total_initial_payload_kb_gzip: 1024
+  css_kb_gzip: 50
+  concurrent_users: 10000
+  e2e_response_s_at_scale: 2
+  app_uptime_pct: 99.5
+  infra_uptime_pct: 99.99
+  dr_rto_minutes: 60
+  dr_rpo_minutes: 15
+
+quality_gates:
+  coverage_min_line_pct: 80
+  coverage_target_line_pct: 95
+  critical_paths_branch_pct: 100   # RfxStatus transitions, sealing, scoring math, hash-chain writer
+  axe_critical_serious_violations: 0
+  lighthouse_a11y_min: 95
+  testing_pyramid: "70 unit / 20 integration / 10 e2e"
+
+testing_tools:
+  unit_dotnet: "xUnit + FluentAssertions + NSubstitute + Bogus"
+  unit_react: "Vitest + React Testing Library + MSW"
+  integration: "xUnit + Testcontainers (Postgres, Azurite, Redis) + WebApplicationFactory + Respawn"
+  contract: "oasdiff + Spectral + Schemathesis"
+  e2e: "Playwright (.NET)"
+  load: "k6"
+  security: "OWASP ZAP baseline + Trivy + dependency/secret scanning; ASVS L2 pre-GA"
+  a11y: "axe-core in Playwright + Lighthouse CI + Pa11y (portal)"
+  ai_regression: "Promptfoo golden sets (intake, drafting, completeness, summaries)"
+
+branding:
+  source: _input/gijima-styles.css
+  font: "proxima-nova (Adobe Fonts), Arial/Helvetica fallback"
+  palette_web: { red: "#F20023", navy: "#0E355A" }
+  dark_bg: "#0D182B"
+  signature: "pill radius 35px; red dot heading accent; uppercase buttons/nav"
+
+compliance:
+  popia: true
+  data_residency: "Azure South Africa North (paired SA West)"
+  s72_ai_routing: enforced_per_tenant
+  audit_retention_years: 7
+  king_v_evidence: true
+  bbbee_capture_mvp: true       # scoring engine = Stage 2 (FUTURE-13-B)
+
+stages:
+  mvp: "EPIC-01..EPIC-12 (79 stories, 182 dev-days)"
+  stage2: "FUTURE-13 (discovery, B-BBEE engine, committees, multi-round, ERP, savings, Q&A)"
+  stage3: "FUTURE-14 (CLM, auctions, predictive/autonomous, renewals, Agent Store)"

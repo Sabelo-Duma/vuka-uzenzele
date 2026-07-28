@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/data.db
+**/data.db-wal
+**/data.db-shm
+**/test.db
+**/test.db-wal
+**/test.db-shm
+.git
+**/*.log
+# The static prototype in the repo root is not part of the app image
+app.js
+data.js
+styles.css
+index.html
