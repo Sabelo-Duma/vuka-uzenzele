@@ -1,0 +1,46 @@
+name: CI
+
+# Quality gate for Vuka Uzenzele.
+# Render auto-deploys from `main`, so this runs first: if the frontend fails to
+# build or the backend tests fail, you find out here BEFORE it reaches production.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend — type-check & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vuka-app/package-lock.json
+      - name: Install dependencies
+        working-directory: vuka-app
+        run: npm ci
+      - name: Type-check and build
+        working-directory: vuka-app
+        run: npm run build
+
+  backend:
+    name: Backend — end-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vuka-server/package-lock.json
+      - name: Install dependencies
+        working-directory: vuka-server
+        run: npm ci
+      - name: Run test suite
+        working-directory: vuka-server
+        run: npm test
