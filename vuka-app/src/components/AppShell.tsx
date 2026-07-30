@@ -94,11 +94,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
-          <InstallButton className="w-full" />
           <div className="flex items-center justify-between">
             <span className="text-xs text-subtle font-semibold">Appearance</span>
             <ThemeToggle />
           </div>
+          <InstallButton className="w-full" />
           <AccountBar />
         </div>
       </aside>
