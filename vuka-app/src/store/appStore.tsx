@@ -16,6 +16,7 @@ type Status = 'booting' | 'anon' | 'authed';
 
 export interface AppState {
   status: Status;
+  dataLoading: boolean;       // true while gigs/talent/formal are being fetched after auth
   user: ApiUser | null;
   role: Role;
   worker: WorkerProfile;      // populated for worker sessions; placeholder otherwise
@@ -54,6 +55,7 @@ function buildWorker(name: string, profile: ApiProfile | null | undefined, histo
 
 type Action =
   | { type: 'STATUS'; status: Status }
+  | { type: 'DATA_LOADING'; loading: boolean }
   | { type: 'SESSION'; user: ApiUser; worker: WorkerProfile }
   | { type: 'WORKER'; worker: WorkerProfile }
   | { type: 'GIGS'; gigs: Gig[] }
@@ -69,7 +71,7 @@ type Action =
 
 function init(): AppState {
   return {
-    status: 'booting', user: null, role: 'worker', worker: blankWorker(),
+    status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
     gigs: [], formalJobs: [], appliedGigIds: [], talent: [],
     feed: 'gigs', nav: { screen: 'home' }, toast: null, error: null,
   };
@@ -78,7 +80,8 @@ function init(): AppState {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'STATUS': return { ...state, status: action.status };
-    case 'SESSION': return { ...state, user: action.user, role: action.user.role, worker: action.worker, status: 'authed', nav: { screen: 'home' }, error: null };
+    case 'DATA_LOADING': return { ...state, dataLoading: action.loading };
+    case 'SESSION': return { ...state, user: action.user, role: action.user.role, worker: action.worker, status: 'authed', dataLoading: true, nav: { screen: 'home' }, error: null };
     case 'WORKER': return { ...state, worker: action.worker };
     case 'GIGS': return { ...state, gigs: action.gigs };
     case 'FORMAL': return { ...state, formalJobs: action.formalJobs };
@@ -138,8 +141,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const user = result.user;
     const worker = user.role === 'worker' ? buildWorker(user.name, result.profile, result.history) : blankWorker();
     dispatch({ type: 'SESSION', user, worker });
-    if (user.role === 'worker') await loadWorkerData();
-    else await loadEmployerData();
+    try {
+      if (user.role === 'worker') await loadWorkerData();
+      else await loadEmployerData();
+    } finally {
+      dispatch({ type: 'DATA_LOADING', loading: false });
+    }
   }, [loadWorkerData, loadEmployerData]);
 
   // Boot: resume a saved session if a token exists.

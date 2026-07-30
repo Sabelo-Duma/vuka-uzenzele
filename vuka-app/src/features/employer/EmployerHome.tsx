@@ -1,6 +1,6 @@
 import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card, EmptyState, SectionTitle } from '../../components/ui';
-import { TalentCard } from '../../components/cards';
+import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { EmployerStats } from './EmployerRail';
 
@@ -28,7 +28,9 @@ export function EmployerHome() {
       </Card>
 
       <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => navigate('talent')}>Browse all →</button>}>Top-rated near you</SectionTitle>
-      {top.length > 0
+      {state.dataLoading && top.length === 0
+        ? <CardSkeletonGrid count={2} talent />
+        : top.length > 0
         ? <div className="grid sm:grid-cols-2 gap-x-3">{top.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : <EmptyState icon="👥" title="Finding workers near you…" hint="Verified youth in your area will appear here. Post a job to start receiving applications." />}
     </Dashboard>

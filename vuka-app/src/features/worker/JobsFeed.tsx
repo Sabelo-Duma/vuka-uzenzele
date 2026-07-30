@@ -1,7 +1,7 @@
 import { computeCv } from '../../lib/engine';
 import { useApp } from '../../store/appStore';
 import { Card, EmptyState, SectionTitle, Segmented } from '../../components/ui';
-import { GigCard, FormalCard } from '../../components/cards';
+import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { ReputationPanel } from './ReputationPanel';
 
@@ -33,6 +33,7 @@ export function JobsFeed() {
   );
 
   function Gigs() {
+    if (state.dataLoading && state.gigs.length === 0) return <CardSkeletonGrid count={4} />;
     if (state.gigs.length === 0) {
       return <EmptyState icon="✅" title="No open gigs right now" hint="You've applied to or completed everything available. Switch to Formal jobs to see what your tier unlocked." />;
     }
@@ -45,6 +46,7 @@ export function JobsFeed() {
   }
 
   function Formal({ cv }: { cv: ReturnType<typeof computeCv> }) {
+    if (state.dataLoading && state.formalJobs.length === 0) return <CardSkeletonGrid count={4} />;
     const unlocked = state.formalJobs.filter((f) => f.minTier <= cv.tier.id);
     const locked = state.formalJobs.filter((f) => f.minTier > cv.tier.id);
     return (

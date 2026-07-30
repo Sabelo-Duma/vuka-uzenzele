@@ -55,6 +55,11 @@ export function Card({ className = '', children, ...rest }: { children: ReactNod
   );
 }
 
+/* ---------------- Skeleton ---------------- */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`skeleton rounded-lg ${className}`} aria-hidden="true" />;
+}
+
 /* ---------------- Chip ---------------- */
 type ChipTone = 'neutral' | 'urgent' | 'fair' | 'time' | 'formal' | 'info';
 const CHIP: Record<ChipTone, string> = {

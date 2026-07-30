@@ -53,6 +53,7 @@
     linear-gradient(165deg, #0D182B 0%, #0E243f 62%, #0b1526 100%);
 
   --gj-focus: #0E355A;
+  --gj-shimmer: rgba(255, 255, 255, 0.55);
 }
 
 [data-theme='dark'] {
@@ -90,6 +91,7 @@
   --gj-stage: linear-gradient(165deg, #060c16 0%, #0a1424 100%);
 
   --gj-focus: #FF4D66;
+  --gj-shimmer: rgba(255, 255, 255, 0.07);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -137,6 +139,15 @@ h1, h2, h3, h4 {
 .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 60; }
 .confetti i { position: absolute; top: -14px; width: 9px; height: 9px; border-radius: 2px; animation: fall linear forwards; }
 @keyframes fall { to { transform: translateY(760px) rotate(560deg); opacity: 0.9; } }
+
+/* Skeleton shimmer for loading states */
+.skeleton { position: relative; overflow: hidden; background: var(--gj-bg-hover); }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--gj-shimmer), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
 
 /* Entrance + ambient motion (used on onboarding & celebratory moments) */
 @keyframes obRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

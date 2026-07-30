@@ -3,7 +3,7 @@ import { computeCv } from '../../lib/engine';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
-import { GigCard, FormalCard } from '../../components/cards';
+import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { ReputationPanel } from './ReputationPanel';
 
@@ -58,7 +58,9 @@ export function WorkerHome() {
       </div>
 
       <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
-      {featured.length > 0
+      {state.dataLoading && state.gigs.length === 0
+        ? <CardSkeletonGrid count={2} />
+        : featured.length > 0
         ? <div className="grid sm:grid-cols-2 gap-x-3">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
         : <Card className="p-6 text-center text-muted text-[13px]">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
 

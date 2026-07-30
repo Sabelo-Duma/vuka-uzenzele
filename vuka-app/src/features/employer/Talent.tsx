@@ -1,7 +1,7 @@
 import { CATEGORIES } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import { EmptyState } from '../../components/ui';
-import { TalentCard } from '../../components/cards';
+import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { EmployerStats, PostJobCard } from './EmployerRail';
 
@@ -21,7 +21,9 @@ export function Talent() {
         ))}
       </div>
 
-      {state.talent.length > 0
+      {state.dataLoading && state.talent.length === 0
+        ? <CardSkeletonGrid count={4} talent />
+        : state.talent.length > 0
         ? <div className="grid sm:grid-cols-2 gap-x-3">{state.talent.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : <EmptyState icon="👥" title="No workers yet" hint="Verified youth near you will show up here as they join and complete jobs." />}
     </Dashboard>

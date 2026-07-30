@@ -1,8 +1,62 @@
 import { catById, MIN_WAGE_PER_HOUR, TIERS } from '../data/catalog';
 import { money } from '../lib/format';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
-import { Avatar, Card, Chip, TierBadge } from './ui';
+import { Avatar, Card, Chip, Skeleton, TierBadge } from './ui';
 import { Icon } from './Icon';
+
+/** Shimmer placeholder matching a gig/formal card while data loads. */
+export function GigCardSkeleton() {
+  return (
+    <div className="mb-3">
+      <Card className="p-4">
+        <div className="flex gap-3 items-start">
+          <Skeleton className="w-11 h-11 rounded-[13px] shrink-0" />
+          <div className="flex-1 min-w-0 flex flex-col gap-2">
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-2.5 mt-2.5 border-t border-dashed border-line">
+          <Skeleton className="h-5 w-16 rounded-pill" />
+          <Skeleton className="h-5 w-24 rounded-pill" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Shimmer placeholder matching a talent card while data loads. */
+export function TalentCardSkeleton() {
+  return (
+    <div className="mb-3">
+      <Card className="p-4 flex gap-3.5 items-center">
+        <Skeleton className="w-11 h-11 rounded-[14px] shrink-0" />
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-5 w-20 rounded-pill" />
+        </div>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** A responsive grid of N card skeletons. */
+export function CardSkeletonGrid({ count = 4, talent = false }: { count?: number; talent?: boolean }) {
+  return (
+    <div className="grid sm:grid-cols-2 gap-x-3" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (talent ? <TalentCardSkeleton key={i} /> : <GigCardSkeleton key={i} />))}
+    </div>
+  );
+}
 
 export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick: () => void }) {
   const t = TIERS[worker.tier];
