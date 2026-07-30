@@ -15,11 +15,11 @@ services:
         value: production
       - key: VUKA_JWT_SECRET
         generateValue: true    # Render generates a strong secret
-      # Data is ephemeral on the free plan (reseeds on each deploy).
-      # For persistence, add a paid instance + a disk and set VUKA_DB:
-      # - key: VUKA_DB
-      #   value: /data/data.db
-      # disk:
-      #   name: vuka-data
-      #   mountPath: /data
-      #   sizeGB: 1
+      # PERSISTENCE (recommended): point at a Postgres database (e.g. Supabase,
+      # free tier) and all data — including real sign-ups — survives every deploy.
+      # Set this in the Render dashboard → Environment (kept out of git):
+      #   DATABASE_URL = postgresql://...supabase connection string...
+      # Without it, the app falls back to an ephemeral SQLite file (demo only,
+      # reseeds on each deploy).
+      - key: DATABASE_URL
+        sync: false            # you paste the Supabase URL in the dashboard

@@ -86,7 +86,8 @@ cd ../vuka-server && npm start        # detects ../vuka-app/dist and serves it
 | `PORT` | Port to listen on | `3001` (hosts set this) |
 | `VUKA_JWT_SECRET` | Signing secret for auth tokens | insecure dev default — **set in prod** |
 | `NODE_ENV` | `production` enables prod behaviour | — |
-| `VUKA_DB` | SQLite file path (point at a mounted disk to persist) | `./data.db` |
+| `DATABASE_URL` | **Postgres connection string (e.g. Supabase).** When set, all data persists across deploys. Leave unset to use ephemeral SQLite (demo only). | unset → SQLite |
+| `VUKA_DB` | SQLite file path (only used when `DATABASE_URL` is unset) | `./data.db` |
 | `VUKA_STATIC` | Path to the built SPA | `/app/public` (Docker) |
 | `VUKA_CORS_ORIGIN` | Only needed if you split the SPA onto another origin | unset (same-origin) |
 

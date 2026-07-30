@@ -1,20 +1,64 @@
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+/* ============================================================
+   Data layer — dual driver.
+   - Postgres (e.g. Supabase) when DATABASE_URL is set  → persistent, production.
+   - node:sqlite (local file) otherwise                → zero-setup dev & tests.
+   Both expose the same async API: get / all / run / exec + initDb().
+   SQL is written with `?` placeholders (translated to $1,$2… for Postgres).
+   ============================================================ */
 
-const here = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.VUKA_DB || join(here, '..', 'data.db');
+const PG_URL = process.env.DATABASE_URL || process.env.VUKA_DATABASE_URL || '';
+export const driver = PG_URL ? 'pg' : 'sqlite';
 
-// Ensure the parent directory exists (e.g. a mounted disk at /data).
-try { mkdirSync(dirname(DB_PATH), { recursive: true }); } catch { /* already exists */ }
+let pgPool = null;
+let sqlite = null;
 
-export const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+if (driver === 'pg') {
+  const pg = (await import('pg')).default;
+  const localish = /localhost|127\.0\.0\.1/.test(PG_URL);
+  pgPool = new pg.Pool({
+    connectionString: PG_URL,
+    ssl: localish ? false : { rejectUnauthorized: false }, // Supabase/managed PG need SSL
+    max: 5,
+  });
+} else {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const { mkdirSync } = await import('node:fs');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const DB_PATH = process.env.VUKA_DB || join(here, '..', 'data.db');
+  try { mkdirSync(dirname(DB_PATH), { recursive: true }); } catch { /* exists */ }
+  sqlite = new DatabaseSync(DB_PATH);
+  sqlite.exec('PRAGMA journal_mode = WAL;');
+  sqlite.exec('PRAGMA foreign_keys = ON;');
+}
 
-export function initSchema() {
-  db.exec(`
+// `?` → `$1, $2, …` for Postgres.
+function toPg(sql) { let i = 0; return sql.replace(/\?/g, () => `$${++i}`); }
+
+export async function all(sql, params = []) {
+  if (driver === 'pg') { const r = await pgPool.query(toPg(sql), params); return r.rows; }
+  return sqlite.prepare(sql).all(...params);
+}
+export async function get(sql, params = []) {
+  if (driver === 'pg') { const r = await pgPool.query(toPg(sql), params); return r.rows[0]; }
+  return sqlite.prepare(sql).get(...params);
+}
+export async function run(sql, params = []) {
+  if (driver === 'pg') { await pgPool.query(toPg(sql), params); return; }
+  sqlite.prepare(sql).run(...params);
+}
+/** Multi-statement DDL / no-params execution. */
+export async function exec(sql) {
+  if (driver === 'pg') { await pgPool.query(sql); return; }
+  sqlite.exec(sql);
+}
+
+let initialised = false;
+/** Create the schema if it does not exist. Idempotent; safe to call repeatedly. */
+export async function initDb() {
+  if (initialised) return;
+  await exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       role TEXT NOT NULL,
@@ -113,6 +157,5 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
     CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);
   `);
+  initialised = true;
 }
-
-initSchema();

@@ -31,7 +31,7 @@ async function api(method, path, { token, body } = {}) {
 async function run() {
   // Seed a fresh DB, then start the server.
   const { seed } = await import('./seed.mjs');
-  seed();
+  await seed();
   await import('./server.mjs');
   await new Promise((r) => setTimeout(r, 400)); // let it bind
 

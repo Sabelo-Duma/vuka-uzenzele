@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Vuka Uzenzele API — Express + built-in SQLite + JWT auth.",
-  "engines": { "node": ">=22.5.0" },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "start": "node --experimental-sqlite src/server.mjs",
     "dev": "node --experimental-sqlite --watch src/server.mjs",
@@ -14,6 +16,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.22.0"
   }
 }

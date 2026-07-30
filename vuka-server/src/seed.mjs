@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { db } from './db.mjs';
+import { all, get, run, initDb } from './db.mjs';
 import { hashPassword, uuid } from './auth.mjs';
 import { autoReview } from './engine.mjs';
 
@@ -32,74 +32,76 @@ const TALENT = [
   { name: 'Naledi Sithole', phone: '0731000004', skills: ['cleaning', 'garden'], jobs: 9, fours: 2, location: 'Diepkloof', age: 20, color: '#B45309', verified: 0, tagline: 'Detail-focused and honest. Building my rep.' },
 ];
 
-const insUser = db.prepare('INSERT INTO users (id, role, phone, password_hash, name, created_at) VALUES (?,?,?,?,?,?)');
-const insProfile = db.prepare('INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)');
-const insGig = db.prepare('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, employer_rating, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-const insFormal = db.prepare('INSERT INTO formal_jobs (id, title, category, employer, employer_initials, min_tier, type, location, distance_km, salary, education, description, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
-const insHist = db.prepare('INSERT INTO history (id, worker_id, job_title, category, employer, employer_initials, date, hours, pay, rating, review, safety_flag, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+const INS_USER = 'INSERT INTO users (id, role, phone, password_hash, name, created_at) VALUES (?,?,?,?,?,?)';
+const INS_PROFILE = 'INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)';
+const INS_GIG = 'INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, employer_rating, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+const INS_FORMAL = 'INSERT INTO formal_jobs (id, title, category, employer, employer_initials, min_tier, type, location, distance_km, salary, education, description, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)';
+const INS_HIST = 'INSERT INTO history (id, worker_id, job_title, category, employer, employer_initials, date, hours, pay, rating, review, safety_flag, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
-function genHistory(workerId, n, fours, cats) {
+// Deterministic IDs for the demo accounts so their share links survive redeploys.
+const DEMO_EMP_ID = 'demo-employer-sipho';
+const DEMO_WORKER_ID = 'demo-worker-thandeka';
+
+async function genHistory(workerId, n, fours, cats) {
   for (let i = 0; i < n; i++) {
     const rating = i < fours ? 4 : 5;
     const cat = cats[i % cats.length];
-    insHist.run(uuid(), workerId, 'Completed gig', cat, 'Past client', 'PC', 'Jun 2026', 2 + (i % 3), 100 + (i % 5) * 20, rating, autoReview(rating), 0, NOW);
+    await run(INS_HIST, [uuid(), workerId, 'Completed gig', cat, 'Past client', 'PC', 'Jun 2026', 2 + (i % 3), 100 + (i % 5) * 20, rating, autoReview(rating), 0, NOW]);
   }
 }
 
-export function seed() {
+export async function seed() {
+  await initDb();
   for (const t of ['invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
-    db.exec(`DELETE FROM ${t};`);
+    await run(`DELETE FROM ${t}`);
   }
 
-  // Demo employer (posts the seed gigs)
-  const empId = uuid();
-  insUser.run(empId, 'employer', '0720000000', hashPassword('demo1234'), 'Sipho Dlamini', NOW);
+  // Demo employer (posts the seed gigs) — fixed id
+  await run(INS_USER, [DEMO_EMP_ID, 'employer', '0720000000', hashPassword('demo1234'), 'Sipho Dlamini', NOW]);
 
-  // Demo worker (Thandeka) — one gig from a tier-up
-  const demoId = uuid();
-  insUser.run(demoId, 'worker', '0710000000', hashPassword('demo1234'), 'Thandeka Mokoena', NOW);
-  insProfile.run(demoId, 21, 'Soweto, Gauteng', 'Grade 11 · No matric', 'Hard-working and reliable. I learn fast and show up on time.', JSON.stringify(['cleaning', 'garden', 'errands']), 1, '#0E355A', 'March 2026', 'Reliable and eager to build my name.');
-  insHist.run(uuid(), demoId, 'Deep clean 2-bedroom flat', 'cleaning', 'Mrs. Naidoo', 'PN', '12 Jun 2026', 4, 220, 5, 'Thandeka was fantastic — thorough, polite and finished ahead of time. Would book again in a heartbeat.', 0, NOW);
-  insHist.run(uuid(), demoId, 'Weekly garden tidy-up', 'garden', 'Mr. van der Merwe', 'JV', '28 Jun 2026', 3, 150, 4, 'Good work and friendly. Garden looked great. A little late but messaged me to let me know.', 0, NOW);
+  // Demo worker (Thandeka) — fixed id so her public CV / share link is stable across deploys
+  await run(INS_USER, [DEMO_WORKER_ID, 'worker', '0710000000', hashPassword('demo1234'), 'Thandeka Mokoena', NOW]);
+  await run(INS_PROFILE, [DEMO_WORKER_ID, 21, 'Soweto, Gauteng', 'Grade 11 · No matric', 'Hard-working and reliable. I learn fast and show up on time.', JSON.stringify(['cleaning', 'garden', 'errands']), 1, '#0E355A', 'March 2026', 'Reliable and eager to build my name.']);
+  await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Deep clean 2-bedroom flat', 'cleaning', 'Mrs. Naidoo', 'PN', '12 Jun 2026', 4, 220, 5, 'Thandeka was fantastic — thorough, polite and finished ahead of time. Would book again in a heartbeat.', 0, NOW]);
+  await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Weekly garden tidy-up', 'garden', 'Mr. van der Merwe', 'JV', '28 Jun 2026', 3, 150, 4, 'Good work and friendly. Garden looked great. A little late but messaged me to let me know.', 0, NOW]);
 
-  // Formal jobs
   for (const f of FORMAL_JOBS) {
-    insFormal.run(f.id, f.title, f.category, f.employer, f.ei, f.minTier, f.type, f.location, f.dist, f.salary, f.education, f.description, JSON.stringify(f.perks));
+    await run(INS_FORMAL, [f.id, f.title, f.category, f.employer, f.ei, f.minTier, f.type, f.location, f.dist, f.salary, f.education, f.description, JSON.stringify(f.perks)]);
   }
 
-  // Gigs
   for (const g of GIGS) {
-    insGig.run(g.id, empId, g.title, g.category, g.name, g.ei, g.rating, g.location, g.dist, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW);
+    await run(INS_GIG, [g.id, DEMO_EMP_ID, g.title, g.category, g.name, g.ei, g.rating, g.location, g.dist, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW]);
   }
 
-  // Talent workers (with generated history → real tiers)
   for (const t of TALENT) {
     const id = uuid();
-    insUser.run(id, 'worker', t.phone, hashPassword('demo1234'), t.name, NOW);
-    insProfile.run(id, t.age, t.location, 'No matric', t.tagline, JSON.stringify(t.skills), t.verified, t.color, 'Feb 2026', t.tagline);
-    genHistory(id, t.jobs, t.fours, t.skills);
+    await run(INS_USER, [id, 'worker', t.phone, hashPassword('demo1234'), t.name, NOW]);
+    await run(INS_PROFILE, [id, t.age, t.location, 'No matric', t.tagline, JSON.stringify(t.skills), t.verified, t.color, 'Feb 2026', t.tagline]);
+    await genHistory(id, t.jobs, t.fours, t.skills);
   }
 
   // A pending job invitation for the demo worker (so the hiring loop is visible in the demo)
-  db.prepare('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)')
-    .run(uuid(), 'j5', empId, demoId, 'Hi Thandeka — your cleaning reviews are excellent. Would you take this regular salon gig?', 'pending', NOW);
+  await run('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)',
+    [uuid(), 'j5', DEMO_EMP_ID, DEMO_WORKER_ID, 'Hi Thandeka — your cleaning reviews are excellent. Would you take this regular salon gig?', 'pending', NOW]);
 
   return {
-    users: db.prepare('SELECT COUNT(*) c FROM users').get().c,
-    gigs: db.prepare('SELECT COUNT(*) c FROM gigs').get().c,
-    formal: db.prepare('SELECT COUNT(*) c FROM formal_jobs').get().c,
-    history: db.prepare('SELECT COUNT(*) c FROM history').get().c,
+    users: Number((await get('SELECT COUNT(*) AS c FROM users')).c),
+    gigs: Number((await get('SELECT COUNT(*) AS c FROM gigs')).c),
+    formal: Number((await get('SELECT COUNT(*) AS c FROM formal_jobs')).c),
+    history: Number((await get('SELECT COUNT(*) AS c FROM history')).c),
   };
 }
 
-export function seedIfEmpty() {
-  const row = db.prepare('SELECT COUNT(*) c FROM formal_jobs').get();
-  if (row.c === 0) return seed();
+export async function seedIfEmpty() {
+  await initDb();
+  const row = await get('SELECT COUNT(*) AS c FROM formal_jobs');
+  if (Number(row.c) === 0) return seed();
   return null;
 }
 
 // Run directly: `npm run seed`
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const summary = seed();
+  const summary = await seed();
   console.log('Seeded:', summary);
+  process.exit(0);
 }
