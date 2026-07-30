@@ -160,3 +160,14 @@ h1, h2, h3, h4 {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+/* ---- Printable CV (browser "Save as PDF") ----
+   The CV is rendered via a portal as a direct child of <body>. On screen it's
+   hidden; when printing we hide the app and show only the CV document. */
+.print-cv-root { display: none; }
+@media print {
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body > *:not(.print-cv-root) { display: none !important; }
+  .print-cv-root { display: block !important; }
+  @page { margin: 14mm; }
+}

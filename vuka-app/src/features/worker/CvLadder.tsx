@@ -1,8 +1,9 @@
+import { createPortal } from 'react-dom';
 import { BADGES, catById, TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
 import { money, stars } from '../../lib/format';
 import { useApp } from '../../store/appStore';
-import type { CvSnapshot, HistoryEntry, Tier } from '../../types';
+import type { CvSnapshot, HistoryEntry, Tier, WorkerProfile } from '../../types';
 import { Button, Card, Ring, ProgressBar, SectionTitle } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
@@ -78,10 +79,95 @@ export function CvLadder() {
         </div>
       </Card>
 
-      <Button block variant="navy" className="mt-4" onClick={() => toast('CV link copied — ready to share with any employer 📄')}>📄 Download / share my CV</Button>
-      <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-3">This CV was built automatically from real, completed jobs and verified references — no writing required.</p>
+      <div className="grid grid-cols-2 gap-2.5 mt-4">
+        <Button variant="navy" onClick={() => window.print()}>📄 Download PDF</Button>
+        <Button variant="ghost" onClick={() => {
+          const link = `${window.location.origin}/cv/${(w.name || 'me').toLowerCase().replace(/\s+/g, '-')}`;
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied 📋')).catch(() => toast('Share link: ' + link));
+          else toast('Share link: ' + link);
+        }}>🔗 Copy share link</Button>
+      </div>
+      <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-3">This CV was built automatically from real, completed jobs and verified references — no writing required. Tap <b>Download PDF</b>, then choose “Save as PDF”.</p>
+
+      <PrintableCv w={w} cv={cv} />
     </>
   );
+}
+
+/* ---------------- Printable CV document (browser Save-as-PDF) ---------------- */
+function PrintableCv({ w, cv }: { w: WorkerProfile; cv: CvSnapshot }) {
+  const generated = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const history = [...w.history].reverse();
+  const navy = '#0E355A';
+  const doc = (
+    <div className="print-cv-root">
+      <div style={{ maxWidth: 720, margin: '0 auto', color: '#243447', fontFamily: "'Figtree Variable', system-ui, sans-serif", fontSize: 13, lineHeight: 1.5 }}>
+        {/* Header */}
+        <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: 14, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#F20023' }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#F20023', display: 'inline-block' }} />Vuka Uzenzele · Verified CV
+          </div>
+          <h1 style={{ margin: '8px 0 2px', fontSize: 30, fontWeight: 800, color: navy, letterSpacing: '-.02em' }}>{w.name || 'Your name'}</h1>
+          <div style={{ color: '#5a6b7b', fontSize: 13 }}>{[w.location, w.age ? `Age ${w.age}` : '', w.education].filter(Boolean).join('  ·  ')}</div>
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, fontWeight: 700 }}>
+            <span style={{ background: navy, color: '#fff', borderRadius: 999, padding: '3px 10px' }}>{cv.tier.icon} {cv.tier.name} tier</span>
+            <span style={{ border: `1px solid ${navy}`, color: navy, borderRadius: 999, padding: '3px 10px' }}>Reputation {cv.rep}/100</span>
+            {w.idVerified && <span style={{ background: '#0E8A09', color: '#fff', borderRadius: 999, padding: '3px 10px' }}>✔ Identity verified</span>}
+          </div>
+        </div>
+
+        {/* Summary numbers */}
+        <div style={{ display: 'flex', gap: 24, marginBottom: 16 }}>
+          <PStat n={String(cv.jobsDone)} l="Verified jobs" />
+          <PStat n={`${cv.avg.toFixed(1)}★`} l="Avg rating" />
+          <PStat n={money(cv.totalEarned)} l="Total earned" />
+          <PStat n={w.joined || '—'} l="Member since" />
+        </div>
+
+        {/* About */}
+        {w.bio && (<><PH>About</PH><p style={{ margin: '0 0 14px' }}>{w.bio}</p></>)}
+
+        {/* Skills */}
+        {w.skills.length > 0 && (
+          <><PH>Skills</PH>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            {w.skills.map((s) => <span key={s} style={{ border: '1px solid #cfd8e3', borderRadius: 6, padding: '3px 9px', fontSize: 12, fontWeight: 600, color: navy }}>{catById(s).label}</span>)}
+          </div></>
+        )}
+
+        {/* Work history */}
+        <PH>Verified work history ({cv.jobsDone})</PH>
+        {history.length === 0
+          ? <p style={{ color: '#5a6b7b', margin: 0 }}>No completed jobs yet.</p>
+          : history.map((h) => {
+              const c = catById(h.category);
+              return (
+                <div key={h.id} style={{ paddingLeft: 14, borderLeft: `2px solid ${navy}`, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <b style={{ color: navy, fontSize: 14 }}>{h.jobTitle}</b>
+                    <span style={{ color: '#5a6b7b', fontSize: 12, whiteSpace: 'nowrap' }}>{h.date}</span>
+                  </div>
+                  <div style={{ color: '#5a6b7b', fontSize: 12, margin: '2px 0' }}>{c.label} · {h.hours}h · {stars(h.rating)}</div>
+                  <div style={{ fontStyle: 'italic', margin: '3px 0' }}>“{h.review}”</div>
+                  <div style={{ fontSize: 11.5, color: '#0E8A09', fontWeight: 700 }}>✔ Verified reference — {h.employer}</div>
+                </div>
+              );
+            })}
+
+        {/* Footer */}
+        <div style={{ marginTop: 20, paddingTop: 12, borderTop: '1px solid #dbe3ec', fontSize: 11, color: '#5a6b7b' }}>
+          Generated {generated} from real, completed jobs on Vuka Uzenzele. Every reference above is verified by the platform — no self-written claims.
+        </div>
+      </div>
+    </div>
+  );
+  return createPortal(doc, document.body);
+}
+function PStat({ n, l }: { n: string; l: string }) {
+  return <div><div style={{ fontSize: 18, fontWeight: 800, color: '#0E355A' }}>{n}</div><div style={{ fontSize: 11, color: '#5a6b7b', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>{l}</div></div>;
+}
+function PH({ children }: { children: React.ReactNode }) {
+  return <h2 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.12em', color: '#0E355A', fontWeight: 800, margin: '0 0 6px', borderBottom: '1px solid #eef2f7', paddingBottom: 4 }}>{children}</h2>;
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
