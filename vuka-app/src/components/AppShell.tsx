@@ -67,12 +67,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
 
   return (
-    <div className="min-h-screen bg-surface-2 text-ink">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-surface-2 text-ink">
       {/* Center the whole app (sidebar + content) on large screens so the
-          sidebar sits next to the content instead of being stranded far-left. */}
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] xl:border-x xl:border-line">
+          sidebar sits next to the content instead of being stranded far-left.
+          On desktop the shell is pinned to the viewport height so the sidebar
+          stays put and only the content column scrolls. */}
+      <div className="mx-auto flex min-h-screen lg:h-full lg:min-h-0 w-full max-w-[1440px] xl:border-x xl:border-line">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-line bg-surface p-5">
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-line bg-surface p-5 overflow-y-auto">
         <div className="mb-8"><BrandMark /></div>
         <nav className="flex flex-col gap-1" aria-label="Primary">
           {nav.map((item) => {
