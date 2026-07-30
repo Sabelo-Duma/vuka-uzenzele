@@ -38,7 +38,7 @@ export function PostJob() {
     <>
       <header className="mb-4">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Reach verified youth nearby</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">Post a job<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Post a job<span className="text-red">.</span></h2>
       </header>
 
       <Field label="What do you need?">

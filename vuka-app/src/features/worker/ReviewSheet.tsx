@@ -67,7 +67,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
   if (phase === 'review') {
     return (
       <Sheet title="Rate the job" onClose={onClose}>
-        <h3 className="text-xl font-bold text-navy m-0 mb-1">How was the gig?</h3>
+        <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How was the gig?</h3>
         <p className="text-muted text-[13.5px] leading-relaxed mb-4">
           Rate <b>{gig.employer}</b> for “{gig.title}”. They rate you too — that's what builds your CV and lifts your tier.
         </p>
@@ -89,22 +89,22 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
       {o.tieredUp ? (
         <div className="text-center rounded-[18px] p-4 mb-3.5 text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }}>
           <div className="text-[44px]" aria-hidden="true">{o.newTierIcon}</div>
-          <h4 className="m-0 mt-1.5 text-lg font-bold">TIER UP — you're now {o.newTierName}!</h4>
+          <h4 className="m-0 mt-1.5 text-lg font-extrabold tracking-tight">TIER UP — you're now {o.newTierName}!</h4>
           <p className="m-0 text-[12.5px] text-white/85 leading-snug mt-1">{o.newTierUnlocks}</p>
           {o.newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-[12px] font-bold bg-red rounded-full px-3 py-1">🔓 {o.newlyUnlocked} new formal job{o.newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
         </div>
       ) : (
         <div className="text-center">
           <div className="text-[64px] animate-pop" aria-hidden="true">🎉</div>
-          <h3 className="text-xl font-bold text-navy mt-2 mb-1">Gig complete — CV updated!</h3>
+          <h3 className="text-xl font-extrabold text-navy mt-2 mb-1 tracking-tight">Gig complete — CV updated!</h3>
           <p className="text-muted text-[13.5px] leading-relaxed mb-4">A new verified reference just wrote itself into your CV. Reputation now <b>{o.rep}/100</b>.</p>
         </div>
       )}
 
       <Card className="p-3.5 flex gap-3.5 items-center mb-3.5">
-        <Ring pct={o.rep} colors={o.ring} size={60} stroke={7} gradId="celebRing"><b className="text-base font-bold text-navy">{o.rep}</b></Ring>
+        <Ring pct={o.rep} colors={o.ring} size={60} stroke={7} gradId="celebRing"><b className="text-base font-extrabold text-navy tnum">{o.rep}</b></Ring>
         <div className="flex-1">
-          <b className="text-sm text-navy">{o.jobsDone} jobs · {o.avg.toFixed(1)}★ · {o.newTierIcon} {o.newTierName}</b>
+          <b className="text-sm text-navy tnum">{o.jobsDone} jobs · {o.avg.toFixed(1)}★ · {o.newTierIcon} {o.newTierName}</b>
           <div className="text-[12px] text-muted">{money(o.totalEarned)} earned · {o.nextLabel}</div>
         </div>
       </Card>

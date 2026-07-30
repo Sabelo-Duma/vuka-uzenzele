@@ -16,12 +16,12 @@ export function EmployerProfile() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your account</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">Profile<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Profile<span className="text-red">.</span></h2>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
         <div className="flex justify-center mb-2.5"><Avatar initials="You" color="var(--gj-navy)" size="lg" /></div>
-        <h3 className="m-0 text-[19px] font-bold text-navy">{state.user?.name ?? 'Employer account'}</h3>
+        <h3 className="m-0 text-[19px] font-extrabold text-navy tracking-tight">{state.user?.name ?? 'Employer account'}</h3>
         <p className="m-0 mt-1 text-[13px] text-muted">Post jobs · hire verified youth</p>
       </Card>
 

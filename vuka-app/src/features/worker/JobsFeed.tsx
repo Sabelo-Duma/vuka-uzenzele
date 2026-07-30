@@ -14,7 +14,7 @@ export function JobsFeed() {
     <Dashboard aside={<ReputationPanel />}>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">{isGigs ? `${state.gigs.length} gigs near ${(state.worker.location || 'you').split(',')[0]}` : `${state.formalJobs.length} formal roles`}</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">Find work<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Find work<span className="text-red">.</span></h2>
       </header>
 
       <Segmented

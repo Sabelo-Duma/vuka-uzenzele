@@ -25,12 +25,12 @@ export function WorkerProfile() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your account</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">Profile<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Profile<span className="text-red">.</span></h2>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
         <div className="flex justify-center mb-2.5"><Avatar initials={w.initials} color={w.color} size="lg" verified={w.idVerified} tier={cv.tier.icon} /></div>
-        <h3 className="m-0 text-[19px] font-bold text-navy">{w.name}</h3>
+        <h3 className="m-0 text-[19px] font-extrabold text-navy tracking-tight">{w.name}</h3>
         <p className="m-0 mt-1 text-[13px] text-muted flex items-center justify-center gap-1.5"><Icon name="pin" size={13} /> {w.location} · Age {w.age}</p>
         <div className="flex justify-center gap-2 flex-wrap mt-2.5">
           <TierBadge icon={cv.tier.icon} name={cv.tier.name} color={cv.tier.color} />

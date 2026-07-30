@@ -12,7 +12,7 @@ export function EmployerHome() {
       <header className="flex items-center justify-between mb-3">
         <div>
           <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Need a hand today?</small>
-          <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">Find trusted help<span className="text-red">.</span></h2>
+          <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Find trusted help<span className="text-red">.</span></h2>
         </div>
         <Avatar initials="You" color="var(--gj-navy)" />
       </header>
