@@ -85,9 +85,12 @@ function AuthLayout({ children }: { children: ReactNode }) {
         <div className="relative flex items-center gap-2.5 font-bold text-lg"><span className="w-3 h-3 rounded-full bg-red" />Vuka Uzenzele</div>
 
         <div className="relative max-w-md">
-          <h1 className="text-[38px] font-bold leading-[1.08] tracking-tight">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
-          <p className="text-white/70 mt-5 text-[15px] leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
-          <ul className="mt-9 space-y-4">
+          <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-[12px] font-bold text-white/90 mb-6">
+            <span className="w-2 h-2 rounded-full bg-red floaty" />Youth work, reimagined for South Africa
+          </span>
+          <h1 className="ob-rise text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
+          <p className="ob-rise-2 text-white/70 mt-5 text-[15px] leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
+          <ul className="ob-rise-3 mt-9 space-y-4">
             {[
               { icon: '🪜', t: 'The opportunity ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
               { icon: '🧾', t: 'A CV that builds itself', s: 'Real, verified references from every job you complete.' },
@@ -116,7 +119,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto scroll-area flex">
-          <div className="m-auto w-full max-w-[420px] px-6 sm:px-10 py-8">{children}</div>
+          <div className="ob-rise m-auto w-full max-w-[420px] px-6 sm:px-10 py-8">{children}</div>
         </div>
       </main>
     </div>
@@ -129,8 +132,12 @@ function Welcome({ slide, onNext, onLogin }: { slide: number; onNext: () => void
   const last = slide === SLIDES.length - 1;
   return (
     <div className="text-center">
-      <div className="w-[150px] h-[150px] mx-auto rounded-[36px] grid place-items-center text-[72px] bg-[#eaf3fb] border border-line dark:bg-surface" aria-hidden="true">{s.art}</div>
-      <h2 className="text-[26px] font-bold text-navy mt-6 mb-2 leading-tight">{s.h}<span className="text-red">.</span></h2>
+      <div className="floaty w-[156px] h-[156px] mx-auto rounded-[40px] grid place-items-center text-[74px] shadow-e2 border border-white/10 relative overflow-hidden"
+        style={{ background: 'radial-gradient(120% 120% at 30% 20%, #1c4f80 0%, #0E355A 55%, #0D182B 100%)' }} aria-hidden="true">
+        <span className="absolute -right-6 -top-6 w-24 h-24 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.35), transparent 70%)' }} />
+        <span className="relative">{s.art}</span>
+      </div>
+      <h2 className="text-[27px] font-extrabold text-navy mt-7 mb-2 leading-tight tracking-tight">{s.h}<span className="text-red">.</span></h2>
       <p className="text-[14.5px] text-muted leading-relaxed">{s.p}</p>
       <div className="flex justify-center gap-2 mt-6 mb-8">
         {SLIDES.map((_, i) => <span key={i} className={`h-2 rounded-full transition-all ${i === slide ? 'w-6 bg-red' : 'w-2 bg-line-strong'}`} />)}
@@ -145,7 +152,7 @@ function Welcome({ slide, onNext, onLogin }: { slide: number; onNext: () => void
 function RoleChoose({ onPick, onLogin }: { onPick: (r: Role) => void; onLogin: () => void }) {
   return (
     <div>
-      <h2 className="text-[26px] font-bold text-navy mb-1.5 leading-tight">Create your account<span className="text-red">.</span></h2>
+      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
       <p className="text-[13.5px] text-muted mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
         <RoleOption emoji="🙋" bg="#eaf3fb" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
@@ -173,7 +180,7 @@ function LoginView({ busy, onBack, onLogin, onDemo }: { busy: boolean; onBack: (
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-[26px] font-bold text-navy mb-1.5 leading-tight">Welcome back<span className="text-red">.</span></h2>
+      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
       <p className="text-[13.5px] text-muted mb-6">Sign in to pick up where you left off.</p>
       <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Mobile number" /></div>
       <div className="mb-5"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
@@ -215,7 +222,7 @@ function BackRow({ onBack }: { onBack: () => void }) {
   return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
 function Head({ h, sub }: { h: string; sub: string }) {
-  return (<><h2 className="text-[24px] font-bold text-navy mb-1.5 leading-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-[13.5px] text-muted mb-6 leading-relaxed">{sub}</p></>);
+  return (<><h2 className="text-[24px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-[13.5px] text-muted mb-6 leading-relaxed">{sub}</p></>);
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
@@ -286,7 +293,7 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
     <div className="text-center">
       <BackRow onBack={onBack} />
       <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-[54px] text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">{worker ? '🎉' : '💼'}</div>
-      <h2 className="text-[24px] font-bold text-navy mt-5 mb-2">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
+      <h2 className="text-[24px] font-extrabold text-navy mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
       <p className="text-[13.5px] text-muted leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
       {worker && (
         <div className="text-left bg-navy text-white rounded-[18px] p-4 mt-5">
