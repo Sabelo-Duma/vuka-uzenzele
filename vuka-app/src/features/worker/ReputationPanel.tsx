@@ -14,7 +14,7 @@ export function ReputationPanel() {
       <Card className="p-5 text-center">
         <div className="flex justify-center">
           <Ring pct={cv.rep} colors={cv.tier.ring} size={116} stroke={9} gradId="railRing">
-            <b className="text-[26px] font-bold text-navy leading-none">{cv.rep}</b>
+            <b className="text-[28px] font-extrabold text-navy leading-none tnum">{cv.rep}</b>
             <small className="text-[9px] text-muted font-bold uppercase tracking-wide mt-1">Rep score</small>
           </Ring>
         </div>
@@ -52,5 +52,5 @@ export function ReputationPanel() {
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
-  return <div className="text-center"><b className="block text-[15px] font-bold text-navy leading-tight">{value}</b><span className="text-[10px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
+  return <div className="text-center"><b className="block text-[15px] font-extrabold text-navy leading-tight tnum">{value}</b><span className="text-[10px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
 }

@@ -7,11 +7,11 @@ import { Icon } from './Icon';
 export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick: () => void }) {
   const t = TIERS[worker.tier];
   return (
-    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] transition">
-      <Card className="p-4 flex gap-3.5 items-center">
+    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+      <Card className="p-4 flex gap-3.5 items-center transition-shadow duration-200 hover:shadow-e2">
         <Avatar initials={worker.initials} color={worker.color} verified={worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="m-0 text-[15px] font-bold text-navy flex items-center gap-1.5">
+          <h4 className="m-0 text-[15px] font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
             {worker.name}
             {worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
           </h4>
@@ -35,19 +35,19 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
   const total = gig.hours * gig.payPerHour;
   const fair = gig.payPerHour >= MIN_WAGE_PER_HOUR;
   return (
-    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] transition">
-      <Card className="p-4">
+    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+      <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
         <div className="flex gap-3 items-start">
           <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
           <div className="flex-1 min-w-0">
-            <h4 className="m-0 text-[15.5px] font-bold text-navy leading-tight">{gig.title}</h4>
+            <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h4>
             <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5">
               <Icon name="pin" size={13} /> {gig.location} · {gig.distanceKm} km
             </div>
           </div>
           <div className="text-right shrink-0">
-            <b className="text-[17px] font-bold text-navy">{money(total)}</b>
-            <small className="block text-[11px] text-muted">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
+            <b className="text-[17px] font-extrabold text-navy tnum">{money(total)}</b>
+            <small className="block text-[11px] text-muted tnum">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
@@ -70,12 +70,12 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
     <div className="flex gap-3 items-start">
       <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
       <div className="flex-1 min-w-0">
-        <h4 className="m-0 text-[15.5px] font-bold text-navy leading-tight">{job.title}</h4>
+        <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{job.title}</h4>
         <div className="text-[11.5px] text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
         <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location} · {job.distanceKm} km</div>
       </div>
       <div className="text-right shrink-0">
-        <b className="text-[14px] font-bold text-navy">{amount.trim()}</b>
+        <b className="text-[14px] font-extrabold text-navy tnum">{amount.trim()}</b>
         {per && <small className="block text-[11px] text-muted">/{per.trim()}</small>}
       </div>
     </div>
@@ -83,8 +83,8 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
 
   if (unlocked) {
     return (
-      <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] transition">
-        <Card className="p-4">
+      <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+        <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
           {head}
           <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
             <Chip tone="formal" icon="shield">Formal</Chip>

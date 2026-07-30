@@ -24,7 +24,7 @@ export function WorkerHome() {
       <header className="flex items-center justify-between mb-3">
         <div>
           <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Sawubona 👋</small>
-          <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
+          <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
         </div>
         <Avatar initials={state.worker.initials || 'ME'} color={state.worker.color} verified={state.worker.idVerified} tier={cv.tier.icon} />
       </header>
