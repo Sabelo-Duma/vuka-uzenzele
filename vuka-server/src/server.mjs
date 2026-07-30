@@ -215,6 +215,14 @@ app.get('/api/talent/:id', requireAuth, requireRole('employer'), asyncH((req, re
   });
 }));
 
+// ---- public CV (shareable, no auth) ----
+app.get('/api/public/cv/:id', asyncH((req, res) => {
+  const u = qUserById.get(req.params.id);
+  if (!u || u.role !== 'worker') return res.status(404).json({ error: 'This CV is not available. The link may be old or incorrect.' });
+  const { cv, history, profile } = cvFor(u.id);
+  res.json({ name: u.name, cv, history, profile });
+}));
+
 // ---- unknown API routes ----
 app.use('/api', (_req, res) => res.status(404).json({ error: 'That endpoint does not exist.' }));
 

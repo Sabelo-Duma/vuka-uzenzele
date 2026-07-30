@@ -82,8 +82,10 @@ export function CvLadder() {
       <div className="grid grid-cols-2 gap-2.5 mt-4">
         <Button variant="navy" onClick={() => window.print()}>📄 Download PDF</Button>
         <Button variant="ghost" onClick={() => {
-          const link = `${window.location.origin}/cv/${(w.name || 'me').toLowerCase().replace(/\s+/g, '-')}`;
-          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied 📋')).catch(() => toast('Share link: ' + link));
+          const id = state.user?.id;
+          if (!id) { toast('Sign in to get a shareable link'); return; }
+          const link = `${window.location.origin}/cv/${id}`;
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied — anyone can view your CV 📋')).catch(() => toast('Share link: ' + link));
           else toast('Share link: ' + link);
         }}>🔗 Copy share link</Button>
       </div>

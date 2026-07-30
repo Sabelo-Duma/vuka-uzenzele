@@ -14,6 +14,14 @@ import { Talent } from './features/employer/Talent';
 import { WorkerDetail } from './features/employer/WorkerDetail';
 import { PostJob } from './features/employer/PostJob';
 import { EmployerProfile } from './features/employer/EmployerProfile';
+import { PublicCv } from './features/public/PublicCv';
+
+/** Public share route: /cv/:id renders a read-only CV without auth. */
+function publicCvId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const m = window.location.pathname.match(/^\/cv\/(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
 function BootScreen() {
   return (
@@ -28,6 +36,9 @@ function BootScreen() {
 
 export function App() {
   const { state, navigate } = useApp();
+
+  const cvId = publicCvId();
+  if (cvId) return <PublicCv id={cvId} />;
 
   if (state.status === 'booting') return <BootScreen />;
   if (state.status === 'anon') return <Onboarding />;

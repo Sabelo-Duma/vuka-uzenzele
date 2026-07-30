@@ -63,6 +63,7 @@ export interface AuthResult {
   cv?: ServerCv; history?: HistoryEntry[]; profile?: ApiProfile | null;
 }
 export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
+export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
   skills: CategoryId[]; idVerified: boolean; color: string; tagline: string;
@@ -102,4 +103,5 @@ export const api = {
   getCv: () => request<CvResult>('GET', '/me/cv'),
   listTalent: () => request<ServerTalent[]>('GET', '/talent'),
   getTalent: (id: string) => request<ServerTalent>('GET', `/talent/${id}`),
+  getPublicCv: (id: string) => request<PublicCvResult>('GET', `/public/cv/${id}`),
 };
