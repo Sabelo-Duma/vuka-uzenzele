@@ -1,8 +1,11 @@
-import { CATEGORIES } from '../../data/catalog';
+import { useState } from 'react';
+import { CATEGORIES, catById } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
+import type { Invitation } from '../../lib/api';
 import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
+import { Icon } from '../../components/Icon';
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { TrustStrip } from '../../components/bits';
@@ -35,6 +38,15 @@ export function WorkerHome() {
       </div>
 
       <TrustStrip />
+
+      {state.invitations.length > 0 && (
+        <div className="mb-1">
+          <SectionTitle>You've been invited</SectionTitle>
+          <div className="flex flex-col gap-2.5">
+            {state.invitations.map((inv) => <InviteCard key={inv.id} inv={inv} />)}
+          </div>
+        </div>
+      )}
 
       {/* Tier strip — mobile only; desktop shows the richer rail instead. */}
       <Card className="lg:hidden p-4 text-white mb-1.5" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
@@ -76,5 +88,40 @@ export function WorkerHome() {
 
       <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">Total earned so far: <b className="text-navy">{money(cv.totalEarned)}</b> across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}.</p>
     </Dashboard>
+  );
+}
+
+/** A pending job invitation from an employer, with accept / decline. */
+function InviteCard({ inv }: { inv: Invitation }) {
+  const { respondInvitation, navigate, toast } = useApp();
+  const [busy, setBusy] = useState(false);
+  const c = catById(inv.gig.category);
+  const total = inv.gig.hours * inv.gig.payPerHour;
+
+  const respond = async (accept: boolean) => {
+    setBusy(true);
+    try {
+      await respondInvitation(inv.id, accept);
+      if (accept) { toast('Invitation accepted 🎉'); navigate('gigDetail', inv.gig.id); }
+      else toast('Invitation declined');
+    } catch (e) { toast((e as Error).message); setBusy(false); }
+  };
+
+  return (
+    <Card className="p-4 border-l-4 border-red">
+      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-red mb-2"><Icon name="bolt" size={13} /> Job invitation</div>
+      <div className="flex gap-3 items-start">
+        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <div className="flex-1 min-w-0">
+          <b className="text-[15px] font-extrabold text-navy leading-tight block tracking-tight">{inv.gig.title}</b>
+          <div className="text-[12px] text-muted mt-0.5">{inv.gig.employer} · {inv.gig.location} · <b className="text-navy tnum">{money(total)}</b></div>
+        </div>
+      </div>
+      {inv.message && <p className="text-[12.5px] text-ink italic bg-surface-2 rounded-xl px-3 py-2 mt-2.5 leading-snug">“{inv.message}”</p>}
+      <div className="grid grid-cols-2 gap-2.5 mt-3">
+        <Button size="sm" disabled={busy} onClick={() => respond(true)}>{busy ? '…' : 'Accept'}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => respond(false)}>Decline</Button>
+      </div>
+    </Card>
   );
 }

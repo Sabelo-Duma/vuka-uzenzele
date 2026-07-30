@@ -47,7 +47,7 @@ function genHistory(workerId, n, fours, cats) {
 }
 
 export function seed() {
-  for (const t of ['history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
+  for (const t of ['invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
     db.exec(`DELETE FROM ${t};`);
   }
 
@@ -79,6 +79,10 @@ export function seed() {
     insProfile.run(id, t.age, t.location, 'No matric', t.tagline, JSON.stringify(t.skills), t.verified, t.color, 'Feb 2026', t.tagline);
     genHistory(id, t.jobs, t.fours, t.skills);
   }
+
+  // A pending job invitation for the demo worker (so the hiring loop is visible in the demo)
+  db.prepare('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)')
+    .run(uuid(), 'j5', empId, demoId, 'Hi Thandeka — your cleaning reviews are excellent. Would you take this regular salon gig?', 'pending', NOW);
 
   return {
     users: db.prepare('SELECT COUNT(*) c FROM users').get().c,

@@ -94,6 +94,20 @@ async function run() {
   ok(bongani?.tier?.name === 'Elite', 'seeded Bongani is Elite, got ' + bongani?.tier?.name);
   ok(talent.json.some((t) => t.name === 'Lwazi Khumalo' && t.jobsDone === 3), 'the newly-active worker appears in talent with 3 jobs');
 
+  // 9b) hiring loop: employer invites the worker to their posted gig
+  const wId = wReg.json.user.id;
+  const myGigs = await api('GET', '/me/gigs', { token: eTok });
+  ok(myGigs.json?.some((g) => g.id === postedId), 'employer sees their own posted gig');
+  const inv = await api('POST', `/talent/${wId}/invite`, { token: eTok, body: { gigId: postedId, message: 'Please help' } });
+  ok(inv.status === 201 && inv.json?.ok, 'employer invites worker to a gig');
+  ok((await api('POST', `/talent/${wId}/invite`, { token: wTok, body: { gigId: postedId } })).status === 403, 'worker cannot invite');
+  const invs = await api('GET', '/me/invitations', { token: wTok });
+  ok(invs.json?.length === 1 && invs.json[0]?.gig?.id === postedId, 'worker sees the pending invitation');
+  const resp = await api('POST', `/invitations/${invs.json[0].id}/respond`, { token: wTok, body: { accept: true } });
+  ok(resp.json?.ok && resp.json?.accepted === true, 'worker accepts invitation');
+  ok((await api('GET', '/me/applications', { token: wTok })).json?.some((a) => a.gigId === postedId), 'accepting the invite filed an application');
+  ok((await api('GET', '/me/invitations', { token: wTok })).json?.length === 0, 'accepted invitation is no longer pending');
+
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');

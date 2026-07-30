@@ -97,9 +97,21 @@ export function initSchema() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS invitations (
+      id TEXT PRIMARY KEY,
+      gig_id TEXT NOT NULL REFERENCES gigs(id) ON DELETE CASCADE,
+      employer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      UNIQUE(gig_id, worker_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
+    CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);
   `);
 }
 

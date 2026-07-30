@@ -215,6 +215,59 @@ app.get('/api/talent/:id', requireAuth, requireRole('employer'), asyncH((req, re
   });
 }));
 
+// ---- hiring loop: invitations ----
+// Employer's own open gigs (for the invite picker).
+app.get('/api/me/gigs', requireAuth, requireRole('employer'), asyncH((req, res) => {
+  const rows = db.prepare("SELECT * FROM gigs WHERE employer_id = ? AND status = 'open' ORDER BY created_at DESC").all(req.user.id);
+  res.json(rows.map(gigOut));
+}));
+
+// Employer invites a worker to one of their open gigs.
+app.post('/api/talent/:id/invite', requireAuth, requireRole('employer'), asyncH((req, res) => {
+  const workerId = req.params.id;
+  const { gigId, message } = req.body || {};
+  const worker = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'worker'").get(workerId);
+  if (!worker) return res.status(404).json({ error: 'That worker is no longer available.' });
+  const gig = db.prepare('SELECT * FROM gigs WHERE id = ?').get(gigId);
+  if (!gig || gig.employer_id !== req.user.id) return res.status(400).json({ error: 'Please pick one of your own posted jobs.' });
+  if (gig.status !== 'open') return res.status(400).json({ error: 'That job is no longer open.' });
+
+  const existing = db.prepare('SELECT * FROM invitations WHERE gig_id = ? AND worker_id = ?').get(gigId, workerId);
+  const msg = (message || '').toString().slice(0, 400) || null;
+  if (existing) {
+    if (existing.status === 'pending') return res.json({ ok: true, already: true });
+    db.prepare("UPDATE invitations SET status = 'pending', message = ?, created_at = ? WHERE id = ?").run(msg, new Date().toISOString(), existing.id);
+    return res.json({ ok: true });
+  }
+  db.prepare('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)')
+    .run(uuid(), gigId, req.user.id, workerId, msg, 'pending', new Date().toISOString());
+  res.status(201).json({ ok: true });
+}));
+
+// Worker's pending invitations, with the gig attached.
+app.get('/api/me/invitations', requireAuth, requireRole('worker'), asyncH((req, res) => {
+  const rows = db.prepare(
+    "SELECT i.id AS inv_id, i.message AS inv_message, g.* FROM invitations i JOIN gigs g ON g.id = i.gig_id WHERE i.worker_id = ? AND i.status = 'pending' ORDER BY i.created_at DESC"
+  ).all(req.user.id);
+  res.json(rows.map((r) => ({ id: r.inv_id, message: r.inv_message, gig: gigOut(r) })));
+}));
+
+// Worker accepts or declines an invitation. Accepting also files an application.
+app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asyncH((req, res) => {
+  const inv = db.prepare('SELECT * FROM invitations WHERE id = ? AND worker_id = ?').get(req.params.id, req.user.id);
+  if (!inv) return res.status(404).json({ error: 'This invitation is no longer available.' });
+  const accept = !!req.body?.accept;
+  db.prepare('UPDATE invitations SET status = ? WHERE id = ?').run(accept ? 'accepted' : 'declined', inv.id);
+  if (accept) {
+    const existingApp = db.prepare('SELECT * FROM applications WHERE gig_id = ? AND worker_id = ?').get(inv.gig_id, req.user.id);
+    if (!existingApp) {
+      db.prepare('INSERT INTO applications (id, gig_id, worker_id, status, created_at) VALUES (?,?,?,?,?)')
+        .run(uuid(), inv.gig_id, req.user.id, 'applied', new Date().toISOString());
+    }
+  }
+  res.json({ ok: true, accepted: accept, gigId: inv.gig_id });
+}));
+
 // ---- public CV (shareable, no auth) ----
 app.get('/api/public/cv/:id', asyncH((req, res) => {
   const u = qUserById.get(req.params.id);

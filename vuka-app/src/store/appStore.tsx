@@ -2,7 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type CreateGigInput, type RegisterInput } from '../lib/api';
+import { api, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type CreateGigInput, type Invitation, type RegisterInput } from '../lib/api';
 import { computeCv } from '../lib/engine';
 
 export type Screen =
@@ -24,6 +24,7 @@ export interface AppState {
   formalJobs: FormalJob[];
   appliedGigIds: string[];
   talent: TalentWorker[];
+  invitations: Invitation[]; // pending job invitations for the signed-in worker
   feed: 'gigs' | 'formal';
   nav: Nav;
   toast: { msg: string; n: number } | null;
@@ -62,6 +63,7 @@ type Action =
   | { type: 'FORMAL'; formalJobs: FormalJob[] }
   | { type: 'APPLIED'; ids: string[] }
   | { type: 'TALENT'; talent: TalentWorker[] }
+  | { type: 'INVITATIONS'; invitations: Invitation[] }
   | { type: 'REMOVE_GIG'; id: string }
   | { type: 'LOGOUT' }
   | { type: 'NAVIGATE'; nav: Nav }
@@ -72,7 +74,7 @@ type Action =
 function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
-    gigs: [], formalJobs: [], appliedGigIds: [], talent: [],
+    gigs: [], formalJobs: [], appliedGigIds: [], talent: [], invitations: [],
     feed: 'gigs', nav: { screen: 'home' }, toast: null, error: null,
   };
 }
@@ -87,6 +89,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'FORMAL': return { ...state, formalJobs: action.formalJobs };
     case 'APPLIED': return { ...state, appliedGigIds: action.ids };
     case 'TALENT': return { ...state, talent: action.talent };
+    case 'INVITATIONS': return { ...state, invitations: action.invitations };
     case 'REMOVE_GIG': return { ...state, gigs: state.gigs.filter((g) => g.id !== action.id), appliedGigIds: state.appliedGigIds.filter((id) => id !== action.id) };
     case 'LOGOUT': return { ...init(), status: 'anon' };
     case 'NAVIGATE': return { ...state, nav: action.nav };
@@ -110,6 +113,9 @@ interface Store {
   completeGig: (gigId: string, rating: number, safetyFlag: boolean) => Promise<{ before: CvSnapshot; after: CvSnapshot }>;
   postGig: (input: CreateGigInput) => Promise<void>;
   reloadTalent: () => Promise<void>;
+  listMyGigs: () => Promise<Gig[]>;
+  inviteWorker: (workerId: string, gigId: string, message?: string) => Promise<{ ok: boolean; already?: boolean }>;
+  respondInvitation: (id: string, accept: boolean) => Promise<{ accepted: boolean; gigId: string }>;
 }
 
 const AppContext = createContext<Store | undefined>(undefined);
@@ -125,10 +131,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
 
   const loadWorkerData = useCallback(async () => {
-    const [gigs, formalJobs, applications] = await Promise.all([api.listGigs(), api.listFormal(), api.listApplications()]);
+    const [gigs, formalJobs, applications, invitations] = await Promise.all([api.listGigs(), api.listFormal(), api.listApplications(), api.listInvitations()]);
     dispatch({ type: 'GIGS', gigs });
     dispatch({ type: 'FORMAL', formalJobs });
     dispatch({ type: 'APPLIED', ids: applications.map((a) => a.gigId) });
+    dispatch({ type: 'INVITATIONS', invitations });
   }, []);
 
   const loadEmployerData = useCallback(async () => {
@@ -212,13 +219,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'TALENT', talent: talent.map(toTalentWorker) });
   }, []);
 
+  const listMyGigs = useCallback(() => api.listMyGigs(), []);
+
+  const inviteWorker = useCallback((workerId: string, gigId: string, message?: string) => api.inviteWorker(workerId, gigId, message), []);
+
+  const respondInvitation = useCallback(async (id: string, accept: boolean) => {
+    const res = await api.respondInvitation(id, accept);
+    const cur = stateRef.current;
+    dispatch({ type: 'INVITATIONS', invitations: cur.invitations.filter((i) => i.id !== id) });
+    if (accept && !cur.appliedGigIds.includes(res.gigId)) dispatch({ type: 'APPLIED', ids: [...cur.appliedGigIds, res.gigId] });
+    return { accepted: res.accepted, gigId: res.gigId };
+  }, []);
+
   const value = useMemo<Store>(() => ({
     state,
     navigate: (screen, id) => dispatch({ type: 'NAVIGATE', nav: { screen, id } }),
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
-    register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent,
-  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent]);
+    register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
+  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

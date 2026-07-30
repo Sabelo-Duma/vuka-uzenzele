@@ -64,6 +64,7 @@ export interface AuthResult {
 }
 export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
 export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
+export interface Invitation { id: string; message: string | null; gig: Gig; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
   skills: CategoryId[]; idVerified: boolean; color: string; tagline: string;
@@ -104,4 +105,8 @@ export const api = {
   listTalent: () => request<ServerTalent[]>('GET', '/talent'),
   getTalent: (id: string) => request<ServerTalent>('GET', `/talent/${id}`),
   getPublicCv: (id: string) => request<PublicCvResult>('GET', `/public/cv/${id}`),
+  listMyGigs: () => request<Gig[]>('GET', '/me/gigs'),
+  inviteWorker: (workerId: string, gigId: string, message?: string) => request<{ ok: boolean; already?: boolean }>('POST', `/talent/${workerId}/invite`, { gigId, message }),
+  listInvitations: () => request<Invitation[]>('GET', '/me/invitations'),
+  respondInvitation: (id: string, accept: boolean) => request<{ ok: boolean; accepted: boolean; gigId: string }>('POST', `/invitations/${id}/respond`, { accept }),
 };

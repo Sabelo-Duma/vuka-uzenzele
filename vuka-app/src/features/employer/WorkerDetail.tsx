@@ -1,11 +1,15 @@
+import { useEffect, useState } from 'react';
 import { BADGES, catById, TIERS } from '../../data/catalog';
+import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
-import { Avatar, Button, Card, EmptyState } from '../../components/ui';
+import type { Gig } from '../../types';
+import { Avatar, Button, Card, EmptyState, Sheet } from '../../components/ui';
 import { DetailHeader, Hero, PayBox, StickyCta } from '../../components/bits';
 import { Icon } from '../../components/Icon';
 
 export function WorkerDetail({ id }: { id: string }) {
-  const { state, navigate, toast } = useApp();
+  const { state, navigate } = useApp();
+  const [showInvite, setShowInvite] = useState(false);
   const w = state.talent.find((x) => x.id === id);
 
   if (!w) {
@@ -59,8 +63,63 @@ export function WorkerDetail({ id }: { id: string }) {
       </Card>
 
       <StickyCta>
-        <Button block variant="navy" onClick={() => toast(`Request sent to ${w.name.split(' ')[0]}! They'll confirm shortly. 🤝`)}>Book {w.name.split(' ')[0]}</Button>
+        <Button block variant="navy" icon="briefcase" onClick={() => setShowInvite(true)}>Invite {w.name.split(' ')[0]} to a job</Button>
       </StickyCta>
+
+      {showInvite && <InviteSheet workerId={w.id} workerName={w.name} onClose={() => setShowInvite(false)} />}
     </>
+  );
+}
+
+/** Sheet: pick one of the employer's open gigs to invite this worker to. */
+function InviteSheet({ workerId, workerName, onClose }: { workerId: string; workerName: string; onClose: () => void }) {
+  const { listMyGigs, inviteWorker, navigate, toast } = useApp();
+  const [gigs, setGigs] = useState<Gig[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const first = workerName.split(' ')[0];
+
+  useEffect(() => {
+    let cancelled = false;
+    listMyGigs().then((g) => { if (!cancelled) setGigs(g); }).catch(() => { if (!cancelled) setGigs([]); });
+    return () => { cancelled = true; };
+  }, [listMyGigs]);
+
+  const invite = async (gig: Gig) => {
+    setBusyId(gig.id);
+    try {
+      const res = await inviteWorker(workerId, gig.id);
+      toast(res.already ? `${first} was already invited to that job` : `Invitation sent to ${first} 🤝`);
+      onClose();
+    } catch (e) { toast((e as Error).message); setBusyId(null); }
+  };
+
+  return (
+    <Sheet title={`Invite ${first}`} onClose={onClose}>
+      <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">Invite to a job</h3>
+      <p className="text-muted text-[13.5px] leading-relaxed mb-4">Pick one of your open jobs. {first} will see the invitation and can accept it.</p>
+      {gigs === null ? (
+        <div className="flex flex-col gap-2.5">{[0, 1].map((i) => <div key={i} className="skeleton h-[68px] rounded-2xl" />)}</div>
+      ) : gigs.length === 0 ? (
+        <div className="text-center py-2">
+          <div className="text-4xl mb-2" aria-hidden="true">📋</div>
+          <p className="text-muted text-[13.5px] leading-relaxed mb-4">You have no open jobs yet. Post one first, then invite workers to it.</p>
+          <Button block onClick={() => { onClose(); navigate('post'); }}>Post a job</Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {gigs.map((g) => {
+            const c = catById(g.category);
+            return (
+              <button key={g.id} disabled={busyId !== null} onClick={() => invite(g)}
+                className="text-left border border-line-strong rounded-2xl p-3.5 bg-surface flex gap-3 items-center hover:border-red transition active:scale-[.99] disabled:opacity-50">
+                <span className="grid place-items-center w-10 h-10 rounded-xl text-xl shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+                <div className="flex-1 min-w-0"><b className="text-sm text-navy block truncate">{g.title}</b><span className="text-[12px] text-muted tnum">{money(g.hours * g.payPerHour)} · {g.when}</span></div>
+                <span className="text-red font-bold text-[13px] shrink-0">{busyId === g.id ? '…' : 'Invite'}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Sheet>
   );
 }
