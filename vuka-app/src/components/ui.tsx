@@ -137,7 +137,7 @@ export function TierBadge({ icon, name, color }: { icon: string; name: string; c
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mt-5 mb-3 px-1">
-      <h3 className="text-base font-bold text-navy m-0">{children}<span className="text-red">.</span></h3>
+      <h3 className="text-[17px] font-extrabold text-navy m-0 tracking-tight">{children}<span className="text-red">.</span></h3>
       {action}
     </div>
   );

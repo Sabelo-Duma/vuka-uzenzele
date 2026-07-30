@@ -42,10 +42,10 @@
   --t-pro: #0E355A;
   --t-elite: #D97706;
 
-  /* Elevation */
-  --gj-shadow-1: 0 1px 3px rgba(13, 24, 43, 0.08);
-  --gj-shadow-2: 0 4px 12px rgba(13, 24, 43, 0.12);
-  --gj-shadow-3: 0 12px 32px rgba(13, 24, 43, 0.18);
+  /* Elevation — layered, navy-tinted for a premium feel */
+  --gj-shadow-1: 0 1px 2px rgba(14, 53, 90, 0.06), 0 3px 10px rgba(14, 53, 90, 0.06);
+  --gj-shadow-2: 0 2px 6px rgba(14, 53, 90, 0.08), 0 10px 24px rgba(14, 53, 90, 0.10);
+  --gj-shadow-3: 0 4px 12px rgba(14, 53, 90, 0.10), 0 24px 50px rgba(14, 53, 90, 0.16);
 
   /* App canvas (the dark stage behind the phone on desktop) */
   --gj-stage: radial-gradient(1100px 640px at 12% -8%, #12365b 0%, transparent 55%),
@@ -98,11 +98,20 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  font-family: 'proxima-nova', 'Proxima Nova', Arial, Helvetica, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'proxima-nova', system-ui, Arial, sans-serif;
   color: var(--gj-text);
   background: var(--gj-bg);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Bold & youthful headings: tighter tracking + balanced wrapping. */
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+/* Numbers that line up in columns (stats, money, ratings) stay even. */
+.tnum { font-variant-numeric: tabular-nums; }
 
 /* Visible, brand-coloured focus ring everywhere (a11y). */
 :focus-visible {

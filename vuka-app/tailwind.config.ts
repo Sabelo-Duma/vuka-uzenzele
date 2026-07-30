@@ -32,7 +32,7 @@ export default {
         't-elite': 'var(--t-elite)',
       },
       fontFamily: {
-        sans: ['proxima-nova', 'Proxima Nova', 'Arial', 'Helvetica', 'sans-serif'],
+        sans: ['"Figtree Variable"', 'Figtree', 'proxima-nova', 'system-ui', 'Arial', 'sans-serif'],
       },
       borderRadius: {
         pill: '35px',
