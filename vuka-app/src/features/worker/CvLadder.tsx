@@ -15,14 +15,14 @@ export function CvLadder() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Auto-generated · always up to date</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-bold text-navy">My CV &amp; ladder<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">My CV &amp; ladder<span className="text-red">.</span></h2>
       </header>
 
       {/* Reputation ring */}
       <Card className="p-5 text-center mb-4" style={{ background: 'linear-gradient(165deg,var(--gj-bg),var(--gj-bg-light))' }}>
         <div className="flex justify-center">
           <Ring pct={cv.rep} colors={cv.tier.ring} gradId="repRing">
-            <b className="text-3xl font-bold text-navy leading-none">{cv.rep}</b>
+            <b className="text-3xl font-extrabold text-navy leading-none tnum">{cv.rep}</b>
             <small className="text-[10px] text-muted font-bold uppercase tracking-wide mt-1">Rep score</small>
           </Ring>
         </div>
@@ -56,7 +56,7 @@ export function CvLadder() {
       <SectionTitle>Your CV document</SectionTitle>
       <Card className="overflow-hidden">
         <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#1A3B68)' }}>
-          <h3 className="m-0 text-[22px] font-bold">{w.name}</h3>
+          <h3 className="m-0 text-[22px] font-extrabold tracking-tight">{w.name}</h3>
           <p className="m-0 mt-1 text-[12.5px] opacity-90">{w.location} · Age {w.age} · {w.education} · Member since {w.joined}</p>
           {w.idVerified && (
             <span className="inline-flex gap-1.5 items-center mt-2.5 bg-white/15 px-2.5 py-1 rounded-full text-[11.5px] font-bold">
@@ -85,7 +85,7 @@ export function CvLadder() {
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
-  return <div className="text-center"><b className="block text-xl font-bold text-navy">{value}</b><span className="text-[10.5px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
+  return <div className="text-center"><b className="block text-xl font-extrabold text-navy tnum">{value}</b><span className="text-[10.5px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
 }
 function H5({ children }: { children: React.ReactNode }) {
   return <h5 className="mt-4 first:mt-0 mb-2 text-[11px] uppercase tracking-widest text-muted font-bold">{children}</h5>;

@@ -8,7 +8,7 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
       <button onClick={onBack} aria-label="Go back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy hover:bg-surface-2 transition active:scale-95">
         <Icon name="back" size={22} />
       </button>
-      <h3 className="m-0 text-base font-bold text-navy uppercase tracking-wide">{title}</h3>
+      <h3 className="m-0 text-base font-extrabold text-navy uppercase tracking-wide">{title}</h3>
     </div>
   );
 }
@@ -16,11 +16,14 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
 /** Coloured hero band for detail screens. */
 export function Hero({ eyebrow, title, sub, gradient, children }: { eyebrow: ReactNode; title: string; sub: ReactNode; gradient: string; children?: ReactNode }) {
   return (
-    <div className="rounded-card p-5 text-white" style={{ background: gradient }}>
-      <div className="text-[11px] font-bold uppercase tracking-widest text-white/70">{eyebrow}</div>
-      <h2 className="mt-1.5 mb-1 text-[23px] font-bold leading-tight">{title}</h2>
-      <div className="text-[13px] opacity-90 flex items-center gap-1.5">{sub}</div>
-      {children}
+    <div className="relative rounded-card p-5 text-white overflow-hidden" style={{ background: gradient }}>
+      <span aria-hidden="true" className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.28), transparent 70%)' }} />
+      <div className="relative">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-white/70">{eyebrow}</div>
+        <h2 className="mt-1.5 mb-1 text-[24px] font-extrabold leading-tight tracking-tight">{title}</h2>
+        <div className="text-[13px] opacity-90 flex items-center gap-1.5">{sub}</div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -32,7 +35,7 @@ export function PayBox({ cells }: { cells: { label: string; value: string }[] })
       {cells.map((c) => (
         <div key={c.label} className="flex-1 bg-white/[.13] rounded-[13px] px-3 py-2.5">
           <small className="block text-[11px] opacity-80">{c.label}</small>
-          <b className="text-[15px] font-bold">{c.value}</b>
+          <b className="text-[15px] font-extrabold tnum">{c.value}</b>
         </div>
       ))}
     </div>
