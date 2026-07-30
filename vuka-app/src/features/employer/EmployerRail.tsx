@@ -40,5 +40,5 @@ export function PostJobCard() {
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
-  return <div className="text-center"><b className="block text-[18px] font-bold text-navy leading-tight">{value}</b><span className="text-[10px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
+  return <div className="text-center"><b className="block text-[18px] font-extrabold text-navy leading-tight tnum">{value}</b><span className="text-[10px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
 }

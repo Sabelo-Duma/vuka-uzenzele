@@ -5,6 +5,7 @@ import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
+import { TrustStrip } from '../../components/bits';
 import { ReputationPanel } from './ReputationPanel';
 
 export function WorkerHome() {
@@ -32,6 +33,8 @@ export function WorkerHome() {
       <div className="bg-navy text-white rounded-[14px] px-3.5 py-2.5 text-[12px] font-semibold flex gap-2 items-center mb-3">
         <span className="bg-red text-white px-2 py-0.5 rounded-full text-[11px] font-bold">FREE DATA</span> Zero-rated — browsing &amp; applying costs you nothing 📶
       </div>
+
+      <TrustStrip />
 
       {/* Tier strip — mobile only; desktop shows the richer rail instead. */}
       <Card className="lg:hidden p-4 text-white mb-1.5" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>

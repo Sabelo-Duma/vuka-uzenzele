@@ -2,11 +2,14 @@ import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card, EmptyState, SectionTitle } from '../../components/ui';
 import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
+import { TrustStrip } from '../../components/bits';
 import { EmployerStats } from './EmployerRail';
 
 export function EmployerHome() {
   const { state, navigate } = useApp();
   const top = state.talent.slice(0, 3);
+  const verified = state.talent.filter((t) => t.idVerified).length;
+  const jobsTotal = state.talent.reduce((sum, t) => sum + t.jobsDone, 0);
   return (
     <Dashboard aside={<EmployerStats />}>
       <header className="flex items-center justify-between mb-3">
@@ -18,8 +21,13 @@ export function EmployerHome() {
       </header>
 
       <div className="text-white rounded-[14px] px-3.5 py-2.5 text-[12px] font-semibold flex gap-2 items-center mb-3" style={{ background: 'linear-gradient(90deg,#3b0764,#5B21B6)' }}>
-        <span className="bg-white text-[#6d28d9] px-2 py-0.5 rounded-full text-[11px] font-bold">SAFE</span> Every worker is ID-verified with a real, reviewed CV and an earned tier 🛡️
+        <span className="bg-white text-[#6d28d9] px-2 py-0.5 rounded-full text-[11px] font-bold">SAFE</span>
+        {verified > 0
+          ? <span><b className="tnum">{verified}</b> ID-verified workers nearby · <b className="tnum">{jobsTotal}</b> jobs completed with reviews 🛡️</span>
+          : <span>Every worker is ID-verified with a real, reviewed CV and an earned tier 🛡️</span>}
       </div>
+
+      <TrustStrip />
 
       <Card className="p-4 mb-3.5" style={{ background: 'linear-gradient(150deg,#faf5ff,var(--gj-bg))' }}>
         <b className="text-[15px] text-navy">Post a job in 30 seconds</b>
