@@ -4,13 +4,14 @@ import { computeCv } from '../../lib/engine';
 import { money, stars } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { CvSnapshot, HistoryEntry, Tier, WorkerProfile } from '../../types';
-import { Button, Card, Ring, ProgressBar, SectionTitle } from '../../components/ui';
+import { Button, Card, Ring, ProgressBar, SectionTitle, useCountUp } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
 export function CvLadder() {
   const { state, toast } = useApp();
   const cv = computeCv(state.worker);
   const w = state.worker;
+  const animRep = useCountUp(cv.rep);
 
   return (
     <>
@@ -22,8 +23,8 @@ export function CvLadder() {
       {/* Reputation ring */}
       <Card className="p-5 text-center mb-4" style={{ background: 'linear-gradient(165deg,var(--gj-bg),var(--gj-bg-light))' }}>
         <div className="flex justify-center">
-          <Ring pct={cv.rep} colors={cv.tier.ring} gradId="repRing">
-            <b className="text-3xl font-extrabold text-navy leading-none tnum">{cv.rep}</b>
+          <Ring pct={animRep} colors={cv.tier.ring} gradId="repRing">
+            <b className="text-3xl font-extrabold text-navy leading-none tnum">{Math.round(animRep)}</b>
             <small className="text-[10px] text-muted font-bold uppercase tracking-wide mt-1">Rep score</small>
           </Ring>
         </div>

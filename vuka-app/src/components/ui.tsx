@@ -1,5 +1,30 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+
+/* ---------------- useCountUp ----------------
+   Animates a number from `from` to `target` (easeOutCubic). Jumps straight to
+   the target when the user prefers reduced motion. */
+export function useCountUp(target: number, from = 0, duration = 950): number {
+  const [val, setVal] = useState(from);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setVal(target);
+      return;
+    }
+    let raf = 0;
+    let start = 0;
+    const step = (t: number) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(from + (target - from) * eased);
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, from, duration]);
+  return val;
+}
 
 /* ---------------- Button ---------------- */
 type Variant = 'primary' | 'navy' | 'gold' | 'ghost' | 'subtle';

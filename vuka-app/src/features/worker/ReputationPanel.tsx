@@ -1,20 +1,21 @@
 import { computeCv } from '../../lib/engine';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
-import { Button, Card, ProgressBar, Ring } from '../../components/ui';
+import { Button, Card, ProgressBar, Ring, useCountUp } from '../../components/ui';
 
 /** Desktop side-rail: reputation ring, stats, tier progress and ladder link. */
 export function ReputationPanel() {
   const { state, navigate } = useApp();
   const cv = computeCv(state.worker);
+  const animRep = useCountUp(cv.rep);
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
 
   return (
     <>
       <Card className="p-5 text-center">
         <div className="flex justify-center">
-          <Ring pct={cv.rep} colors={cv.tier.ring} size={116} stroke={9} gradId="railRing">
-            <b className="text-[28px] font-extrabold text-navy leading-none tnum">{cv.rep}</b>
+          <Ring pct={animRep} colors={cv.tier.ring} size={116} stroke={9} gradId="railRing">
+            <b className="text-[28px] font-extrabold text-navy leading-none tnum">{Math.round(animRep)}</b>
             <small className="text-[9px] text-muted font-bold uppercase tracking-wide mt-1">Rep score</small>
           </Ring>
         </div>
