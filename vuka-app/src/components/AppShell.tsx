@@ -67,7 +67,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
 
   return (
-    <div className="min-h-screen flex bg-surface-2 text-ink">
+    <div className="min-h-screen bg-surface-2 text-ink">
+      {/* Center the whole app (sidebar + content) on large screens so the
+          sidebar sits next to the content instead of being stranded far-left. */}
+      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] xl:border-x xl:border-line">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-line bg-surface p-5">
         <div className="mb-8"><BrandMark /></div>
@@ -107,7 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">
-          <div className="mx-auto w-full max-w-[1040px] px-4 sm:px-6 py-5 pb-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-8">{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
@@ -128,6 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <TabButton key={item.screen} item={item} active={current === item.screen} onClick={() => navigate(item.screen)} />
           ))}
         </nav>
+      </div>
       </div>
     </div>
   );
