@@ -170,11 +170,22 @@ export async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
+    CREATE INDEX IF NOT EXISTS idx_apps_gig ON applications(gig_id);
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
+    CREATE INDEX IF NOT EXISTS idx_gigs_employer ON gigs(employer_id);
     CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);
     CREATE INDEX IF NOT EXISTS idx_msg_recipient ON messages(recipient_id);
+    CREATE INDEX IF NOT EXISTS idx_msg_sender ON messages(sender_id);
     CREATE INDEX IF NOT EXISTS idx_msg_pair ON messages(sender_id, recipient_id);
     CREATE INDEX IF NOT EXISTS idx_follow_followee ON follows(followee_id);
   `);
   initialised = true;
+}
+
+/** Close the database cleanly (for graceful shutdown). */
+export async function closeDb() {
+  try {
+    if (driver === 'pg') { await pgPool?.end(); }
+    else { sqlite?.close(); }
+  } catch { /* already closed */ }
 }

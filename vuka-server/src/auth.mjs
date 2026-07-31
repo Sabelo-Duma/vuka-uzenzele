@@ -1,12 +1,15 @@
 import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
+// In production a strong secret is mandatory — never fall back to a known
+// default (that would let anyone forge session tokens). We fail fast at boot
+// so a misconfigured deploy is caught immediately instead of silently
+// shipping with a guessable secret.
+if (!process.env.VUKA_JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('VUKA_JWT_SECRET must be set in production. Refusing to start with an insecure default.');
+}
 const SECRET = process.env.VUKA_JWT_SECRET || 'vuka-dev-secret-change-in-production';
 const TOKEN_TTL = '30d';
-
-if (!process.env.VUKA_JWT_SECRET && process.env.NODE_ENV === 'production') {
-  console.warn('⚠ VUKA_JWT_SECRET is not set — using an insecure default. Set a strong secret in production.');
-}
 
 export const uuid = () => randomUUID();
 

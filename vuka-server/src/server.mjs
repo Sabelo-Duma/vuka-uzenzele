@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { all, get, run, initDb, driver } from './db.mjs';
+import { all, get, run, initDb, closeDb, driver } from './db.mjs';
 import { seedIfEmpty } from './seed.mjs';
 import { hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid } from './auth.mjs';
 import { computeCv, autoReview, MIN_WAGE_PER_HOUR } from './engine.mjs';
@@ -13,11 +16,51 @@ await initDb();
 await seedIfEmpty();
 
 const app = express();
+// Render (and most PaaS) put us behind a reverse proxy. Trust the first hop so
+// rate-limiting sees the real client IP (via X-Forwarded-For) and HTTPS is
+// detected correctly.
+app.set('trust proxy', 1);
+
+// Security headers. CSP and COEP are disabled because this same service also
+// serves the SPA + PWA (service worker, inline styles) — a strict CSP here
+// would break the front-end. The rest of helmet's protections still apply
+// (HSTS, X-Content-Type-Options, frameguard, referrer policy, etc.).
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// Request logging (concise in prod, readable in dev). Health-check pings are
+// skipped so they don't flood the logs.
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+  skip: (req) => req.path === '/api/health',
+}));
+
 // CORS: same-origin single-service deploys need none. If you split the
 // front-end onto another origin, set VUKA_CORS_ORIGIN (comma-separated).
 const corsOrigin = process.env.VUKA_CORS_ORIGIN;
 app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((s) => s.trim()) } : {}));
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
+
+// Rate limiting (free, in-memory — fine for a single instance). A generous
+// backstop protects the whole API from abuse without tripping normal use
+// (the app polls chat/unread), and a strict limiter guards the auth endpoints
+// against password brute-forcing and sign-up spam.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,          // 1 minute
+  max: 300,                     // ~5 req/s per IP — well above real usage
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down and try again shortly.' },
+});
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,     // 15 minutes
+  max: 20,                      // 20 sign-in / sign-up attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // only failed attempts count toward the limit
+  message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
+});
+// Health check is exempt so uptime pings never get throttled.
+app.use('/api', (req, res, next) => (req.path === '/health' ? next() : apiLimiter(req, res, next)));
+app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 
 const initialsOf = (name) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -70,14 +113,22 @@ async function cvFor(userId) {
 }
 
 // ---- health ----
-app.get('/api/health', (_req, res) => res.json({ ok: true, minWage: MIN_WAGE_PER_HOUR, store: driver }));
+const STARTED_AT = Date.now();
+app.get('/api/health', (_req, res) => res.json({
+  ok: true,
+  minWage: MIN_WAGE_PER_HOUR,
+  store: driver,
+  uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
+}));
 
 // ---- auth ----
 app.post('/api/auth/register', asyncH(async (req, res) => {
   const { role, name, phone, password } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+  if (name.trim().length > 80) return res.status(400).json({ error: 'Please enter a shorter name.' });
   if (!phone || String(phone).replace(/\D/g, '').length < 9) return res.status(400).json({ error: 'Please enter a valid mobile number.' });
-  if (!password || password.length < 4) return res.status(400).json({ error: 'Please choose a password of at least 4 characters.' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Please choose a password of at least 8 characters.' });
+  if (password.length > 200) return res.status(400).json({ error: 'That password is too long.' });
   if (role !== 'worker' && role !== 'employer') return res.status(400).json({ error: 'Please choose whether you want to work or hire.' });
   if (await userByPhone(phone)) return res.status(409).json({ error: 'That mobile number is already registered. Try signing in instead.' });
 
@@ -87,9 +138,10 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
 
   if (role === 'worker') {
     const { age, location, education, bio, skills, idVerified } = req.body;
+    const cap = (v, n) => (typeof v === 'string' ? v.slice(0, n) : v);
     await run('INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [id, Number(age) || 18, location || 'South Africa', education || 'New member',
-        bio || 'New to Vuka and ready to work. Building my reputation one job at a time.',
+      [id, Number(age) || 18, cap(location, 120) || 'South Africa', cap(education, 120) || 'New member',
+        cap(bio, 600) || 'New to Vuka and ready to work. Building my reputation one job at a time.',
         JSON.stringify(Array.isArray(skills) && skills.length ? skills : ['cleaning']),
         idVerified ? 1 : 0, '#0E355A', 'July 2026', 'New member, ready to work.']);
   }
@@ -118,7 +170,7 @@ app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
 
 // ---- gigs ----
 app.get('/api/gigs', asyncH(async (_req, res) => {
-  const rows = await all("SELECT * FROM gigs WHERE status = 'open' ORDER BY created_at DESC");
+  const rows = await all("SELECT * FROM gigs WHERE status = 'open' ORDER BY created_at DESC LIMIT 500");
   res.json(rows.map(gigOut));
 }));
 
@@ -184,7 +236,7 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
 
 // ---- formal jobs ----
 app.get('/api/formal-jobs', asyncH(async (_req, res) => {
-  const rows = await all('SELECT * FROM formal_jobs ORDER BY min_tier ASC');
+  const rows = await all('SELECT * FROM formal_jobs ORDER BY min_tier ASC LIMIT 200');
   res.json(rows.map(formalOut));
 }));
 
@@ -195,7 +247,7 @@ app.get('/api/me/cv', requireAuth, requireRole('worker'), asyncH(async (req, res
 
 // ---- talent (employer) ----
 app.get('/api/talent', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
-  const workers = await all("SELECT u.id, u.name, p.* FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ?", [req.user.id]);
+  const workers = await all("SELECT u.id, u.name, p.* FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ? LIMIT 500", [req.user.id]);
   const list = await Promise.all(workers.map(async (w) => {
     const { cv } = await cvFor(w.id);
     return {
@@ -392,6 +444,25 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Vuka API listening on http://localhost:${PORT} (store: ${driver})`));
+const server = app.listen(PORT, () => console.log(`Vuka API listening on http://localhost:${PORT} (store: ${driver})`));
+
+// Graceful shutdown: Render/containers send SIGTERM on deploy or scale-down.
+// Stop accepting connections, close the DB, then exit — so no request is cut
+// off mid-flight and no DB connection is leaked.
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received — shutting down gracefully…`);
+  server.close(async () => {
+    await closeDb();
+    console.log('Closed HTTP server and database. Bye.');
+    process.exit(0);
+  });
+  // Failsafe: don't hang forever if a connection won't drain.
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export { app };

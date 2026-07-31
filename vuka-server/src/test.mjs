@@ -51,6 +51,9 @@ async function run() {
   // 3) duplicate phone rejected
   ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'X', phone: '0829990001', password: 'test1234' } })).status === 409, 'duplicate phone rejected');
 
+  // 3b) weak password rejected (min 8 chars)
+  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'Weak Pass', phone: '0829990009', password: 'short' } })).status === 400, 'password under 8 chars rejected');
+
   // 4) auth guard
   ok((await api('GET', '/me/cv')).status === 401, 'cv requires auth');
 
@@ -138,6 +141,15 @@ async function run() {
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');
   ok(demo.json?.cv?.jobsDone === 2 && demo.json?.cv?.jobsToGo === 1, 'demo worker: 2 jobs, 1 to Trusted');
+
+  // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
+  // Runs last so tripping the limiter doesn't affect earlier assertions.
+  let saw429 = false;
+  for (let i = 0; i < 30; i++) {
+    const r = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'wrong-password' } });
+    if (r.status === 429) { saw429 = true; break; }
+  }
+  ok(saw429, 'auth endpoint rate-limits repeated failed logins (429)');
 
   console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

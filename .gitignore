@@ -5,6 +5,9 @@ dist/
 *.db-shm
 .env
 .env.*
+!.env.example
+!*/.env.example
 *.log
+*.docx
 .DS_Store
 Thumbs.db
