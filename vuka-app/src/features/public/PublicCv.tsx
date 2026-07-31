@@ -25,9 +25,9 @@ export function PublicCv({ id }: { id: string }) {
 
   return (
     <div className="min-h-screen bg-surface-2 text-ink">
-      <TopBar />
+      <TopBar showCta={!error} />
       <div className="max-w-[760px] mx-auto px-4 sm:px-6 py-6">
-        {error ? <Notice title="CV not found" body={error} />
+        {error ? <Notice title="This CV link isn't available" body={error} />
           : !data ? <LoadingCv />
           : <CvBody data={data} />}
       </div>
@@ -36,14 +36,14 @@ export function PublicCv({ id }: { id: string }) {
   );
 }
 
-function TopBar() {
+function TopBar({ showCta = true }: { showCta?: boolean }) {
   return (
     <header className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-line">
       <div className="max-w-[760px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 font-extrabold text-navy tracking-tight">
           <span className="w-2.5 h-2.5 rounded-full bg-red" />Vuka Uzenzele
         </a>
-        <a href="/" className="rounded-pill bg-red text-white text-[13px] font-bold px-4 py-2 hover:bg-red-hover transition active:scale-95">Create your free CV</a>
+        {showCta && <a href="/" className="rounded-pill bg-red text-white text-[13px] font-bold px-4 py-2 hover:bg-red-hover transition active:scale-95">Create your free CV</a>}
       </div>
     </header>
   );

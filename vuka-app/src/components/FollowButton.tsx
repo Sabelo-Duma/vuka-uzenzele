@@ -54,10 +54,13 @@ export function FollowButton({ userId, showFollowers = true, className = '' }: {
   );
 }
 
-/** Profile card: the accounts you follow. Hidden when you follow no one. Tap → chat. */
+/** Profile card: the accounts you follow. Compact avatar stack that scales to
+ *  any number; "See all" expands to a scrollable list. Hidden when following no one. */
 export function FollowingCard() {
   const { navigate } = useApp();
   const [list, setList] = useState<ChatUser[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const STACK = 8;
 
   useEffect(() => {
     let cancelled = false;
@@ -69,11 +72,17 @@ export function FollowingCard() {
 
   return (
     <Card className="p-4 mb-2.5">
-      <div className="text-[13px] font-bold text-navy mb-2.5">Following{list ? ` · ${list.length}` : ''}</div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[13px] font-bold text-navy">Following{list ? ` · ${list.length}` : ''}</div>
+        {list && list.length > 0 && (
+          <button onClick={() => setExpanded((v) => !v)} className="text-[12px] font-bold text-red">{expanded ? 'Show less' : 'See all'}</button>
+        )}
+      </div>
+
       {list === null ? (
-        <div className="flex flex-col gap-2">{[0, 1].map((i) => <Skeleton key={i} className="h-11 rounded-xl" />)}</div>
-      ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex -space-x-2.5">{[0, 1, 2, 3].map((i) => <span key={i} className="w-9 h-9 rounded-full border-2 border-surface"><Skeleton className="w-full h-full rounded-full" /></span>)}</div>
+      ) : expanded ? (
+        <div className="flex flex-col gap-1 max-h-72 overflow-y-auto scroll-area -mx-1 px-1">
           {list.map((u) => (
             <button key={u.id} onClick={() => navigate('chat', u.id)} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-surface-2 transition text-left">
               <Avatar initials={u.initials} color={u.color} size="sm" />
@@ -85,6 +94,18 @@ export function FollowingCard() {
             </button>
           ))}
         </div>
+      ) : (
+        <button onClick={() => setExpanded(true)} className="flex items-center gap-3 w-full text-left" aria-label={`See all ${list.length} you follow`}>
+          <div className="flex -space-x-2.5">
+            {list.slice(0, STACK).map((u) => (
+              <span key={u.id} title={u.name} className="grid place-items-center w-9 h-9 rounded-full text-white text-[12px] font-bold border-2 border-surface shadow-e1" style={{ background: u.color }}>{u.initials}</span>
+            ))}
+            {list.length > STACK && (
+              <span className="grid place-items-center w-9 h-9 rounded-full bg-surface-2 text-navy text-[11px] font-extrabold border-2 border-surface tnum">+{list.length - STACK}</span>
+            )}
+          </div>
+          {list.length <= 3 && <span className="text-[12.5px] text-muted truncate">{list.map((u) => u.name.split(' ')[0]).join(', ')}</span>}
+        </button>
       )}
     </Card>
   );

@@ -9,10 +9,12 @@ import { Icon } from '../../components/Icon';
 type OBView = 'welcome' | 'role' | 'reg' | 'login';
 interface OBData { phone: string; name: string; age: string; location: string; skills: CategoryId[]; idVerified: boolean; password: string; }
 
+// The 3-step journey (distinct from the brand panel's feature list, so the two
+// don't repeat each other on desktop).
 const SLIDES = [
-  { art: '💚', h: 'Welcome to Vuka Uzenzele', p: 'Find real work near you today — no CV, no matric, no experience needed to start.' },
-  { art: '🧾', h: 'Your work writes your CV', p: 'Every job you finish adds a verified reference to your profile — automatically.' },
-  { art: '🪜', h: 'Climb to better jobs', p: 'A strong profile unlocks formal work — cashier, security, call-centre — as you rise.' },
+  { art: '📍', h: 'Find work near you', p: 'Gigs in your area — cleaning, moving, tutoring, car washes and more. Apply in one tap, always free.' },
+  { art: '⭐', h: 'Do the job, get rated', p: 'Finish a gig and the person who hired you leaves a verified review. That reference is yours forever.' },
+  { art: '🪜', h: 'Rise to bigger jobs', p: 'Your track record lifts your tier — unlocking cashier, security & call-centre roles. No matric needed.' },
 ];
 
 const stepsFor = (role: Role): string[] =>
