@@ -23,7 +23,18 @@ const EMPLOYER_NAV: NavItem[] = [
 function activeTab(screen: Screen): Screen {
   if (screen === 'gigDetail' || screen === 'formalDetail') return 'jobs';
   if (screen === 'workerDetail') return 'talent';
+  if (screen === 'chat') return 'messages';
   return screen;
+}
+
+/** Unread-count pill for the Messages entries. */
+function UnreadBadge({ count, onDark }: { count: number; onDark?: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <span className={`grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tnum ${onDark ? 'bg-white text-red' : 'bg-red text-white'}`}>
+      {count > 99 ? '99+' : count}
+    </span>
+  );
 }
 
 function BrandMark({ compact }: { compact?: boolean }) {
@@ -92,6 +103,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             );
           })}
+          {/* Messages — available to both roles */}
+          <button
+            onClick={() => navigate('messages')}
+            aria-current={current === 'messages' ? 'page' : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-bold transition
+              ${current === 'messages' ? 'bg-red text-white' : 'text-muted hover:bg-surface-2 hover:text-navy'}`}
+          >
+            <Icon name="chat" size={20} />
+            <span>Messages</span>
+            <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
+          </button>
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -108,7 +130,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Mobile top bar */}
         <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-line bg-surface shrink-0">
           <BrandMark />
-          <ThemeToggle />
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => navigate('messages')} aria-label="Messages" className="relative grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy hover:bg-surface-2 transition active:scale-95">
+              <Icon name="chat" size={18} />
+              {state.unread > 0 && <span className="absolute -top-1 -right-1 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-red text-white text-[10px] font-bold tnum">{state.unread > 99 ? '99+' : state.unread}</span>}
+            </button>
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">

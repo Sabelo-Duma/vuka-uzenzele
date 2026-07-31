@@ -65,6 +65,10 @@ export interface AuthResult {
 export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
 export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
 export interface Invitation { id: string; message: string | null; gig: Gig; }
+export interface ChatUser { id: string; name: string; role: Role; initials: string; color: string; }
+export interface Message { id: string; senderId: string; recipientId: string; body: string; createdAt: string; read: boolean; }
+export interface Conversation { user: ChatUser; lastMessage: string; lastAt: string; lastFromMe: boolean; unread: number; }
+export interface Thread { other: ChatUser; messages: Message[]; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
   skills: CategoryId[]; idVerified: boolean; color: string; tagline: string;
@@ -109,4 +113,8 @@ export const api = {
   inviteWorker: (workerId: string, gigId: string, message?: string) => request<{ ok: boolean; already?: boolean }>('POST', `/talent/${workerId}/invite`, { gigId, message }),
   listInvitations: () => request<Invitation[]>('GET', '/me/invitations'),
   respondInvitation: (id: string, accept: boolean) => request<{ ok: boolean; accepted: boolean; gigId: string }>('POST', `/invitations/${id}/respond`, { accept }),
+  unreadCount: () => request<{ count: number }>('GET', '/messages/unread-count'),
+  listConversations: () => request<Conversation[]>('GET', '/messages/conversations'),
+  getThread: (userId: string) => request<Thread>('GET', `/messages/thread/${userId}`),
+  sendMessage: (toUserId: string, body: string) => request<Message>('POST', '/messages', { toUserId, body }),
 };

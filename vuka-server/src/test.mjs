@@ -108,6 +108,20 @@ async function run() {
   ok((await api('GET', '/me/applications', { token: wTok })).json?.some((a) => a.gigId === postedId), 'accepting the invite filed an application');
   ok((await api('GET', '/me/invitations', { token: wTok })).json?.length === 0, 'accepted invitation is no longer pending');
 
+  // 9c) chat: employer and worker message each other
+  const eId = eReg.json.user.id;
+  const send1 = await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'Hi, are you free Saturday?' } });
+  ok(send1.status === 201 && send1.json?.id, 'employer sends a message');
+  ok((await api('POST', '/messages', { token: eTok, body: { toUserId: eId, body: 'x' } })).status === 400, 'cannot message yourself');
+  const unread = await api('GET', '/messages/unread-count', { token: wTok });
+  ok(unread.json?.count === 1, 'worker has 1 unread, got ' + unread.json?.count);
+  const thread = await api('GET', `/messages/thread/${eId}`, { token: wTok });
+  ok(thread.json?.messages?.length === 1 && thread.json?.other?.id === eId, 'worker reads the thread');
+  ok((await api('GET', '/messages/unread-count', { token: wTok })).json?.count === 0, 'reading the thread clears unread');
+  await api('POST', '/messages', { token: wTok, body: { toUserId: eId, body: 'Yes, morning works.' } });
+  const convos = await api('GET', '/messages/conversations', { token: eTok });
+  ok(convos.json?.length === 1 && convos.json[0]?.user?.id === wId && convos.json[0]?.unread === 1, 'employer sees the conversation with 1 unread reply');
+
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');

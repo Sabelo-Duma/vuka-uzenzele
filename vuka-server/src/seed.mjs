@@ -52,7 +52,7 @@ async function genHistory(workerId, n, fours, cats) {
 
 export async function seed() {
   await initDb();
-  for (const t of ['invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
+  for (const t of ['messages', 'invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
     await run(`DELETE FROM ${t}`);
   }
 
@@ -83,6 +83,10 @@ export async function seed() {
   // A pending job invitation for the demo worker (so the hiring loop is visible in the demo)
   await run('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)',
     [uuid(), 'j5', DEMO_EMP_ID, DEMO_WORKER_ID, 'Hi Thandeka — your cleaning reviews are excellent. Would you take this regular salon gig?', 'pending', NOW]);
+
+  // A welcome chat message from the demo employer (so the inbox is populated in the demo)
+  await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at, read_at) VALUES (?,?,?,?,?,?)',
+    [uuid(), DEMO_EMP_ID, DEMO_WORKER_ID, 'Hi Thandeka 👋 Saw your cleaning reviews — are you free Tuesday mornings for the salon?', NOW, null]);
 
   return {
     users: Number((await get('SELECT COUNT(*) AS c FROM users')).c),

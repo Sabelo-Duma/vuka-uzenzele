@@ -73,6 +73,7 @@ export interface Gig {
   title: string;
   category: CategoryId;
   employer: string;
+  employerId?: string;
   employerInitials: string;
   employerRating: number;
   location: string;

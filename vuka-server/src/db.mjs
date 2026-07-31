@@ -152,10 +152,21 @@ export async function initDb() {
       UNIQUE(gig_id, worker_id)
     );
 
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      read_at TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
     CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);
+    CREATE INDEX IF NOT EXISTS idx_msg_recipient ON messages(recipient_id);
+    CREATE INDEX IF NOT EXISTS idx_msg_pair ON messages(sender_id, recipient_id);
   `);
   initialised = true;
 }

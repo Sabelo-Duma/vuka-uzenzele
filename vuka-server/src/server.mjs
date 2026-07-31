@@ -42,11 +42,12 @@ function historyOut(h) {
 function gigOut(g) {
   return {
     id: g.id, title: g.title, category: g.category, employer: g.employer_name,
-    employerInitials: g.employer_initials, employerRating: g.employer_rating,
+    employerId: g.employer_id, employerInitials: g.employer_initials, employerRating: g.employer_rating,
     location: g.location, distanceKm: g.distance_km, hours: g.hours, payPerHour: g.pay_per_hour,
     when: g.when_text, description: g.description, urgent: !!g.urgent, status: g.status,
   };
 }
+const msgOut = (m) => ({ id: m.id, senderId: m.sender_id, recipientId: m.recipient_id, body: m.body, createdAt: m.created_at, read: !!m.read_at });
 function formalOut(f) {
   return {
     id: f.id, title: f.title, category: f.category, employer: f.employer, employerInitials: f.employer_initials,
@@ -266,6 +267,65 @@ app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asy
     }
   }
   res.json({ ok: true, accepted: accept, gigId: inv.gig_id });
+}));
+
+// ---- chat / direct messages ----
+const chatUser = async (u) => {
+  const prof = await get('SELECT color FROM worker_profiles WHERE user_id = ?', [u.id]);
+  return { id: u.id, name: u.name, role: u.role, initials: initialsOf(u.name), color: prof?.color || '#0E355A' };
+};
+
+// Unread message count (for the nav badge).
+app.get('/api/messages/unread-count', requireAuth, asyncH(async (req, res) => {
+  const r = await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id]);
+  res.json({ count: Number(r.c) });
+}));
+
+// Inbox: one entry per conversation partner, newest first.
+app.get('/api/messages/conversations', requireAuth, asyncH(async (req, res) => {
+  const rows = await all('SELECT * FROM messages WHERE sender_id = ? OR recipient_id = ? ORDER BY created_at ASC', [req.user.id, req.user.id]);
+  const byOther = new Map();
+  for (const m of rows) {
+    const otherId = m.sender_id === req.user.id ? m.recipient_id : m.sender_id;
+    let c = byOther.get(otherId);
+    if (!c) { c = { otherId, last: null, unread: 0 }; byOther.set(otherId, c); }
+    c.last = m; // rows are ascending, so the final assignment is the newest
+    if (m.recipient_id === req.user.id && !m.read_at) c.unread++;
+  }
+  const convos = [];
+  for (const c of byOther.values()) {
+    const u = await get('SELECT id, name, role FROM users WHERE id = ?', [c.otherId]);
+    if (!u) continue;
+    convos.push({ user: await chatUser(u), lastMessage: c.last.body, lastAt: c.last.created_at, lastFromMe: c.last.sender_id === req.user.id, unread: c.unread });
+  }
+  convos.sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1));
+  res.json(convos);
+}));
+
+// Full thread with one user (and mark their messages to me as read).
+app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => {
+  const u = await get('SELECT id, name, role FROM users WHERE id = ?', [req.params.userId]);
+  if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  const rows = await all(
+    'SELECT * FROM messages WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?) ORDER BY created_at ASC',
+    [req.user.id, u.id, u.id, req.user.id]
+  );
+  await run('UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL', [new Date().toISOString(), req.user.id, u.id]);
+  res.json({ other: await chatUser(u), messages: rows.map(msgOut) });
+}));
+
+// Send a message.
+app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
+  const { toUserId, body } = req.body || {};
+  const text = (body || '').toString().trim();
+  if (!text) return res.status(400).json({ error: 'Type a message first.' });
+  if (toUserId === req.user.id) return res.status(400).json({ error: "You can't message yourself." });
+  const other = await get('SELECT id FROM users WHERE id = ?', [toUserId]);
+  if (!other) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  const id = uuid();
+  await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
+    [id, req.user.id, toUserId, text.slice(0, 2000), new Date().toISOString()]);
+  res.status(201).json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [id])));
 }));
 
 // ---- public CV (shareable, no auth) ----

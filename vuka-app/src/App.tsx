@@ -14,6 +14,7 @@ import { Talent } from './features/employer/Talent';
 import { WorkerDetail } from './features/employer/WorkerDetail';
 import { PostJob } from './features/employer/PostJob';
 import { EmployerProfile } from './features/employer/EmployerProfile';
+import { Messages, ChatThread } from './features/chat/Chat';
 import { PublicCv } from './features/public/PublicCv';
 
 /** Public share route: /cv/:id renders a read-only CV without auth. */
@@ -47,7 +48,11 @@ export function App() {
   const screen = state.nav.screen;
 
   let content: React.ReactNode;
-  if (state.role === 'worker') {
+  if (screen === 'messages') {
+    content = <Messages />;
+  } else if (screen === 'chat') {
+    content = <ChatThread id={id} />;
+  } else if (state.role === 'worker') {
     switch (screen) {
       case 'jobs': content = <JobsFeed />; break;
       case 'cv': content = <CvLadder />; break;

@@ -63,7 +63,10 @@ export function WorkerDetail({ id }: { id: string }) {
       </Card>
 
       <StickyCta>
-        <Button block variant="navy" icon="briefcase" onClick={() => setShowInvite(true)}>Invite {w.name.split(' ')[0]} to a job</Button>
+        <div className="grid grid-cols-[1fr_auto] gap-2.5">
+          <Button variant="navy" icon="briefcase" onClick={() => setShowInvite(true)}>Invite {w.name.split(' ')[0]} to a job</Button>
+          <Button variant="ghost" icon="chat" onClick={() => navigate('chat', w.id)}>Message</Button>
+        </div>
       </StickyCta>
 
       {showInvite && <InviteSheet workerId={w.id} workerName={w.name} onClose={() => setShowInvite(false)} />}

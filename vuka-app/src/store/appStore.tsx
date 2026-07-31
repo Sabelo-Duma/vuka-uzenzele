@@ -2,13 +2,14 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type CreateGigInput, type Invitation, type RegisterInput } from '../lib/api';
+import { api, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type Conversation, type CreateGigInput, type Invitation, type Message, type RegisterInput, type Thread } from '../lib/api';
 import { computeCv } from '../lib/engine';
 
 export type Screen =
   | 'home' | 'jobs' | 'cv' | 'me'
   | 'talent' | 'post'
-  | 'gigDetail' | 'formalDetail' | 'workerDetail';
+  | 'gigDetail' | 'formalDetail' | 'workerDetail'
+  | 'messages' | 'chat';
 
 export interface Nav { screen: Screen; id?: string; }
 
@@ -25,6 +26,7 @@ export interface AppState {
   appliedGigIds: string[];
   talent: TalentWorker[];
   invitations: Invitation[]; // pending job invitations for the signed-in worker
+  unread: number;            // unread direct-message count (nav badge)
   feed: 'gigs' | 'formal';
   nav: Nav;
   toast: { msg: string; n: number } | null;
@@ -64,6 +66,7 @@ type Action =
   | { type: 'APPLIED'; ids: string[] }
   | { type: 'TALENT'; talent: TalentWorker[] }
   | { type: 'INVITATIONS'; invitations: Invitation[] }
+  | { type: 'UNREAD'; count: number }
   | { type: 'REMOVE_GIG'; id: string }
   | { type: 'LOGOUT' }
   | { type: 'NAVIGATE'; nav: Nav }
@@ -74,7 +77,7 @@ type Action =
 function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
-    gigs: [], formalJobs: [], appliedGigIds: [], talent: [], invitations: [],
+    gigs: [], formalJobs: [], appliedGigIds: [], talent: [], invitations: [], unread: 0,
     feed: 'gigs', nav: { screen: 'home' }, toast: null, error: null,
   };
 }
@@ -90,6 +93,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'APPLIED': return { ...state, appliedGigIds: action.ids };
     case 'TALENT': return { ...state, talent: action.talent };
     case 'INVITATIONS': return { ...state, invitations: action.invitations };
+    case 'UNREAD': return { ...state, unread: action.count };
     case 'REMOVE_GIG': return { ...state, gigs: state.gigs.filter((g) => g.id !== action.id), appliedGigIds: state.appliedGigIds.filter((id) => id !== action.id) };
     case 'LOGOUT': return { ...init(), status: 'anon' };
     case 'NAVIGATE': return { ...state, nav: action.nav };
@@ -116,6 +120,10 @@ interface Store {
   listMyGigs: () => Promise<Gig[]>;
   inviteWorker: (workerId: string, gigId: string, message?: string) => Promise<{ ok: boolean; already?: boolean }>;
   respondInvitation: (id: string, accept: boolean) => Promise<{ accepted: boolean; gigId: string }>;
+  refreshUnread: () => Promise<void>;
+  loadConversations: () => Promise<Conversation[]>;
+  loadThread: (userId: string) => Promise<Thread>;
+  sendMessage: (toUserId: string, body: string) => Promise<Message>;
 }
 
 const AppContext = createContext<Store | undefined>(undefined);
@@ -172,6 +180,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
     return () => { cancelled = true; };
   }, [establish]);
+
+  // Keep the unread-message badge fresh while signed in (light polling).
+  useEffect(() => {
+    if (state.status !== 'authed') return;
+    let cancelled = false;
+    const tick = async () => {
+      try { const { count } = await api.unreadCount(); if (!cancelled) dispatch({ type: 'UNREAD', count }); } catch { /* offline */ }
+    };
+    tick();
+    const iv = setInterval(tick, 20000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [state.status]);
 
   const register = useCallback(async (input: RegisterInput) => {
     const res = await api.register(input);
@@ -231,13 +251,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { accepted: res.accepted, gigId: res.gigId };
   }, []);
 
+  const refreshUnread = useCallback(async () => {
+    try { const { count } = await api.unreadCount(); dispatch({ type: 'UNREAD', count }); } catch { /* offline — keep last */ }
+  }, []);
+
+  const loadConversations = useCallback(() => api.listConversations(), []);
+
+  const loadThread = useCallback(async (userId: string) => {
+    const thread = await api.getThread(userId); // server marks incoming as read
+    refreshUnread();
+    return thread;
+  }, [refreshUnread]);
+
+  const sendMessage = useCallback((toUserId: string, body: string) => api.sendMessage(toUserId, body), []);
+
   const value = useMemo<Store>(() => ({
     state,
     navigate: (screen, id) => dispatch({ type: 'NAVIGATE', nav: { screen, id } }),
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
     register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
-  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation]);
+    refreshUnread, loadConversations, loadThread, sendMessage,
+  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, refreshUnread, loadConversations, loadThread, sendMessage]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
