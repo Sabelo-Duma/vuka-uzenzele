@@ -5,17 +5,10 @@ import { useTheme } from '../../providers/ThemeProvider';
 import type { CategoryId, Role } from '../../types';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { Landing } from './Landing';
 
-type OBView = 'welcome' | 'role' | 'reg' | 'login';
+type OBView = 'landing' | 'role' | 'reg' | 'login';
 interface OBData { phone: string; name: string; age: string; location: string; skills: CategoryId[]; idVerified: boolean; password: string; }
-
-// The 3-step journey (distinct from the brand panel's feature list, so the two
-// don't repeat each other on desktop).
-const SLIDES = [
-  { art: '📍', h: 'Find work near you', p: 'Gigs in your area — cleaning, moving, tutoring, car washes and more. Apply in one tap, always free.' },
-  { art: '⭐', h: 'Do the job, get rated', p: 'Finish a gig and the person who hired you leaves a verified review. That reference is yours forever.' },
-  { art: '🪜', h: 'Rise to bigger jobs', p: 'Your track record lifts your tier — unlocking cashier, security & call-centre roles. No matric needed.' },
-];
 
 const stepsFor = (role: Role): string[] =>
   role === 'worker'
@@ -25,8 +18,7 @@ const stepsFor = (role: Role): string[] =>
 export function Onboarding() {
   const { register, login, demoLogin, toast } = useApp();
 
-  const [view, setView] = useState<OBView>('welcome');
-  const [slide, setSlide] = useState(0);
+  const [view, setView] = useState<OBView>('landing');
   const [role, setRole] = useState<Role>('worker');
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -47,6 +39,10 @@ export function Onboarding() {
   const next = () => { if (validate()) setStep((s) => s + 1); };
   const back = () => { if (step > 0) setStep((s) => s - 1); else setView('role'); };
 
+  if (view === 'landing') {
+    return <Landing onGetStarted={() => setView('role')} onLogin={() => setView('login')} />;
+  }
+
   const finish = async () => {
     setBusy(true);
     try {
@@ -60,9 +56,8 @@ export function Onboarding() {
 
   return (
     <AuthLayout>
-      {view === 'welcome' && <Welcome slide={slide} onNext={() => (slide < SLIDES.length - 1 ? setSlide(slide + 1) : setView('role'))} onLogin={() => setView('login')} />}
-      {view === 'role' && <RoleChoose onPick={(r) => { setRole(r); setStep(0); setView('reg'); }} onLogin={() => setView('login')} />}
-      {view === 'login' && <LoginView busy={busy} onBack={() => setView('welcome')}
+      {view === 'role' && <RoleChoose onBack={() => setView('landing')} onPick={(r) => { setRole(r); setStep(0); setView('reg'); }} onLogin={() => setView('login')} />}
+      {view === 'login' && <LoginView busy={busy} onBack={() => setView('landing')}
         onLogin={async (phone, password) => { setBusy(true); try { await login(phone, password); } catch (e) { toast((e as Error).message); setBusy(false); } }}
         onDemo={async (r) => { setBusy(true); try { await demoLogin(r); } catch (e) { toast((e as Error).message); setBusy(false); } }} />}
       {view === 'reg' && key !== 'done' && <RegStep stepKey={key} steps={steps} step={step} data={data} setData={setData} onBack={back} onNext={next} />}
@@ -128,32 +123,11 @@ function AuthLayout({ children }: { children: ReactNode }) {
   );
 }
 
-/* ---------------- Welcome ---------------- */
-function Welcome({ slide, onNext, onLogin }: { slide: number; onNext: () => void; onLogin: () => void }) {
-  const s = SLIDES[slide];
-  const last = slide === SLIDES.length - 1;
-  return (
-    <div className="text-center">
-      <div className="floaty w-[156px] h-[156px] mx-auto rounded-[40px] grid place-items-center text-[74px] shadow-e2 border border-white/10 relative overflow-hidden"
-        style={{ background: 'radial-gradient(120% 120% at 30% 20%, #1c4f80 0%, #0E355A 55%, #0D182B 100%)' }} aria-hidden="true">
-        <span className="absolute -right-6 -top-6 w-24 h-24 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.35), transparent 70%)' }} />
-        <span className="relative">{s.art}</span>
-      </div>
-      <h2 className="text-[27px] font-extrabold text-navy mt-7 mb-2 leading-tight tracking-tight">{s.h}<span className="text-red">.</span></h2>
-      <p className="text-[14.5px] text-muted leading-relaxed">{s.p}</p>
-      <div className="flex justify-center gap-2 mt-6 mb-8">
-        {SLIDES.map((_, i) => <span key={i} className={`h-2 rounded-full transition-all ${i === slide ? 'w-6 bg-red' : 'w-2 bg-line-strong'}`} />)}
-      </div>
-      <Button block onClick={onNext}>{last ? 'Get started' : 'Next'}</Button>
-      <button onClick={onLogin} className="mt-4 text-[13px] text-muted font-semibold hover:text-navy">Already have an account? <b className="text-red">Log in</b></button>
-    </div>
-  );
-}
-
 /* ---------------- Role choose ---------------- */
-function RoleChoose({ onPick, onLogin }: { onPick: (r: Role) => void; onLogin: () => void }) {
+function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; onLogin: () => void; onBack: () => void }) {
   return (
     <div>
+      <BackRow onBack={onBack} />
       <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
       <p className="text-[13.5px] text-muted mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
