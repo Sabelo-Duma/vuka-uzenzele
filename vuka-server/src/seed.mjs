@@ -52,7 +52,7 @@ async function genHistory(workerId, n, fours, cats) {
 
 export async function seed() {
   await initDb();
-  for (const t of ['messages', 'invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
+  for (const t of ['follows', 'messages', 'invitations', 'history', 'applications', 'gigs', 'formal_jobs', 'worker_profiles', 'users']) {
     await run(`DELETE FROM ${t}`);
   }
 
@@ -73,12 +73,21 @@ export async function seed() {
     await run(INS_GIG, [g.id, DEMO_EMP_ID, g.title, g.category, g.name, g.ei, g.rating, g.location, g.dist, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW]);
   }
 
+  const talentIds = [];
   for (const t of TALENT) {
     const id = uuid();
+    talentIds.push(id);
     await run(INS_USER, [id, 'worker', t.phone, hashPassword('demo1234'), t.name, NOW]);
     await run(INS_PROFILE, [id, t.age, t.location, 'No matric', t.tagline, JSON.stringify(t.skills), t.verified, t.color, 'Feb 2026', t.tagline]);
     await genHistory(id, t.jobs, t.fours, t.skills);
   }
+
+  // Seed a small follow graph so counts look alive:
+  // the demo employer + all talent follow the demo worker; she follows the employer back.
+  const INS_FOLLOW = 'INSERT INTO follows (follower_id, followee_id, created_at) VALUES (?,?,?)';
+  await run(INS_FOLLOW, [DEMO_EMP_ID, DEMO_WORKER_ID, NOW]);
+  await run(INS_FOLLOW, [DEMO_WORKER_ID, DEMO_EMP_ID, NOW]);
+  for (const id of talentIds) await run(INS_FOLLOW, [id, DEMO_WORKER_ID, NOW]);
 
   // A pending job invitation for the demo worker (so the hiring loop is visible in the demo)
   await run('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)',

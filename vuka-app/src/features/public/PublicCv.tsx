@@ -78,6 +78,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
             <Badge>{tier.icon} {cv.tier.name} tier</Badge>
             <Badge>Reputation {cv.rep}/100</Badge>
             {profile?.idVerified && <Badge tone="verified"><Icon name="shield" size={12} /> Identity verified</Badge>}
+            {typeof data.followers === 'number' && data.followers > 0 && <Badge>{data.followers} follower{data.followers === 1 ? '' : 's'}</Badge>}
           </div>
         </div>
         <div className="p-4 flex items-center gap-4">

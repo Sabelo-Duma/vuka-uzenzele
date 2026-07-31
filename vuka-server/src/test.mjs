@@ -122,6 +122,18 @@ async function run() {
   const convos = await api('GET', '/messages/conversations', { token: eTok });
   ok(convos.json?.length === 1 && convos.json[0]?.user?.id === wId && convos.json[0]?.unread === 1, 'employer sees the conversation with 1 unread reply');
 
+  // 9d) follow graph
+  const soc0 = await api('GET', `/users/${wId}/social`, { token: eTok });
+  ok(soc0.json?.isFollowing === false, 'employer not yet following the worker');
+  const foll = await api('POST', `/users/${wId}/follow`, { token: eTok });
+  ok(foll.json?.isFollowing === true && foll.json?.followers >= 1, 'employer follows the worker');
+  ok((await api('GET', `/users/${wId}/social`, { token: eTok })).json?.isFollowing === true, 'follow state persists');
+  ok((await api('POST', `/users/${eId}/follow`, { token: eTok })).status === 400, 'cannot follow yourself');
+  const mine = await api('GET', '/me/following', { token: eTok });
+  ok(mine.json?.some((u) => u.id === wId), 'worker appears in employer\'s following list');
+  const unf = await api('DELETE', `/users/${wId}/follow`, { token: eTok });
+  ok(unf.json?.isFollowing === false, 'employer unfollows the worker');
+
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');

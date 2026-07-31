@@ -63,12 +63,13 @@ export interface AuthResult {
   cv?: ServerCv; history?: HistoryEntry[]; profile?: ApiProfile | null;
 }
 export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
-export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; }
+export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; followers?: number; }
 export interface Invitation { id: string; message: string | null; gig: Gig; }
 export interface ChatUser { id: string; name: string; role: Role; initials: string; color: string; }
 export interface Message { id: string; senderId: string; recipientId: string; body: string; createdAt: string; read: boolean; }
 export interface Conversation { user: ChatUser; lastMessage: string; lastAt: string; lastFromMe: boolean; unread: number; }
 export interface Thread { other: ChatUser; messages: Message[]; }
+export interface Social { followers: number; following: number; isFollowing: boolean; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
   skills: CategoryId[]; idVerified: boolean; color: string; tagline: string;
@@ -117,4 +118,9 @@ export const api = {
   listConversations: () => request<Conversation[]>('GET', '/messages/conversations'),
   getThread: (userId: string) => request<Thread>('GET', `/messages/thread/${userId}`),
   sendMessage: (toUserId: string, body: string) => request<Message>('POST', '/messages', { toUserId, body }),
+  getSocial: (userId: string) => request<Social>('GET', `/users/${userId}/social`),
+  follow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('POST', `/users/${userId}/follow`),
+  unfollow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('DELETE', `/users/${userId}/follow`),
+  listFollowing: () => request<ChatUser[]>('GET', '/me/following'),
+  mySocial: () => request<{ followers: number; following: number }>('GET', '/me/social'),
 };

@@ -5,6 +5,7 @@ import { useApp } from '../../store/appStore';
 import type { Gig } from '../../types';
 import { Avatar, Button, Card, EmptyState, Sheet } from '../../components/ui';
 import { DetailHeader, Hero, PayBox, StickyCta } from '../../components/bits';
+import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 
 export function WorkerDetail({ id }: { id: string }) {
@@ -39,6 +40,7 @@ export function WorkerDetail({ id }: { id: string }) {
         ]} />
       </Hero>
 
+      <div className="pt-4"><FollowButton userId={w.id} /></div>
       <div className="py-4"><p className="text-ink leading-relaxed text-sm m-0">{w.tagline}</p></div>
 
       <Card className="p-4 mb-4">

@@ -161,12 +161,20 @@ export async function initDb() {
       read_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS follows (
+      follower_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      followee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (follower_id, followee_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
     CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);
     CREATE INDEX IF NOT EXISTS idx_msg_recipient ON messages(recipient_id);
     CREATE INDEX IF NOT EXISTS idx_msg_pair ON messages(sender_id, recipient_id);
+    CREATE INDEX IF NOT EXISTS idx_follow_followee ON follows(followee_id);
   `);
   initialised = true;
 }

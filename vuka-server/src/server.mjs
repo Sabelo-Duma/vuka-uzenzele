@@ -328,12 +328,48 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
   res.status(201).json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [id])));
 }));
 
+// ---- follow / social graph ----
+const followerCount = async (id) => Number((await get('SELECT COUNT(*) AS c FROM follows WHERE followee_id = ?', [id])).c);
+const followingCount = async (id) => Number((await get('SELECT COUNT(*) AS c FROM follows WHERE follower_id = ?', [id])).c);
+const amFollowing = async (a, b) => !!(await get('SELECT 1 AS x FROM follows WHERE follower_id = ? AND followee_id = ?', [a, b]));
+
+app.get('/api/me/social', requireAuth, asyncH(async (req, res) => {
+  res.json({ followers: await followerCount(req.user.id), following: await followingCount(req.user.id) });
+}));
+
+app.get('/api/me/following', requireAuth, asyncH(async (req, res) => {
+  const rows = await all('SELECT u.id, u.name, u.role FROM follows f JOIN users u ON u.id = f.followee_id WHERE f.follower_id = ? ORDER BY f.created_at DESC', [req.user.id]);
+  res.json(await Promise.all(rows.map((u) => chatUser(u))));
+}));
+
+app.get('/api/users/:id/social', requireAuth, asyncH(async (req, res) => {
+  const u = await userById(req.params.id);
+  if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  res.json({ followers: await followerCount(u.id), following: await followingCount(u.id), isFollowing: await amFollowing(req.user.id, u.id) });
+}));
+
+app.post('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
+  const target = req.params.id;
+  if (target === req.user.id) return res.status(400).json({ error: "You can't follow yourself." });
+  const u = await userById(target);
+  if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  if (!(await amFollowing(req.user.id, target))) {
+    await run('INSERT INTO follows (follower_id, followee_id, created_at) VALUES (?,?,?)', [req.user.id, target, new Date().toISOString()]);
+  }
+  res.json({ ok: true, isFollowing: true, followers: await followerCount(target) });
+}));
+
+app.delete('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
+  await run('DELETE FROM follows WHERE follower_id = ? AND followee_id = ?', [req.user.id, req.params.id]);
+  res.json({ ok: true, isFollowing: false, followers: await followerCount(req.params.id) });
+}));
+
 // ---- public CV (shareable, no auth) ----
 app.get('/api/public/cv/:id', asyncH(async (req, res) => {
   const u = await userById(req.params.id);
   if (!u || u.role !== 'worker') return res.status(404).json({ error: 'This CV is not available. The link may be old or incorrect.' });
   const { cv, history, profile } = await cvFor(u.id);
-  res.json({ name: u.name, cv, history, profile });
+  res.json({ name: u.name, cv, history, profile, followers: await followerCount(u.id) });
 }));
 
 // ---- unknown API routes ----

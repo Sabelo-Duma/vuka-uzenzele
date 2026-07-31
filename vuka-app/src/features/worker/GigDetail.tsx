@@ -4,6 +4,7 @@ import { money, stars } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card } from '../../components/ui';
 import { DetailHeader, FairMeter, Hero, KV, PayBox, StickyCta } from '../../components/bits';
+import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { EmptyState } from '../../components/ui';
 import { ReviewSheet } from './ReviewSheet';
@@ -52,7 +53,12 @@ export function GigDetail({ id }: { id: string }) {
         <KV k="Posted by"><Avatar initials={gig.employerInitials} color={c.color} size="sm" /> {gig.employer}</KV>
         <KV k="Employer rating"><span className="text-[var(--gj-warning-fill,#FFB236)]" style={{ color: '#F59E0B' }}>{stars(gig.employerRating)}</span> {gig.employerRating.toFixed(1)}</KV>
         <KV k="Safety"><span className="text-info flex items-center gap-1.5"><Icon name="shield" size={14} /> ID-verified employer</span></KV>
-        {gig.employerId && <Button variant="ghost" icon="chat" block className="mt-3" onClick={() => navigate('chat', gig.employerId!)}>Message {gig.employer.split(' ')[0]}</Button>}
+        {gig.employerId && (
+          <div className="mt-3.5 flex flex-col gap-2.5">
+            <FollowButton userId={gig.employerId} />
+            <Button variant="ghost" icon="chat" block onClick={() => navigate('chat', gig.employerId!)}>Message {gig.employer.split(' ')[0]}</Button>
+          </div>
+        )}
       </Card>
 
       <StickyCta>

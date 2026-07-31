@@ -3,6 +3,7 @@ import { useApp } from '../../store/appStore';
 import { Avatar, Card, Chip, TierBadge } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
+import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 
 export function WorkerProfile() {
@@ -40,6 +41,8 @@ export function WorkerProfile() {
       </Card>
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
+
+      <FollowingCard />
 
       {rows.map((r) => (
         <button key={r.title} onClick={r.go} className="w-full text-left mb-2.5 active:scale-[.99] transition">
