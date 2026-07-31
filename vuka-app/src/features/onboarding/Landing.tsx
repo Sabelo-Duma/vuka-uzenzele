@@ -51,33 +51,37 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             <p className="ob-rise-3 text-[12.5px] text-subtle mt-4">Zero-rated · browsing &amp; applying costs no data.</p>
           </div>
 
-          {/* Hero visual — a floating preview built from the app's own cards */}
-          <div className="relative hidden sm:block" aria-hidden="true">
+          {/* Hero visual — a preview built from the app's own cards */}
+          <div className="relative hidden sm:block pb-16 pr-4" aria-hidden="true">
             <div className="absolute inset-0 -m-8 rounded-[40px]" style={{ background: 'radial-gradient(70% 70% at 70% 30%, rgba(242,0,35,.12), transparent 70%)' }} />
-            <div className="relative rounded-[28px] p-6 text-white overflow-hidden shadow-e3" style={{ background: 'linear-gradient(155deg,#0D182B,#0E355A 60%,#123e69)' }}>
+            <div className="relative rounded-[28px] p-6 pb-7 text-white overflow-hidden shadow-e3" style={{ background: 'linear-gradient(155deg,#0D182B,#0E355A 60%,#123e69)' }}>
               <span className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.35), transparent 70%)' }} />
               <div className="relative">
                 <div className="text-[11px] font-bold uppercase tracking-widest text-white/60">Your reputation</div>
                 <div className="flex items-center gap-4 mt-3">
-                  <div className="grid place-items-center w-20 h-20 rounded-full border-4 border-white/15" style={{ background: 'conic-gradient(#18ce0f 0 69%, rgba(255,255,255,.12) 69% 100%)' }}>
-                    <div className="grid place-items-center w-14 h-14 rounded-full bg-navy-deep text-xl font-extrabold tnum">69</div>
+                  <div className="grid place-items-center w-20 h-20 rounded-full shrink-0" style={{ background: 'conic-gradient(#18ce0f 0 69%, rgba(255,255,255,.14) 69% 100%)' }}>
+                    <div className="grid place-items-center w-[62px] h-[62px] rounded-full bg-navy-deep text-xl font-extrabold tnum">69</div>
                   </div>
                   <div>
                     <div className="text-lg font-extrabold">Trusted 🥈</div>
                     <div className="text-[12.5px] text-white/70">2 jobs · 4.5★ · R370 earned</div>
                   </div>
                 </div>
+                <div className="mt-5">
+                  <div className="flex justify-between text-[11px] text-white/70 mb-1.5"><span>1 more job to Professional</span><span aria-hidden="true">🥇</span></div>
+                  <div className="h-2 rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-red" style={{ width: '64%' }} /></div>
+                </div>
               </div>
             </div>
-            {/* floating gig card */}
-            <div className="floaty absolute -bottom-6 -left-6 w-[230px] rounded-2xl bg-surface border border-line shadow-e3 p-3.5">
+            {/* floating gig card — overlaps only the bottom-right corner */}
+            <div className="floaty absolute right-0 -bottom-2 w-[214px] rounded-2xl bg-surface border border-line shadow-e3 p-3.5">
               <div className="flex items-center gap-2.5">
-                <span className="grid place-items-center w-10 h-10 rounded-xl text-lg" style={{ background: '#F2002322', color: '#F20023' }}>🚗</span>
-                <div className="min-w-0">
+                <span className="grid place-items-center w-10 h-10 rounded-xl text-lg shrink-0" style={{ background: '#F2002322', color: '#F20023' }}>🚗</span>
+                <div className="min-w-0 flex-1">
                   <b className="text-[13px] text-navy block leading-tight">Wash 2 cars</b>
                   <span className="text-[11px] text-muted">Diepkloof · 1.2 km</span>
                 </div>
-                <b className="ml-auto text-[15px] font-extrabold text-navy tnum">R100</b>
+                <b className="text-[15px] font-extrabold text-navy tnum">R100</b>
               </div>
               <div className="flex gap-1.5 mt-2.5">
                 <span className="text-[10px] font-bold rounded-pill px-2 py-0.5 bg-[#fdecef] text-red">Urgent</span>
