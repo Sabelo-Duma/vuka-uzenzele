@@ -76,6 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = state.role === 'worker' ? WORKER_NAV : EMPLOYER_NAV;
   const current = activeTab(state.nav.screen);
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
+  // Mobile bottom nav: the tab the ＋ button already opens is redundant, so
+  // swap it for Chats. (Worker: Jobs→＋, so Jobs becomes Chats. Employer: Post→＋.)
+  const CHAT_TAB: NavItem = { screen: 'messages', label: 'Chats', icon: 'chat' };
+  const mobileTabs = nav.map((it) => (it.screen === fabTarget ? CHAT_TAB : it));
 
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-surface-2 text-ink">
@@ -130,13 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Mobile top bar */}
         <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-line bg-surface shrink-0">
           <BrandMark />
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => navigate('messages')} aria-label="Messages" className="relative grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy hover:bg-surface-2 transition active:scale-95">
-              <Icon name="chat" size={18} />
-              {state.unread > 0 && <span className="absolute -top-1 -right-1 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-red text-white text-[10px] font-bold tnum">{state.unread > 99 ? '99+' : state.unread}</span>}
-            </button>
-            <ThemeToggle />
-          </div>
+          <ThemeToggle />
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">
@@ -145,8 +143,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav className="lg:hidden flex items-stretch border-t border-line bg-surface px-1.5 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 shrink-0" aria-label="Primary">
-          {nav.slice(0, 2).map((item) => (
-            <TabButton key={item.screen} item={item} active={current === item.screen} onClick={() => navigate(item.screen)} />
+          {mobileTabs.slice(0, 2).map((item) => (
+            <TabButton key={item.screen} item={item} active={current === item.screen} badge={item.screen === 'messages' ? state.unread : 0} onClick={() => navigate(item.screen)} />
           ))}
           <button
             onClick={() => navigate(fabTarget)}
@@ -157,8 +155,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Icon name="plus" size={26} />
             </span>
           </button>
-          {nav.slice(2).map((item) => (
-            <TabButton key={item.screen} item={item} active={current === item.screen} onClick={() => navigate(item.screen)} />
+          {mobileTabs.slice(2).map((item) => (
+            <TabButton key={item.screen} item={item} active={current === item.screen} badge={item.screen === 'messages' ? state.unread : 0} onClick={() => navigate(item.screen)} />
           ))}
         </nav>
       </div>
@@ -167,7 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function TabButton({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
+function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active: boolean; onClick: () => void; badge?: number }) {
   return (
     <button
       onClick={onClick}
@@ -175,7 +173,14 @@ function TabButton({ item, active, onClick }: { item: NavItem; active: boolean; 
       className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[10.5px] font-bold transition
         ${active ? 'text-red' : 'text-subtle'}`}
     >
-      <Icon name={item.icon} size={23} />
+      <span className="relative">
+        <Icon name={item.icon} size={23} />
+        {badge > 0 && (
+          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[10px] font-bold tnum">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </span>
       {item.label}
     </button>
   );
