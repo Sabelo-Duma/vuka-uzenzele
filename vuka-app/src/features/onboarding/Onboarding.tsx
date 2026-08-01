@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon';
 import { Landing } from './Landing';
 
 type OBView = 'landing' | 'role' | 'reg' | 'login';
-interface OBData { phone: string; name: string; age: string; location: string; skills: CategoryId[]; idVerified: boolean; password: string; }
+interface OBData { phone: string; otp: string; name: string; age: string; location: string; skills: CategoryId[]; idVerified: boolean; password: string; }
 
 const stepsFor = (role: Role): string[] =>
   role === 'worker'
@@ -22,17 +22,18 @@ export function Onboarding() {
   const [role, setRole] = useState<Role>('worker');
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [data, setData] = useState<OBData>({ phone: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], idVerified: false, password: '' });
+  const [data, setData] = useState<OBData>({ phone: '', otp: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], idVerified: false, password: '' });
 
   const steps = stepsFor(role);
   const key = steps[step];
 
   const validate = (): boolean => {
     if (key === 'phone' && data.phone.replace(/\D/g, '').length < 9) { toast('Enter a valid mobile number 📱'); return false; }
+    if (key === 'otp' && data.otp.replace(/\D/g, '').length < 4) { toast('Enter the 4-digit code 🔢'); return false; }
     if (key === 'about' && !data.name.trim()) { toast('Please enter your name ✍️'); return false; }
     if (key === 'skills' && data.skills.length === 0) { toast('Pick at least one skill 🎯'); return false; }
     if (key === 'org' && !data.name.trim()) { toast('Enter your name or business ✍️'); return false; }
-    if (key === 'password' && data.password.length < 4) { toast('Choose a password of at least 4 characters 🔒'); return false; }
+    if (key === 'password' && data.password.length < 8) { toast('Choose a password of at least 8 characters 🔒'); return false; }
     return true;
   };
 
@@ -183,7 +184,7 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext }: {
       <BackRow onBack={onBack} />
       <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-red' : 'bg-line-strong'}`} />)}</div>
       {stepKey === 'phone' && <PhoneStep data={data} setData={setData} />}
-      {stepKey === 'otp' && <OtpStep phone={data.phone} />}
+      {stepKey === 'otp' && <OtpStep phone={data.phone} data={data} setData={setData} />}
       {stepKey === 'about' && <AboutStep data={data} setData={setData} />}
       {stepKey === 'skills' && <SkillsStep data={data} setData={setData} />}
       {stepKey === 'password' && <PasswordStep data={data} setData={setData} />}
@@ -212,15 +213,25 @@ function PhoneStep({ data, setData }: { data: OBData; setData: React.Dispatch<Re
     <div><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} aria-label="Mobile number" /></div>
     <Trust>Sending the code is <b>zero-rated</b> — it costs you no airtime or data.</Trust></>);
 }
-function OtpStep({ phone }: { phone: string }) {
+function OtpStep({ phone, data, setData }: { phone: string; data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
+  const { toast } = useApp();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const setDigit = (i: number, v: string) => {
+    const d = v.replace(/\D/g, '').slice(-1);
+    const arr = [0, 1, 2, 3].map((j) => data.otp[j] ?? '');
+    arr[i] = d;
+    setData({ ...data, otp: arr.join('') });
+    if (d && i < 3) refs.current[i + 1]?.focus();
+  };
   return (<><Head h="Enter your code<span class='text-red'>.</span>" sub={`We sent a 4-digit code to ${phone || 'your phone'}.`} />
     <div className="flex gap-3 justify-center">
       {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={`Digit ${i + 1}`} placeholder="•"
+        value={data.otp[i] ?? ''}
         className="w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] border-line-strong rounded-2xl bg-surface focus:outline-none focus:border-navy"
-        onChange={(e) => { if (e.target.value && i < 3) refs.current[i + 1]?.focus(); }} />))}
+        onChange={(e) => setDigit(i, e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
-    <p className="text-center text-[12.5px] text-muted mt-4">Didn't get it? <b className="text-navy">Resend</b> · Demo code: <b className="text-navy">1 2 3 4</b></p></>);
+    <p className="text-center text-[12.5px] text-muted mt-4">Didn't get it? <button type="button" onClick={() => toast('New code sent 📱 (demo code: 1 2 3 4)')} className="text-navy font-bold underline underline-offset-2 hover:text-red transition">Resend</button> · Demo code: <b className="text-navy">1 2 3 4</b></p></>);
 }
 function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   return (<><Head h="Tell us about you<span class='text-red'>.</span>" sub="This starts your profile. Keep it simple and honest." />
@@ -243,7 +254,7 @@ function SkillsStep({ data, setData }: { data: OBData; setData: React.Dispatch<R
 }
 function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   return (<><Head h="Create a password<span class='text-red'>.</span>" sub="You'll use your mobile number and this password to sign in next time." />
-    <div><Label>Password</Label><input className={inputCls} type="password" placeholder="At least 4 characters" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} aria-label="Password" /></div>
+    <div><Label>Password</Label><input className={inputCls} type="password" placeholder="At least 8 characters" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} aria-label="Password" /></div>
     <Trust>Your password is stored securely (hashed) — never in plain text.</Trust></>);
 }
 function IdStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {

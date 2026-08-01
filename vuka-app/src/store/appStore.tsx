@@ -28,6 +28,7 @@ export interface AppState {
   invitations: Invitation[]; // pending job invitations for the signed-in worker
   unread: number;            // unread direct-message count (nav badge)
   feed: 'gigs' | 'formal';
+  categoryFilter: string | null; // active category filter on the jobs feed (null = All)
   nav: Nav;
   toast: { msg: string; n: number } | null;
   error: string | null;
@@ -71,6 +72,7 @@ type Action =
   | { type: 'LOGOUT' }
   | { type: 'NAVIGATE'; nav: Nav }
   | { type: 'SET_FEED'; feed: 'gigs' | 'formal' }
+  | { type: 'SET_CATEGORY'; category: string | null }
   | { type: 'TOAST'; msg: string }
   | { type: 'ERROR'; error: string | null };
 
@@ -78,7 +80,7 @@ function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
     gigs: [], formalJobs: [], appliedGigIds: [], talent: [], invitations: [], unread: 0,
-    feed: 'gigs', nav: { screen: 'home' }, toast: null, error: null,
+    feed: 'gigs', categoryFilter: null, nav: { screen: 'home' }, toast: null, error: null,
   };
 }
 
@@ -98,6 +100,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'LOGOUT': return { ...init(), status: 'anon' };
     case 'NAVIGATE': return { ...state, nav: action.nav };
     case 'SET_FEED': return { ...state, feed: action.feed };
+    case 'SET_CATEGORY': return { ...state, categoryFilter: action.category };
     case 'TOAST': return { ...state, toast: { msg: action.msg, n: (state.toast?.n ?? 0) + 1 } };
     case 'ERROR': return { ...state, error: action.error };
     default: return state;
@@ -108,6 +111,7 @@ interface Store {
   state: AppState;
   navigate: (screen: Screen, id?: string) => void;
   setFeed: (feed: 'gigs' | 'formal') => void;
+  setCategory: (category: string | null) => void;
   toast: (msg: string) => void;
   register: (input: RegisterInput) => Promise<void>;
   login: (phone: string, password: string) => Promise<void>;
@@ -269,6 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     navigate: (screen, id) => dispatch({ type: 'NAVIGATE', nav: { screen, id } }),
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
+    setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
     register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
     refreshUnread, loadConversations, loadThread, sendMessage,

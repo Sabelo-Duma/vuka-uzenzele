@@ -6,12 +6,23 @@ import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 
 export function EmployerProfile() {
-  const { state, toast } = useApp();
+  const { state, toast, navigate, listMyGigs } = useApp();
+
+  const showMyJobs = async () => {
+    try {
+      const gigs = await listMyGigs();
+      if (gigs.length === 0) { toast('No open jobs yet — post one to start hiring 🧾'); navigate('post'); }
+      else toast(`You have ${gigs.length} open job${gigs.length !== 1 ? 's' : ''} posted right now 🧾`);
+    } catch {
+      toast('Could not load your jobs — check your connection and try again.');
+    }
+  };
+
   const rows = [
-    { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => toast('Business verification coming soon 🪪') },
-    { ic: '⭐', title: 'Your employer rating', sub: '5.0 — workers rate you too', go: () => toast('Your employer rating is 5.0 ⭐ — workers rate you too') },
-    { ic: '🧾', title: 'Past jobs & payments', sub: 'View history', go: () => toast('Job & payment history coming soon 🧾') },
-    { ic: '🛡️', title: 'Safety centre', sub: 'Report a concern', go: () => toast('Safety centre — report a concern any time 🛡️') },
+    { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => toast('Business verification opens at pilot launch — it adds a verified badge to your posts 🪪') },
+    { ic: '⭐', title: 'Your employer rating', sub: '5.0 — workers rate you too', go: () => toast('Your employer rating is 5.0 ⭐ — workers rate you after each job') },
+    { ic: '🧾', title: 'My posted jobs', sub: 'See your open jobs', go: showMyJobs },
+    { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => toast('Only ID-verified workers, two-way ratings, and fair-pay checks. In-app report & block are coming for the pilot. 🛡️') },
   ];
   return (
     <>

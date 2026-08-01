@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
+import { isFormalApplied, markFormalApplied } from '../../lib/appliedFormal';
 import { useApp } from '../../store/appStore';
 import { Button, Card, EmptyState } from '../../components/ui';
 import { DetailHeader, Hero, KV, PayBox, PerkList, StickyCta } from '../../components/bits';
@@ -8,6 +10,13 @@ import { Icon } from '../../components/Icon';
 export function FormalDetail({ id }: { id: string }) {
   const { state, toast, navigate, setFeed } = useApp();
   const job = state.formalJobs.find((f) => f.id === id);
+  const [applied, setApplied] = useState(() => isFormalApplied(id));
+
+  const apply = () => {
+    markFormalApplied(id);
+    setApplied(true);
+    toast(`Applied ✓ — your verified CV is saved for ${job?.title ?? 'this role'}`);
+  };
 
   if (!job) {
     return (
@@ -71,8 +80,14 @@ export function FormalDetail({ id }: { id: string }) {
       <StickyCta>
         {unlocked ? (
           <>
-            <Button block variant="navy" onClick={() => toast(`Application sent to ${job.employer} with your verified CV 📄`)}>Apply with my verified CV</Button>
-            <p className="text-center text-[12px] text-muted mt-2">Your Vuka CV, references and tier are sent as your application — no paperwork.</p>
+            <Button block variant="navy" disabled={applied} onClick={apply}>
+              {applied ? '✓ Applied' : 'Apply with my verified CV'}
+            </Button>
+            <p className="text-center text-[12px] text-muted mt-2">
+              {applied
+                ? <>Your verified CV is saved for this role. We'll notify you when {job.employer} shortlists.</>
+                : <>Your Vuka CV, references and tier are sent as your application — no paperwork.</>}
+            </p>
           </>
         ) : (
           <Button block icon="ladder" onClick={() => navigate('cv')}>See how to unlock this</Button>

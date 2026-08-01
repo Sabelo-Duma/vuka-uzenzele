@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/figtree'; // bundled, self-hosted brand font (offline-friendly)
+import './lib/pwaInstall'; // capture the PWA install prompt ASAP (before React mounts)
 import './index.css';
 import { App } from './App';
 import { ThemeProvider } from './providers/ThemeProvider';

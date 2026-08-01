@@ -12,7 +12,7 @@ import { TrustStrip } from '../../components/bits';
 import { ReputationPanel } from './ReputationPanel';
 
 export function WorkerHome() {
-  const { state, navigate, setFeed, toast } = useApp();
+  const { state, navigate, setFeed, setCategory } = useApp();
   const cv = computeCv(state.worker);
   const featured = state.gigs.slice(0, 3);
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
@@ -65,14 +65,14 @@ export function WorkerHome() {
       <SectionTitle>What are you good at</SectionTitle>
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5">
         {CATEGORIES.map((c) => (
-          <button key={c.id} onClick={() => { setFeed('gigs'); navigate('jobs'); toast(`Showing ${c.label} gigs`); }} className="flex flex-col items-center gap-1.5 shrink-0">
+          <button key={c.id} onClick={() => { setCategory(c.id); setFeed('gigs'); navigate('jobs'); }} className="flex flex-col items-center gap-1.5 shrink-0">
             <span className="grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface border border-line shadow-e1 text-2xl" style={{ color: c.color }} aria-hidden="true">{c.icon}</span>
             <span className="text-[11px] font-semibold text-muted">{c.label}</span>
           </button>
         ))}
       </div>
 
-      <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
+      <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
       {state.dataLoading && state.gigs.length === 0
         ? <CardSkeletonGrid count={2} />
         : featured.length > 0
@@ -81,7 +81,7 @@ export function WorkerHome() {
 
       {teaser && (
         <>
-          <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
+          <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
         </>
       )}

@@ -48,7 +48,7 @@ export function FollowButton({ userId, showFollowers = true, className = '' }: {
         {following ? <><Icon name="check" size={15} /> Following</> : <><Icon name="plus" size={15} /> Follow</>}
       </button>
       {showFollowers && state && (
-        <span className="text-[13px] text-muted"><b className="text-navy tnum">{state.followers}</b> follower{state.followers === 1 ? '' : 's'}</span>
+        <span className="text-[13px] text-muted"><b className="text-navy tnum">{state.followers.toLocaleString()}</b> follower{state.followers === 1 ? '' : 's'}</span>
       )}
     </div>
   );
@@ -73,7 +73,7 @@ export function FollowingCard() {
   return (
     <Card className="p-4 mb-2.5">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[13px] font-bold text-navy">Following{list ? ` · ${list.length}` : ''}</div>
+        <div className="text-[13px] font-bold text-navy">Following{list ? ` · ${list.length.toLocaleString()}` : ''}</div>
         {list && list.length > 0 && (
           <button onClick={() => setExpanded((v) => !v)} className="text-[12px] font-bold text-red">{expanded ? 'Show less' : 'See all'}</button>
         )}
@@ -101,7 +101,7 @@ export function FollowingCard() {
               <span key={u.id} title={u.name} className="grid place-items-center w-9 h-9 rounded-full text-white text-[12px] font-bold border-2 border-surface shadow-e1" style={{ background: u.color }}>{u.initials}</span>
             ))}
             {list.length > STACK && (
-              <span className="grid place-items-center w-9 h-9 rounded-full bg-surface-2 text-navy text-[11px] font-extrabold border-2 border-surface tnum">+{list.length - STACK}</span>
+              <span className="grid place-items-center min-w-[2.25rem] h-9 px-1.5 rounded-full bg-surface-2 text-navy text-[11px] font-extrabold border-2 border-surface tnum">+{(list.length - STACK).toLocaleString()}</span>
             )}
           </div>
           {list.length <= 3 && <span className="text-[12.5px] text-muted truncate">{list.map((u) => u.name.split(' ')[0]).join(', ')}</span>}

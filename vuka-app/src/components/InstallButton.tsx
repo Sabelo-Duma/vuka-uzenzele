@@ -1,20 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
-
-/** The (non-standard) beforeinstallprompt event, typed minimally. */
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    // iOS Safari
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
+import { getInstallPrompt, isInstalled, onInstallChange, promptInstall } from '../lib/pwaInstall';
 
 /** Platform-specific manual-install hint, used when the native prompt is unavailable. */
 function manualHint(): string {
@@ -22,40 +8,24 @@ function manualHint(): string {
   const ua = navigator.userAgent;
   if (/iPhone|iPad|iPod/.test(ua)) return 'Tap the Share button, then “Add to Home Screen”.';
   if (/Android/.test(ua)) return 'Open the browser menu (⋮), then “Install app” / “Add to Home screen”.';
-  // Desktop Chrome/Edge
   if (/Edg\//.test(ua)) return 'Click the install icon in the address bar, or menu (…) → Apps → “Install this site as an app”.';
   return 'Click the install icon in the address bar, or the browser menu → “Install app”.';
 }
 
 /**
  * "Install app" button for the PWA.
- * - Uses the browser's native install prompt when it fires (`beforeinstallprompt`).
- * - Otherwise still shows the button and, on click, reveals how to install
+ * - Uses the browser's native install prompt (captured early in lib/pwaInstall).
+ * - If the browser hasn't offered one, the button reveals how to install
  *   manually for the current browser — so the option is always discoverable.
  * - Renders nothing once the app is already installed (running standalone).
  */
 export function InstallButton({ className = '' }: { className?: string }) {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(isStandalone);
+  // Re-render whenever install state changes (prompt captured, or app installed).
+  const [, force] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => {
-      setDeferred(null);
-      setInstalled(true);
-    };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  }, []);
+  useEffect(() => onInstallChange(() => force((n) => n + 1)), []);
 
   // Close the hint when clicking outside.
   useEffect(() => {
@@ -67,13 +37,12 @@ export function InstallButton({ className = '' }: { className?: string }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showHint]);
 
-  if (installed) return null;
+  if (isInstalled()) return null;
 
   const onClick = async () => {
-    if (deferred) {
-      await deferred.prompt();
-      const choice = await deferred.userChoice;
-      if (choice.outcome === 'accepted') setDeferred(null);
+    if (getInstallPrompt()) {
+      const accepted = await promptInstall();
+      if (accepted) setShowHint(false);
       return;
     }
     // No native prompt available — reveal manual instructions.
