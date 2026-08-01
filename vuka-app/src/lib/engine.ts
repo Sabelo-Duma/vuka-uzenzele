@@ -1,8 +1,5 @@
 import { BADGES, TIERS } from '../data/catalog';
-import { FORMAL_JOBS } from '../data/seed';
-import type { CvSnapshot, FormalJob, Tier, TierId, WorkerProfile } from '../types';
-
-export const ALL_FORMAL: FormalJob[] = FORMAL_JOBS;
+import type { CvSnapshot, Tier, WorkerProfile } from '../types';
 
 /** Highest tier whose thresholds are all satisfied. */
 export function tierFor(jobsDone: number, avg: number, flags: number): Tier {
@@ -57,11 +54,6 @@ export function computeCv(worker: WorkerProfile): CvSnapshot {
     jobsDone, avg, totalEarned, flags, categoriesWorked,
     rep, earnedBadges, tier, nextTier, tierProgress, jobsToGo, ratingMet, flagBlocked,
   };
-}
-
-/** How many formal jobs are open at a given tier. */
-export function unlockedFormalCount(tierId: TierId): number {
-  return ALL_FORMAL.filter((f) => f.minTier <= tierId).length;
 }
 
 /** Auto-generated employer review text keyed by star rating. */

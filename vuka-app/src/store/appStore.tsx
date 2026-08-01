@@ -2,7 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type Conversation, type CreateGigInput, type Invitation, type Message, type RegisterInput, type Thread } from '../lib/api';
+import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type Conversation, type CreateGigInput, type Invitation, type Message, type RegisterInput, type Thread } from '../lib/api';
 import { computeCv } from '../lib/engine';
 
 export type Screen =
@@ -128,6 +128,8 @@ interface Store {
   loadConversations: () => Promise<Conversation[]>;
   loadThread: (userId: string) => Promise<Thread>;
   sendMessage: (toUserId: string, body: string) => Promise<Message>;
+  reloadData: () => Promise<void>;
+  clearError: () => void;
 }
 
 const AppContext = createContext<Store | undefined>(undefined);
@@ -156,17 +158,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'FORMAL', formalJobs });
   }, []);
 
-  const establish = useCallback(async (result: AuthResult) => {
-    const user = result.user;
-    const worker = user.role === 'worker' ? buildWorker(user.name, result.profile, result.history) : blankWorker();
-    dispatch({ type: 'SESSION', user, worker });
+  // Load the signed-in user's data. A failure here is a DATA problem (flaky
+  // network, a single 500) — NOT an auth problem — so we surface a retryable
+  // error and never throw, so callers can't mistake it for a bad session.
+  const loadFor = useCallback(async (role: Role) => {
+    dispatch({ type: 'DATA_LOADING', loading: true });
     try {
-      if (user.role === 'worker') await loadWorkerData();
+      if (role === 'worker') await loadWorkerData();
       else await loadEmployerData();
+      dispatch({ type: 'ERROR', error: null });
+    } catch {
+      dispatch({ type: 'ERROR', error: "We couldn't load your latest data. Check your connection and retry." });
     } finally {
       dispatch({ type: 'DATA_LOADING', loading: false });
     }
   }, [loadWorkerData, loadEmployerData]);
+
+  const establish = useCallback(async (result: AuthResult) => {
+    const user = result.user;
+    const worker = user.role === 'worker' ? buildWorker(user.name, result.profile, result.history) : blankWorker();
+    dispatch({ type: 'SESSION', user, worker });
+    await loadFor(user.role);
+  }, [loadFor]);
+
+  /** Retry loading data after a failure (used by the error banner). */
+  const reloadData = useCallback(() => loadFor(stateRef.current.role), [loadFor]);
 
   // Boot: resume a saved session if a token exists.
   useEffect(() => {
@@ -177,9 +193,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const me = await api.me();
         if (cancelled) return;
         await establish(me);
-      } catch {
-        setToken(null);
-        if (!cancelled) dispatch({ type: 'STATUS', status: 'anon' });
+      } catch (e) {
+        if (cancelled) return;
+        // Only a real auth failure (401) ends the session. A network error must
+        // NOT delete the token — the user stays logged in and retries on reconnect.
+        if (e instanceof ApiError && e.status === 401) setToken(null);
+        dispatch({ type: 'STATUS', status: 'anon' });
       }
     })();
     return () => { cancelled = true; };
@@ -191,6 +210,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const tick = async () => {
       try { const { count } = await api.unreadCount(); if (!cancelled) dispatch({ type: 'UNREAD', count }); } catch { /* offline */ }
+      // Keep a worker's pending invitations fresh without a full reload.
+      if (stateRef.current.role === 'worker') {
+        try { const invitations = await api.listInvitations(); if (!cancelled) dispatch({ type: 'INVITATIONS', invitations }); } catch { /* offline */ }
+      }
     };
     tick();
     const iv = setInterval(tick, 20000);
@@ -276,8 +299,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
     register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
-    refreshUnread, loadConversations, loadThread, sendMessage,
-  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, refreshUnread, loadConversations, loadThread, sendMessage]);
+    refreshUnread, loadConversations, loadThread, sendMessage, reloadData,
+    clearError: () => dispatch({ type: 'ERROR', error: null }),
+  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

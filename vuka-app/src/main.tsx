@@ -4,6 +4,7 @@ import '@fontsource-variable/figtree'; // bundled, self-hosted brand font (offli
 import './lib/pwaInstall'; // capture the PWA install prompt ASAP (before React mounts)
 import './index.css';
 import { App } from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { AppProvider } from './store/appStore';
 
@@ -14,7 +15,9 @@ createRoot(rootEl).render(
   <StrictMode>
     <ThemeProvider>
       <AppProvider>
-        <App />
+        <ErrorBoundary onReset={() => window.location.reload()}>
+          <App />
+        </ErrorBoundary>
       </AppProvider>
     </ThemeProvider>
   </StrictMode>,

@@ -83,18 +83,24 @@ export function ChatThread({ id }: { id: string }) {
   const [notFound, setNotFound] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const lastCount = useRef(0);
+  const loadedRef = useRef(false);
 
   // Load + poll the thread.
   useEffect(() => {
     let cancelled = false;
+    loadedRef.current = false;
     const load = async () => {
       try {
         const t = await loadThread(id);
         if (cancelled) return;
+        loadedRef.current = true;
         setOther(t.other);
         setMessages(t.messages);
+        setNotFound(false);
       } catch {
-        if (!cancelled) setNotFound(true);
+        // Only "not found" if we never loaded it. A failed poll AFTER a good
+        // load is transient (server blip / offline) — keep the thread on screen.
+        if (!cancelled && !loadedRef.current) setNotFound(true);
       }
     };
     load();

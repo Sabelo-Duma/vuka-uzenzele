@@ -65,7 +65,7 @@ export function GigDetail({ id }: { id: string }) {
         {applied ? (
           <>
             <Button block variant="gold" onClick={() => setReviewing(true)}>✅ Mark gig as complete</Button>
-            <p className="text-center text-[12px] text-muted mt-2">You applied! In the real app the employer confirms — for the demo, tap above to finish and watch your CV + tier update.</p>
+            <p className="text-center text-[12px] text-muted mt-2">You applied! 🎉 Once the work is done, mark it complete to rate the employer — that updates your CV and tier.</p>
           </>
         ) : (
           <Button block disabled={applying} onClick={async () => {

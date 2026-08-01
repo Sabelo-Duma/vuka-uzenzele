@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BADGES } from '../../data/catalog';
-import { unlockedFormalCount } from '../../lib/engine';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Gig } from '../../types';
@@ -25,7 +24,9 @@ interface Outcome {
 }
 
 export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void }) {
-  const { completeGig, setFeed, navigate, toast } = useApp();
+  const { completeGig, setFeed, navigate, toast, state } = useApp();
+  // Count from the LIVE formal jobs (from the API), not a client-side mock.
+  const unlockedAt = (tierId: number) => state.formalJobs.filter((f) => f.minTier <= tierId).length;
   const [phase, setPhase] = useState<'review' | 'celebrate'>('review');
   const [rating, setRating] = useState(5);
   const [flag, setFlag] = useState(false);
@@ -56,7 +57,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
         ring: after.tier.ring,
         nextLabel: after.nextTier ? `${after.jobsToGo > 0 ? `${after.jobsToGo} job${after.jobsToGo > 1 ? 's' : ''}` : 'rating'} to ${after.nextTier.name}` : 'top tier reached',
         newBadges,
-        newlyUnlocked: tieredUp ? unlockedFormalCount(after.tier.id) - unlockedFormalCount(before.tier.id) : 0,
+        newlyUnlocked: tieredUp ? unlockedAt(after.tier.id) - unlockedAt(before.tier.id) : 0,
         flagged: flag,
       });
       setPhase('celebrate');
