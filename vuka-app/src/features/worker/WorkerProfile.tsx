@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { computeCv } from '../../lib/engine';
 import { getPref, setPref } from '../../lib/prefs';
+import { bankingSummary } from '../../lib/banking';
 import { useApp } from '../../store/appStore';
 import { Avatar, Card, Chip, TierBadge } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
+import { BankingSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
+
+type SheetKey = 'banking' | 'identity' | 'safety' | 'language';
 
 export function WorkerProfile() {
   const { state, navigate, toast } = useApp();
@@ -16,6 +20,9 @@ export function WorkerProfile() {
 
   const [jobAlerts, setJobAlerts] = useState(() => getPref('jobAlerts', true));
   const [dataSaver, setDataSaver] = useState(() => getPref('dataSaver', true));
+  const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const [, bump] = useState(0);
+  const closeSheet = () => { setSheet(null); bump((n) => n + 1); };
 
   const toggle = (key: string, on: boolean, set: (v: boolean) => void, onMsg: string, offMsg: string) => {
     const next = !on;
@@ -23,6 +30,8 @@ export function WorkerProfile() {
     setPref(key, next);
     toast(next ? onMsg : offMsg);
   };
+
+  const bank = bankingSummary();
 
   type Row =
     | { kind: 'link'; ic: string; title: string; sub: string; go: () => void }
@@ -34,10 +43,10 @@ export function WorkerProfile() {
       act: () => toggle('jobAlerts', jobAlerts, setJobAlerts, 'Job alerts on 🔔 — we\'ll ping you about new gigs nearby', 'Job alerts off') },
     { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — zero-rated, lighter images' : 'Off — full-quality images', on: dataSaver,
       act: () => toggle('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
-    { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet', go: () => toast(w.idVerified ? 'Your identity is verified with your SA ID ✅' : 'ID verification opens at pilot launch — you\'ll verify with your SA ID') },
-    { kind: 'link', ic: '💳', title: 'Get paid', sub: 'Instant EFT / cash on completion', go: () => toast('Each job is paid on completion — EFT or cash, agreed with the employer 💳') },
-    { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps you safe', go: () => toast('Only ID-verified users, ratings after every job, and fair-pay checks. In-app report & block are coming for the pilot. 🛡️') },
-    { kind: 'link', ic: '🌍', title: 'Language', sub: 'English (more coming)', go: () => toast('isiZulu, Sesotho & Afrikaans are on the way 🌍') },
+    { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
+    { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
+    { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
+    { kind: 'link', ic: '🌍', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
   ];
 
   return (
@@ -75,6 +84,11 @@ export function WorkerProfile() {
       ))}
 
       <div className="mt-4"><AccountBar /></div>
+
+      {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
+      {sheet === 'identity' && <IdentitySheet verified={w.idVerified} onClose={closeSheet} />}
+      {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
+      {sheet === 'language' && <LanguageSheet onClose={closeSheet} />}
     </>
   );
 }

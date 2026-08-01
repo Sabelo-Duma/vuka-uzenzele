@@ -1,12 +1,22 @@
+import { useState } from 'react';
+import { bankingSummary } from '../../lib/banking';
 import { useApp } from '../../store/appStore';
 import { Avatar, Card } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
+import { BankingSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
+
+type SheetKey = 'banking' | 'identity' | 'safety';
 
 export function EmployerProfile() {
   const { state, toast, navigate, listMyGigs } = useApp();
+  const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const [, bump] = useState(0);
+  const closeSheet = () => { setSheet(null); bump((n) => n + 1); };
+
+  const bank = bankingSummary();
 
   const showMyJobs = async () => {
     try {
@@ -19,11 +29,13 @@ export function EmployerProfile() {
   };
 
   const rows = [
-    { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => toast('Business verification opens at pilot launch — it adds a verified badge to your posts 🪪') },
-    { ic: '⭐', title: 'Your employer rating', sub: '5.0 — workers rate you too', go: () => toast('Your employer rating is 5.0 ⭐ — workers rate you after each job') },
+    { ic: '💳', title: 'Banking details', sub: bank ? `${bank} · tap to edit` : 'Add your payment details', go: () => setSheet('banking') },
+    { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => setSheet('identity') },
     { ic: '🧾', title: 'My posted jobs', sub: 'See your open jobs', go: showMyJobs },
-    { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => toast('Only ID-verified workers, two-way ratings, and fair-pay checks. In-app report & block are coming for the pilot. 🛡️') },
+    { ic: '⭐', title: 'Your employer rating', sub: '5.0 — workers rate you too', go: () => toast('Your employer rating is 5.0 ⭐ — workers rate you after each job') },
+    { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
   ];
+
   return (
     <>
       <header className="mb-3">
@@ -53,6 +65,10 @@ export function EmployerProfile() {
 
       <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">Two-way reviews keep everyone accountable — workers rate employers too.</p>
       <div className="mt-2"><AccountBar /></div>
+
+      {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
+      {sheet === 'identity' && <IdentitySheet verified={false} onClose={closeSheet} />}
+      {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
     </>
   );
 }
