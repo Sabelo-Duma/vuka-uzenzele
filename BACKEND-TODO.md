@@ -3,14 +3,23 @@
 Everything the frontend was waiting on has been built. What remains needs a
 **paid provider, a person, or an ops decision** — not more code.
 
-## 1. Config the pilot cannot launch without
+## 1. Production config
 
-| Variable | Why it blocks | Without it |
+Checked against the live service on 2026-08-18 (`GET /api/health` → `store: "pg"`):
+
+| Variable | Status | Why it matters |
 |---|---|---|
-| `DATABASE_URL` | Supabase Postgres. Dual-driver code is in place; this is config only. | Ephemeral SQLite — real sign-ups vanish on every deploy |
-| `VUKA_SMS_PROVIDER` (+ credentials) | Sign-up requires an SMS code | **Nobody can register.** Set `VUKA_OTP_ECHO=1` for a closed pilot only (insecure: codes come back in the API response) |
-| `VUKA_ENCRYPTION_KEY` | Encrypts payout details + ID numbers | Those endpoints return 503 in production (the rest of the API is unaffected) |
-| `VUKA_JWT_SECRET` | Session signing | Server refuses to start ✅ |
+| `DATABASE_URL` | ✅ **already set** — the live service runs on Postgres, so real sign-ups persist across deploys | Without it: ephemeral SQLite, data lost every deploy |
+| `VUKA_JWT_SECRET` | ✅ set (server refuses to boot without it in production) | Session signing |
+| `VUKA_SMS_PROVIDER` | ❌ **not set** | Sign-up needs an SMS code, so **new registrations return 503**. Existing accounts and the demo logins keep working. `VUKA_OTP_ECHO=1` unblocks it for a closed pilot only — insecure, codes come back in the API response |
+| `VUKA_ENCRYPTION_KEY` | ❌ not set (now in `render.yaml` with `generateValue: true`, so a blueprint sync provisions it) | Payout details + ID numbers. Without it, only those endpoints 503 |
+| `VUKA_ADMIN_TOKEN` | ❌ not set | Enables the KYC review routes. Blank = they don't exist |
+
+> **Note on the first deploy of this work:** schema migrations are additive
+> (`ALTER TABLE … ADD COLUMN`, guarded by a column check) and were verified
+> against a pre-existing SQLite database. The Postgres path is the same code but
+> has not been exercised against a live Supabase instance — worth watching the
+> deploy log the first time.
 
 ## 2. Needs a provider or a person
 

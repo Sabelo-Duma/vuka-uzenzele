@@ -292,10 +292,19 @@ export async function initDb() {
   initialised = true;
 }
 
-/** Does a column already exist? (Both drivers, no error-swallowing.) */
+/**
+ * Does a column already exist? (Both drivers, no error-swallowing.)
+ *
+ * The Postgres lookup is scoped to the connection's own schema: an unrelated
+ * table of the same name in another schema must not make us skip a migration
+ * and then fail every query against the missing column.
+ */
 async function columnExists(table, column) {
   if (driver === 'pg') {
-    const r = await get('SELECT 1 AS x FROM information_schema.columns WHERE table_name = ? AND column_name = ?', [table, column]);
+    const r = await get(
+      'SELECT 1 AS x FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?',
+      [table, column]
+    );
     return !!r;
   }
   const rows = await all(`PRAGMA table_info(${table})`);
