@@ -1,66 +1,29 @@
+/**
+ * The worker's half of finishing a job: say it's done and rate the employer.
+ *
+ * It does NOT claim the CV has been updated, because it hasn't — the employer
+ * has to confirm the work first. Pretending otherwise is exactly the kind of
+ * thing that makes a reference worthless. The celebration lives in
+ * CelebrationSheet and fires when the confirmation lands.
+ */
 import { useState } from 'react';
-import { BADGES } from '../../data/catalog';
-import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Gig } from '../../types';
-import { Button, Card, Ring, Sheet, useCountUp } from '../../components/ui';
-import { Confetti } from '../../components/Confetti';
-
-interface Outcome {
-  tieredUp: boolean;
-  newTierName: string;
-  newTierIcon: string;
-  newTierUnlocks: string;
-  rep: number;
-  beforeRep: number;
-  jobsDone: number;
-  avg: number;
-  totalEarned: number;
-  ring: [string, string];
-  nextLabel: string;
-  newBadges: { icon: string; label: string }[];
-  newlyUnlocked: number;
-  flagged: boolean;
-}
+import { Button, Sheet } from '../../components/ui';
+import { Icon } from '../../components/Icon';
 
 export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void }) {
-  const { completeGig, setFeed, navigate, toast, state } = useApp();
-  // Count from the LIVE formal jobs (from the API), not a client-side mock.
-  const unlockedAt = (tierId: number) => state.formalJobs.filter((f) => f.minTier <= tierId).length;
-  const [phase, setPhase] = useState<'review' | 'celebrate'>('review');
+  const { completeGig, navigate, toast } = useApp();
+  const [phase, setPhase] = useState<'review' | 'sent'>('review');
   const [rating, setRating] = useState(5);
   const [flag, setFlag] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   const submit = async () => {
     setBusy(true);
     try {
-      const { before, after } = await completeGig(gig.id, rating, flag);
-      const tieredUp = after.tier.id > before.tier.id;
-      const newBadges = [...after.earnedBadges]
-        .filter((b) => !before.earnedBadges.has(b))
-        .map((id) => BADGES.find((b) => b.id === id))
-        .filter((b): b is (typeof BADGES)[number] => Boolean(b))
-        .map((b) => ({ icon: b.icon, label: b.label }));
-
-      setOutcome({
-        tieredUp,
-        newTierName: after.tier.name,
-        newTierIcon: after.tier.icon,
-        newTierUnlocks: after.tier.unlocks,
-        rep: after.rep,
-        beforeRep: before.rep,
-        jobsDone: after.jobsDone,
-        avg: after.avg,
-        totalEarned: after.totalEarned,
-        ring: after.tier.ring,
-        nextLabel: after.nextTier ? `${after.jobsToGo > 0 ? `${after.jobsToGo} job${after.jobsToGo > 1 ? 's' : ''}` : 'rating'} to ${after.nextTier.name}` : 'top tier reached',
-        newBadges,
-        newlyUnlocked: tieredUp ? unlockedAt(after.tier.id) - unlockedAt(before.tier.id) : 0,
-        flagged: flag,
-      });
-      setPhase('celebrate');
+      await completeGig(gig.id, rating, flag);
+      setPhase('sent');
     } catch (e) {
       toast((e as Error).message);
       setBusy(false);
@@ -69,93 +32,64 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
 
   if (phase === 'review') {
     return (
-      <Sheet title="Rate the job" onClose={onClose}>
-        <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How was the gig?</h3>
+      <Sheet title="Mark the job done" onClose={onClose}>
+        <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How was the job?</h3>
         <p className="text-muted text-[13.5px] leading-relaxed mb-4">
-          Rate <b>{gig.employer}</b> for “{gig.title}”. They rate you too — that's what builds your CV and lifts your tier.
+          Rate <b>{gig.employer}</b> for “{gig.title}”. Your rating is part of their public employer score.
         </p>
         <RatingInput value={rating} onChange={setRating} />
         <label className="flex gap-2.5 items-start bg-[#fff7ed] dark:bg-warning/10 border border-[#fed7aa] dark:border-warning/30 rounded-2xl p-3 my-4 cursor-pointer">
           <input type="checkbox" checked={flag} onChange={(e) => setFlag(e.target.checked)} className="w-5 h-5 mt-0.5 shrink-0 accent-[var(--gj-danger)]" />
-          <span className="text-[12.5px] text-[#9a3412] dark:text-warning leading-snug"><b>I felt unsafe or something went wrong.</b> Flagging alerts our Safety team and is kept confidential. Your safety comes first.</span>
+          <span className="text-[12.5px] text-[#9a3412] dark:text-warning leading-snug"><b>I felt unsafe or something went wrong.</b> Flagging opens a report with our Safety team and is kept confidential. Your safety comes first.</span>
         </label>
-        <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit & update my CV'}</Button>
-        <p className="text-center text-[12px] text-muted mt-3">Both reviews must be submitted before pay is released — keeping everyone honest.</p>
+        <Button block disabled={busy} onClick={submit}>{busy ? 'Sending…' : 'Mark done & rate employer'}</Button>
+        <p className="text-center text-[12px] text-muted mt-3">
+          {gig.employer.split(' ')[0]} then confirms the work — that's what writes the verified reference onto your CV.
+        </p>
       </Sheet>
     );
   }
 
-  const o = outcome!;
   return (
-    <Sheet title="Job complete" onClose={onClose}>
-      <Confetti />
-      <Celebrate o={o} onGo={() => { onClose(); if (o.tieredUp) { setFeed('formal'); navigate('jobs'); } else { navigate('cv'); } }} />
+    <Sheet title="Waiting for confirmation" onClose={onClose}>
+      <div className="text-center">
+        <div className="text-[56px] animate-pop" aria-hidden="true">🕓</div>
+        <h3 className="text-xl font-extrabold text-navy mt-2 mb-1 tracking-tight">Sent to {gig.employer.split(' ')[0]}<span className="text-red">.</span></h3>
+        <p className="text-muted text-[13.5px] leading-relaxed">
+          Your rating is in. As soon as <b className="text-navy">{gig.employer}</b> confirms the work, the reference and your pay are released — and your CV updates on the spot.
+        </p>
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-line bg-surface-2 p-4">
+        <Step done label="You marked the job done and rated the employer" />
+        <Step label={`${gig.employer} confirms and rates you`} />
+        <Step label="Verified reference added to your CV" last />
+      </div>
+
+      <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-xl px-3.5 py-3 mt-4">
+        <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
+        <span className="text-[12px] text-navy leading-snug">Both sides have to review before pay is released — that's what keeps everyone honest, including your employers.</span>
+      </div>
+
+      <Button block variant="navy" className="mt-5" onClick={() => { onClose(); navigate('home'); }}>Got it</Button>
+      <button onClick={() => { onClose(); navigate('chat', gig.employerId ?? ''); }} className="w-full text-center text-[12.5px] text-navy font-bold mt-3 hover:text-red transition">
+        Message {gig.employer.split(' ')[0]}
+      </button>
     </Sheet>
   );
 }
 
-/* Animated celebration: rep score counts up and the ring fills on reveal. */
-function Celebrate({ o, onGo }: { o: Outcome; onGo: () => void }) {
-  const rep = useCountUp(o.rep, o.beforeRep);
-  const shownRep = Math.round(rep);
-  const gained = o.rep - o.beforeRep;
+function Step({ label, done, last }: { label: string; done?: boolean; last?: boolean }) {
   return (
-    <>
-      {o.tieredUp ? (
-        <div className="text-center rounded-[18px] p-4 mb-3.5 text-white animate-pop relative overflow-hidden" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }}>
-          <span aria-hidden="true" className="absolute inset-0" style={{ background: 'radial-gradient(60% 60% at 50% 0%, rgba(242,0,35,.35), transparent 70%)' }} />
-          <div className="relative">
-            <div className="text-[48px] animate-pop" aria-hidden="true">{o.newTierIcon}</div>
-            <h4 className="m-0 mt-1.5 text-lg font-extrabold tracking-tight">TIER UP — you're now {o.newTierName}!</h4>
-            <p className="m-0 text-[12.5px] text-white/85 leading-snug mt-1">{o.newTierUnlocks}</p>
-            {o.newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-[12px] font-bold bg-red rounded-full px-3 py-1 animate-pop">🔓 {o.newlyUnlocked} new formal job{o.newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center">
-          <div className="text-[64px] animate-pop" aria-hidden="true">🎉</div>
-          <h3 className="text-xl font-extrabold text-navy mt-2 mb-1 tracking-tight">Gig complete — CV updated!</h3>
-          <p className="text-muted text-[13.5px] leading-relaxed mb-4">A new verified reference just wrote itself into your CV. Reputation now <b className="tnum">{shownRep}/100</b>.</p>
-        </div>
-      )}
-
-      <Card className="p-3.5 flex gap-3.5 items-center mb-3.5">
-        <div className="relative shrink-0">
-          <Ring pct={rep} colors={o.ring} size={60} stroke={7} gradId="celebRing"><b className="text-base font-extrabold text-navy tnum">{shownRep}</b></Ring>
-          {gained > 0 && <span className="absolute -top-1 -right-1 bg-success text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow-e1 animate-pop">+{gained}</span>}
-        </div>
-        <div className="flex-1">
-          <b className="text-sm text-navy tnum">{o.jobsDone} jobs · {o.avg.toFixed(1)}★ · {o.newTierIcon} {o.newTierName}</b>
-          <div className="text-[12px] text-muted">{money(o.totalEarned)} earned · {o.nextLabel}</div>
-        </div>
-      </Card>
-
-      {o.newBadges.length > 0 && (
-        <div className="text-center mb-3">
-          <b className="text-[13px] text-navy">🏅 New badge{o.newBadges.length > 1 ? 's' : ''} unlocked!</b>
-          <div className="grid gap-2.5 mt-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(o.newBadges.length, 3)},1fr)` }}>
-            {o.newBadges.map((b) => (
-              <div key={b.label} className="relative border border-line rounded-[15px] p-3 text-center bg-surface animate-pop">
-                <span className="absolute -top-2 -right-1.5 bg-red text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">NEW</span>
-                <div className="text-[26px]" aria-hidden="true">{b.icon}</div>
-                <b className="block text-[11.5px] mt-1 text-navy">{b.label}</b>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {o.flagged && (
-        <div className="flex gap-2.5 items-start bg-[#fdecef] dark:bg-red/10 border border-[#f5c2cb] dark:border-red/30 rounded-2xl p-3 mb-3.5">
-          <span className="text-lg" aria-hidden="true">🛡️</span>
-          <span className="text-[12.5px] text-[#991b1b] dark:text-danger leading-snug"><b>Safety flag received.</b> Our team will follow up privately. Thank you for speaking up — you're never penalised for reporting.</span>
-        </div>
-      )}
-
-      <Button block variant="navy" onClick={onGo}>
-        {o.tieredUp ? 'See what I unlocked →' : 'See my updated CV →'}
-      </Button>
-    </>
+    <div className="flex gap-3 items-start">
+      <div className="flex flex-col items-center shrink-0">
+        <span className={`grid place-items-center w-6 h-6 rounded-full text-[12px] font-extrabold ${done ? 'bg-success text-white' : 'bg-surface border-[1.5px] border-line-strong text-subtle'}`}>
+          {done ? '✓' : ''}
+        </span>
+        {!last && <span className="w-0.5 flex-1 min-h-[18px] bg-line-strong" />}
+      </div>
+      <span className={`text-[12.5px] leading-snug ${done ? 'text-navy font-semibold' : 'text-muted'} ${last ? '' : 'pb-3'}`}>{label}</span>
+    </div>
   );
 }
 

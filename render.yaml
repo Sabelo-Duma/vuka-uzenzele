@@ -15,6 +15,10 @@ services:
         value: production
       - key: VUKA_JWT_SECRET
         generateValue: true    # Render generates a strong secret
+      # Encrypts payout details (bank account numbers) at rest. Without it the
+      # banking endpoints refuse to store anything in production.
+      - key: VUKA_ENCRYPTION_KEY
+        generateValue: true
       # PERSISTENCE (recommended): point at a Postgres database (e.g. Supabase,
       # free tier) and all data — including real sign-ups — survives every deploy.
       # Set this in the Render dashboard → Environment (kept out of git):

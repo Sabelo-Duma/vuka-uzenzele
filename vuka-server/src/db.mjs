@@ -168,6 +168,96 @@ export async function initDb() {
       PRIMARY KEY (follower_id, followee_id)
     );
 
+    /* Payout details. account_number_enc is AES-256-GCM sealed (see crypto.mjs);
+       last4 is stored in the clear purely so the UI can show a masked hint
+       without ever decrypting. */
+    CREATE TABLE IF NOT EXISTS banking_details (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      holder TEXT NOT NULL,
+      bank TEXT NOT NULL,
+      account_number_enc TEXT NOT NULL,
+      account_last4 TEXT NOT NULL,
+      account_type TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS formal_applications (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL REFERENCES formal_jobs(id) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'applied',
+      created_at TEXT NOT NULL,
+      UNIQUE(job_id, worker_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      job_alerts INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS safety_reports (
+      id TEXT PRIMARY KEY,
+      reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      about_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      gig_id TEXT,
+      concern TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT NOT NULL
+    );
+
+    /* One-time SMS codes proving someone holds a phone number. Codes are
+       hashed; the purpose column stops a sign-up code being reused elsewhere. */
+    CREATE TABLE IF NOT EXISTS phone_verifications (
+      id TEXT PRIMARY KEY,
+      phone TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      verified_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    /* KYC submissions. The ID number is encrypted (crypto.mjs) and only the
+       last 4 digits are ever shown back. A row reaching status 'verified' is
+       what grants the badge — the client cannot assert it. */
+    CREATE TABLE IF NOT EXISTS id_verifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      full_name TEXT NOT NULL,
+      id_number_enc TEXT NOT NULL,
+      id_number_last4 TEXT NOT NULL,
+      date_of_birth TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reason TEXT,
+      provider TEXT,
+      submitted_at TEXT NOT NULL,
+      reviewed_at TEXT
+    );
+
+    /* Worker → employer ratings. The employer rating shown on a gig is an
+       average of these rows — never a hardcoded number. */
+    CREATE TABLE IF NOT EXISTS employer_ratings (
+      id TEXT PRIMARY KEY,
+      employer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      gig_id TEXT,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_gig ON applications(gig_id);
@@ -178,8 +268,44 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_msg_sender ON messages(sender_id);
     CREATE INDEX IF NOT EXISTS idx_msg_pair ON messages(sender_id, recipient_id);
     CREATE INDEX IF NOT EXISTS idx_follow_followee ON follows(followee_id);
+    CREATE INDEX IF NOT EXISTS idx_formalapps_worker ON formal_applications(worker_id);
+    CREATE INDEX IF NOT EXISTS idx_empratings_employer ON employer_ratings(employer_id);
+    CREATE INDEX IF NOT EXISTS idx_safety_reporter ON safety_reports(reporter_id);
+    CREATE INDEX IF NOT EXISTS idx_phoneverif_phone ON phone_verifications(phone);
+    CREATE INDEX IF NOT EXISTS idx_pwreset_user ON password_resets(user_id);
+    CREATE INDEX IF NOT EXISTS idx_idverif_user ON id_verifications(user_id);
   `);
+
+  // Migrations for databases created by an earlier version. Additive only.
+  await addColumn('history', 'employer_id', 'TEXT');
+  // Unix seconds; tokens issued before this stop working (password reset).
+  await addColumn('users', 'sessions_valid_from', 'INTEGER');
+  // Two-sided completion: applied → hired → worker_done → completed.
+  await addColumn('applications', 'hired_at', 'TEXT');
+  await addColumn('applications', 'worker_rating', 'INTEGER');   // worker → employer
+  await addColumn('applications', 'worker_done_at', 'TEXT');
+  await addColumn('applications', 'safety_flag', 'INTEGER');
+  await addColumn('applications', 'employer_rating', 'INTEGER'); // employer → worker
+  await addColumn('applications', 'employer_review', 'TEXT');
+  await addColumn('applications', 'completed_at', 'TEXT');
+
   initialised = true;
+}
+
+/** Does a column already exist? (Both drivers, no error-swallowing.) */
+async function columnExists(table, column) {
+  if (driver === 'pg') {
+    const r = await get('SELECT 1 AS x FROM information_schema.columns WHERE table_name = ? AND column_name = ?', [table, column]);
+    return !!r;
+  }
+  const rows = await all(`PRAGMA table_info(${table})`);
+  return rows.some((r) => r.name === column);
+}
+
+/** Add a column if it isn't there yet — safe to run on every boot. */
+export async function addColumn(table, column, type) {
+  if (await columnExists(table, column)) return;
+  await exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 /** Close the database cleanly (for graceful shutdown). */

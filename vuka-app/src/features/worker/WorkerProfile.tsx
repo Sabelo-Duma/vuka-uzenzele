@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { computeCv } from '../../lib/engine';
 import { getPref, setPref } from '../../lib/prefs';
-import { bankingSummary } from '../../lib/banking';
+import { bankingSummaryText, useBanking } from '../../lib/banking';
 import { useApp } from '../../store/appStore';
 import { Avatar, Card, Chip, TierBadge } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
@@ -13,25 +13,41 @@ import { BankingSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../prof
 type SheetKey = 'banking' | 'identity' | 'safety' | 'language';
 
 export function WorkerProfile() {
-  const { state, navigate, toast } = useApp();
+  const { state, navigate, toast, setJobAlerts } = useApp();
   const cv = computeCv(state.worker);
   const w = state.worker;
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
 
-  const [jobAlerts, setJobAlerts] = useState(() => getPref('jobAlerts', true));
+  const jobAlerts = state.jobAlerts; // account-level: lives on the server
   const [dataSaver, setDataSaver] = useState(() => getPref('dataSaver', true));
+  const [alertsBusy, setAlertsBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
-  const [, bump] = useState(0);
-  const closeSheet = () => { setSheet(null); bump((n) => n + 1); };
+  const closeSheet = () => setSheet(null);
 
-  const toggle = (key: string, on: boolean, set: (v: boolean) => void, onMsg: string, offMsg: string) => {
+  /** Device-local toggle (data saver): instant, no round trip. */
+  const toggleLocal = (key: string, on: boolean, set: (v: boolean) => void, onMsg: string, offMsg: string) => {
     const next = !on;
     set(next);
     setPref(key, next);
     toast(next ? onMsg : offMsg);
   };
 
-  const bank = bankingSummary();
+  const toggleJobAlerts = async () => {
+    if (alertsBusy) return;
+    const next = !jobAlerts;
+    setAlertsBusy(true);
+    try {
+      await setJobAlerts(next);
+      toast(next ? "Job alerts on 🔔 — we'll ping you about new gigs nearby" : 'Job alerts off');
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setAlertsBusy(false);
+    }
+  };
+
+  const { banking } = useBanking();
+  const bank = bankingSummaryText(banking);
 
   type Row =
     | { kind: 'link'; ic: string; title: string; sub: string; go: () => void }
@@ -40,9 +56,9 @@ export function WorkerProfile() {
   const rows: Row[] = [
     { kind: 'link', ic: '🪜', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
     { kind: 'toggle', ic: '🔔', title: 'Job alerts', sub: jobAlerts ? 'On — new gigs & unlocks near you' : 'Off — you won\'t be notified', on: jobAlerts,
-      act: () => toggle('jobAlerts', jobAlerts, setJobAlerts, 'Job alerts on 🔔 — we\'ll ping you about new gigs nearby', 'Job alerts off') },
+      act: toggleJobAlerts },
     { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — zero-rated, lighter images' : 'Off — full-quality images', on: dataSaver,
-      act: () => toggle('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
+      act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
     { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
     { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
     { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },

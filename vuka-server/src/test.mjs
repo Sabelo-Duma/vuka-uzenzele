@@ -38,21 +38,42 @@ async function run() {
   // 1) health
   ok((await api('GET', '/health')).json?.ok === true, 'health ok');
 
-  // 2) register worker + employer
-  const wReg = await api('POST', '/auth/register', { body: { role: 'worker', name: 'Lwazi Khumalo', phone: '0829990001', password: 'test1234', age: 22, location: 'Katlehong', skills: ['carwash', 'moving'], idVerified: true } });
+  /** Run the OTP dance and return the proof-of-phone token registration needs. */
+  async function verifyPhone(phone) {
+    const sent = await api('POST', '/auth/otp', { body: { phone } });
+    if (!sent.json?.devCode) throw new Error('devCode not returned — OTP echo should be on in dev');
+    const v = await api('POST', '/auth/otp/verify', { body: { phone, code: sent.json.devCode } });
+    return v.json.verifyToken;
+  }
+
+  // 2) phone verification gates registration
+  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'No OTP', phone: '0829990007', password: 'test1234' } })).status === 400, 'registration without a verified phone is refused');
+  const otp1 = await api('POST', '/auth/otp', { body: { phone: '0829990001' } });
+  ok(otp1.status === 200 && otp1.json?.devCode?.length === 4, 'OTP requested');
+  ok((await api('POST', '/auth/otp/verify', { body: { phone: '0829990001', code: '0000' === otp1.json.devCode ? '1111' : '0000' } })).status === 400, 'wrong OTP rejected');
+  const v1 = await api('POST', '/auth/otp/verify', { body: { phone: '0829990001', code: otp1.json.devCode } });
+  ok(v1.status === 200 && v1.json?.verifyToken, 'correct OTP returns a proof token');
+  ok((await api('POST', '/auth/otp/verify', { body: { phone: '0829990001', code: otp1.json.devCode } })).status === 400, 'a used OTP cannot be replayed');
+
+  // a proof token for one number cannot register another
+  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'Wrong Phone', phone: '0829990008', password: 'test1234', verifyToken: v1.json.verifyToken } })).status === 400, 'proof token is bound to its phone number');
+
+  // 2b) register worker + employer (with verified phones)
+  const wReg = await api('POST', '/auth/register', { body: { role: 'worker', name: 'Lwazi Khumalo', phone: '0829990001', password: 'test1234', age: 22, location: 'Katlehong', skills: ['carwash', 'moving'], idVerified: true, verifyToken: v1.json.verifyToken } });
   ok(wReg.status === 201 && wReg.json?.token, 'worker registers');
   const wTok = wReg.json.token;
   ok(wReg.json?.cv?.tier?.name === 'Starter' && wReg.json?.cv?.jobsDone === 0, 'new worker is Starter with 0 jobs');
+  ok(wReg.json?.profile?.idVerified === false, 'a client cannot self-assert ID verification');
 
-  const eReg = await api('POST', '/auth/register', { body: { role: 'employer', name: 'Grace Mthembu', phone: '0829990002', password: 'test1234' } });
+  const eReg = await api('POST', '/auth/register', { body: { role: 'employer', name: 'Grace Mthembu', phone: '0829990002', password: 'test1234', verifyToken: await verifyPhone('0829990002') } });
   ok(eReg.status === 201 && eReg.json?.token, 'employer registers');
   const eTok = eReg.json.token;
 
-  // 3) duplicate phone rejected
-  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'X', phone: '0829990001', password: 'test1234' } })).status === 409, 'duplicate phone rejected');
+  // 3) duplicate phone rejected — at the OTP step, before the form is filled in
+  ok((await api('POST', '/auth/otp', { body: { phone: '0829990001' } })).status === 409, 'already-registered number is rejected up front');
 
   // 3b) weak password rejected (min 8 chars)
-  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'Weak Pass', phone: '0829990009', password: 'short' } })).status === 400, 'password under 8 chars rejected');
+  ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'Weak Pass', phone: '0829990009', password: 'short', verifyToken: await verifyPhone('0829990009') } })).status === 400, 'password under 8 chars rejected');
 
   // 4) auth guard
   ok((await api('GET', '/me/cv')).status === 401, 'cv requires auth');
@@ -69,22 +90,67 @@ async function run() {
   ok(gigs2.json.some((g) => g.id === postedId), 'posted gig visible in public feed (multi-user)');
   ok((await api('POST', '/gigs', { token: wTok, body: { title: 'x' } })).status === 403, 'worker cannot post a gig');
 
-  // 7) worker applies then completes 3 gigs -> tiers up to Trusted
+  // 7) the two-sided work loop: apply → employer hires → worker marks done →
+  //    employer confirms & rates → only then does the CV grow.
+  const wId = wReg.json.user.id;
+  const loginAs = async (phone) => (await api('POST', '/auth/login', { body: { phone, password: 'demo1234' } })).json.token;
+  const GIG_OWNER = { j1: '0720000000', j2: '0721000002', j3: '0721000003' };
+
   await api('POST', '/gigs/j1/apply', { token: wTok });
   const apps = await api('GET', '/me/applications', { token: wTok });
-  ok(apps.json?.some((a) => a.gigId === 'j1'), 'application recorded');
+  ok(apps.json?.some((a) => a.gigId === 'j1' && a.status === 'applied'), 'application recorded');
 
-  let cv;
-  for (const id of ['j1', 'j2', 'j3']) {
-    const r = await api('POST', `/gigs/${id}/complete`, { token: wTok, body: { rating: 5 } });
-    cv = r.json?.cv;
+  const owner1 = await loginAs(GIG_OWNER.j1);
+  const applicants = await api('GET', '/gigs/j1/applicants', { token: owner1 });
+  ok(applicants.json?.applicants?.some((a) => a.worker.id === wId && a.status === 'applied'), 'employer sees the applicant (they no longer vanish)');
+  ok(applicants.json?.applicants?.[0]?.worker?.tier?.name !== undefined, 'applicants carry their real tier and rating');
+  ok((await api('GET', '/gigs/j1/applicants', { token: eTok })).status === 403, 'only the gig owner sees its applicants');
+  ok((await api('GET', '/gigs/j1/applicants', { token: wTok })).status === 403, 'workers cannot list applicants');
+
+  ok((await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 5 } })).status === 409, 'a worker cannot complete a job they were not hired for');
+  ok((await api('POST', '/gigs/j1/hire', { token: eTok, body: { workerId: wId } })).status === 403, 'only the owner can hire for a gig');
+  ok((await api('POST', '/gigs/j1/hire', { token: owner1, body: { workerId: eReg.json.user.id } })).status === 404, 'cannot hire someone who never applied');
+  ok((await api('POST', '/gigs/j1/hire', { token: owner1, body: { workerId: wId } })).json?.ok, 'employer hires the applicant');
+  ok((await api('POST', '/gigs/j1/hire', { token: owner1, body: { workerId: wId } })).status === 409, 'cannot hire twice for one gig');
+  ok(!(await api('GET', '/gigs')).json.some((g) => g.id === 'j1'), 'a filled gig leaves the open feed');
+
+  const myJobs = await api('GET', '/me/jobs', { token: wTok });
+  ok(myJobs.json?.some((j) => j.gig.id === 'j1' && j.status === 'hired'), 'the hired worker can still see the job');
+
+  const done = await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 5 } });
+  ok(done.json?.status === 'worker_done', 'worker marks the work done and rates the employer');
+  ok((await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 5 } })).status === 409, 'cannot mark done twice');
+  ok((await api('GET', '/me/cv', { token: wTok })).json?.cv?.jobsDone === 0, 'the CV does NOT move until the employer confirms');
+
+  const hires = await api('GET', '/me/hires', { token: owner1 });
+  const appJ1 = hires.json?.find((h) => h.gig.id === 'j1');
+  ok(appJ1?.status === 'worker_done', 'employer sees work awaiting confirmation');
+  ok((await api('POST', `/applications/${appJ1.applicationId}/confirm`, { token: eTok, body: { rating: 5 } })).status === 403, 'only the gig owner can confirm');
+  const confirmed = await api('POST', `/applications/${appJ1.applicationId}/confirm`, { token: owner1, body: { rating: 4, review: 'Great work on both cars, arrived early.' } });
+  ok(confirmed.json?.ok && confirmed.json?.rating === 4, 'employer confirms and rates the worker');
+  ok((await api('POST', `/applications/${appJ1.applicationId}/confirm`, { token: owner1, body: { rating: 5 } })).status === 409, 'cannot confirm the same job twice');
+
+  const afterOne = await api('GET', '/me/cv', { token: wTok });
+  ok(afterOne.json?.cv?.jobsDone === 1, 'confirmation writes the CV entry, got ' + afterOne.json?.cv?.jobsDone);
+  ok(afterOne.json?.history?.[0]?.review === 'Great work on both cars, arrived early.', "the employer's own words land on the CV");
+  ok(afterOne.json?.history?.[0]?.rating === 4, "the CV rating is the EMPLOYER's rating of the worker");
+  ok(afterOne.json?.profile?.skills?.includes('carwash'), 'a confirmed job teaches the worker a new skill');
+
+  // Two more full loops to reach the Trusted tier.
+  let cv = afterOne.json.cv;
+  for (const id of ['j2', 'j3']) {
+    const owner = await loginAs(GIG_OWNER[id]);
+    await api('POST', `/gigs/${id}/apply`, { token: wTok });
+    await api('POST', `/gigs/${id}/hire`, { token: owner, body: { workerId: wId } });
+    await api('POST', `/gigs/${id}/complete`, { token: wTok, body: { rating: 5 } });
+    const h = await api('GET', '/me/hires', { token: owner });
+    const a = h.json.find((x) => x.gig.id === id);
+    await api('POST', `/applications/${a.applicationId}/confirm`, { token: owner, body: { rating: 5 } });
+    cv = (await api('GET', '/me/cv', { token: wTok })).json.cv;
   }
   ok(cv?.jobsDone === 3, 'worker has 3 completed jobs, got ' + cv?.jobsDone);
   ok(cv?.tier?.name === 'Trusted', 'worker tiered up to Trusted, got ' + cv?.tier?.name);
   ok(cv?.history?.length === undefined, 'cv snapshot returned'); // cv is snapshot; history is sibling
-
-  // completed gigs leave the open feed
-  ok(!(await api('GET', '/gigs')).json.some((g) => g.id === 'j1'), 'completed gig left the open feed');
 
   // 8) formal jobs
   const formal = await api('GET', '/formal-jobs');
@@ -98,7 +164,6 @@ async function run() {
   ok(talent.json.some((t) => t.name === 'Lwazi Khumalo' && t.jobsDone === 3), 'the newly-active worker appears in talent with 3 jobs');
 
   // 9b) hiring loop: employer invites the worker to their posted gig
-  const wId = wReg.json.user.id;
   const myGigs = await api('GET', '/me/gigs', { token: eTok });
   ok(myGigs.json?.some((g) => g.id === postedId), 'employer sees their own posted gig');
   const inv = await api('POST', `/talent/${wId}/invite`, { token: eTok, body: { gigId: postedId, message: 'Please help' } });
@@ -108,19 +173,25 @@ async function run() {
   ok(invs.json?.length === 1 && invs.json[0]?.gig?.id === postedId, 'worker sees the pending invitation');
   const resp = await api('POST', `/invitations/${invs.json[0].id}/respond`, { token: wTok, body: { accept: true } });
   ok(resp.json?.ok && resp.json?.accepted === true, 'worker accepts invitation');
-  ok((await api('GET', '/me/applications', { token: wTok })).json?.some((a) => a.gigId === postedId), 'accepting the invite filed an application');
+  // An invitation is the employer already choosing this worker, so accepting hires them.
+  ok((await api('GET', '/me/applications', { token: wTok })).json?.some((a) => a.gigId === postedId && a.status === 'hired'), 'accepting an invitation hires the worker outright');
   ok((await api('GET', '/me/invitations', { token: wTok })).json?.length === 0, 'accepted invitation is no longer pending');
+  ok((await api('GET', '/me/hires', { token: eTok })).json?.some((h) => h.gig.id === postedId && h.status === 'hired'), 'the inviting employer sees the hire');
 
-  // 9c) chat: employer and worker message each other
+  // 9c) chat: employer and worker message each other.
+  // Baseline first — being hired also drops a message in the worker's inbox.
   const eId = eReg.json.user.id;
+  const unreadBefore = (await api('GET', '/messages/unread-count', { token: wTok })).json.count;
+  ok(unreadBefore >= 1, 'being hired lands a message in the worker\'s inbox');
   const send1 = await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'Hi, are you free Saturday?' } });
   ok(send1.status === 201 && send1.json?.id, 'employer sends a message');
   ok((await api('POST', '/messages', { token: eTok, body: { toUserId: eId, body: 'x' } })).status === 400, 'cannot message yourself');
   const unread = await api('GET', '/messages/unread-count', { token: wTok });
-  ok(unread.json?.count === 1, 'worker has 1 unread, got ' + unread.json?.count);
+  ok(unread.json?.count === unreadBefore + 1, `a new message raises unread by one (got ${unread.json?.count}, expected ${unreadBefore + 1})`);
   const thread = await api('GET', `/messages/thread/${eId}`, { token: wTok });
-  ok(thread.json?.messages?.length === 1 && thread.json?.other?.id === eId, 'worker reads the thread');
-  ok((await api('GET', '/messages/unread-count', { token: wTok })).json?.count === 0, 'reading the thread clears unread');
+  // The employer's own hire message for `postedId` is in this thread too.
+  ok(thread.json?.messages?.length >= 1 && thread.json?.other?.id === eId, 'worker reads the thread');
+  ok((await api('GET', '/messages/unread-count', { token: wTok })).json?.count === unreadBefore, 'reading a thread clears only that thread\'s unread');
   await api('POST', '/messages', { token: wTok, body: { toUserId: eId, body: 'Yes, morning works.' } });
   const convos = await api('GET', '/messages/conversations', { token: eTok });
   ok(convos.json?.length === 1 && convos.json[0]?.user?.id === wId && convos.json[0]?.unread === 1, 'employer sees the conversation with 1 unread reply');
@@ -136,6 +207,122 @@ async function run() {
   ok(mine.json?.some((u) => u.id === wId), 'worker appears in employer\'s following list');
   const unf = await api('DELETE', `/users/${wId}/follow`, { token: eTok });
   ok(unf.json?.isFollowing === false, 'employer unfollows the worker');
+
+  // 9e) engine config is served and matches the server's own engine
+  const cfg = await api('GET', '/config');
+  ok(cfg.json?.minWage > 0, 'config exposes the fair-pay minimum wage');
+  ok(cfg.json?.tiers?.length === 4 && cfg.json.tiers[1]?.minJobs === 3, 'config exposes tier thresholds');
+  ok(cfg.json?.badges?.some((b) => b.id === 'first' && b.threshold === 1), 'config exposes badge thresholds');
+
+  // 9f) employer rating is a real average of worker→employer reviews
+  const j4 = (await api('GET', '/gigs/j4')).json; // untouched by this run
+  ok(j4?.employerRating === 4.7 && j4?.employerRatingCount === 10, `seeded employer rating is averaged (got ${j4?.employerRating} / ${j4?.employerRatingCount})`);
+  // j2 was completed above, so its employer picked up one extra 5★ review.
+  const j2 = (await api('GET', '/gigs/j2')).json;
+  ok(j2?.employerRatingCount === 11, `completing a gig records a worker→employer rating (got ${j2?.employerRatingCount})`);
+  const newGig = (await api('GET', `/gigs/${postedId}`)).json;
+  ok(newGig?.employerRating === null && newGig?.employerRatingCount === 0, 'a brand-new employer has no invented rating');
+  const eRating = await api('GET', '/me/employer-rating', { token: eTok });
+  ok(eRating.json?.rating === null && eRating.json?.count === 0, 'employer with no completed jobs has no rating yet');
+  ok((await api('GET', '/me/employer-rating', { token: wTok })).status === 403, 'workers have no employer rating');
+
+  // 9g) formal-job applications are server-side and tier-gated
+  ok((await api('POST', '/formal-jobs/f1/apply')).status === 401, 'formal apply requires auth');
+  const fApply = await api('POST', '/formal-jobs/f1/apply', { token: wTok }); // worker is Trusted (tier 1)
+  ok(fApply.status === 201 && fApply.json?.ok, 'Trusted worker applies to a tier-1 formal role');
+  ok((await api('POST', '/formal-jobs/f1/apply', { token: wTok })).json?.already === true, 'applying twice is idempotent');
+  ok((await api('POST', '/formal-jobs/f8/apply', { token: wTok })).status === 403, 'tier-3 role is refused to a Trusted worker');
+  ok((await api('POST', '/formal-jobs/nope/apply', { token: wTok })).status === 404, 'unknown formal role 404s');
+  const fApps = await api('GET', '/me/formal-applications', { token: wTok });
+  ok(fApps.json?.length === 1 && fApps.json[0]?.jobId === 'f1', 'formal application is listed back');
+  ok((await api('GET', '/me/formal-applications', { token: eTok })).status === 403, 'employers have no formal applications');
+
+  // 9h) banking details: stored encrypted, returned masked
+  ok((await api('GET', '/me/banking')).status === 401, 'banking requires auth');
+  ok((await api('GET', '/me/banking', { token: wTok })).json === null, 'no banking details to start');
+  ok((await api('PUT', '/me/banking', { token: wTok, body: { holder: 'L Khumalo', bank: 'nope', accountType: 'savings', accountNumber: '1234567890' } })).status === 400, 'unknown bank rejected');
+  ok((await api('PUT', '/me/banking', { token: wTok, body: { holder: 'L Khumalo', bank: 'capitec', accountType: 'savings', accountNumber: '123' } })).status === 400, 'short account number rejected');
+  const bSave = await api('PUT', '/me/banking', { token: wTok, body: { holder: 'L Khumalo', bank: 'capitec', accountType: 'savings', accountNumber: '1234567890' } });
+  ok(bSave.status === 200 && bSave.json?.last4 === '7890', 'banking details saved and masked to last 4');
+  ok(bSave.json?.accountNumber === undefined && JSON.stringify(bSave.json).includes('1234567890') === false, 'full account number is never returned');
+  const bRead = await api('GET', '/me/banking', { token: wTok });
+  ok(bRead.json?.holder === 'L Khumalo' && bRead.json?.bank === 'capitec' && bRead.json?.last4 === '7890', 'banking details read back masked');
+  // Stored ciphertext must not contain the number in the clear.
+  const { get: dbGet } = await import('./db.mjs');
+  const bRow = await dbGet('SELECT * FROM banking_details WHERE user_id = ?', [wId]);
+  ok(!bRow.account_number_enc.includes('1234567890') && bRow.account_number_enc.startsWith('v1:'), 'account number is encrypted at rest');
+  const bKeep = await api('PUT', '/me/banking', { token: wTok, body: { holder: 'Lwazi Khumalo', bank: 'capitec', accountType: 'cheque' } });
+  ok(bKeep.json?.last4 === '7890' && bKeep.json?.accountType === 'cheque', 'omitting the number keeps the stored account');
+  ok((await api('DELETE', '/me/banking', { token: wTok })).json?.ok, 'banking details deleted');
+  ok((await api('GET', '/me/banking', { token: wTok })).json === null, 'deleted banking details are gone');
+
+  // 9i) account-level preferences
+  ok((await api('GET', '/me/preferences', { token: wTok })).json?.jobAlerts === true, 'job alerts default to on');
+  ok((await api('PUT', '/me/preferences', { token: wTok, body: { jobAlerts: 'yes' } })).status === 400, 'non-boolean preference rejected');
+  ok((await api('PUT', '/me/preferences', { token: wTok, body: { jobAlerts: false } })).json?.jobAlerts === false, 'job alerts turned off');
+  ok((await api('GET', '/me/preferences', { token: wTok })).json?.jobAlerts === false, 'preference persists');
+  ok((await api('PUT', '/me/preferences', { token: wTok, body: { jobAlerts: true } })).json?.jobAlerts === true, 'job alerts turned back on');
+
+  // 9j) safety reports are stored, not just toasted
+  ok((await api('POST', '/safety/report', { body: { concern: 'x' } })).status === 401, 'safety report requires auth');
+  ok((await api('POST', '/safety/report', { token: wTok, body: { concern: '  ' } })).status === 400, 'empty safety report rejected');
+  const rep = await api('POST', '/safety/report', { token: wTok, body: { concern: 'The address was not what was agreed.', gigId: 'j4', aboutUserId: eId } });
+  ok(rep.status === 201 && rep.json?.id, 'safety report filed');
+  const repRow = await dbGet('SELECT * FROM safety_reports WHERE id = ?', [rep.json.id]);
+  ok(repRow?.concern.startsWith('The address') && repRow?.gig_id === 'j4' && repRow?.about_user_id === eId, 'safety report persisted with its links');
+  const repBad = await api('POST', '/safety/report', { token: wTok, body: { concern: 'Something happened.', gigId: 'does-not-exist', aboutUserId: 'nobody' } });
+  ok(repBad.status === 201, 'a bad gig/user reference never loses the report');
+  ok((await dbGet('SELECT * FROM safety_reports WHERE id = ?', [repBad.json.id]))?.gig_id === null, 'unknown references are dropped, not stored');
+
+  // 9k) SA ID validation (unit-level — the gate KYC submissions pass through)
+  const { validateSaId } = await import('./said.mjs');
+  ok(validateSaId('0001015009085').ok === true, 'a valid SA ID passes');
+  ok(validateSaId('0001015009086').ok === false, 'a wrong check digit fails');
+  ok(validateSaId('000101500908').ok === false, '12 digits fail');
+  ok(validateSaId('0013015009085').ok === false, 'month 13 fails');
+  ok(validateSaId('0001015009085').gender === 'male' && validateSaId('0001010009080').gender === 'female', 'gender digit read correctly');
+  ok(validateSaId('0001015009085').dateOfBirth === '2000-01-01', 'date of birth is read from the ID');
+
+  // 9l) ID verification is reviewed, never self-asserted
+  ok((await api('GET', '/me/id-verification', { token: wTok })).json?.status === 'none', 'no ID submission to start');
+  ok((await api('POST', '/me/id-verification', { token: wTok, body: { fullName: 'Lwazi Khumalo', idNumber: '0001015009086' } })).status === 400, 'an invalid ID number is refused');
+  ok((await api('POST', '/me/id-verification', { token: wTok, body: { fullName: 'L', idNumber: '0001015009085' } })).status === 400, 'a too-short name is refused');
+  const kyc = await api('POST', '/me/id-verification', { token: wTok, body: { fullName: 'Lwazi Khumalo', idNumber: '0001015009085' } });
+  ok(kyc.status === 201 && kyc.json?.status === 'pending' && kyc.json?.last4 === '9085', 'a valid submission lands as pending, masked to last 4');
+  ok((await api('POST', '/me/id-verification', { token: wTok, body: { fullName: 'Lwazi Khumalo', idNumber: '0001015009085' } })).status === 409, 'a second submission while pending is refused');
+  ok((await api('GET', '/me/cv', { token: wTok })).json?.profile?.idVerified === false, 'a pending submission does NOT grant the badge');
+  const kycRow = await dbGet("SELECT * FROM id_verifications WHERE user_id = ?", [wId]);
+  ok(!kycRow.id_number_enc.includes('0001015009085') && kycRow.id_number_enc.startsWith('v1:'), 'the ID number is encrypted at rest');
+  ok((await api('GET', '/me/cv', { token: wTok })).json?.profile?.age === validateSaId('0001015009085').age, 'age is taken from the ID, not from what was typed');
+
+  // ops review grants the badge (the seam a KYC provider would replace)
+  ok((await api('GET', '/admin/id-verifications')).status === 404, 'admin routes are off without VUKA_ADMIN_TOKEN');
+  process.env.VUKA_ADMIN_TOKEN = 'test-admin-token';
+  const pending = await fetch(BASE + '/admin/id-verifications', { headers: { 'x-admin-token': 'test-admin-token' } }).then((r) => r.json());
+  ok(pending.some((p) => p.userId === wId && p.last4 === '9085'), 'ops can list pending submissions');
+  const decideRes = await fetch(BASE + `/admin/id-verifications/${pending[0].id}/decide`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': 'test-admin-token' }, body: JSON.stringify({ approve: true }),
+  });
+  ok(decideRes.status === 200, 'ops approves the submission');
+  ok((await api('GET', '/me/cv', { token: wTok })).json?.profile?.idVerified === true, 'approval grants the verified badge');
+  ok((await fetch(BASE + `/admin/id-verifications/${pending[0].id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': 'wrong-length-tok' }, body: '{}' })).status === 401, 'a wrong admin token is refused');
+  delete process.env.VUKA_ADMIN_TOKEN;
+
+  // 9m) password reset by SMS code
+  ok((await api('POST', '/auth/password/request', { body: { phone: '0000' } })).status === 400, 'reset needs a valid number');
+  const unknown = await api('POST', '/auth/password/request', { body: { phone: '0899999999' } });
+  ok(unknown.status === 200 && unknown.json?.devCode === undefined, 'an unknown number gets the same answer, with no code');
+  const reqReset = await api('POST', '/auth/password/request', { body: { phone: '0829990002' } });
+  ok(reqReset.status === 200 && reqReset.json?.devCode?.length === 6, 'a registered number gets a 6-digit reset code');
+  ok((await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: '000000', password: 'newpass123' } })).status === 400, 'a wrong reset code is refused');
+  ok((await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: reqReset.json.devCode, password: 'short' } })).status === 400, 'a weak new password is refused');
+  const confirmReset = await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: reqReset.json.devCode, password: 'brand-new-pass' } });
+  ok(confirmReset.status === 200 && confirmReset.json?.token, 'reset succeeds and signs the user straight in');
+  ok((await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: reqReset.json.devCode, password: 'another-pass' } })).status === 400, 'a used reset code cannot be replayed');
+  ok((await api('POST', '/auth/login', { body: { phone: '0829990002', password: 'brand-new-pass' } })).status === 200, 'the new password works');
+  // The old session must die with the old password.
+  ok((await api('GET', '/me/gigs', { token: eTok })).status === 401, 'sessions from before the reset are ended');
+  ok((await api('GET', '/me/gigs', { token: confirmReset.json.token })).status === 200, 'the session issued by the reset works');
 
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });

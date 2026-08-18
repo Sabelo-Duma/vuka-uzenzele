@@ -8,8 +8,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { all, get, run, initDb, closeDb, driver } from './db.mjs';
 import { seedIfEmpty } from './seed.mjs';
-import { hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid } from './auth.mjs';
-import { computeCv, autoReview, MIN_WAGE_PER_HOUR } from './engine.mjs';
+import {
+  hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid,
+  randomDigits, hashCode, verifyCode, signPurposeToken, verifyPurposeToken,
+} from './auth.mjs';
+import { computeCv, autoReview, MIN_WAGE_PER_HOUR, TIERS, BADGES } from './engine.mjs';
+import { encryptField, hasEncryptionKey } from './crypto.mjs';
+import { sendSms, smsConfigured, otpEcho } from './notify.mjs';
+import { validateSaId } from './said.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
 await initDb();
@@ -60,7 +66,8 @@ const authLimiter = rateLimit({
 });
 // Health check is exempt so uptime pings never get throttled.
 app.use('/api', (req, res, next) => (req.path === '/health' ? next() : apiLimiter(req, res, next)));
-app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
+app.use(['/api/auth/login', '/api/auth/register', '/api/auth/otp', '/api/auth/otp/verify',
+  '/api/auth/password/request', '/api/auth/password/confirm'], authLimiter);
 
 const initialsOf = (name) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -82,10 +89,17 @@ function historyOut(h) {
     rating: h.rating, review: h.review, safetyFlag: !!h.safety_flag,
   };
 }
-function gigOut(g) {
+/**
+ * @param g gig row
+ * @param rating {avg, count} from employerRatings() — omit for "no ratings yet".
+ *   employerRating is null (not 5.0) until real workers have rated the employer;
+ *   the client renders that as "New employer" rather than inventing stars.
+ */
+function gigOut(g, rating) {
   return {
     id: g.id, title: g.title, category: g.category, employer: g.employer_name,
-    employerId: g.employer_id, employerInitials: g.employer_initials, employerRating: g.employer_rating,
+    employerId: g.employer_id, employerInitials: g.employer_initials,
+    employerRating: rating?.avg ?? null, employerRatingCount: rating?.count ?? 0,
     location: g.location, distanceKm: g.distance_km, hours: g.hours, payPerHour: g.pay_per_hour,
     when: g.when_text, description: g.description, urgent: !!g.urgent, status: g.status,
   };
@@ -105,6 +119,27 @@ const userById = (id) => get('SELECT * FROM users WHERE id = ?', [id]);
 const profileOf = (id) => get('SELECT * FROM worker_profiles WHERE user_id = ?', [id]);
 const historyOf = (id) => all('SELECT * FROM history WHERE worker_id = ? ORDER BY created_at ASC', [id]);
 
+/**
+ * Average worker→employer rating for a set of employers, in one query.
+ * Returns Map<employerId, {avg, count}>; employers with no ratings are absent.
+ */
+async function employerRatings(employerIds) {
+  const ids = [...new Set(employerIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await all(
+    `SELECT employer_id, AVG(rating) AS avg_rating, COUNT(*) AS n FROM employer_ratings WHERE employer_id IN (${placeholders}) GROUP BY employer_id`,
+    ids
+  );
+  return new Map(rows.map((r) => [r.employer_id, { avg: Math.round(Number(r.avg_rating) * 10) / 10, count: Number(r.n) }]));
+}
+
+/** Serialize gig rows with their employers' real ratings attached. */
+async function gigsOut(rows) {
+  const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  return rows.map((r) => gigOut(r, ratings.get(r.employer_id)));
+}
+
 async function cvFor(userId) {
   const profile = await profileOf(userId);
   const history = await historyOf(userId);
@@ -118,12 +153,99 @@ app.get('/api/health', (_req, res) => res.json({
   ok: true,
   minWage: MIN_WAGE_PER_HOUR,
   store: driver,
+  payoutsConfigured: hasEncryptionKey,
   uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
+}));
+
+// ---- engine config (single source of truth) ----
+// The client ships the same thresholds so it can animate tier-ups instantly,
+// but the SERVER is authoritative: the app pulls this at boot and overwrites
+// its local copy, so a threshold change here can never disagree with the
+// lock/unlock states the user sees.
+app.get('/api/config', (_req, res) => res.json({
+  minWage: MIN_WAGE_PER_HOUR,
+  tiers: TIERS.map((t) => ({ id: t.id, name: t.name, minJobs: t.minJobs, minRating: t.minRating, maxFlags: t.maxFlags })),
+  badges: BADGES.map((b) => ({ id: b.id, threshold: b.threshold ?? null, special: b.special ?? null })),
+}));
+
+// ---- phone verification (OTP) ----
+const OTP_TTL_MS = 10 * 60 * 1000;   // a code is good for 10 minutes
+const OTP_MAX_ATTEMPTS = 5;          // then it's burned
+const OTP_RESEND_WINDOW_MS = 10 * 60 * 1000;
+const OTP_MAX_SENDS = 4;             // per phone, per window
+const VERIFY_TOKEN_TTL_S = 30 * 60;  // proof-of-phone is good for 30 minutes
+
+const normPhone = (p) => String(p ?? '').replace(/\D/g, '');
+const isPhone = (p) => normPhone(p).length >= 9 && normPhone(p).length <= 15;
+
+/** Codes are only ever echoed back when an operator has explicitly allowed it. */
+const echoCode = (code) => (otpEcho || (process.env.NODE_ENV !== 'production' && !smsConfigured) ? { devCode: code } : {});
+
+app.post('/api/auth/otp', asyncH(async (req, res) => {
+  const phone = normPhone(req.body?.phone);
+  if (!isPhone(phone)) return res.status(400).json({ error: 'Please enter a valid mobile number.' });
+
+  // Sign-up codes are pointless for a number that already has an account, and
+  // saying so here saves the person filling in the whole form first.
+  if (await userByPhone(phone)) {
+    return res.status(409).json({ error: 'That mobile number is already registered. Try signing in instead.' });
+  }
+  if (process.env.NODE_ENV === 'production' && !smsConfigured && !otpEcho) {
+    console.error('OTP requested but no SMS provider is configured — set VUKA_SMS_PROVIDER.');
+    return res.status(503).json({ error: "We can't send verification codes right now. Please try again a bit later." });
+  }
+
+  const since = new Date(Date.now() - OTP_RESEND_WINDOW_MS).toISOString();
+  const recent = await get('SELECT COUNT(*) AS c FROM phone_verifications WHERE phone = ? AND purpose = ? AND created_at > ?', [phone, 'register', since]);
+  if (Number(recent.c) >= OTP_MAX_SENDS) {
+    return res.status(429).json({ error: 'Too many codes requested. Please wait 10 minutes and try again.' });
+  }
+
+  // Only the newest code may be used.
+  await run('DELETE FROM phone_verifications WHERE phone = ? AND purpose = ? AND verified_at IS NULL', [phone, 'register']);
+  const code = randomDigits(4);
+  await run('INSERT INTO phone_verifications (id, phone, purpose, code_hash, expires_at, created_at) VALUES (?,?,?,?,?,?)',
+    [uuid(), phone, 'register', hashCode(code), new Date(Date.now() + OTP_TTL_MS).toISOString(), new Date().toISOString()]);
+
+  const sms = await sendSms(phone, `Your Vuka Uzenzele code is ${code}. It expires in 10 minutes.`);
+  res.json({ ok: true, sent: sms.delivered, expiresInSeconds: OTP_TTL_MS / 1000, ...echoCode(code) });
+}));
+
+app.post('/api/auth/otp/verify', asyncH(async (req, res) => {
+  const phone = normPhone(req.body?.phone);
+  const code = String(req.body?.code ?? '').replace(/\D/g, '');
+  if (!phone || !code) return res.status(400).json({ error: 'Enter the code we sent you.' });
+
+  const row = await get(
+    'SELECT * FROM phone_verifications WHERE phone = ? AND purpose = ? AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1',
+    [phone, 'register']
+  );
+  if (!row) return res.status(400).json({ error: 'That code has expired. Please request a new one.' });
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await run('DELETE FROM phone_verifications WHERE id = ?', [row.id]);
+    return res.status(400).json({ error: 'That code has expired. Please request a new one.' });
+  }
+  if (Number(row.attempts) >= OTP_MAX_ATTEMPTS) {
+    return res.status(429).json({ error: 'Too many wrong codes. Please request a new one.' });
+  }
+  if (!verifyCode(code, row.code_hash)) {
+    await run('UPDATE phone_verifications SET attempts = ? WHERE id = ?', [Number(row.attempts) + 1, row.id]);
+    return res.status(400).json({ error: "That code isn't right. Please check and try again." });
+  }
+
+  await run('UPDATE phone_verifications SET verified_at = ? WHERE id = ?', [new Date().toISOString(), row.id]);
+  res.json({ ok: true, verifyToken: signPurposeToken('phone-verified', { phone }, VERIFY_TOKEN_TTL_S) });
 }));
 
 // ---- auth ----
 app.post('/api/auth/register', asyncH(async (req, res) => {
   const { role, name, phone, password } = req.body || {};
+  // A verified phone is a precondition, not a nice-to-have: it's how a worker
+  // is reachable for a job and how account recovery works.
+  const proof = verifyPurposeToken(req.body?.verifyToken, 'phone-verified');
+  if (!proof || normPhone(proof.phone) !== normPhone(phone)) {
+    return res.status(400).json({ error: 'Please confirm your mobile number with the code we sent before creating your account.' });
+  }
   if (!name?.trim()) return res.status(400).json({ error: 'Please enter your name.' });
   if (name.trim().length > 80) return res.status(400).json({ error: 'Please enter a shorter name.' });
   if (!phone || String(phone).replace(/\D/g, '').length < 9) return res.status(400).json({ error: 'Please enter a valid mobile number.' });
@@ -137,13 +259,15 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
     [id, role, phone, hashPassword(password), name.trim(), new Date().toISOString()]);
 
   if (role === 'worker') {
-    const { age, location, education, bio, skills, idVerified } = req.body;
+    const { age, location, education, bio, skills } = req.body;
     const cap = (v, n) => (typeof v === 'string' ? v.slice(0, n) : v);
+    // id_verified is deliberately NOT taken from the client. It is granted only
+    // by a reviewed KYC submission (POST /api/me/id-verification).
     await run('INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)',
       [id, Number(age) || 18, cap(location, 120) || 'South Africa', cap(education, 120) || 'New member',
         cap(bio, 600) || 'New to Vuka and ready to work. Building my reputation one job at a time.',
         JSON.stringify(Array.isArray(skills) && skills.length ? skills : ['cleaning']),
-        idVerified ? 1 : 0, '#0E355A', 'July 2026', 'New member, ready to work.']);
+        0, '#0E355A', 'July 2026', 'New member, ready to work.']);
   }
 
   const user = await userById(id);
@@ -161,6 +285,64 @@ app.post('/api/auth/login', asyncH(async (req, res) => {
   res.json({ token: signToken(user), user: userOut(user), ...extra });
 }));
 
+/* ---------------- password reset ----------------
+   Two steps: request a code by SMS, then confirm it with a new password.
+   The request step always answers the same way whether or not the number is
+   registered — otherwise this endpoint becomes a way to enumerate users. */
+const RESET_TTL_MS = 15 * 60 * 1000;
+const RESET_MAX_ATTEMPTS = 5;
+
+app.post('/api/auth/password/request', asyncH(async (req, res) => {
+  const phone = normPhone(req.body?.phone);
+  if (!isPhone(phone)) return res.status(400).json({ error: 'Please enter a valid mobile number.' });
+
+  const user = await userByPhone(phone);
+  const generic = { ok: true, message: "If that number has a Vuka account, we've sent a reset code by SMS." };
+  if (!user) return res.json(generic);
+
+  const since = new Date(Date.now() - OTP_RESEND_WINDOW_MS).toISOString();
+  const recent = await get('SELECT COUNT(*) AS c FROM password_resets WHERE user_id = ? AND created_at > ?', [user.id, since]);
+  if (Number(recent.c) >= OTP_MAX_SENDS) return res.json(generic); // silently stop, same shape
+
+  await run('DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL', [user.id]);
+  const code = randomDigits(6);
+  await run('INSERT INTO password_resets (id, user_id, code_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
+    [uuid(), user.id, hashCode(code), new Date(Date.now() + RESET_TTL_MS).toISOString(), new Date().toISOString()]);
+  await sendSms(phone, `Your Vuka Uzenzele password reset code is ${code}. It expires in 15 minutes. If this wasn't you, ignore this message.`);
+
+  res.json({ ...generic, ...echoCode(code) });
+}));
+
+app.post('/api/auth/password/confirm', asyncH(async (req, res) => {
+  const phone = normPhone(req.body?.phone);
+  const code = String(req.body?.code ?? '').replace(/\D/g, '');
+  const password = req.body?.password;
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Please choose a password of at least 8 characters.' });
+  if (password.length > 200) return res.status(400).json({ error: 'That password is too long.' });
+
+  const user = await userByPhone(phone);
+  const badCode = { error: "That code isn't right or has expired. Please request a new one." };
+  if (!user || !code) return res.status(400).json(badCode);
+
+  const row = await get('SELECT * FROM password_resets WHERE user_id = ? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1', [user.id]);
+  if (!row || new Date(row.expires_at).getTime() < Date.now()) return res.status(400).json(badCode);
+  if (Number(row.attempts) >= RESET_MAX_ATTEMPTS) return res.status(429).json({ error: 'Too many wrong codes. Please request a new one.' });
+  if (!verifyCode(code, row.code_hash)) {
+    await run('UPDATE password_resets SET attempts = ? WHERE id = ?', [Number(row.attempts) + 1, row.id]);
+    return res.status(400).json(badCode);
+  }
+
+  // Whole seconds: a token minted in this same second must stay valid, while
+  // every session issued earlier is cut off.
+  const validFrom = Math.floor(Date.now() / 1000);
+  await run('UPDATE users SET password_hash = ?, sessions_valid_from = ? WHERE id = ?', [hashPassword(password), validFrom, user.id]);
+  await run('UPDATE password_resets SET used_at = ? WHERE id = ?', [new Date().toISOString(), row.id]);
+
+  const fresh = await userById(user.id);
+  const extra = fresh.role === 'worker' ? await cvFor(fresh.id) : {};
+  res.json({ token: signToken(fresh), user: userOut(fresh), ...extra });
+}));
+
 app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
   const user = await userById(req.user.id);
   if (!user) return res.status(404).json({ error: 'Your account could not be found. Please sign in again.' });
@@ -171,13 +353,13 @@ app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
 // ---- gigs ----
 app.get('/api/gigs', asyncH(async (_req, res) => {
   const rows = await all("SELECT * FROM gigs WHERE status = 'open' ORDER BY created_at DESC LIMIT 500");
-  res.json(rows.map(gigOut));
+  res.json(await gigsOut(rows));
 }));
 
 app.get('/api/gigs/:id', asyncH(async (req, res) => {
   const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
   if (!g) return res.status(404).json({ error: 'This gig is no longer available. Browse other gigs near you.' });
-  res.json(gigOut(g));
+  res.json((await gigsOut([g]))[0]);
 }));
 
 app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
@@ -185,11 +367,11 @@ app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, r
   if (!title?.trim()) return res.status(400).json({ error: 'Please give your job a title.' });
   const user = await userById(req.user.id);
   const id = uuid();
-  await run('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, employer_rating, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-    [id, user.id, title.trim(), category || 'errands', user.name, initialsOf(user.name), 5.0,
+  await run('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [id, user.id, title.trim(), category || 'errands', user.name, initialsOf(user.name),
       location || 'Soweto', 1.5, Number(hours) || 2, Number(payPerHour) || 50,
       when || 'Flexible', description || '', urgent ? 1 : 0, 'open', new Date().toISOString()]);
-  res.status(201).json(gigOut(await get('SELECT * FROM gigs WHERE id = ?', [id])));
+  res.status(201).json((await gigsOut([await get('SELECT * FROM gigs WHERE id = ?', [id])]))[0]);
 }));
 
 app.get('/api/me/applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
@@ -208,30 +390,199 @@ app.post('/api/gigs/:id/apply', requireAuth, requireRole('worker'), asyncH(async
   res.json({ ok: true });
 }));
 
+/* ============================================================
+   The work loop: applied → hired → worker_done → completed
+
+   Neither side can move it alone. The employer chooses who gets the job; the
+   worker says when the work is done and rates the employer; the employer
+   confirms and rates the worker — and only THAT writes the CV entry. A worker
+   can no longer award themselves a reference, and an employer can't quietly
+   drop someone who did the work.
+   ============================================================ */
+
+/** A worker's own work, with the gig attached (open feed excludes filled gigs). */
+app.get('/api/me/jobs', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
+  const rows = await all(
+    `SELECT a.id AS app_id, a.status AS app_status, a.hired_at, a.worker_done_at, a.completed_at,
+            a.employer_rating, a.employer_review, g.*
+     FROM applications a JOIN gigs g ON g.id = a.gig_id
+     WHERE a.worker_id = ? ORDER BY a.created_at DESC LIMIT 200`,
+    [req.user.id]
+  );
+  const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  res.json(rows.map((r) => ({
+    applicationId: r.app_id,
+    status: r.app_status,
+    hiredAt: r.hired_at,
+    workerDoneAt: r.worker_done_at,
+    completedAt: r.completed_at,
+    employerRatingOfMe: r.employer_rating,
+    employerReview: r.employer_review,
+    gig: gigOut(r, ratings.get(r.employer_id)),
+  })));
+}));
+
+/** Everyone who applied to one of my gigs, with their real CV numbers. */
+app.get('/api/gigs/:id/applicants', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  if (!g) return res.status(404).json({ error: 'That job could not be found.' });
+  if (g.employer_id !== req.user.id) return res.status(403).json({ error: 'You can only see applicants for your own jobs.' });
+
+  const rows = await all(
+    `SELECT a.id AS app_id, a.status AS app_status, a.created_at AS applied_at, a.worker_done_at, a.worker_rating,
+            u.id AS user_id, u.name, p.*
+     FROM applications a
+     JOIN users u ON u.id = a.worker_id
+     LEFT JOIN worker_profiles p ON p.user_id = u.id
+     WHERE a.gig_id = ? ORDER BY a.created_at ASC`,
+    [g.id]
+  );
+  const applicants = await Promise.all(rows.map(async (r) => {
+    const { cv } = await cvFor(r.user_id);
+    return {
+      applicationId: r.app_id, status: r.app_status, appliedAt: r.applied_at, workerDoneAt: r.worker_done_at,
+      worker: {
+        id: r.user_id, name: r.name, initials: initialsOf(r.name),
+        age: r.age, location: r.location, tagline: r.tagline, color: r.color || '#0E355A',
+        skills: JSON.parse(r.skills || '[]'), idVerified: !!r.id_verified,
+        rating: cv.avg, jobsDone: cv.jobsDone, tier: cv.tier, badges: cv.earnedBadges,
+      },
+    };
+  }));
+  res.json({ gig: (await gigsOut([g]))[0], applicants });
+}));
+
+/** Employer picks the person. Everyone else on that gig is told, not left hanging. */
+app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  if (!g) return res.status(404).json({ error: 'That job could not be found.' });
+  if (g.employer_id !== req.user.id) return res.status(403).json({ error: 'You can only hire for your own jobs.' });
+
+  const workerId = req.body?.workerId;
+  const app_ = await get('SELECT * FROM applications WHERE gig_id = ? AND worker_id = ?', [g.id, workerId]);
+  if (!app_) return res.status(404).json({ error: 'That person has not applied for this job.' });
+  if (app_.status !== 'applied') return res.status(409).json({ error: 'That application has already been decided.' });
+  const alreadyHired = await get("SELECT * FROM applications WHERE gig_id = ? AND status IN ('hired','worker_done','completed')", [g.id]);
+  if (alreadyHired) return res.status(409).json({ error: 'You have already hired someone for this job.' });
+
+  const now = new Date().toISOString();
+  await run("UPDATE applications SET status = 'hired', hired_at = ? WHERE id = ?", [now, app_.id]);
+  await run("UPDATE applications SET status = 'not_selected' WHERE gig_id = ? AND id != ? AND status = 'applied'", [g.id, app_.id]);
+  await run("UPDATE gigs SET status = 'filled' WHERE id = ?", [g.id]);
+  await run("UPDATE invitations SET status = 'closed' WHERE gig_id = ? AND status = 'pending'", [g.id]);
+
+  // Being hired is the whole point of the app — tell them, don't make them
+  // discover it. Best-effort: a failed SMS must not fail the hire.
+  const worker = await userById(workerId);
+  if (worker) {
+    void sendSms(worker.phone, `Good news! ${g.employer_name} hired you for "${g.title}" on Vuka Uzenzele. Open the app for the details.`);
+    await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
+      [uuid(), req.user.id, worker.id, `You're hired for "${g.title}" 🎉 Let's arrange the details.`, now]);
+  }
+  res.json({ ok: true, applicationId: app_.id });
+}));
+
+/**
+ * Worker marks the work done and rates the employer.
+ * Deliberately does NOT touch the CV: the employer's confirmation does that.
+ */
 app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
   if (!g) return res.status(404).json({ error: 'This gig could not be found. It may already be complete.' });
+  const app_ = await get('SELECT * FROM applications WHERE gig_id = ? AND worker_id = ?', [g.id, req.user.id]);
+  if (!app_) return res.status(404).json({ error: 'You are not on this job.' });
+  if (app_.status === 'applied') return res.status(409).json({ error: "You haven't been hired for this job yet." });
+  if (app_.status === 'worker_done') return res.status(409).json({ error: `You've already marked this done — ${g.employer_name} still needs to confirm it.` });
+  if (app_.status !== 'hired') return res.status(409).json({ error: 'This job is already finished.' });
+
   const rating = Math.max(1, Math.min(5, Math.round(Number(req.body?.rating) || 5)));
   const safetyFlag = req.body?.safetyFlag ? 1 : 0;
+  const now = new Date().toISOString();
 
-  await run('INSERT INTO history (id, worker_id, job_title, category, employer, employer_initials, date, hours, pay, rating, review, safety_flag, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-    [uuid(), req.user.id, g.title, g.category, g.employer_name, g.employer_initials,
+  await run("UPDATE applications SET status = 'worker_done', worker_done_at = ?, worker_rating = ?, safety_flag = ? WHERE id = ?",
+    [now, rating, safetyFlag, app_.id]);
+
+  // Worker → employer rating. This is what the gig's star rating averages.
+  if (g.employer_id) {
+    await run('INSERT INTO employer_ratings (id, employer_id, worker_id, gig_id, rating, comment, created_at) VALUES (?,?,?,?,?,?,?)',
+      [uuid(), g.employer_id, req.user.id, g.id, rating, null, now]);
+
+    const worker = await userById(req.user.id);
+    const employer = await userById(g.employer_id);
+    if (employer) {
+      void sendSms(employer.phone, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
+      await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
+        [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy 🙏`, now]);
+    }
+  }
+  if (safetyFlag) {
+    await run('INSERT INTO safety_reports (id, reporter_id, about_user_id, gig_id, concern, status, created_at) VALUES (?,?,?,?,?,?,?)',
+      [uuid(), req.user.id, g.employer_id ?? null, g.id, `Safety flag raised when completing "${g.title}".`, 'open', now]);
+    console.warn(`SAFETY FLAG on gig ${g.id} by worker ${req.user.id} — needs triage.`);
+  }
+  res.json({ ok: true, status: 'worker_done', awaitingConfirmationFrom: g.employer_name });
+}));
+
+/** Work awaiting my confirmation, plus what I've already confirmed. */
+app.get('/api/me/hires', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const rows = await all(
+    `SELECT a.id AS app_id, a.status AS app_status, a.hired_at, a.worker_done_at, a.completed_at,
+            u.id AS worker_id, u.name AS worker_name, g.*
+     FROM applications a
+     JOIN gigs g ON g.id = a.gig_id
+     JOIN users u ON u.id = a.worker_id
+     WHERE g.employer_id = ? AND a.status IN ('hired','worker_done','completed')
+     ORDER BY a.hired_at DESC LIMIT 200`,
+    [req.user.id]
+  );
+  const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  res.json(rows.map((r) => ({
+    applicationId: r.app_id, status: r.app_status, hiredAt: r.hired_at,
+    workerDoneAt: r.worker_done_at, completedAt: r.completed_at,
+    worker: { id: r.worker_id, name: r.worker_name, initials: initialsOf(r.worker_name) },
+    gig: gigOut(r, ratings.get(r.employer_id)),
+  })));
+}));
+
+/**
+ * Employer confirms the work and rates the worker. THIS is what writes the CV
+ * entry — the verified reference a worker's whole ladder is built from.
+ */
+app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const app_ = await get('SELECT * FROM applications WHERE id = ?', [req.params.id]);
+  if (!app_) return res.status(404).json({ error: 'That job could not be found.' });
+  const g = await get('SELECT * FROM gigs WHERE id = ?', [app_.gig_id]);
+  if (!g || g.employer_id !== req.user.id) return res.status(403).json({ error: 'You can only confirm your own jobs.' });
+  if (app_.status === 'completed') return res.status(409).json({ error: 'You have already confirmed this job.' });
+  if (app_.status !== 'worker_done') return res.status(409).json({ error: "You can confirm this once the worker has marked it done." });
+
+  const rating = Math.max(1, Math.min(5, Math.round(Number(req.body?.rating) || 5)));
+  const review = String(req.body?.review ?? '').trim().slice(0, 600) || autoReview(rating);
+  const now = new Date().toISOString();
+
+  await run('INSERT INTO history (id, worker_id, job_title, category, employer, employer_initials, employer_id, date, hours, pay, rating, review, safety_flag, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [uuid(), app_.worker_id, g.title, g.category, g.employer_name, g.employer_initials, g.employer_id,
       (g.when_text.split('·')[0] || 'Jul 2026').trim(), g.hours, Math.round(g.hours * g.pay_per_hour),
-      rating, autoReview(rating), safetyFlag, new Date().toISOString()]);
+      rating, review, app_.safety_flag ? 1 : 0, now]);
 
-  await run("UPDATE gigs SET status = 'filled' WHERE id = ?", [g.id]);
-  await run("UPDATE applications SET status = 'completed' WHERE gig_id = ? AND worker_id = ?", [g.id, req.user.id]);
+  await run("UPDATE applications SET status = 'completed', employer_rating = ?, employer_review = ?, completed_at = ? WHERE id = ?",
+    [rating, review, now, app_.id]);
 
-  // learn the new skill
-  const profile = await profileOf(req.user.id);
+  // The worker just proved they can do this category of work.
+  const profile = await profileOf(app_.worker_id);
   if (profile) {
     const skills = JSON.parse(profile.skills || '[]');
     if (!skills.includes(g.category)) {
       skills.push(g.category);
-      await run('UPDATE worker_profiles SET skills = ? WHERE user_id = ?', [JSON.stringify(skills), req.user.id]);
+      await run('UPDATE worker_profiles SET skills = ? WHERE user_id = ?', [JSON.stringify(skills), app_.worker_id]);
     }
   }
-  res.json(await cvFor(req.user.id));
+
+  const worker = await userById(app_.worker_id);
+  if (worker) {
+    void sendSms(worker.phone, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`);
+  }
+  res.json({ ok: true, status: 'completed', rating, review });
 }));
 
 // ---- formal jobs ----
@@ -240,9 +591,206 @@ app.get('/api/formal-jobs', asyncH(async (_req, res) => {
   res.json(rows.map(formalOut));
 }));
 
+// Formal roles are curated listings: applying files the worker's verified CV
+// against the role. Tier-gated server-side — the client's lock UI is a hint,
+// not the rule.
+app.post('/api/formal-jobs/:id/apply', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
+  const job = await get('SELECT * FROM formal_jobs WHERE id = ?', [req.params.id]);
+  if (!job) return res.status(404).json({ error: 'This role is no longer listed. Browse the formal jobs board for others.' });
+
+  const { cv } = await cvFor(req.user.id);
+  if (cv.tier.id < job.min_tier) {
+    const needed = TIERS[job.min_tier];
+    return res.status(403).json({ error: `This role opens at ${needed.name} tier. Complete more well-rated jobs to unlock it.` });
+  }
+
+  const existing = await get('SELECT * FROM formal_applications WHERE job_id = ? AND worker_id = ?', [job.id, req.user.id]);
+  if (existing) return res.json({ ok: true, already: true });
+  await run('INSERT INTO formal_applications (id, job_id, worker_id, status, created_at) VALUES (?,?,?,?,?)',
+    [uuid(), job.id, req.user.id, 'applied', new Date().toISOString()]);
+  res.status(201).json({ ok: true });
+}));
+
+app.get('/api/me/formal-applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
+  const rows = await all('SELECT job_id, status, created_at FROM formal_applications WHERE worker_id = ? ORDER BY created_at DESC', [req.user.id]);
+  res.json(rows.map((r) => ({ jobId: r.job_id, status: r.status, appliedAt: r.created_at })));
+}));
+
+// ---- payout / banking details ----
+// Account numbers are encrypted at rest and NEVER returned: reads give back the
+// holder, bank, type and last 4 digits only. That's enough for the UI to show
+// "Capitec •••• 4321" and nothing more.
+const BANKS = new Set(['absa', 'fnb', 'standard', 'nedbank', 'capitec', 'tymebank', 'africanbank', 'discovery', 'investec', 'bankzero', 'postbank']);
+
+const bankingOut = (row) => (row ? {
+  holder: row.holder, bank: row.bank, accountType: row.account_type,
+  last4: row.account_last4, updatedAt: row.updated_at,
+} : null);
+
+app.get('/api/me/banking', requireAuth, asyncH(async (req, res) => {
+  res.json(bankingOut(await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id])));
+}));
+
+app.put('/api/me/banking', requireAuth, asyncH(async (req, res) => {
+  if (!hasEncryptionKey && process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ error: 'Payout details are temporarily unavailable. Please try again later.' });
+  }
+  const { holder, bank, accountType } = req.body || {};
+  const digits = String(req.body?.accountNumber ?? '').replace(/\D/g, '');
+  const existing = await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id]);
+
+  if (!holder?.trim()) return res.status(400).json({ error: 'Enter the account holder name.' });
+  if (holder.trim().length > 80) return res.status(400).json({ error: 'That account holder name is too long.' });
+  if (!BANKS.has(bank)) return res.status(400).json({ error: 'Choose your bank from the list.' });
+  if (accountType !== 'savings' && accountType !== 'cheque') return res.status(400).json({ error: 'Choose either a savings or cheque account.' });
+  // An omitted number means "keep the one already stored" — the client can't
+  // echo it back, because we never send it.
+  if (!digits && !existing) return res.status(400).json({ error: 'Enter your account number (6–13 digits).' });
+  if (digits && (digits.length < 6 || digits.length > 13)) return res.status(400).json({ error: 'Enter a valid account number (6–13 digits).' });
+
+  const enc = digits ? encryptField(digits) : existing.account_number_enc;
+  const last4 = digits ? digits.slice(-4) : existing.account_last4;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await run('UPDATE banking_details SET holder = ?, bank = ?, account_number_enc = ?, account_last4 = ?, account_type = ?, updated_at = ? WHERE user_id = ?',
+      [holder.trim(), bank, enc, last4, accountType, now, req.user.id]);
+  } else {
+    await run('INSERT INTO banking_details (user_id, holder, bank, account_number_enc, account_last4, account_type, updated_at) VALUES (?,?,?,?,?,?,?)',
+      [req.user.id, holder.trim(), bank, enc, last4, accountType, now]);
+  }
+  res.json(bankingOut(await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id])));
+}));
+
+app.delete('/api/me/banking', requireAuth, asyncH(async (req, res) => {
+  await run('DELETE FROM banking_details WHERE user_id = ?', [req.user.id]);
+  res.json({ ok: true });
+}));
+
+/* ---------------- ID verification (KYC) ----------------
+   The badge is granted by a REVIEWED submission, never by the client. The ID
+   number is validated (13 digits, real date of birth, Luhn check) and stored
+   encrypted; we only ever show its last 4 digits back.
+
+   Format validity is not identity: a submission lands as 'pending' and is
+   decided by the ops route below (or, later, by a Home Affairs / bureau
+   integration wired in at the same point). */
+const idVerificationOut = (row) => (row ? {
+  status: row.status, last4: row.id_number_last4, fullName: row.full_name,
+  reason: row.reason, submittedAt: row.submitted_at, reviewedAt: row.reviewed_at,
+} : { status: 'none' });
+
+app.get('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
+  const row = await get('SELECT * FROM id_verifications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1', [req.user.id]);
+  res.json(idVerificationOut(row));
+}));
+
+app.post('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
+  if (!hasEncryptionKey && process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ error: 'ID verification is temporarily unavailable. Please try again later.' });
+  }
+  const fullName = String(req.body?.fullName ?? '').trim();
+  if (fullName.length < 3 || fullName.length > 120) return res.status(400).json({ error: 'Please enter your full name exactly as it appears on your ID.' });
+
+  const existing = await get('SELECT * FROM id_verifications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1', [req.user.id]);
+  if (existing?.status === 'verified') return res.status(409).json({ error: 'Your identity is already verified.' });
+  if (existing?.status === 'pending') return res.status(409).json({ error: "Your ID is already being checked. We'll let you know as soon as it's done." });
+
+  const idNumber = String(req.body?.idNumber ?? '').replace(/\D/g, '');
+  const check = validateSaId(idNumber);
+  if (!check.ok) return res.status(400).json({ error: check.reason });
+  if (check.age < 16) return res.status(400).json({ error: 'You need to be at least 16 to work on Vuka.' });
+
+  const id = uuid();
+  const now = new Date().toISOString();
+  await run('INSERT INTO id_verifications (id, user_id, full_name, id_number_enc, id_number_last4, date_of_birth, status, provider, submitted_at) VALUES (?,?,?,?,?,?,?,?,?)',
+    [id, req.user.id, fullName, encryptField(idNumber), idNumber.slice(-4), check.dateOfBirth, 'pending', 'manual', now]);
+
+  // The ID is the authoritative source for age, so trust it over what was typed
+  // at sign-up.
+  if (await profileOf(req.user.id)) {
+    await run('UPDATE worker_profiles SET age = ? WHERE user_id = ?', [check.age, req.user.id]);
+  }
+  console.warn(`ID VERIFICATION ${id} submitted by ${req.user.id} — awaiting review.`);
+  res.status(201).json(idVerificationOut(await get('SELECT * FROM id_verifications WHERE id = ?', [id])));
+}));
+
+/* Ops-only review routes. Guarded by VUKA_ADMIN_TOKEN (an x-admin-token
+   header); if the variable isn't set, the routes are simply off. This is the
+   seam a KYC provider would replace. */
+function requireAdmin(req, res, next) {
+  const expected = process.env.VUKA_ADMIN_TOKEN;
+  if (!expected) return res.status(404).json({ error: 'That endpoint does not exist.' });
+  const given = req.headers['x-admin-token'];
+  if (typeof given !== 'string' || given.length !== expected.length || given !== expected) {
+    return res.status(401).json({ error: 'Not authorised.' });
+  }
+  next();
+}
+
+app.get('/api/admin/id-verifications', requireAdmin, asyncH(async (_req, res) => {
+  const rows = await all("SELECT v.*, u.name, u.phone FROM id_verifications v JOIN users u ON u.id = v.user_id WHERE v.status = 'pending' ORDER BY v.submitted_at ASC LIMIT 200");
+  res.json(rows.map((r) => ({ id: r.id, userId: r.user_id, name: r.name, phone: r.phone, fullName: r.full_name, last4: r.id_number_last4, dateOfBirth: r.date_of_birth, submittedAt: r.submitted_at })));
+}));
+
+app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (req, res) => {
+  const row = await get('SELECT * FROM id_verifications WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'That submission does not exist.' });
+  if (row.status !== 'pending') return res.status(409).json({ error: 'That submission has already been decided.' });
+
+  const approve = !!req.body?.approve;
+  const reason = String(req.body?.reason ?? '').slice(0, 300) || null;
+  await run('UPDATE id_verifications SET status = ?, reason = ?, reviewed_at = ? WHERE id = ?',
+    [approve ? 'verified' : 'rejected', reason, new Date().toISOString(), row.id]);
+  if (approve) await run('UPDATE worker_profiles SET id_verified = 1 WHERE user_id = ?', [row.user_id]);
+  res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
+}));
+
+// ---- preferences ----
+// Only preferences the SERVER must know about live here (job alerts drive
+// push/SMS). Device-level choices — data saver, language — stay on the device.
+const prefsOut = (row) => ({ jobAlerts: row ? !!row.job_alerts : true });
+
+app.get('/api/me/preferences', requireAuth, asyncH(async (req, res) => {
+  res.json(prefsOut(await get('SELECT * FROM user_preferences WHERE user_id = ?', [req.user.id])));
+}));
+
+app.put('/api/me/preferences', requireAuth, asyncH(async (req, res) => {
+  if (typeof req.body?.jobAlerts !== 'boolean') return res.status(400).json({ error: 'jobAlerts must be true or false.' });
+  const jobAlerts = req.body.jobAlerts ? 1 : 0;
+  const now = new Date().toISOString();
+  const existing = await get('SELECT user_id FROM user_preferences WHERE user_id = ?', [req.user.id]);
+  if (existing) await run('UPDATE user_preferences SET job_alerts = ?, updated_at = ? WHERE user_id = ?', [jobAlerts, now, req.user.id]);
+  else await run('INSERT INTO user_preferences (user_id, job_alerts, updated_at) VALUES (?,?,?)', [req.user.id, jobAlerts, now]);
+  res.json(prefsOut(await get('SELECT * FROM user_preferences WHERE user_id = ?', [req.user.id])));
+}));
+
+// ---- safety reports ----
+app.post('/api/safety/report', requireAuth, asyncH(async (req, res) => {
+  const concern = String(req.body?.concern ?? '').trim();
+  if (!concern) return res.status(400).json({ error: 'Describe the concern so we can help.' });
+  if (concern.length > 4000) return res.status(400).json({ error: 'Please shorten your report a little.' });
+
+  // Only link a real user/gig — a bad id must never lose the report itself.
+  const aboutId = req.body?.aboutUserId ? (await userById(req.body.aboutUserId))?.id ?? null : null;
+  const gigId = req.body?.gigId ? (await get('SELECT id FROM gigs WHERE id = ?', [req.body.gigId]))?.id ?? null : null;
+
+  const id = uuid();
+  await run('INSERT INTO safety_reports (id, reporter_id, about_user_id, gig_id, concern, status, created_at) VALUES (?,?,?,?,?,?,?)',
+    [id, req.user.id, aboutId, gigId, concern.slice(0, 4000), 'open', new Date().toISOString()]);
+  console.warn(`SAFETY REPORT ${id} filed by ${req.user.id}${aboutId ? ` about ${aboutId}` : ''} — needs triage.`);
+  res.status(201).json({ ok: true, id });
+}));
+
 // ---- worker cv ----
 app.get('/api/me/cv', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   res.json(await cvFor(req.user.id));
+}));
+
+// The signed-in employer's own rating, averaged from worker reviews.
+app.get('/api/me/employer-rating', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const r = (await employerRatings([req.user.id])).get(req.user.id);
+  res.json({ rating: r?.avg ?? null, count: r?.count ?? 0 });
 }));
 
 // ---- talent (employer) ----
@@ -274,7 +822,7 @@ app.get('/api/talent/:id', requireAuth, requireRole('employer'), asyncH(async (r
 // ---- hiring loop: invitations ----
 app.get('/api/me/gigs', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
   const rows = await all("SELECT * FROM gigs WHERE employer_id = ? AND status = 'open' ORDER BY created_at DESC", [req.user.id]);
-  res.json(rows.map(gigOut));
+  res.json(await gigsOut(rows));
 }));
 
 app.post('/api/talent/:id/invite', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
@@ -303,19 +851,40 @@ app.get('/api/me/invitations', requireAuth, requireRole('worker'), asyncH(async 
     "SELECT i.id AS inv_id, i.message AS inv_message, g.* FROM invitations i JOIN gigs g ON g.id = i.gig_id WHERE i.worker_id = ? AND i.status = 'pending' ORDER BY i.created_at DESC",
     [req.user.id]
   );
-  res.json(rows.map((r) => ({ id: r.inv_id, message: r.inv_message, gig: gigOut(r) })));
+  const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  res.json(rows.map((r) => ({ id: r.inv_id, message: r.inv_message, gig: gigOut(r, ratings.get(r.employer_id)) })));
 }));
 
 app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const inv = await get('SELECT * FROM invitations WHERE id = ? AND worker_id = ?', [req.params.id, req.user.id]);
   if (!inv) return res.status(404).json({ error: 'This invitation is no longer available.' });
   const accept = !!req.body?.accept;
+  const now = new Date().toISOString();
   await run('UPDATE invitations SET status = ? WHERE id = ?', [accept ? 'accepted' : 'declined', inv.id]);
+
   if (accept) {
+    // An invitation IS the employer choosing this worker, so accepting hires
+    // them outright — no second round of picking.
+    const gig = await get('SELECT * FROM gigs WHERE id = ?', [inv.gig_id]);
+    const taken = await get("SELECT * FROM applications WHERE gig_id = ? AND worker_id != ? AND status IN ('hired','worker_done','completed')", [inv.gig_id, req.user.id]);
+    if (taken) return res.status(409).json({ error: 'Sorry — that job has already been filled by someone else.' });
+
     const existingApp = await get('SELECT * FROM applications WHERE gig_id = ? AND worker_id = ?', [inv.gig_id, req.user.id]);
-    if (!existingApp) {
-      await run('INSERT INTO applications (id, gig_id, worker_id, status, created_at) VALUES (?,?,?,?,?)',
-        [uuid(), inv.gig_id, req.user.id, 'applied', new Date().toISOString()]);
+    if (existingApp) {
+      if (existingApp.status === 'applied' || existingApp.status === 'not_selected') {
+        await run("UPDATE applications SET status = 'hired', hired_at = ? WHERE id = ?", [now, existingApp.id]);
+      }
+    } else {
+      await run('INSERT INTO applications (id, gig_id, worker_id, status, hired_at, created_at) VALUES (?,?,?,?,?,?)',
+        [uuid(), inv.gig_id, req.user.id, 'hired', now, now]);
+    }
+    await run("UPDATE applications SET status = 'not_selected' WHERE gig_id = ? AND worker_id != ? AND status = 'applied'", [inv.gig_id, req.user.id]);
+    await run("UPDATE gigs SET status = 'filled' WHERE id = ?", [inv.gig_id]);
+    await run("UPDATE invitations SET status = 'closed' WHERE gig_id = ? AND status = 'pending'", [inv.gig_id]);
+
+    const employer = gig?.employer_id ? await userById(gig.employer_id) : null;
+    if (employer) {
+      void sendSms(employer.phone, `${(await userById(req.user.id))?.name ?? 'A worker'} accepted your invitation for "${gig.title}" on Vuka Uzenzele.`);
     }
   }
   res.json({ ok: true, accepted: accept, gigId: inv.gig_id });

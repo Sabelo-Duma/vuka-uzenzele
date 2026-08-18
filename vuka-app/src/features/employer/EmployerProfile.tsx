@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { bankingSummary } from '../../lib/banking';
+import { useEffect, useState } from 'react';
+import { bankingSummaryText, useBanking } from '../../lib/banking';
+import { api } from '../../lib/api';
 import { useApp } from '../../store/appStore';
 import { Avatar, Card } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
@@ -11,28 +12,39 @@ import { BankingSheet, IdentitySheet, SafetySheet } from '../profile/SettingsShe
 type SheetKey = 'banking' | 'identity' | 'safety';
 
 export function EmployerProfile() {
-  const { state, toast, navigate, listMyGigs } = useApp();
+  const { state, toast, navigate } = useApp();
   const [sheet, setSheet] = useState<SheetKey | null>(null);
-  const [, bump] = useState(0);
-  const closeSheet = () => { setSheet(null); bump((n) => n + 1); };
+  const closeSheet = () => setSheet(null);
 
-  const bank = bankingSummary();
+  const { banking } = useBanking();
+  const bank = bankingSummaryText(banking);
 
-  const showMyJobs = async () => {
-    try {
-      const gigs = await listMyGigs();
-      if (gigs.length === 0) { toast('No open jobs yet — post one to start hiring 🧾'); navigate('post'); }
-      else toast(`You have ${gigs.length} open job${gigs.length !== 1 ? 's' : ''} posted right now 🧾`);
-    } catch {
-      toast('Could not load your jobs — check your connection and try again.');
-    }
-  };
+  // Real rating, averaged from the workers this employer has hired.
+  const [rating, setRating] = useState<{ rating: number | null; count: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api.myEmployerRating().then((r) => { if (!cancelled) setRating(r); }).catch(() => { /* leave it unknown */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const ratingSub = rating === null
+    ? 'Loading…'
+    : rating.rating === null
+      ? 'No reviews yet — workers rate you after each job'
+      : `${rating.rating.toFixed(1)} ⭐ from ${rating.count} worker review${rating.count === 1 ? '' : 's'}`;
 
   const rows = [
     { ic: '💳', title: 'Banking details', sub: bank ? `${bank} · tap to edit` : 'Add your payment details', go: () => setSheet('banking') },
     { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => setSheet('identity') },
-    { ic: '🧾', title: 'My posted jobs', sub: 'See your open jobs', go: showMyJobs },
-    { ic: '⭐', title: 'Your employer rating', sub: '5.0 — workers rate you too', go: () => toast('Your employer rating is 5.0 ⭐ — workers rate you after each job') },
+    {
+      ic: '🧾',
+      title: 'My jobs & applicants',
+      sub: state.pendingConfirmations > 0
+        ? `${state.pendingConfirmations} job${state.pendingConfirmations === 1 ? '' : 's'} waiting on your confirmation`
+        : 'See your open jobs and who applied',
+      go: () => navigate('hires'),
+    },
+    { ic: '⭐', title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)} ⭐ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
     { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
   ];
 

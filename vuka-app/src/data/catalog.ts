@@ -1,7 +1,42 @@
 import type { Badge, Category, Tier } from '../types';
 
-/** National Minimum Wage 2025 reference used by the Fair-Pay meter. */
-export const MIN_WAGE_PER_HOUR = 28.79;
+/**
+ * National Minimum Wage reference used by the Fair-Pay meter — a FALLBACK for
+ * first paint and offline use. The live value comes from the server (see
+ * applyServerConfig / minWagePerHour below), which is authoritative.
+ */
+export const MIN_WAGE_PER_HOUR_FALLBACK = 28.79;
+
+let runtimeMinWage = MIN_WAGE_PER_HOUR_FALLBACK;
+
+/** The fair-pay reference to use right now (server value once loaded). */
+export const minWagePerHour = (): number => runtimeMinWage;
+
+/**
+ * Adopt the server's engine config. Tier/badge thresholds exist on both sides
+ * so the client can animate a tier-up the instant a job completes; overwriting
+ * them here means the two can never disagree about what is locked. Presentation
+ * (names, colours, taglines, copy) stays client-owned.
+ */
+export function applyServerConfig(cfg: {
+  minWage: number;
+  tiers: { id: number; minJobs: number; minRating: number; maxFlags: number }[];
+  badges: { id: string; threshold: number | null; special: string | null }[];
+}): void {
+  if (typeof cfg.minWage === 'number' && cfg.minWage > 0) runtimeMinWage = cfg.minWage;
+
+  for (const t of cfg.tiers ?? []) {
+    const local = TIERS.find((x) => x.id === t.id);
+    if (local) Object.assign(local, { minJobs: t.minJobs, minRating: t.minRating, maxFlags: t.maxFlags });
+    else if (import.meta.env.DEV) console.warn(`Server tier ${t.id} has no local presentation — add it to TIERS.`);
+  }
+
+  for (const b of cfg.badges ?? []) {
+    const local = BADGES.find((x) => x.id === b.id);
+    if (local) Object.assign(local, { threshold: b.threshold ?? undefined, special: (b.special ?? undefined) as Badge['special'] });
+    else if (import.meta.env.DEV) console.warn(`Server badge "${b.id}" has no local presentation — add it to BADGES.`);
+  }
+}
 
 export const CATEGORIES: Category[] = [
   { id: 'cleaning', label: 'Cleaning', icon: '🧽', color: '#0E8A09' },

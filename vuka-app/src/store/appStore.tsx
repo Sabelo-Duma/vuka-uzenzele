@@ -2,12 +2,14 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type AuthResult, type Conversation, type CreateGigInput, type Invitation, type Message, type RegisterInput, type Thread } from '../lib/api';
+import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type Applicant, type AuthResult, type Conversation, type CreateGigInput, type Hire, type Invitation, type Message, type MyJob, type RegisterInput, type Thread } from '../lib/api';
 import { computeCv } from '../lib/engine';
+import { applyServerConfig, minWagePerHour } from '../data/catalog';
+import { resetBanking } from '../lib/banking';
 
 export type Screen =
   | 'home' | 'jobs' | 'cv' | 'me'
-  | 'talent' | 'post'
+  | 'talent' | 'post' | 'hires' | 'applicants'
   | 'gigDetail' | 'formalDetail' | 'workerDetail'
   | 'messages' | 'chat';
 
@@ -24,9 +26,19 @@ export interface AppState {
   gigs: Gig[];
   formalJobs: FormalJob[];
   appliedGigIds: string[];
+  appliedFormalIds: string[]; // formal roles this worker has applied to (server-backed)
+  myJobs: MyJob[];            // this worker's own work: hired / done / completed
+  jobAlerts: boolean;         // account-level preference (drives push/SMS)
+  /** Set when an employer confirms a job while the worker is in the app, so the
+   *  CV growth is celebrated at the moment it actually becomes real. */
+  celebrate: { before: CvSnapshot; after: CvSnapshot; jobTitle: string } | null;
   talent: TalentWorker[];
   invitations: Invitation[]; // pending job invitations for the signed-in worker
   unread: number;            // unread direct-message count (nav badge)
+  /** Employer: jobs a worker has marked done that still need confirming. */
+  pendingConfirmations: number;
+  /** Fair-pay reference in force (server value once /api/config lands). */
+  minWage: number;
   feed: 'gigs' | 'formal';
   categoryFilter: string | null; // active category filter on the jobs feed (null = All)
   nav: Nav;
@@ -65,9 +77,15 @@ type Action =
   | { type: 'GIGS'; gigs: Gig[] }
   | { type: 'FORMAL'; formalJobs: FormalJob[] }
   | { type: 'APPLIED'; ids: string[] }
+  | { type: 'APPLIED_FORMAL'; ids: string[] }
+  | { type: 'MY_JOBS'; jobs: MyJob[] }
+  | { type: 'CELEBRATE'; payload: AppState['celebrate'] }
+  | { type: 'JOB_ALERTS'; on: boolean }
+  | { type: 'CONFIG'; minWage: number }
   | { type: 'TALENT'; talent: TalentWorker[] }
   | { type: 'INVITATIONS'; invitations: Invitation[] }
   | { type: 'UNREAD'; count: number }
+  | { type: 'PENDING_CONFIRMATIONS'; count: number }
   | { type: 'REMOVE_GIG'; id: string }
   | { type: 'LOGOUT' }
   | { type: 'NAVIGATE'; nav: Nav }
@@ -79,7 +97,8 @@ type Action =
 function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
-    gigs: [], formalJobs: [], appliedGigIds: [], talent: [], invitations: [], unread: 0,
+    gigs: [], formalJobs: [], appliedGigIds: [], appliedFormalIds: [], myJobs: [], celebrate: null, jobAlerts: true,
+    talent: [], invitations: [], unread: 0, pendingConfirmations: 0, minWage: minWagePerHour(),
     feed: 'gigs', categoryFilter: null, nav: { screen: 'home' }, toast: null, error: null,
   };
 }
@@ -93,9 +112,17 @@ function reducer(state: AppState, action: Action): AppState {
     case 'GIGS': return { ...state, gigs: action.gigs };
     case 'FORMAL': return { ...state, formalJobs: action.formalJobs };
     case 'APPLIED': return { ...state, appliedGigIds: action.ids };
+    case 'APPLIED_FORMAL': return { ...state, appliedFormalIds: action.ids };
+    case 'MY_JOBS': return { ...state, myJobs: action.jobs };
+    case 'CELEBRATE': return { ...state, celebrate: action.payload };
+    case 'JOB_ALERTS': return { ...state, jobAlerts: action.on };
+    // Re-render on the server's config so anything reading the thresholds
+    // (fair-pay chips, lock states) picks up the authoritative values.
+    case 'CONFIG': return { ...state, minWage: action.minWage };
     case 'TALENT': return { ...state, talent: action.talent };
     case 'INVITATIONS': return { ...state, invitations: action.invitations };
     case 'UNREAD': return { ...state, unread: action.count };
+    case 'PENDING_CONFIRMATIONS': return { ...state, pendingConfirmations: action.count };
     case 'REMOVE_GIG': return { ...state, gigs: state.gigs.filter((g) => g.id !== action.id), appliedGigIds: state.appliedGigIds.filter((id) => id !== action.id) };
     case 'LOGOUT': return { ...init(), status: 'anon' };
     case 'NAVIGATE': return { ...state, nav: action.nav };
@@ -118,7 +145,16 @@ interface Store {
   demoLogin: (role: Role) => Promise<void>;
   logout: () => void;
   applyGig: (id: string) => Promise<void>;
-  completeGig: (gigId: string, rating: number, safetyFlag: boolean) => Promise<{ before: CvSnapshot; after: CvSnapshot }>;
+  applyFormal: (id: string) => Promise<void>;
+  setJobAlerts: (on: boolean) => Promise<void>;
+  /** Worker marks work done + rates the employer. Returns who must confirm it. */
+  completeGig: (gigId: string, rating: number, safetyFlag: boolean) => Promise<{ awaitingConfirmationFrom: string }>;
+  /** Employer: hire an applicant, then later confirm + rate their work. */
+  hireWorker: (gigId: string, workerId: string) => Promise<void>;
+  confirmWork: (applicationId: string, rating: number, review?: string) => Promise<void>;
+  loadApplicants: (gigId: string) => Promise<{ gig: Gig; applicants: Applicant[] }>;
+  loadMyHires: () => Promise<Hire[]>;
+  dismissCelebration: () => void;
   postGig: (input: CreateGigInput) => Promise<void>;
   reloadTalent: () => Promise<void>;
   listMyGigs: () => Promise<Gig[]>;
@@ -145,17 +181,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
 
   const loadWorkerData = useCallback(async () => {
-    const [gigs, formalJobs, applications, invitations] = await Promise.all([api.listGigs(), api.listFormal(), api.listApplications(), api.listInvitations()]);
+    const [gigs, formalJobs, applications, formalApps, myJobs, invitations, prefs] = await Promise.all([
+      api.listGigs(), api.listFormal(), api.listApplications(), api.listFormalApplications(),
+      api.listMyJobs(), api.listInvitations(), api.getPreferences(),
+    ]);
     dispatch({ type: 'GIGS', gigs });
     dispatch({ type: 'FORMAL', formalJobs });
     dispatch({ type: 'APPLIED', ids: applications.map((a) => a.gigId) });
+    dispatch({ type: 'APPLIED_FORMAL', ids: formalApps.map((a) => a.jobId) });
+    dispatch({ type: 'MY_JOBS', jobs: myJobs });
     dispatch({ type: 'INVITATIONS', invitations });
+    dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
   }, []);
 
   const loadEmployerData = useCallback(async () => {
-    const [talent, formalJobs] = await Promise.all([api.listTalent(), api.listFormal()]);
+    const [talent, formalJobs, prefs] = await Promise.all([api.listTalent(), api.listFormal(), api.getPreferences()]);
     dispatch({ type: 'TALENT', talent: talent.map(toTalentWorker) });
     dispatch({ type: 'FORMAL', formalJobs });
+    dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
   }, []);
 
   // Load the signed-in user's data. A failure here is a DATA problem (flaky
@@ -184,6 +227,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Retry loading data after a failure (used by the error banner). */
   const reloadData = useCallback(() => loadFor(stateRef.current.role), [loadFor]);
 
+  // Adopt the server's engine config (fair-pay reference + tier/badge
+  // thresholds). Public and cheap, so it runs before any sign-in. If it fails
+  // we keep the bundled fallback — the app still works offline.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await api.getConfig();
+        if (cancelled) return;
+        applyServerConfig(cfg);
+        dispatch({ type: 'CONFIG', minWage: minWagePerHour() });
+      } catch { /* bundled defaults stand in */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Boot: resume a saved session if a token exists.
   useEffect(() => {
     let cancelled = false;
@@ -210,10 +269,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const tick = async () => {
       try { const { count } = await api.unreadCount(); if (!cancelled) dispatch({ type: 'UNREAD', count }); } catch { /* offline */ }
-      // Keep a worker's pending invitations fresh without a full reload.
-      if (stateRef.current.role === 'worker') {
-        try { const invitations = await api.listInvitations(); if (!cancelled) dispatch({ type: 'INVITATIONS', invitations }); } catch { /* offline */ }
+
+      if (stateRef.current.role === 'employer') {
+        // Work a worker has finished is money and a reference held up on the
+        // employer's action — surface it as a badge, don't wait to be found.
+        try {
+          const hires = await api.listMyHires();
+          if (!cancelled) dispatch({ type: 'PENDING_CONFIRMATIONS', count: hires.filter((h) => h.status === 'worker_done').length });
+        } catch { /* offline */ }
+        return;
       }
+      // Keep a worker's pending invitations fresh without a full reload.
+      try { const invitations = await api.listInvitations(); if (!cancelled) dispatch({ type: 'INVITATIONS', invitations }); } catch { /* offline */ }
+
+      // A job is only really finished when the employer confirms it — which
+      // happens on their phone, not this one. Watch for the CV growing so the
+      // tier-up is celebrated at the moment it becomes true.
+      try {
+        const [cv, jobs] = await Promise.all([api.getCv(), api.listMyJobs()]);
+        if (cancelled) return;
+        const current = stateRef.current;
+        const before = computeCv(current.worker);
+        const justConfirmed = current.myJobs.find(
+          (j) => j.status === 'worker_done' && jobs.find((n) => n.applicationId === j.applicationId)?.status === 'completed',
+        );
+        dispatch({ type: 'MY_JOBS', jobs });
+        if (cv.history.length > current.worker.history.length) {
+          const worker = buildWorker(current.user?.name ?? current.worker.name, cv.profile, cv.history);
+          dispatch({ type: 'WORKER', worker });
+          // Only celebrate a job this session was actually waiting on, so a
+          // reload never replays an old one.
+          if (justConfirmed) {
+            dispatch({ type: 'CELEBRATE', payload: { before, after: computeCv(worker), jobTitle: justConfirmed.gig.title } });
+          }
+        }
+      } catch { /* offline — try again on the next tick */ }
     };
     tick();
     const iv = setInterval(tick, 20000);
@@ -239,6 +329,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setToken(null);
+    resetBanking(); // never let the next account see the previous one's payout row
     dispatch({ type: 'LOGOUT' });
   }, []);
 
@@ -248,14 +339,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!cur.includes(id)) dispatch({ type: 'APPLIED', ids: [...cur, id] });
   }, []);
 
-  const completeGig = useCallback(async (gigId: string, rating: number, safetyFlag: boolean) => {
-    const before = computeCv(stateRef.current.worker);
-    const result = await api.completeGig(gigId, rating, safetyFlag);
-    const worker = buildWorker(stateRef.current.user?.name ?? stateRef.current.worker.name, result.profile, result.history);
-    dispatch({ type: 'WORKER', worker });
-    dispatch({ type: 'REMOVE_GIG', id: gigId });
-    return { before, after: computeCv(worker) };
+  const applyFormal = useCallback(async (id: string) => {
+    await api.applyFormal(id);
+    const cur = stateRef.current.appliedFormalIds;
+    if (!cur.includes(id)) dispatch({ type: 'APPLIED_FORMAL', ids: [...cur, id] });
   }, []);
+
+  // Optimistic, but rolled back if the server rejects it — a toggle that lies
+  // about being saved is worse than one that flicks back.
+  const setJobAlerts = useCallback(async (on: boolean) => {
+    const previous = stateRef.current.jobAlerts;
+    dispatch({ type: 'JOB_ALERTS', on });
+    try {
+      const prefs = await api.savePreferences({ jobAlerts: on });
+      dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
+    } catch (e) {
+      dispatch({ type: 'JOB_ALERTS', on: previous });
+      throw e;
+    }
+  }, []);
+
+  /**
+   * The worker's half of finishing a job: mark it done and rate the employer.
+   * The CV deliberately does NOT move here — the employer's confirmation writes
+   * the reference, and `watchForConfirmations` below celebrates it when it lands.
+   */
+  const completeGig = useCallback(async (gigId: string, rating: number, safetyFlag: boolean) => {
+    const result = await api.completeGig(gigId, rating, safetyFlag);
+    dispatch({ type: 'REMOVE_GIG', id: gigId });
+    try { dispatch({ type: 'MY_JOBS', jobs: await api.listMyJobs() }); } catch { /* refreshed on next poll */ }
+    return { awaitingConfirmationFrom: result.awaitingConfirmationFrom };
+  }, []);
+
+  const hireWorker = useCallback(async (gigId: string, workerId: string) => {
+    await api.hireWorker(gigId, workerId);
+  }, []);
+
+  const confirmWork = useCallback(async (applicationId: string, rating: number, review?: string) => {
+    await api.confirmWork(applicationId, rating, review);
+  }, []);
+
+  const loadApplicants = useCallback((gigId: string) => api.listApplicants(gigId), []);
+  const loadMyHires = useCallback(() => api.listMyHires(), []);
 
   const postGig = useCallback(async (input: CreateGigInput) => {
     await api.createGig(input);
@@ -298,10 +423,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
-    register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
+    register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
+    hireWorker, confirmWork, loadApplicants, loadMyHires,
+    dismissCelebration: () => dispatch({ type: 'CELEBRATE', payload: null }),
     refreshUnread, loadConversations, loadThread, sendMessage, reloadData,
     clearError: () => dispatch({ type: 'ERROR', error: null }),
-  }), [state, register, login, demoLogin, logout, applyGig, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
+  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
