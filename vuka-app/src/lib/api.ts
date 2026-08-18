@@ -76,10 +76,83 @@ export interface ServerTalent {
   rating: number; jobsDone: number; tier: ServerTier; badges: string[];
 }
 
+/** Engine thresholds + fair-pay reference, straight from the server. */
+export interface ServerConfig {
+  minWage: number;
+  tiers: { id: TierId; name: string; minJobs: number; minRating: number; maxFlags: number }[];
+  badges: { id: string; threshold: number | null; special: string | null }[];
+}
+/** Payout details as the server is willing to return them — never the full number. */
+export interface BankingSummary {
+  holder: string;
+  bank: string;
+  accountType: 'savings' | 'cheque';
+  last4: string;
+  updatedAt: string;
+}
+export interface BankingInput {
+  holder: string;
+  bank: string;
+  accountType: 'savings' | 'cheque';
+  /** Omit to keep the stored number and change only the other fields. */
+  accountNumber?: string;
+}
+export interface Preferences { jobAlerts: boolean; }
+export interface FormalApplication { jobId: string; status: string; appliedAt: string; }
+
 export interface RegisterInput {
   role: Role; name: string; phone: string; password: string;
+  /** Proof the phone number passed SMS verification — required. */
+  verifyToken: string;
   age?: number; location?: string; education?: string; bio?: string;
-  skills?: CategoryId[]; idVerified?: boolean;
+  skills?: CategoryId[];
+}
+
+/** `devCode` is only ever present in dev / an explicitly opted-in pilot. */
+export interface OtpSent { ok: boolean; sent: boolean; expiresInSeconds: number; devCode?: string }
+export interface OtpVerified { ok: boolean; verifyToken: string }
+export interface ResetRequested { ok: boolean; message: string; devCode?: string }
+
+/** Where a piece of work has got to. Neither side can advance it alone. */
+export type WorkStatus = 'applied' | 'not_selected' | 'hired' | 'worker_done' | 'completed';
+
+export interface MyJob {
+  applicationId: string;
+  status: WorkStatus;
+  hiredAt: string | null;
+  workerDoneAt: string | null;
+  completedAt: string | null;
+  employerRatingOfMe: number | null;
+  employerReview: string | null;
+  gig: Gig;
+}
+export interface Applicant {
+  applicationId: string;
+  status: WorkStatus;
+  appliedAt: string;
+  workerDoneAt: string | null;
+  worker: {
+    id: string; name: string; initials: string; age: number; location: string;
+    tagline: string; color: string; skills: CategoryId[]; idVerified: boolean;
+    rating: number; jobsDone: number; tier: ServerTier; badges: string[];
+  };
+}
+export interface Hire {
+  applicationId: string;
+  status: WorkStatus;
+  hiredAt: string | null;
+  workerDoneAt: string | null;
+  completedAt: string | null;
+  worker: { id: string; name: string; initials: string };
+  gig: Gig;
+}
+export interface IdVerification {
+  status: 'none' | 'pending' | 'verified' | 'rejected';
+  last4?: string;
+  fullName?: string;
+  reason?: string | null;
+  submittedAt?: string;
+  reviewedAt?: string | null;
 }
 export interface CreateGigInput {
   title: string; category: CategoryId; hours: number; payPerHour: number;
@@ -99,11 +172,26 @@ export const api = {
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
   login: (phone: string, password: string) => request<AuthResult>('POST', '/auth/login', { phone, password }),
   me: () => request<AuthResult>('GET', '/auth/me'),
+  requestOtp: (phone: string) => request<OtpSent>('POST', '/auth/otp', { phone }),
+  verifyOtp: (phone: string, code: string) => request<OtpVerified>('POST', '/auth/otp/verify', { phone, code }),
+  requestPasswordReset: (phone: string) => request<ResetRequested>('POST', '/auth/password/request', { phone }),
+  confirmPasswordReset: (phone: string, code: string, password: string) =>
+    request<AuthResult>('POST', '/auth/password/confirm', { phone, code, password }),
   listGigs: () => request<Gig[]>('GET', '/gigs'),
   getGig: (id: string) => request<Gig>('GET', `/gigs/${id}`),
   createGig: (input: CreateGigInput) => request<Gig>('POST', '/gigs', input),
   applyGig: (id: string) => request<{ ok: boolean }>('POST', `/gigs/${id}/apply`),
-  completeGig: (id: string, rating: number, safetyFlag: boolean) => request<CvResult>('POST', `/gigs/${id}/complete`, { rating, safetyFlag }),
+  /** Worker marks the work done and rates the employer. The CV moves only on the employer's confirmation. */
+  completeGig: (id: string, rating: number, safetyFlag: boolean) =>
+    request<{ ok: boolean; status: WorkStatus; awaitingConfirmationFrom: string }>('POST', `/gigs/${id}/complete`, { rating, safetyFlag }),
+  listMyJobs: () => request<MyJob[]>('GET', '/me/jobs'),
+  listApplicants: (gigId: string) => request<{ gig: Gig; applicants: Applicant[] }>('GET', `/gigs/${gigId}/applicants`),
+  hireWorker: (gigId: string, workerId: string) => request<{ ok: boolean; applicationId: string }>('POST', `/gigs/${gigId}/hire`, { workerId }),
+  listMyHires: () => request<Hire[]>('GET', '/me/hires'),
+  confirmWork: (applicationId: string, rating: number, review?: string) =>
+    request<{ ok: boolean; status: WorkStatus; rating: number; review: string }>('POST', `/applications/${applicationId}/confirm`, { rating, review }),
+  getIdVerification: () => request<IdVerification>('GET', '/me/id-verification'),
+  submitIdVerification: (fullName: string, idNumber: string) => request<IdVerification>('POST', '/me/id-verification', { fullName, idNumber }),
   listApplications: () => request<{ gigId: string; status: string }[]>('GET', '/me/applications'),
   listFormal: () => request<FormalJob[]>('GET', '/formal-jobs'),
   getCv: () => request<CvResult>('GET', '/me/cv'),
@@ -123,4 +211,15 @@ export const api = {
   unfollow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('DELETE', `/users/${userId}/follow`),
   listFollowing: () => request<ChatUser[]>('GET', '/me/following'),
   mySocial: () => request<{ followers: number; following: number }>('GET', '/me/social'),
+  getConfig: () => request<ServerConfig>('GET', '/config'),
+  myEmployerRating: () => request<{ rating: number | null; count: number }>('GET', '/me/employer-rating'),
+  applyFormal: (id: string) => request<{ ok: boolean; already?: boolean }>('POST', `/formal-jobs/${id}/apply`),
+  listFormalApplications: () => request<FormalApplication[]>('GET', '/me/formal-applications'),
+  getBanking: () => request<BankingSummary | null>('GET', '/me/banking'),
+  saveBanking: (input: BankingInput) => request<BankingSummary>('PUT', '/me/banking', input),
+  deleteBanking: () => request<{ ok: boolean }>('DELETE', '/me/banking'),
+  getPreferences: () => request<Preferences>('GET', '/me/preferences'),
+  savePreferences: (prefs: Preferences) => request<Preferences>('PUT', '/me/preferences', prefs),
+  reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
+    request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),
 };

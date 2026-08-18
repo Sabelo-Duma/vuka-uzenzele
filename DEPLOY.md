@@ -85,6 +85,12 @@ cd ../vuka-server && npm start        # detects ../vuka-app/dist and serves it
 |---|---|---|
 | `PORT` | Port to listen on | `3001` (hosts set this) |
 | `VUKA_JWT_SECRET` | Signing secret for auth tokens | insecure dev default — **set in prod** |
+| `VUKA_ENCRYPTION_KEY` | Encrypts payout details + ID numbers at rest (AES-256-GCM). Without it those endpoints 503 in production. Changing it makes stored values unreadable. | dev-only derived key — **set in prod** |
+| `VUKA_SMS_PROVIDER` | `console` \| `http` \| `twilio`. Delivers sign-up codes, password-reset codes and hire notifications. Without a real provider, **nobody can sign up** in production unless `VUKA_OTP_ECHO=1`. | `console` (logs only) |
+| `VUKA_SMS_URL` / `VUKA_SMS_AUTH` | Gateway endpoint + `Authorization` header for `provider=http` | unset |
+| `VUKA_TWILIO_SID` / `_TOKEN` / `_FROM` | Credentials for `provider=twilio` | unset |
+| `VUKA_OTP_ECHO` | **Pilot only, insecure.** `1` returns one-time codes in API responses so sign-up works with no SMS contract. | unset |
+| `VUKA_ADMIN_TOKEN` | Enables the ID-verification review routes (`x-admin-token` header). Blank = routes don't exist. | unset |
 | `NODE_ENV` | `production` enables prod behaviour | — |
 | `DATABASE_URL` | **Postgres connection string (e.g. Supabase).** When set, all data persists across deploys. Leave unset to use ephemeral SQLite (demo only). | unset → SQLite |
 | `VUKA_DB` | SQLite file path (only used when `DATABASE_URL` is unset) | `./data.db` |

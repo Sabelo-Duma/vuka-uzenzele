@@ -9,10 +9,13 @@ import { GigDetail } from './features/worker/GigDetail';
 import { FormalDetail } from './features/worker/FormalDetail';
 import { CvLadder } from './features/worker/CvLadder';
 import { WorkerProfile } from './features/worker/WorkerProfile';
+import { CelebrationSheet } from './features/worker/CelebrationSheet';
 import { EmployerHome } from './features/employer/EmployerHome';
 import { Talent } from './features/employer/Talent';
 import { WorkerDetail } from './features/employer/WorkerDetail';
 import { PostJob } from './features/employer/PostJob';
+import { MyJobs } from './features/employer/MyJobs';
+import { Applicants } from './features/employer/Applicants';
 import { EmployerProfile } from './features/employer/EmployerProfile';
 import { Messages, ChatThread } from './features/chat/Chat';
 import { PublicCv } from './features/public/PublicCv';
@@ -78,6 +81,8 @@ export function App() {
       case 'post': content = <PostJob />; break;
       case 'me': content = <EmployerProfile />; break;
       case 'workerDetail': content = <WorkerDetail id={id} />; break;
+      case 'hires': content = <MyJobs />; break;
+      case 'applicants': content = <Applicants id={id} />; break;
       default: content = <EmployerHome />;
     }
   }
@@ -90,6 +95,8 @@ export function App() {
           {content}
         </ErrorBoundary>
       </AppShell>
+      {/* Fires the moment an employer's confirmation lands, wherever the worker is. */}
+      <CelebrationSheet />
       <Toast />
     </>
   );

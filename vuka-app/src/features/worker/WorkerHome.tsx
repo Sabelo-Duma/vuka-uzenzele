@@ -3,7 +3,7 @@ import { CATEGORIES, catById } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
-import type { Invitation } from '../../lib/api';
+import type { Invitation, MyJob } from '../../lib/api';
 import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
@@ -18,6 +18,10 @@ export function WorkerHome() {
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
   const lockedFormal = state.formalJobs.filter((f) => f.minTier > cv.tier.id);
   const teaser = lockedFormal[0] ?? state.formalJobs[state.formalJobs.length - 1];
+
+  // Work that still needs something to happen: you're on it, or you're waiting
+  // on the employer to confirm.
+  const activeWork = state.myJobs.filter((j) => j.status === 'hired' || j.status === 'worker_done');
 
   const nextText = cv.nextTier
     ? <>{cv.jobsToGo === 0 ? <b>Rating up</b> : <b>{cv.jobsToGo} more job{cv.jobsToGo > 1 ? 's' : ''}</b>} to reach <b>{cv.nextTier.name}</b> {cv.nextTier.icon}</>
@@ -44,6 +48,15 @@ export function WorkerHome() {
           <SectionTitle>You've been invited</SectionTitle>
           <div className="flex flex-col gap-2.5">
             {state.invitations.map((inv) => <InviteCard key={inv.id} inv={inv} />)}
+          </div>
+        </div>
+      )}
+
+      {activeWork.length > 0 && (
+        <div className="mb-1">
+          <SectionTitle>Your work</SectionTitle>
+          <div className="flex flex-col gap-2.5">
+            {activeWork.map((j) => <MyWorkCard key={j.applicationId} job={j} />)}
           </div>
         </div>
       )}
@@ -88,6 +101,35 @@ export function WorkerHome() {
 
       <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">Total earned so far: <b className="text-navy">{money(cv.totalEarned)}</b> across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}.</p>
     </Dashboard>
+  );
+}
+
+/** A job the worker is actually on: hired, or done and awaiting confirmation. */
+function MyWorkCard({ job }: { job: MyJob }) {
+  const { navigate } = useApp();
+  const c = catById(job.gig.category);
+  const total = job.gig.hours * job.gig.payPerHour;
+  const waiting = job.status === 'worker_done';
+  const first = job.gig.employer.split(' ')[0];
+  return (
+    <Card className={`p-4 border-l-4 ${waiting ? 'border-[color:var(--gj-warning,#F59E0B)]' : 'border-success'}`}>
+      <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-muted' : 'text-success'}`}>
+        <Icon name={waiting ? 'clock' : 'check'} size={13} /> {waiting ? `Waiting for ${first} to confirm` : "You're hired"}
+      </div>
+      <div className="flex gap-3 items-start">
+        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <div className="flex-1 min-w-0">
+          <b className="text-[15px] font-extrabold text-navy leading-tight block tracking-tight">{job.gig.title}</b>
+          <div className="text-[12px] text-muted mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-navy tnum">{money(total)}</b></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 mt-3">
+        <Button size="sm" variant={waiting ? 'ghost' : 'gold'} onClick={() => navigate('gigDetail', job.gig.id)}>
+          {waiting ? 'View job' : "I've finished"}
+        </Button>
+        <Button size="sm" variant="ghost" icon="chat" onClick={() => navigate('chat', job.gig.employerId ?? '')}>Message {first}</Button>
+      </div>
+    </Card>
   );
 }
 

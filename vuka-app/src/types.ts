@@ -75,7 +75,9 @@ export interface Gig {
   employer: string;
   employerId?: string;
   employerInitials: string;
-  employerRating: number;
+  /** Average worker→employer rating; null until real workers have rated them. */
+  employerRating: number | null;
+  employerRatingCount: number;
   location: string;
   distanceKm: number;
   hours: number;

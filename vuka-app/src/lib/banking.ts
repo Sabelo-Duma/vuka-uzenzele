@@ -1,21 +1,16 @@
 /**
- * Banking details, stored on the device for now.
+ * Banking / payout details.
  *
- * Backend persistence is deliberately parked, so — like prefs/appliedFormal —
- * this saves locally so the feature genuinely works (persists across reloads,
- * shows a real saved state). When the payments backend lands, swap read/save
- * for API calls; the shape and callers stay the same.
+ * These live on the SERVER: the account number is encrypted at rest and is
+ * never sent back to the app. Reads return only what the UI needs to show a
+ * masked hint — holder, bank, account type and the last 4 digits. Nothing
+ * sensitive is written to the device.
  *
- * NOTE: for a pilot only. Real payout details must move server-side (encrypted)
- * before money flows — flagged in the costing model.
+ * The summary is cached in-module and shared through `useBanking()` so several
+ * screens can show the same state without each refetching.
  */
-
-export interface BankDetails {
-  holder: string;      // account holder name
-  bank: string;        // bank id (see SA_BANKS)
-  accountNumber: string;
-  accountType: 'cheque' | 'savings';
-}
+import { useEffect, useSyncExternalStore } from 'react';
+import { api, type BankingInput, type BankingSummary } from './api';
 
 export interface SaBank { id: string; name: string; branchCode: string }
 
@@ -36,38 +31,56 @@ export const SA_BANKS: SaBank[] = [
 
 export const bankById = (id: string): SaBank | undefined => SA_BANKS.find((b) => b.id === id);
 
-const KEY = 'vuka-banking';
+export type { BankingSummary, BankingInput };
 
-export function getBanking(): BankDetails | null {
+/* ---------------- shared cache ---------------- */
+type State = { status: 'idle' | 'loading' | 'ready'; details: BankingSummary | null };
+
+let state: State = { status: 'idle', details: null };
+const listeners = new Set<() => void>();
+
+function set(next: State) {
+  state = next;
+  listeners.forEach((l) => l());
+}
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+/** Fetch once per session (or after a change). Failures leave status idle so a later screen retries. */
+async function load() {
+  if (state.status !== 'idle') return;
+  set({ ...state, status: 'loading' });
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as BankDetails) : null;
+    set({ status: 'ready', details: await api.getBanking() });
   } catch {
-    return null;
+    set({ status: 'idle', details: null });
   }
 }
 
-export function saveBanking(d: BankDetails): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(d));
-  } catch {
-    /* storage unavailable */
-  }
+/** Drop the cache — call on sign-out so the next account starts clean. */
+export function resetBanking() {
+  set({ status: 'idle', details: null });
 }
 
-export function clearBanking(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* ignore */
-  }
+export async function saveBanking(input: BankingInput): Promise<BankingSummary> {
+  const saved = await api.saveBanking(input);
+  set({ status: 'ready', details: saved });
+  return saved;
 }
 
-/** e.g. "Capitec •••• 4321" — safe to show in the row subtitle. */
-export function bankingSummary(): string | null {
-  const d = getBanking();
+export async function clearBanking(): Promise<void> {
+  await api.deleteBanking();
+  set({ status: 'ready', details: null });
+}
+
+/** e.g. "Capitec •••• 4321" — safe to show in a row subtitle. */
+export function bankingSummaryText(d: BankingSummary | null): string | null {
   if (!d) return null;
-  const last4 = d.accountNumber.slice(-4);
-  const name = bankById(d.bank)?.name ?? 'Bank';
-  return `${name} •••• ${last4}`;
+  return `${bankById(d.bank)?.name ?? 'Bank'} •••• ${d.last4}`;
+}
+
+/** Subscribe a component to the payout details, loading them on first use. */
+export function useBanking(): { banking: BankingSummary | null; loading: boolean } {
+  const snapshot = useSyncExternalStore(subscribe, () => state);
+  useEffect(() => { void load(); }, []);
+  return { banking: snapshot.details, loading: snapshot.status !== 'ready' };
 }

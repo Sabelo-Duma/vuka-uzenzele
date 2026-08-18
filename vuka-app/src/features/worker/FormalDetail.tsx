@@ -1,21 +1,27 @@
 import { useState } from 'react';
 import { TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
-import { isFormalApplied, markFormalApplied } from '../../lib/appliedFormal';
 import { useApp } from '../../store/appStore';
 import { Button, Card, EmptyState } from '../../components/ui';
 import { DetailHeader, Hero, KV, PayBox, PerkList, StickyCta } from '../../components/bits';
 import { Icon } from '../../components/Icon';
 
 export function FormalDetail({ id }: { id: string }) {
-  const { state, toast, navigate, setFeed } = useApp();
+  const { state, toast, navigate, setFeed, applyFormal } = useApp();
   const job = state.formalJobs.find((f) => f.id === id);
-  const [applied, setApplied] = useState(() => isFormalApplied(id));
+  const applied = state.appliedFormalIds.includes(id);
+  const [applying, setApplying] = useState(false);
 
-  const apply = () => {
-    markFormalApplied(id);
-    setApplied(true);
-    toast(`Applied ✓ — your verified CV is saved for ${job?.title ?? 'this role'}`);
+  const apply = async () => {
+    setApplying(true);
+    try {
+      await applyFormal(id);
+      toast(`Applied ✓ — your verified CV is on file for ${job?.title ?? 'this role'}`);
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setApplying(false);
+    }
   };
 
   if (!job) {
@@ -80,8 +86,8 @@ export function FormalDetail({ id }: { id: string }) {
       <StickyCta>
         {unlocked ? (
           <>
-            <Button block variant="navy" disabled={applied} onClick={apply}>
-              {applied ? '✓ Applied' : 'Apply with my verified CV'}
+            <Button block variant="navy" disabled={applied || applying} onClick={apply}>
+              {applied ? '✓ Applied' : applying ? 'Sending your CV…' : 'Apply with my verified CV'}
             </Button>
             <p className="text-center text-[12px] text-muted mt-2">
               {applied

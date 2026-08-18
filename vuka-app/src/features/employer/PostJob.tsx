@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATEGORIES, MIN_WAGE_PER_HOUR } from '../../data/catalog';
+import { CATEGORIES, minWagePerHour } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import type { CategoryId } from '../../types';
 import { Button } from '../../components/ui';
@@ -19,7 +19,8 @@ export function PostJob() {
   const [busy, setBusy] = useState(false);
 
   const rateNum = Number(rate) || 0;
-  const fair = rateNum >= MIN_WAGE_PER_HOUR;
+  const minWage = minWagePerHour();
+  const fair = rateNum >= minWage;
 
   const submit = async () => {
     if (!title.trim()) { toast('Give your job a title first ✍️'); return; }
@@ -65,7 +66,7 @@ export function PostJob() {
       <div className="mb-3">
         {fair
           ? <Chip tone="fair" icon="shield">Fair pay — above SA minimum</Chip>
-          : <Chip tone="urgent">⚠ Below SA minimum wage (R{MIN_WAGE_PER_HOUR}/hr)</Chip>}
+          : <Chip tone="urgent">⚠ Below SA minimum wage (R{minWage}/hr)</Chip>}
       </div>
 
       <Button block variant="navy" disabled={busy} onClick={submit}>{busy ? 'Posting…' : "Post job — it's free to post"}</Button>

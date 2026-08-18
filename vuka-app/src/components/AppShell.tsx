@@ -16,13 +16,36 @@ const EMPLOYER_NAV: NavItem[] = [
   { screen: 'home', label: 'Home', icon: 'home' },
   { screen: 'talent', label: 'Talent', icon: 'talent' },
   { screen: 'post', label: 'Post', icon: 'briefcase' },
+  { screen: 'hires', label: 'My jobs', icon: 'jobs' },
   { screen: 'me', label: 'Me', icon: 'user' },
 ];
+
+const CHAT_TAB: NavItem = { screen: 'messages', label: 'Chats', icon: 'chat' };
+
+/**
+ * Mobile keeps to four tabs plus the ＋ button, so each role drops the tab the
+ * ＋ already covers and gains Chats. Employers reach Talent from Home.
+ */
+const MOBILE_TABS: Record<'worker' | 'employer', NavItem[]> = {
+  worker: [
+    { screen: 'home', label: 'Home', icon: 'home' },
+    CHAT_TAB,
+    { screen: 'cv', label: 'Ladder', icon: 'ladder' },
+    { screen: 'me', label: 'Me', icon: 'user' },
+  ],
+  employer: [
+    { screen: 'home', label: 'Home', icon: 'home' },
+    { screen: 'hires', label: 'My jobs', icon: 'jobs' },
+    CHAT_TAB,
+    { screen: 'me', label: 'Me', icon: 'user' },
+  ],
+};
 
 /** Which primary tab a (possibly detail) screen belongs to. */
 function activeTab(screen: Screen): Screen {
   if (screen === 'gigDetail' || screen === 'formalDetail') return 'jobs';
   if (screen === 'workerDetail') return 'talent';
+  if (screen === 'applicants') return 'hires';
   if (screen === 'chat') return 'messages';
   return screen;
 }
@@ -76,10 +99,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = state.role === 'worker' ? WORKER_NAV : EMPLOYER_NAV;
   const current = activeTab(state.nav.screen);
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
-  // Mobile bottom nav: the tab the ＋ button already opens is redundant, so
-  // swap it for Chats. (Worker: Jobs→＋, so Jobs becomes Chats. Employer: Post→＋.)
-  const CHAT_TAB: NavItem = { screen: 'messages', label: 'Chats', icon: 'chat' };
-  const mobileTabs = nav.map((it) => (it.screen === fabTarget ? CHAT_TAB : it));
+  const mobileTabs = MOBILE_TABS[state.role];
+  /** Badge count for a tab: unread chats, or work waiting on the employer. */
+  const badgeFor = (screen: Screen) =>
+    screen === 'messages' ? state.unread : screen === 'hires' ? state.pendingConfirmations : 0;
 
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-surface-2 text-ink">
@@ -103,7 +126,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ${active ? 'bg-red text-white' : 'text-muted hover:bg-surface-2 hover:text-navy'}`}
               >
                 <Icon name={item.icon} size={20} />
-                {item.label}
+                <span>{item.label}</span>
+                {badgeFor(item.screen) > 0 && <span className="ml-auto"><UnreadBadge count={badgeFor(item.screen)} onDark={active} /></span>}
               </button>
             );
           })}
@@ -144,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden flex items-stretch border-t border-line bg-surface px-1.5 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 shrink-0" aria-label="Primary">
           {mobileTabs.slice(0, 2).map((item) => (
-            <TabButton key={item.screen} item={item} active={current === item.screen} badge={item.screen === 'messages' ? state.unread : 0} onClick={() => navigate(item.screen)} />
+            <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
           ))}
           <button
             onClick={() => navigate(fabTarget)}
@@ -156,7 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </button>
           {mobileTabs.slice(2).map((item) => (
-            <TabButton key={item.screen} item={item} active={current === item.screen} badge={item.screen === 'messages' ? state.unread : 0} onClick={() => navigate(item.screen)} />
+            <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
           ))}
         </nav>
       </div>

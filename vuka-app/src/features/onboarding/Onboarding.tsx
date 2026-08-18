@@ -1,14 +1,20 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CATEGORIES } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
+import { api } from '../../lib/api';
 import { useTheme } from '../../providers/ThemeProvider';
 import type { CategoryId, Role } from '../../types';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { Landing } from './Landing';
 
-type OBView = 'landing' | 'role' | 'reg' | 'login';
-interface OBData { phone: string; otp: string; name: string; age: string; location: string; skills: CategoryId[]; idVerified: boolean; password: string; }
+type OBView = 'landing' | 'role' | 'reg' | 'login' | 'reset';
+interface OBData {
+  phone: string; otp: string; name: string; age: string; location: string;
+  skills: CategoryId[]; password: string;
+  /** Proof from the server that the OTP for `phone` checked out. */
+  verifyToken: string;
+}
 
 const stepsFor = (role: Role): string[] =>
   role === 'worker'
@@ -22,14 +28,12 @@ export function Onboarding() {
   const [role, setRole] = useState<Role>('worker');
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [data, setData] = useState<OBData>({ phone: '', otp: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], idVerified: false, password: '' });
+  const [data, setData] = useState<OBData>({ phone: '', otp: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], password: '', verifyToken: '' });
 
   const steps = stepsFor(role);
   const key = steps[step];
 
   const validate = (): boolean => {
-    if (key === 'phone' && data.phone.replace(/\D/g, '').length < 9) { toast('Enter a valid mobile number 📱'); return false; }
-    if (key === 'otp' && data.otp.replace(/\D/g, '').length < 4) { toast('Enter the 4-digit code 🔢'); return false; }
     if (key === 'about' && !data.name.trim()) { toast('Please enter your name ✍️'); return false; }
     if (key === 'skills' && data.skills.length === 0) { toast('Pick at least one skill 🎯'); return false; }
     if (key === 'org' && !data.name.trim()) { toast('Enter your name or business ✍️'); return false; }
@@ -49,8 +53,9 @@ export function Onboarding() {
     try {
       await register({
         role, name: data.name, phone: data.phone, password: data.password,
+        verifyToken: data.verifyToken,
         age: Number(data.age) || (role === 'worker' ? 18 : 30),
-        location: data.location, skills: data.skills, idVerified: data.idVerified,
+        location: data.location, skills: data.skills,
       });
     } catch (e) { toast((e as Error).message); setBusy(false); }
   };
@@ -58,10 +63,19 @@ export function Onboarding() {
   return (
     <AuthLayout>
       {view === 'role' && <RoleChoose onBack={() => setView('landing')} onPick={(r) => { setRole(r); setStep(0); setView('reg'); }} onLogin={() => setView('login')} />}
-      {view === 'login' && <LoginView busy={busy} onBack={() => setView('landing')}
+      {view === 'login' && <LoginView busy={busy} onBack={() => setView('landing')} onForgot={() => setView('reset')}
         onLogin={async (phone, password) => { setBusy(true); try { await login(phone, password); } catch (e) { toast((e as Error).message); setBusy(false); } }}
         onDemo={async (r) => { setBusy(true); try { await demoLogin(r); } catch (e) { toast((e as Error).message); setBusy(false); } }} />}
-      {view === 'reg' && key !== 'done' && <RegStep stepKey={key} steps={steps} step={step} data={data} setData={setData} onBack={back} onNext={next} />}
+      {view === 'reset' && <ResetView onBack={() => setView('login')} />}
+      {view === 'reg' && key !== 'done' && (
+        <RegStep
+          stepKey={key} steps={steps} step={step} data={data} setData={setData}
+          onBack={back}
+          onNext={next}
+          // The phone and OTP steps advance themselves once the server agrees.
+          onVerified={(verifyToken) => { setData((d) => ({ ...d, verifyToken })); setStep((s) => s + 1); }}
+        />
+      )}
       {view === 'reg' && key === 'done' && <Success role={role} name={data.name} busy={busy} onEnter={finish} onBack={back} />}
     </AuthLayout>
   );
@@ -151,7 +165,7 @@ function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: str
 
 /* ---------------- Login ---------------- */
 const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-sm bg-surface text-navy focus:outline-none focus:border-navy transition';
-function LoginView({ busy, onBack, onLogin, onDemo }: { busy: boolean; onBack: () => void; onLogin: (phone: string, password: string) => void; onDemo: (r: Role) => void }) {
+function LoginView({ busy, onBack, onLogin, onDemo, onForgot }: { busy: boolean; onBack: () => void; onLogin: (phone: string, password: string) => void; onDemo: (r: Role) => void; onForgot: () => void }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   return (
@@ -160,7 +174,8 @@ function LoginView({ busy, onBack, onLogin, onDemo }: { busy: boolean; onBack: (
       <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
       <p className="text-[13.5px] text-muted mb-6">Sign in to pick up where you left off.</p>
       <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Mobile number" /></div>
-      <div className="mb-5"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
+      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
+      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-[12.5px] font-bold text-navy hover:text-red transition">Forgot password?</button></div>
       <Button block disabled={busy} onClick={() => onLogin(phone, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
 
       <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-[11px] text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
@@ -172,25 +187,109 @@ function LoginView({ busy, onBack, onLogin, onDemo }: { busy: boolean; onBack: (
   );
 }
 
-/* ---------------- Registration step ---------------- */
-function RegStep({ stepKey, steps, step, data, setData, onBack, onNext }: {
-  stepKey: string; steps: string[]; step: number; data: OBData;
-  setData: React.Dispatch<React.SetStateAction<OBData>>; onBack: () => void; onNext: () => void;
-}) {
-  const total = steps.length - 1;
-  const btnLabel = stepKey === 'id' ? (data.idVerified ? 'Finish' : 'Skip for now') : 'Continue';
+/* ---------------- Forgot password ----------------
+   Request a code by SMS, then set a new password. The server answers the
+   request step identically for unknown numbers, so this screen must not imply
+   the number was found. */
+function ResetView({ onBack }: { onBack: () => void }) {
+  const { toast, login } = useApp();
+  const [phase, setPhase] = useState<'phone' | 'code'>('phone');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const request = async () => {
+    if (phone.replace(/\D/g, '').length < 9) return toast('Enter a valid mobile number 📱');
+    setBusy(true);
+    try {
+      const res = await api.requestPasswordReset(phone);
+      setDevCode(res.devCode ?? null);
+      toast(res.devCode ? `Test mode — your code is ${res.devCode}` : res.message);
+      setPhase('code');
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async () => {
+    if (code.replace(/\D/g, '').length < 6) return toast('Enter the 6-digit code from your SMS 🔢');
+    if (password.length < 8) return toast('Choose a password of at least 8 characters 🔒');
+    setBusy(true);
+    try {
+      // Confirming signs the account straight in, so there's no second login step.
+      await api.confirmPasswordReset(phone, code, password).then(async () => { await login(phone, password); });
+      toast('Password changed 🔒 Welcome back!');
+    } catch (e) {
+      toast((e as Error).message);
+      setBusy(false);
+    }
+  };
+
   return (
     <div>
       <BackRow onBack={onBack} />
-      <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-red' : 'bg-line-strong'}`} />)}</div>
-      {stepKey === 'phone' && <PhoneStep data={data} setData={setData} />}
-      {stepKey === 'otp' && <OtpStep phone={data.phone} data={data} setData={setData} />}
+      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
+      {phase === 'phone' ? (
+        <>
+          <p className="text-[13.5px] text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
+          <div className="mb-5"><Label>Mobile number</Label>
+            <input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
+          </div>
+          <Button block disabled={busy} onClick={request}>{busy ? 'Sending…' : 'Send reset code'}</Button>
+        </>
+      ) : (
+        <>
+          <p className="text-[13.5px] text-muted mb-6">If <b className="text-navy">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
+          <div className="mb-3.5"><Label>Reset code</Label>
+            <input className={inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} aria-label="Reset code" />
+          </div>
+          <div className="mb-2"><Label>New password</Label>
+            <input className={inputCls} type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
+          </div>
+          {devCode && <p className="text-[12px] text-muted mb-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
+          <Trust>Changing your password signs out anyone else who was using your account.</Trust>
+          <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : 'Set new password & sign in'}</Button>
+          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-[12.5px] text-muted font-semibold mt-3 hover:text-navy">Use a different number</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Registration step ---------------- */
+function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerified }: {
+  stepKey: string; steps: string[]; step: number; data: OBData;
+  setData: React.Dispatch<React.SetStateAction<OBData>>;
+  onBack: () => void; onNext: () => void; onVerified: (verifyToken: string) => void;
+}) {
+  const total = steps.length - 1;
+  const progress = (
+    <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-red' : 'bg-line-strong'}`} />)}</div>
+  );
+
+  // The phone and code steps own their own button: each has to wait on the
+  // server, and "Continue" must not move on until it has.
+  if (stepKey === 'phone') {
+    return <div><BackRow onBack={onBack} />{progress}<PhoneStep data={data} setData={setData} onSent={onNext} /></div>;
+  }
+  if (stepKey === 'otp') {
+    return <div><BackRow onBack={onBack} />{progress}<OtpStep data={data} setData={setData} onVerified={onVerified} /></div>;
+  }
+
+  return (
+    <div>
+      <BackRow onBack={onBack} />
+      {progress}
       {stepKey === 'about' && <AboutStep data={data} setData={setData} />}
       {stepKey === 'skills' && <SkillsStep data={data} setData={setData} />}
       {stepKey === 'password' && <PasswordStep data={data} setData={setData} />}
-      {stepKey === 'id' && <IdStep data={data} setData={setData} />}
+      {stepKey === 'id' && <IdStep />}
       {stepKey === 'org' && <OrgStep data={data} setData={setData} />}
-      <Button block className="mt-7" onClick={onNext}>{btnLabel}</Button>
+      <Button block className="mt-7" onClick={onNext}>{stepKey === 'id' ? 'Continue' : 'Continue'}</Button>
     </div>
   );
 }
@@ -208,30 +307,100 @@ const Trust = ({ children }: { children: React.ReactNode }) => (
   <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-[12px] text-navy leading-snug">{children}</span></div>
 );
 
-function PhoneStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="What's your number<span class='text-red'>?</span>" sub="We'll send a free SMS code to confirm it's you. Your number is never shown to others." />
-    <div><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} aria-label="Mobile number" /></div>
-    <Trust>Sending the code is <b>zero-rated</b> — it costs you no airtime or data.</Trust></>);
+function PhoneStep({ data, setData, onSent }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onSent: () => void }) {
+  const { toast } = useApp();
+  const [busy, setBusy] = useState(false);
+
+  const send = async () => {
+    if (data.phone.replace(/\D/g, '').length < 9) return toast('Enter a valid mobile number 📱');
+    setBusy(true);
+    try {
+      const res = await api.requestOtp(data.phone);
+      setData((d) => ({ ...d, otp: '' }));
+      // In a pilot without an SMS contract the server may hand the code back so
+      // sign-up still works; say so plainly rather than pretending it was sent.
+      lastDevCode.value = res.devCode ?? null;
+      toast(res.sent ? 'Code sent 📱 Check your SMS.' : res.devCode ? `Test mode — your code is ${res.devCode}` : 'Code created — check your SMS.');
+      onSent();
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (<><Head h="What's your number<span class='text-red'>?</span>" sub="We'll send an SMS code to confirm it's you. Your number is never shown to others." />
+    <div><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') send(); }} /></div>
+    <Trust>Your number is how employers reach you about work — and how you get back in if you forget your password.</Trust>
+    <Button block className="mt-7" disabled={busy} onClick={send}>{busy ? 'Sending code…' : 'Send me the code'}</Button></>);
 }
-function OtpStep({ phone, data, setData }: { phone: string; data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
+
+/** Test-mode code from the last send, so the OTP screen can show it. */
+const lastDevCode: { value: string | null } = { value: null };
+
+function OtpStep({ data, setData, onVerified }: {
+  data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onVerified: (token: string) => void;
+}) {
   const { toast } = useApp();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(lastDevCode.value);
+
+  useEffect(() => { refs.current[0]?.focus(); }, []);
+
+  const submit = async (code: string) => {
+    if (code.replace(/\D/g, '').length < 4) return toast('Enter the 4-digit code 🔢');
+    setBusy(true);
+    try {
+      const res = await api.verifyOtp(data.phone, code);
+      onVerified(res.verifyToken);
+    } catch (e) {
+      toast((e as Error).message);
+      setData((d) => ({ ...d, otp: '' }));
+      refs.current[0]?.focus();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const setDigit = (i: number, v: string) => {
     const d = v.replace(/\D/g, '').slice(-1);
     const arr = [0, 1, 2, 3].map((j) => data.otp[j] ?? '');
     arr[i] = d;
-    setData({ ...data, otp: arr.join('') });
+    const next = arr.join('');
+    setData({ ...data, otp: next });
     if (d && i < 3) refs.current[i + 1]?.focus();
+    if (next.length === 4 && !next.includes('')) void submit(next);
   };
-  return (<><Head h="Enter your code<span class='text-red'>.</span>" sub={`We sent a 4-digit code to ${phone || 'your phone'}.`} />
+
+  const resend = async () => {
+    setBusy(true);
+    try {
+      const res = await api.requestOtp(data.phone);
+      setDevCode(res.devCode ?? null);
+      lastDevCode.value = res.devCode ?? null;
+      toast(res.sent ? 'New code sent 📱' : res.devCode ? `Test mode — your code is ${res.devCode}` : 'New code created.');
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (<><Head h="Enter your code<span class='text-red'>.</span>" sub={`We sent a 4-digit code to ${data.phone || 'your phone'}.`} />
     <div className="flex gap-3 justify-center">
       {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={`Digit ${i + 1}`} placeholder="•"
         value={data.otp[i] ?? ''}
-        className="w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] border-line-strong rounded-2xl bg-surface focus:outline-none focus:border-navy"
+        disabled={busy}
+        className="w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] border-line-strong rounded-2xl bg-surface focus:outline-none focus:border-navy disabled:opacity-60"
         onChange={(e) => setDigit(i, e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
-    <p className="text-center text-[12.5px] text-muted mt-4">Didn't get it? <button type="button" onClick={() => toast('New code sent 📱 (demo code: 1 2 3 4)')} className="text-navy font-bold underline underline-offset-2 hover:text-red transition">Resend</button> · Demo code: <b className="text-navy">1 2 3 4</b></p></>);
+    {devCode && <p className="text-center text-[12px] text-muted mt-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
+    <p className="text-center text-[12.5px] text-muted mt-4">
+      Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-navy font-bold underline underline-offset-2 hover:text-red transition disabled:opacity-50">Resend</button>
+    </p>
+    <Button block className="mt-7" disabled={busy} onClick={() => submit(data.otp)}>{busy ? 'Checking…' : 'Confirm my number'}</Button></>);
 }
 function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   return (<><Head h="Tell us about you<span class='text-red'>.</span>" sub="This starts your profile. Keep it simple and honest." />
@@ -257,15 +426,24 @@ function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch
     <div><Label>Password</Label><input className={inputCls} type="password" placeholder="At least 8 characters" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} aria-label="Password" /></div>
     <Trust>Your password is stored securely (hashed) — never in plain text.</Trust></>);
 }
-function IdStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="Verify your identity<span class='text-red'>.</span>" sub="Optional — but verified workers get the ✅ badge, more trust, and access to formal jobs." />
-    <div className={`border-[1.5px] rounded-[20px] p-6 text-center ${data.idVerified ? 'border-success bg-[#f0fbef] dark:bg-success/10' : 'border-dashed border-line-strong bg-surface-2'}`}>
-      <div className={`w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-4xl ${data.idVerified ? 'bg-[#dff5de] dark:bg-success/20' : 'bg-[#eaf3fb] dark:bg-surface'}`} aria-hidden="true">{data.idVerified ? '✅' : '🪪'}</div>
-      {data.idVerified ? <><h4 className="m-0 mb-1 text-base text-navy font-bold">Identity verified</h4><p className="m-0 text-[12.5px] text-muted leading-relaxed">Your SA ID has been confirmed. You've earned the Verified badge.</p></>
-        : <><h4 className="m-0 mb-1 text-base text-navy font-bold">Scan your SA ID or smart card</h4><p className="m-0 text-[12.5px] text-muted leading-relaxed">Point your camera at your green ID book or smart ID card.</p></>}
+/**
+ * Verification is explained here but done from the profile, after sign-up — it
+ * needs a signed-in account and a real review, so there is nothing to "scan"
+ * and nothing to tick on this screen.
+ */
+function IdStep() {
+  return (<><Head h="Verify your identity<span class='text-red'>.</span>" sub="Optional — but verified workers get the ✅ badge, more employer trust, and access to formal roles that require it." />
+    <div className="border-[1.5px] border-dashed border-line-strong bg-surface-2 rounded-[20px] p-6 text-center">
+      <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-4xl bg-[#eaf3fb] dark:bg-surface" aria-hidden="true">🪪</div>
+      <h4 className="m-0 mb-1 text-base text-navy font-bold">Do this from your profile</h4>
+      <p className="m-0 text-[12.5px] text-muted leading-relaxed">Finish signing up, then open <b className="text-navy">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
     </div>
-    {!data.idVerified && <Button variant="ghost" block icon="camera" className="mt-4" onClick={() => setData({ ...data, idVerified: true })}>Scan my ID now</Button>}
-    <Trust>Your ID is used only to confirm you're a real person. It is never shown to employers.</Trust></>);
+    <ul className="mt-4 space-y-2 text-[12.5px] text-navy">
+      <li className="flex gap-2 items-start"><span>🔒</span> Your ID number is encrypted and never shown to employers</li>
+      <li className="flex gap-2 items-start"><span>⚡</span> Takes under a minute, once</li>
+      <li className="flex gap-2 items-start"><span>🪜</span> Unlocks formal roles that require verification</li>
+    </ul>
+    <Trust>You can start applying for gigs straight away — verification is not needed first.</Trust></>);
 }
 function OrgStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   return (<><Head h="Your details<span class='text-red'>.</span>" sub="So workers know who they're dealing with." />

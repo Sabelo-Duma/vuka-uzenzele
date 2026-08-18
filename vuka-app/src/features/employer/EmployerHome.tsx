@@ -29,10 +29,23 @@ export function EmployerHome() {
 
       <TrustStrip />
 
+      {state.pendingConfirmations > 0 && (
+        <Card className="p-4 mb-3.5 border-l-4 border-red">
+          <b className="text-[15px] text-navy">
+            {state.pendingConfirmations} job{state.pendingConfirmations === 1 ? '' : 's'} waiting on you
+          </b>
+          <p className="text-[13px] text-muted my-1.5 leading-snug">
+            A worker has marked the job done. Confirming releases their pay and adds your review to their CV — it's how they build a track record.
+          </p>
+          <Button block variant="gold" onClick={() => navigate('hires')}>Confirm & rate now</Button>
+        </Card>
+      )}
+
       <Card className="p-4 mb-3.5" style={{ background: 'linear-gradient(150deg,#faf5ff,var(--gj-bg))' }}>
         <b className="text-[15px] text-navy">Post a job in 30 seconds</b>
         <p className="text-[13px] text-muted my-1.5 leading-snug">Describe what you need. Verified youth nearby apply — you pick by rating, reviews and tier.</p>
         <Button block variant="navy" icon="plus" onClick={() => navigate('post')}>Post a job</Button>
+        <Button block variant="ghost" className="mt-2" onClick={() => navigate('hires')}>See my jobs & applicants</Button>
       </Card>
 
       <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => navigate('talent')}>Browse all →</button>}>Top-rated near you</SectionTitle>

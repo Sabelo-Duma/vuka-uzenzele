@@ -1,4 +1,4 @@
-import { catById, MIN_WAGE_PER_HOUR, TIERS } from '../data/catalog';
+import { catById, minWagePerHour, TIERS } from '../data/catalog';
 import { money } from '../lib/format';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
 import { Avatar, Card, Chip, Skeleton, TierBadge } from './ui';
@@ -87,7 +87,7 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
 export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
   const c = catById(gig.category);
   const total = gig.hours * gig.payPerHour;
-  const fair = gig.payPerHour >= MIN_WAGE_PER_HOUR;
+  const fair = gig.payPerHour >= minWagePerHour();
   return (
     <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
