@@ -4,7 +4,8 @@ Everything that could be built has been built, and everything that could be
 solved for free has been. What remains needs **money, a person, or a decision
 only you can make** — that's the whole list now.
 
-Last worked: 19 August 2026 · `npm test` → 180 assertions passing.
+Last worked: 19 August 2026 · `npm test` → 191 assertions passing · deployed
+and verified live on Render (`store: "pg"`, distances measuring, ops queues on).
 
 ---
 
@@ -14,9 +15,9 @@ Last worked: 19 August 2026 · `npm test` → 180 assertions passing.
 |---|---|---|---|
 | 1 | Paste a **VAPID keypair** into Render → Environment | Generate it once with `cd vuka-server && npm run vapid:keys`. It's a secret, so it can't live in git, and it can't be auto-generated per deploy — regenerating silently kills every notification permission users already granted. | All notifications (job alerts, hire notices, confirmations) |
 | 2 | Fill in **`vuka-app/src/data/legal.ts`** | Three values: registered company name, the appointed Information Officer, and a privacy mailbox that someone actually reads. POPIA requires them; I can't invent them. Until they're set the privacy notice shows a visible "not final yet" banner. | Launching to the public |
-| 3 | Add **`DATABASE_URL`** as a GitHub repo *secret* | Turns on the nightly backup workflow. Use Supabase's **session** pooler (port 5432 — the transaction pooler on 6543 can't run `pg_dump`). | Automated backups |
+| 3 | Add **`DATABASE_URL`** as a GitHub repo *secret* | Turns on the nightly backup workflow. Use Supabase's **session** pooler (port 5432 — the transaction pooler on 6543 can't run `pg_dump`). **Until this is set the workflow fails every night on purpose**, so an unconfigured backup is loud rather than silent. | Automated backups |
 | 4 | Run the **restore drill once** | `gunzip -c vuka-backup-*.sql.gz \| psql $DATABASE_URL` against a throwaway database. A backup nobody has restored is a hypothesis. | Trusting the backups |
-| 5 | Sync the Render **blueprint** | `render.yaml` now provisions `VUKA_ENCRYPTION_KEY` and `VUKA_ADMIN_TOKEN` automatically — but only on a blueprint sync. | Payout/ID endpoints, all ops queues |
+| 5 | Copy **`VUKA_ADMIN_TOKEN`** out of the Render dashboard | The blueprint sync already generated it on deploy, so the ops queues are **live** — `/api/admin/*` now answers 401 rather than 404. You just need the value to use them. | Nothing — but you can't work the queues without reading it |
 
 Optional, also free, also yours: a **Sentry** DSN (free tier, 5k events/month) if
 you want errors to survive a restart and to alert you. Without it errors are
@@ -39,8 +40,9 @@ model territory: this table.
 
 ## 3. Needs a decision, not code
 
-The queues exist, they're decidable today with `VUKA_ADMIN_TOKEN` and curl, and
-the person on the other end gets told the outcome. What's missing is **who** and
+The queues are **live in production right now** — decidable with the generated
+`VUKA_ADMIN_TOKEN` and curl, and the person on the other end gets told the
+outcome. What's missing is **who** and
 **how fast**:
 
 - **ID verifications** — `GET /api/admin/id-verifications`. The ✅ badge gates
