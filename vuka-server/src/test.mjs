@@ -456,6 +456,18 @@ async function run() {
   ok((await api('GET', '/me/gigs', { token: eTok })).status === 401, 'sessions from before the reset are ended');
   ok((await api('GET', '/me/gigs', { token: confirmReset.json.token })).status === 200, 'the session issued by the reset works');
 
+  // A session opened in the same second as a reset must not outlive it. Timing
+  // makes this hard to hit by accident — the previous whole-second comparison
+  // passed locally and failed on a faster machine — so it is pinned here: the
+  // token the first reset issued is itself only a moment old when the second
+  // reset lands on it.
+  const resetAgain = await api('POST', '/auth/password/request', { body: { phone: '0829990002' } });
+  ok(resetAgain.json?.devCode?.length === 6, 'a second reset code can be requested');
+  const secondReset = await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: resetAgain.json.devCode, password: 'third-password-x' } });
+  ok(secondReset.status === 200 && secondReset.json?.token, 'the second reset succeeds');
+  ok((await api('GET', '/me/gigs', { token: confirmReset.json.token })).status === 401, 'a session minted moments before a reset is ended by it, same second or not');
+  ok((await api('GET', '/me/gigs', { token: secondReset.json.token })).status === 200, "a reset's own token survives its own cut-off");
+
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');

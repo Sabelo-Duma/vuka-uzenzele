@@ -33,8 +33,17 @@ export function verifyPassword(password, stored) {
   }
 }
 
-export function signToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, SECRET, { expiresIn: TOKEN_TTL });
+/**
+ * @param issuedAt override the token's `iat` (whole seconds). Used by the
+ *   password reset, which cuts off every session issued up to and including the
+ *   current second — so the token it hands back has to be stamped past its own
+ *   cut-off or it would invalidate itself. jsonwebtoken honours an explicit
+ *   `iat` and computes `exp` from it.
+ */
+export function signToken(user, { issuedAt } = {}) {
+  const payload = { sub: user.id, role: user.role };
+  if (issuedAt) payload.iat = issuedAt;
+  return jwt.sign(payload, SECRET, { expiresIn: TOKEN_TTL });
 }
 
 /* ---------------- one-time codes (SMS OTP, password reset) ---------------- */
