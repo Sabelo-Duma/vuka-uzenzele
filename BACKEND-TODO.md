@@ -42,8 +42,7 @@ model territory: this table.
 
 The queues are **live in production right now** — decidable with the generated
 `VUKA_ADMIN_TOKEN` and curl, and the person on the other end gets told the
-outcome. What's missing is **who** and
-**how fast**:
+outcome. What's missing is **who**, and **how fast**:
 
 - **ID verifications** — `GET /api/admin/id-verifications`. The ✅ badge gates
   formal roles, so a slow queue is a blocked worker.
