@@ -468,6 +468,14 @@ async function run() {
   ok((await api('GET', '/me/gigs', { token: confirmReset.json.token })).status === 401, 'a session minted moments before a reset is ended by it, same second or not');
   ok((await api('GET', '/me/gigs', { token: secondReset.json.token })).status === 200, "a reset's own token survives its own cut-off");
 
+  // Three resets inside one second is where a clock-derived cut-off breaks
+  // down, so the monotonic one is checked twice over.
+  const thirdRequest = await api('POST', '/auth/password/request', { body: { phone: '0829990002' } });
+  const thirdReset = await api('POST', '/auth/password/confirm', { body: { phone: '0829990002', code: thirdRequest.json.devCode, password: 'fourth-password-x' } });
+  ok(thirdReset.status === 200, 'a third reset succeeds');
+  ok((await api('GET', '/me/gigs', { token: secondReset.json.token })).status === 401, 'back-to-back resets each end the session the previous one issued');
+  ok((await api('GET', '/me/gigs', { token: thirdReset.json.token })).status === 200, 'and the newest session still works');
+
   // 10) demo login works with seeded credentials
   const demo = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'demo1234' } });
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');

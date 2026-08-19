@@ -491,19 +491,31 @@ app.post('/api/auth/password/confirm', asyncH(async (req, res) => {
   }
 
   /*
-   * A JWT's `iat` only has whole-second resolution, so "sessions issued before
-   * now" can't be expressed as an instant — and the naive `floor(now / 1000)`
-   * left a hole: a token minted in the SAME second as the reset compared as
-   * not-older and survived it. On a fast machine that is not a rare edge case;
-   * it is most of the second. Since the point of ending other sessions is to
-   * lock out whoever prompted the reset, a session they opened moments earlier
-   * is exactly the one that must die.
+   * The cut-off has to be strictly greater than every `iat` we could already
+   * have issued — and a JWT's `iat` only has whole-second resolution, so it
+   * cannot be derived from the clock alone.
    *
-   * So the cut-off is the NEXT second, which covers the whole of this one, and
-   * the token we hand back is stamped at the cut-off so it survives it. Every
-   * other token in existence has an earlier `iat` and is now dead.
+   * `floor(now / 1000)` left a hole: a token minted in the SAME second as the
+   * reset compared as not-older and survived it. On a fast machine that isn't a
+   * rare edge, it's most of the second, and it lands exactly where the feature
+   * matters — the point of ending other sessions is to lock out whoever
+   * prompted the reset, so a session they opened moments earlier is precisely
+   * the one that has to die.
+   *
+   * `+1` alone doesn't close it either, because the token this reset hands back
+   * is stamped AT the cut-off: a second reset in the same second would compute
+   * the same cut-off and the first reset's token would survive. So the cut-off
+   * also has to advance past the previous one. It is monotonic by construction,
+   * which makes the invariant hold no matter how fast resets arrive:
+   *
+   *   every token issued before this moment has iat < validFrom
+   *
+   * The cost is that a cut-off can sit a few seconds in the future after
+   * repeated resets. That's bounded — resets are rate-limited — and a token
+   * whose `iat` is a second ahead verifies fine; only `exp` and `nbf` gate
+   * validity, and `exp` is computed from `iat`.
    */
-  const validFrom = Math.floor(Date.now() / 1000) + 1;
+  const validFrom = Math.max(Math.floor(Date.now() / 1000), Number(user.sessions_valid_from) || 0) + 1;
   await run('UPDATE users SET password_hash = ?, sessions_valid_from = ? WHERE id = ?', [hashPassword(password), validFrom, user.id]);
   await run('UPDATE password_resets SET used_at = ? WHERE id = ?', [new Date().toISOString(), row.id]);
 
