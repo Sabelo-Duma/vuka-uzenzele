@@ -80,6 +80,12 @@ export interface Gig {
   employerRatingCount: number;
   location: string;
   distanceKm: number;
+  /**
+   * Whether distanceKm was actually measured from the viewer's position, or is
+   * just the listing's own label. The UI must not present the second as the
+   * first — see distanceLabel() in lib/geo.
+   */
+  distanceSource?: 'measured' | 'listed';
   hours: number;
   payPerHour: number;
   when: string;
@@ -98,6 +104,7 @@ export interface FormalJob {
   type: string;
   location: string;
   distanceKm: number;
+  distanceSource?: 'measured' | 'listed';
   salary: string;
   education: string;
   description: string;

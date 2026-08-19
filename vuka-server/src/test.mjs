@@ -13,6 +13,21 @@ for (const suffix of ['', '-wal', '-shm']) { const f = TEST_DB + suffix; if (exi
 
 process.env.VUKA_DB = TEST_DB;
 process.env.PORT = '3999';
+// A throwaway VAPID keypair so the push routes are switched on for the run.
+// Generated here with node:crypto rather than via push.mjs, because that module
+// reads its keys at import time — importing it first would freeze them as empty.
+// Nothing leaves the machine: the only endpoint we post to is an unresolvable
+// .invalid host.
+{
+  const { generateKeyPairSync } = await import('node:crypto');
+  const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const jwk = privateKey.export({ format: 'jwk' });
+  const point = Buffer.concat([Buffer.from([0x04]), Buffer.from(jwk.x, 'base64url'), Buffer.from(jwk.y, 'base64url')]);
+  process.env.VUKA_VAPID_PUBLIC_KEY = point.toString('base64url');
+  process.env.VUKA_VAPID_PRIVATE_KEY = jwk.d;
+  process.env.VUKA_VAPID_SUBJECT = 'mailto:test@vuka.invalid';
+  void publicKey;
+}
 const BASE = 'http://localhost:3999/api';
 
 let pass = 0, fail = 0;
@@ -307,6 +322,123 @@ async function run() {
   ok((await api('GET', '/me/cv', { token: wTok })).json?.profile?.idVerified === true, 'approval grants the verified badge');
   ok((await fetch(BASE + `/admin/id-verifications/${pending[0].id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': 'wrong-length-tok' }, body: '{}' })).status === 401, 'a wrong admin token is refused');
   delete process.env.VUKA_ADMIN_TOKEN;
+
+  // 9n) distance is measured, not typed in
+  {
+    const noPos = await api('GET', '/gigs');
+    ok(noPos.json.every((g) => g.distanceSource === 'listed'), 'with no viewer position every distance is flagged as a label, not a measurement');
+
+    // Sandton — a long way from the Soweto gigs, so the ordering is unambiguous.
+    const from = 'lat=-26.1076&lng=28.0567';
+    const measured = await api('GET', `/gigs?${from}`);
+    ok(measured.json.every((g) => g.distanceSource === 'measured'), 'a viewer position turns every seeded gig into a measured distance');
+    const kms = measured.json.map((g) => g.distanceKm);
+    ok(kms.every((k, i) => i === 0 || k >= kms[i - 1]), 'the measured feed comes back nearest-first');
+    ok(kms.every((k) => k > 5 && k < 60), 'Soweto gigs measure a plausible distance from Sandton');
+
+    // Same gig, viewed from next door, is closer than when viewed from Sandton.
+    const pimville = await api('GET', '/gigs?lat=-26.2686&lng=27.8956');
+    const near = pimville.json[0];
+    const far = measured.json.find((g) => g.id === near?.id);
+    ok(near && far && near.distanceKm < far.distanceKm, 'the same gig is nearer to a viewer who is nearer to it');
+
+    ok((await api('GET', '/gigs?lat=999&lng=abc')).json.every((g) => g.distanceSource === 'listed'), 'a nonsense position is ignored rather than trusted');
+
+    // A gig posted with device coordinates is placed on those, not on its text.
+    const exact = await api('POST', '/gigs', { token: eTok, body: { title: 'Fix a gate', category: 'garden', hours: 2, payPerHour: 70, location: 'Sandton', when: 'Mon', description: 'Hinges.', lat: -26.1076, lng: 28.0567 } });
+    ok(exact.status === 201, 'a gig posts with coordinates from the employer device');
+    const atSandton = (await api('GET', `/gigs?${from}`)).json.find((g) => g.id === exact.json.id);
+    ok(atSandton?.distanceKm === 0, 'a gig at the viewer position measures 0 km away');
+    ok(exact.json.distanceKm === 0 && exact.json.distanceSource === 'listed', 'an unmeasured distance is 0/listed — never an invented number');
+
+    // A gig we can't place has no meaningful distance, and its label is 0 —
+    // so it must NOT lead a "nearest first" feed just because 0 sorts lowest.
+    const nowhere = await api('POST', '/gigs', { token: eTok, body: { title: 'Somewhere unlisted', category: 'errands', hours: 1, payPerHour: 60, location: 'Qqzzx Unlisted Place', when: 'Tue', description: 'No coordinates for this one.' } });
+    ok(nowhere.status === 201, 'a gig posts even when its location cannot be placed');
+    const ranked = (await api('GET', `/gigs?${from}`)).json;
+    ok(ranked.find((g) => g.id === nowhere.json.id)?.distanceSource === 'listed', 'an unplaceable gig is reported as unmeasured');
+    ok(ranked[0].distanceSource === 'measured', 'the nearest-first feed still leads with a measured distance');
+    const lastMeasured = ranked.findLastIndex((g) => g.distanceSource === 'measured');
+    const firstListed = ranked.findIndex((g) => g.distanceSource === 'listed');
+    ok(firstListed === -1 || firstListed > lastMeasured, 'unmeasured listings sort after every measured one, not among them');
+
+    const { haversineKm, coordsForPlace, parseCoords } = await import('./geo.mjs');
+    ok(Math.abs(haversineKm({ lat: -26.2041, lng: 28.0473 }, { lat: -33.9249, lng: 18.4241 }) - 1265) < 25, 'Johannesburg to Cape Town measures ~1265 km');
+    ok(haversineKm({ lat: 1, lng: 2 }, { lat: 1, lng: 2 }) === 0, 'a point is zero km from itself');
+    ok(coordsForPlace('Orlando West, Soweto').lat === coordsForPlace('orlando west').lat, 'a place name is found inside free text, case-insensitively');
+    ok(coordsForPlace('Somewhere Unlisted') === null, 'an unknown place resolves to null rather than a guess');
+    ok(parseCoords(0, 0) === null && parseCoords('abc', 1) === null && parseCoords(91, 0) === null, 'null island, non-numbers and out-of-range are all rejected');
+  }
+
+  // 9o) web push — the free channel job alerts now ride on
+  {
+    const { encryptPayload } = await import('./push.mjs');
+    // RFC 8291 §5 known-answer vector. Hand-rolled crypto that isn't checked
+    // against the spec's own numbers is not worth trusting.
+    const vector = encryptPayload(
+      'When I grow up, I want to be a watermelon',
+      'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
+      'BTBZMqHH6r4Tts7J_aSIgg',
+      { salt: Buffer.from('DGv6ra1nlYgDCS1FRnbzlw', 'base64url'), serverPrivateKey: Buffer.from('yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw', 'base64url') }
+    );
+    ok(vector.body.toString('base64url') === 'DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN',
+      'push payload encryption reproduces the RFC 8291 test vector byte for byte');
+
+    const keys = { p256dh: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4', auth: 'BTBZMqHH6r4Tts7J_aSIgg' };
+    const endpoint = 'https://push.vuka.invalid/sub/abc123';
+    ok((await api('POST', '/push/subscribe', { body: { endpoint, keys } })).status === 401, 'subscribing requires auth');
+    ok((await api('POST', '/push/subscribe', { token: wTok, body: { endpoint: 'http://insecure.example/x', keys } })).status === 400, 'a non-https endpoint is refused');
+    ok((await api('POST', '/push/subscribe', { token: wTok, body: { endpoint, keys: { p256dh: 'tooshort', auth: keys.auth } } })).status === 400, 'a subscription with malformed keys is refused');
+    ok((await api('POST', '/push/subscribe', { token: wTok, body: { endpoint, keys } })).status === 201, 'a valid subscription is stored');
+    const subCount = async () => Number((await dbGet('SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?', [wId]))?.n ?? -1);
+    ok((await subCount()) === 1, 'one row per device');
+    ok((await api('POST', '/push/subscribe', { token: wTok, body: { endpoint, keys } })).status === 201, 're-subscribing the same endpoint updates rather than duplicates');
+    ok((await subCount()) === 1, 'still one row after re-subscribing');
+
+    // The endpoint host does not resolve, so this exercises the failure path
+    // without touching the network — and proves a dead device is reported, not
+    // silently swallowed.
+    ok((await api('POST', '/push/test', { token: wTok })).status === 409, 'a test push to an unreachable device reports failure instead of pretending');
+    ok((await api('POST', '/push/unsubscribe', { token: wTok, body: { endpoint } })).status === 200, 'unsubscribing works');
+    ok((await subCount()) === 0, 'the subscription is gone');
+
+    ok((await api('GET', '/config')).json?.vapidPublicKey === process.env.VUKA_VAPID_PUBLIC_KEY, 'the client can fetch the VAPID public key it needs to subscribe');
+    ok((await api('GET', '/health')).json?.pushConfigured === true, 'health reports whether push can actually be delivered');
+  }
+
+  // 9p) ops triage — someone can now receive safety reports and formal applications
+  {
+    ok((await api('GET', '/admin/safety-reports')).status === 404, 'triage routes are off without VUKA_ADMIN_TOKEN');
+    process.env.VUKA_ADMIN_TOKEN = 'test-admin-token';
+    const admin = (method, path, body) => fetch(BASE + path, {
+      method, headers: { 'Content-Type': 'application/json', 'x-admin-token': 'test-admin-token' },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }));
+
+    const open = await admin('GET', '/admin/safety-reports');
+    ok(open.status === 200 && open.json.length >= 1, 'open safety reports are listed for triage');
+    const withLinks = open.json.find((r) => r.gig?.id === 'j4');
+    ok(withLinks?.reporter?.name && withLinks?.about?.name, 'a report arrives with the people and the gig attached');
+    ok((await admin('POST', `/admin/safety-reports/${withLinks.id}/resolve`, { status: 'nonsense' })).status === 400, 'an unknown outcome is refused');
+    ok((await admin('POST', `/admin/safety-reports/${withLinks.id}/resolve`, { status: 'actioned', note: 'Called both parties.' })).status === 200, 'a report can be resolved with a note');
+    ok(!(await admin('GET', '/admin/safety-reports')).json.some((r) => r.id === withLinks.id), 'a resolved report leaves the open queue');
+    ok((await admin('GET', '/admin/safety-reports?status=all')).json.some((r) => r.id === withLinks.id && r.note === 'Called both parties.'), 'the full history keeps the note');
+    ok((await admin('POST', '/admin/safety-reports/nope/resolve', { status: 'actioned' })).status === 404, 'resolving an unknown report 404s');
+
+    const fApps = await admin('GET', '/admin/formal-applications');
+    ok(fApps.status === 200 && fApps.json.some((a) => a.job.id === 'f1'), "the worker's formal application actually reaches someone");
+    const app1 = fApps.json.find((a) => a.job.id === 'f1');
+    ok(app1.worker?.tier && typeof app1.worker?.jobsDone === 'number', 'the reviewer sees the verified record, not just a name');
+    ok((await admin('POST', `/admin/formal-applications/${app1.id}/decide`, { status: 'maybe' })).status === 400, 'an unknown decision is refused');
+    ok((await admin('POST', `/admin/formal-applications/${app1.id}/decide`, { status: 'rejected', note: 'Filled internally.' })).status === 200, 'an application can be decided');
+    const seen = (await api('GET', '/me/formal-applications', { token: wTok })).json.find((a) => a.jobId === 'f1');
+    ok(seen?.status === 'rejected' && seen?.note === 'Filled internally.' && seen?.decidedAt, 'the worker is told the outcome — not left in silence');
+    ok(!(await admin('GET', '/admin/formal-applications')).json.some((a) => a.id === app1.id), 'a decided application leaves the queue');
+
+    const errs = await admin('GET', '/admin/errors');
+    ok(errs.status === 200 && errs.json?.target === 'log' && Array.isArray(errs.json?.errors), 'recent errors are readable without a paid monitoring plan');
+    delete process.env.VUKA_ADMIN_TOKEN;
+  }
 
   // 9m) password reset by SMS code
   ok((await api('POST', '/auth/password/request', { body: { phone: '0000' } })).status === 400, 'reset needs a valid number');

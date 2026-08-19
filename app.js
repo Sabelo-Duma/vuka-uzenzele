@@ -221,7 +221,7 @@ function obReg() {
     <h2 class="ob-h">What's your number<span class="dot">?</span></h2>
     <p class="ob-sub">We'll send a free SMS code to confirm it's you. Your number is never shown to others.</p>
     <div class="formrow"><label>Mobile number</label><input id="ob-phone" type="tel" inputmode="numeric" placeholder="072 000 0000" value="${d.phone}"></div>
-    <div class="trustline"><span class="ti">${ICON.shield}</span><span>Sending the code is <b>zero-rated</b> — it costs you no airtime or data.</span></div>`;
+    <div class="trustline"><span class="ti">${ICON.shield}</span><span>The code arrives by SMS — standard network rates apply.</span></div>`;
   else if (key === 'otp') body = `
     <h2 class="ob-h">Enter your code<span class="dot">.</span></h2>
     <p class="ob-sub">We sent a 4-digit code to <b>${d.phone || 'your phone'}</b>.</p>
@@ -452,7 +452,7 @@ function workerHome(cv) {
       <div class="hello"><small>Sawubona 👋</small><h2>${ME.name.split(' ')[0]}, let's hustle<span class="dot">.</span></h2></div>
       <div class="avatar" style="background:${ME.color}">${ME.initials}<span class="vbadge">${ICON.shield}</span><span class="tierpin">${cv.tier.icon}</span></div>
     </div>
-    <div class="zerorate"><span class="free">FREE DATA</span> Zero-rated — browsing &amp; applying costs you nothing 📶</div>
+    <div class="zerorate"><span class="free">LOW DATA</span> Built light — pages are saved on your phone, so browsing works offline too 📶</div>
     <div class="pad">
       ${tierStrip(cv)}
       <div class="section-title"><h3>What are you good at?</h3></div>
@@ -825,7 +825,7 @@ function workerProfile(cv) {
       </div>
       ${settingRow('🪜','My opportunity ladder',`${cv.tier.name} · ${unlockedFormalCount(cv.tier.id)} formal jobs unlocked`,'cv')}
       ${settingRow('🔔','Job alerts','Get notified of new gigs & unlocks near you')}
-      ${settingRow('📶','Data saver','On — zero-rated mode active')}
+      ${settingRow('📶','Data saver','On — lighter images, less data')}
       ${settingRow('🪪','Identity','Verified with SA ID ✅')}
       ${settingRow('💳','Get paid','Instant EFT / cash on completion')}
       ${settingRow('🛡️','Safety centre','Report, block & emergency contacts')}

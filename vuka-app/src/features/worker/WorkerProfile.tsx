@@ -9,8 +9,9 @@ import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { BankingSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
+import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
-type SheetKey = 'banking' | 'identity' | 'safety' | 'language';
+type SheetKey = 'banking' | 'identity' | 'safety' | 'language' | 'privacy' | 'terms';
 
 export function WorkerProfile() {
   const { state, navigate, toast, setJobAlerts } = useApp();
@@ -55,14 +56,16 @@ export function WorkerProfile() {
 
   const rows: Row[] = [
     { kind: 'link', ic: '🪜', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
-    { kind: 'toggle', ic: '🔔', title: 'Job alerts', sub: jobAlerts ? 'On — new gigs & unlocks near you' : 'Off — you won\'t be notified', on: jobAlerts,
+    { kind: 'toggle', ic: '🔔', title: 'Job alerts', sub: jobAlerts ? 'On — notified when a gig opens near you' : "Off — you won't hear about new gigs", on: jobAlerts,
       act: toggleJobAlerts },
-    { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — zero-rated, lighter images' : 'Off — full-quality images', on: dataSaver,
+    { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
       act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
     { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
     { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
     { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
     { kind: 'link', ic: '🌍', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
+    { kind: 'link', ic: '🔒', title: 'Privacy & your data', sub: 'What we collect, and what you can make us delete', go: () => setSheet('privacy') },
+    { kind: 'link', ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
   ];
 
   return (
@@ -105,6 +108,8 @@ export function WorkerProfile() {
       {sheet === 'identity' && <IdentitySheet verified={w.idVerified} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
       {sheet === 'language' && <LanguageSheet onClose={closeSheet} />}
+      {sheet === 'privacy' && <PrivacySheet onClose={closeSheet} />}
+      {sheet === 'terms' && <TermsSheet onClose={closeSheet} />}
     </>
   );
 }

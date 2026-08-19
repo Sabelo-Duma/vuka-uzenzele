@@ -38,7 +38,7 @@ export function WorkerHome() {
       </header>
 
       <div className="bg-navy text-white rounded-[14px] px-3.5 py-2.5 text-[12px] font-semibold flex gap-2 items-center mb-3">
-        <span className="bg-red text-white px-2 py-0.5 rounded-full text-[11px] font-bold">FREE DATA</span> Zero-rated — browsing &amp; applying costs you nothing 📶
+        <span className="bg-red text-white px-2 py-0.5 rounded-full text-[11px] font-bold">LOW DATA</span> Built light — pages are saved on your phone, so browsing works offline too 📶
       </div>
 
       <TrustStrip />

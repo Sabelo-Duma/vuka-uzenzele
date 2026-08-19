@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { all, get, run, initDb, closeDb, driver } from './db.mjs';
 import { seedIfEmpty } from './seed.mjs';
@@ -15,6 +15,9 @@ import {
 import { computeCv, autoReview, MIN_WAGE_PER_HOUR, TIERS, BADGES } from './engine.mjs';
 import { encryptField, hasEncryptionKey } from './crypto.mjs';
 import { sendSms, smsConfigured, otpEcho } from './notify.mjs';
+import { sendPush, pushConfigured, vapidPublicKey } from './push.mjs';
+import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mjs';
+import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
@@ -102,6 +105,9 @@ function gigOut(g, rating) {
     employerRating: rating?.avg ?? null, employerRatingCount: rating?.count ?? 0,
     location: g.location, distanceKm: g.distance_km, hours: g.hours, payPerHour: g.pay_per_hour,
     when: g.when_text, description: g.description, urgent: !!g.urgent, status: g.status,
+    // Overwritten by withDistance() when both sides' coordinates are known.
+    // 'listed' means the number is the listing's own label, not a measurement.
+    distanceSource: 'listed',
   };
 }
 const msgOut = (m) => ({ id: m.id, senderId: m.sender_id, recipientId: m.recipient_id, body: m.body, createdAt: m.created_at, read: !!m.read_at });
@@ -110,6 +116,7 @@ function formalOut(f) {
     id: f.id, title: f.title, category: f.category, employer: f.employer, employerInitials: f.employer_initials,
     minTier: f.min_tier, type: f.type, location: f.location, distanceKm: f.distance_km,
     salary: f.salary, education: f.education, description: f.description, perks: JSON.parse(f.perks || '[]'),
+    distanceSource: 'listed',
   };
 }
 
@@ -134,10 +141,39 @@ async function employerRatings(employerIds) {
   return new Map(rows.map((r) => [r.employer_id, { avg: Math.round(Number(r.avg_rating) * 10) / 10, count: Number(r.n) }]));
 }
 
-/** Serialize gig rows with their employers' real ratings attached. */
-async function gigsOut(rows) {
+/**
+ * A listing's own coordinates: the ones the employer's device shared, or a
+ * lookup from its location text. Null when we genuinely don't know where it is.
+ */
+const rowCoords = (row) => parseCoords(row.lat, row.lng) ?? coordsForPlace(row.location);
+
+/**
+ * Where the viewer is, if the app chose to tell us (?lat=&lng=). Absent is the
+ * normal case — location permission is the user's to give, and every screen
+ * still works without it.
+ */
+const viewerCoords = (req) => parseCoords(req.query?.lat, req.query?.lng);
+
+/** Serialize gig rows with their employers' real ratings and a real distance. */
+async function gigsOut(rows, from = null) {
   const ratings = await employerRatings(rows.map((r) => r.employer_id));
-  return rows.map((r) => gigOut(r, ratings.get(r.employer_id)));
+  return rows.map((r) => withDistance(gigOut(r, ratings.get(r.employer_id)), rowCoords(r), from));
+}
+
+/**
+ * Nearest first — but only among distances we actually measured.
+ *
+ * A listing we couldn't place has no meaningful distance, and its label is
+ * often 0, so ranking it against real measurements would put the gig we know
+ * least about at the top of "nearest first". Unmeasured listings keep their
+ * newest-first order and follow behind.
+ */
+function byDistance(a, b) {
+  const am = a.distanceSource === 'measured';
+  const bm = b.distanceSource === 'measured';
+  if (am && bm) return a.distanceKm - b.distanceKm;
+  if (am !== bm) return am ? -1 : 1;
+  return 0;                                    // Array#sort is stable in Node
 }
 
 async function cvFor(userId) {
@@ -147,6 +183,122 @@ async function cvFor(userId) {
   return { cv, history: history.map(historyOut), profile: profileOut(profile) };
 }
 
+/* ============================================================
+   Reaching people — free channels first.
+
+   Web Push costs nothing per message, so it carries the notifications that
+   used to need an SMS contract: a new gig nearby, a hire, a confirmed job.
+   SMS stays for the things push can't do (a sign-up code has to arrive before
+   the app is installed), and every send is best-effort — a notification that
+   fails must never fail the request that triggered it.
+   ============================================================ */
+
+/** How far "near you" reaches, and how many people one gig may wake. */
+const ALERT_RADIUS_KM = Number(process.env.VUKA_ALERT_RADIUS_KM || 15);
+const ALERT_FANOUT_MAX = Number(process.env.VUKA_ALERT_FANOUT_MAX || 200);
+/** Consecutive failures before we stop retrying a subscription. */
+const PUSH_MAX_FAILURES = 10;
+
+/** How many pushes are in flight at once during a fan-out. */
+const PUSH_CONCURRENCY = 10;
+
+/**
+ * Deliver to one subscription row and reconcile its state. Prunes as it goes:
+ * a push service answering 404/410 means that browser is gone for good, and a
+ * subscription that has failed PUSH_MAX_FAILURES times in a row is not coming
+ * back either.
+ * @returns true if it was delivered
+ */
+async function deliverTo(sub, payload) {
+  const result = await sendPush({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+  if (result.delivered) {
+    await run('UPDATE push_subscriptions SET last_used_at = ?, failures = 0 WHERE id = ?', [new Date().toISOString(), sub.id]);
+    return true;
+  }
+  if (result.gone || sub.failures + 1 >= PUSH_MAX_FAILURES) {
+    await run('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
+  } else {
+    await run('UPDATE push_subscriptions SET failures = failures + 1 WHERE id = ?', [sub.id]);
+  }
+  return false;
+}
+
+/** Push to a set of subscription rows, a few at a time. @returns devices reached */
+async function deliverAll(subs, payload) {
+  let sent = 0;
+  for (let i = 0; i < subs.length; i += PUSH_CONCURRENCY) {
+    const batch = subs.slice(i, i + PUSH_CONCURRENCY);
+    const results = await Promise.all(batch.map((s) => deliverTo(s, payload).catch(() => false)));
+    sent += results.filter(Boolean).length;
+  }
+  return sent;
+}
+
+/**
+ * Push to every device one person has granted permission on.
+ * @returns number of devices actually reached
+ */
+async function notifyUser(userId, payload) {
+  if (!pushConfigured) return 0;
+  return deliverAll(await all('SELECT * FROM push_subscriptions WHERE user_id = ?', [userId]), payload);
+}
+
+/**
+ * The job alert. This is what the "Job alerts" toggle has always promised and
+ * nothing delivered: when a gig is posted, the workers who opted in and are
+ * within ALERT_RADIUS_KM hear about it.
+ *
+ * Two deliberate limits. If we can't place the gig, nobody is notified — a
+ * "gig near you" that isn't near you is worse than silence. And the fan-out is
+ * capped at the nearest ALERT_FANOUT_MAX, so one posting can't turn into
+ * thousands of push requests on a free plan.
+ */
+async function alertNearbyWorkers(gig) {
+  if (!pushConfigured) return { sent: 0, reason: 'push not configured' };
+  const at = rowCoords(gig);
+  if (!at) return { sent: 0, reason: 'gig location could not be placed' };
+
+  const workers = await all(
+    `SELECT u.id AS id, p.location AS location
+       FROM users u
+       JOIN worker_profiles p ON p.user_id = u.id
+       LEFT JOIN user_preferences pr ON pr.user_id = u.id
+      WHERE u.role = 'worker' AND COALESCE(pr.job_alerts, 1) = 1 AND u.id <> ?
+      LIMIT 2000`,
+    [gig.employer_id ?? '']
+  );
+
+  const nearby = workers
+    .map((w) => {
+      const home = coordsForPlace(w.location);
+      return home ? { id: w.id, km: haversineKm(home, at) } : null;
+    })
+    .filter((w) => w && w.km <= ALERT_RADIUS_KM)
+    .sort((a, b) => a.km - b.km)
+    .slice(0, ALERT_FANOUT_MAX);
+
+  if (workers.length && !nearby.length) {
+    console.log(`Job alert for gig ${gig.id}: nobody within ${ALERT_RADIUS_KM} km with alerts on.`);
+  }
+
+  // One query for every device belonging to the matched workers, rather than
+  // one per worker — and the distance goes in the body, not the title, so a
+  // single encrypted payload serves everybody.
+  const placeholders = nearby.map(() => '?').join(',');
+  const subs = nearby.length
+    ? await all(`SELECT * FROM push_subscriptions WHERE user_id IN (${placeholders})`, nearby.map((w) => w.id))
+    : [];
+  const sent = await deliverAll(subs, {
+    type: 'job-alert',
+    title: 'New gig near you',
+    body: `${gig.title} · R${gig.pay_per_hour}/hr · ${gig.location}`,
+    url: `/?gig=${gig.id}`,
+    tag: `gig-${gig.id}`,
+  });
+  console.log(`Job alert for gig ${gig.id}: ${sent} device(s) notified of ${nearby.length} nearby worker(s).`);
+  return { sent, matched: nearby.length };
+}
+
 // ---- health ----
 const STARTED_AT = Date.now();
 app.get('/api/health', (_req, res) => res.json({
@@ -154,6 +306,9 @@ app.get('/api/health', (_req, res) => res.json({
   minWage: MIN_WAGE_PER_HOUR,
   store: driver,
   payoutsConfigured: hasEncryptionKey,
+  smsConfigured,
+  pushConfigured,
+  monitoring: monitoringTarget,
   uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
 }));
 
@@ -166,6 +321,9 @@ app.get('/api/config', (_req, res) => res.json({
   minWage: MIN_WAGE_PER_HOUR,
   tiers: TIERS.map((t) => ({ id: t.id, name: t.name, minJobs: t.minJobs, minRating: t.minRating, maxFlags: t.maxFlags })),
   badges: BADGES.map((b) => ({ id: b.id, threshold: b.threshold ?? null, special: b.special ?? null })),
+  // Public by design (RFC 8292): the browser needs it to create a subscription.
+  // Empty string means push is off, and the app hides the notification prompt.
+  vapidPublicKey,
 }));
 
 // ---- phone verification (OTP) ----
@@ -351,15 +509,20 @@ app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
 }));
 
 // ---- gigs ----
-app.get('/api/gigs', asyncH(async (_req, res) => {
+app.get('/api/gigs', asyncH(async (req, res) => {
+  const from = viewerCoords(req);
   const rows = await all("SELECT * FROM gigs WHERE status = 'open' ORDER BY created_at DESC LIMIT 500");
-  res.json(await gigsOut(rows));
+  const out = await gigsOut(rows, from);
+  // "Work near me" is the whole point, so when we know where the viewer is,
+  // the closest gig leads. Without a position we keep newest-first.
+  if (from) out.sort(byDistance);
+  res.json(out);
 }));
 
 app.get('/api/gigs/:id', asyncH(async (req, res) => {
   const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
   if (!g) return res.status(404).json({ error: 'This gig is no longer available. Browse other gigs near you.' });
-  res.json((await gigsOut([g]))[0]);
+  res.json((await gigsOut([g], viewerCoords(req)))[0]);
 }));
 
 app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
@@ -367,11 +530,19 @@ app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, r
   if (!title?.trim()) return res.status(400).json({ error: 'Please give your job a title.' });
   const user = await userById(req.user.id);
   const id = uuid();
-  await run('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+  const where = location || 'Soweto';
+  // The employer's device may share exact coordinates; otherwise we place the
+  // job from its location text. distance_km stays 0 — an unmeasured distance is
+  // shown as "no distance", never as a made-up number.
+  const coords = parseCoords(req.body?.lat, req.body?.lng) ?? coordsForPlace(where);
+  await run('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, lat, lng, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [id, user.id, title.trim(), category || 'errands', user.name, initialsOf(user.name),
-      location || 'Soweto', 1.5, Number(hours) || 2, Number(payPerHour) || 50,
+      where, 0, coords?.lat ?? null, coords?.lng ?? null, Number(hours) || 2, Number(payPerHour) || 50,
       when || 'Flexible', description || '', urgent ? 1 : 0, 'open', new Date().toISOString()]);
-  res.status(201).json((await gigsOut([await get('SELECT * FROM gigs WHERE id = ?', [id])]))[0]);
+  const row = await get('SELECT * FROM gigs WHERE id = ?', [id]);
+  // Fire-and-forget: a slow push service must never slow down posting a job.
+  void alertNearbyWorkers(row).catch((e) => captureError(e, 'alertNearbyWorkers'));
+  res.status(201).json((await gigsOut([row]))[0]);
 }));
 
 app.get('/api/me/applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
@@ -476,6 +647,13 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
   const worker = await userById(workerId);
   if (worker) {
     void sendSms(worker.phone, `Good news! ${g.employer_name} hired you for "${g.title}" on Vuka Uzenzele. Open the app for the details.`);
+    void notifyUser(worker.id, {
+      type: 'hired',
+      title: "You've been hired! 🎉",
+      body: `${g.employer_name} chose you for "${g.title}".`,
+      url: '/?tab=jobs',
+      tag: `hired-${g.id}`,
+    }).catch((e) => captureError(e, 'notifyUser:hired'));
     await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
       [uuid(), req.user.id, worker.id, `You're hired for "${g.title}" 🎉 Let's arrange the details.`, now]);
   }
@@ -511,6 +689,13 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
     const employer = await userById(g.employer_id);
     if (employer) {
       void sendSms(employer.phone, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
+      void notifyUser(employer.id, {
+        type: 'work-done',
+        title: 'Work marked as done',
+        body: `${worker?.name ?? 'Your worker'} finished "${g.title}". Confirm to release their reference.`,
+        url: '/?tab=hires',
+        tag: `done-${g.id}`,
+      }).catch((e) => captureError(e, 'notifyUser:work-done'));
       await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
         [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy 🙏`, now]);
     }
@@ -581,14 +766,22 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
   const worker = await userById(app_.worker_id);
   if (worker) {
     void sendSms(worker.phone, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`);
+    void notifyUser(worker.id, {
+      type: 'confirmed',
+      title: `${rating}/5 — your CV just grew ⭐`,
+      body: `${g.employer_name} confirmed "${g.title}". The reference is on your CV.`,
+      url: '/?tab=cv',
+      tag: `confirmed-${g.id}`,
+    }).catch((e) => captureError(e, 'notifyUser:confirmed'));
   }
   res.json({ ok: true, status: 'completed', rating, review });
 }));
 
 // ---- formal jobs ----
-app.get('/api/formal-jobs', asyncH(async (_req, res) => {
+app.get('/api/formal-jobs', asyncH(async (req, res) => {
+  const from = viewerCoords(req);
   const rows = await all('SELECT * FROM formal_jobs ORDER BY min_tier ASC LIMIT 200');
-  res.json(rows.map(formalOut));
+  res.json(rows.map((r) => withDistance(formalOut(r), rowCoords(r), from)));
 }));
 
 // Formal roles are curated listings: applying files the worker's verified CV
@@ -612,8 +805,11 @@ app.post('/api/formal-jobs/:id/apply', requireAuth, requireRole('worker'), async
 }));
 
 app.get('/api/me/formal-applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
-  const rows = await all('SELECT job_id, status, created_at FROM formal_applications WHERE worker_id = ? ORDER BY created_at DESC', [req.user.id]);
-  res.json(rows.map((r) => ({ jobId: r.job_id, status: r.status, appliedAt: r.created_at })));
+  const rows = await all('SELECT job_id, status, created_at, note, decided_at FROM formal_applications WHERE worker_id = ? ORDER BY created_at DESC', [req.user.id]);
+  res.json(rows.map((r) => ({
+    jobId: r.job_id, status: r.status, appliedAt: r.created_at,
+    note: r.note ?? null, decidedAt: r.decided_at ?? null,
+  })));
 }));
 
 // ---- payout / banking details ----
@@ -746,6 +942,106 @@ app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (r
   res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
 }));
 
+/* ---- ops triage --------------------------------------------------------
+   These exist so that "who is on the other end of this?" has an answer today,
+   with the admin token and curl, before anyone builds a back-office. Every
+   route is gated by requireAdmin, so with VUKA_ADMIN_TOKEN unset they don't
+   exist at all.
+   ---------------------------------------------------------------------- */
+
+const SAFETY_OUTCOMES = new Set(['open', 'actioned', 'dismissed']);
+
+app.get('/api/admin/safety-reports', requireAdmin, asyncH(async (req, res) => {
+  const wantAll = req.query?.status === 'all';
+  const rows = await all(
+    `SELECT s.*, r.name AS reporter_name, r.phone AS reporter_phone, a.name AS about_name, g.title AS gig_title
+       FROM safety_reports s
+       JOIN users r ON r.id = s.reporter_id
+       LEFT JOIN users a ON a.id = s.about_user_id
+       LEFT JOIN gigs g ON g.id = s.gig_id
+      ${wantAll ? '' : "WHERE s.status = 'open'"}
+      ORDER BY s.created_at ASC LIMIT 200`
+  );
+  res.json(rows.map((r) => ({
+    id: r.id, status: r.status, concern: r.concern, createdAt: r.created_at,
+    reporter: { id: r.reporter_id, name: r.reporter_name, phone: r.reporter_phone },
+    about: r.about_user_id ? { id: r.about_user_id, name: r.about_name } : null,
+    gig: r.gig_id ? { id: r.gig_id, title: r.gig_title } : null,
+    note: r.note ?? null, resolvedAt: r.resolved_at ?? null,
+  })));
+}));
+
+app.post('/api/admin/safety-reports/:id/resolve', requireAdmin, asyncH(async (req, res) => {
+  const row = await get('SELECT * FROM safety_reports WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'That report does not exist.' });
+  const status = String(req.body?.status ?? 'actioned');
+  if (!SAFETY_OUTCOMES.has(status)) return res.status(400).json({ error: `status must be one of: ${[...SAFETY_OUTCOMES].join(', ')}.` });
+  const note = String(req.body?.note ?? '').slice(0, 1000) || null;
+  await run('UPDATE safety_reports SET status = ?, note = ?, resolved_at = ? WHERE id = ?',
+    [status, note, status === 'open' ? null : new Date().toISOString(), row.id]);
+  res.json({ ok: true, status });
+}));
+
+/* Formal roles are curated listings with no employer inbox yet, so until one
+   exists these applications land here — visible, decidable, and the worker is
+   told the outcome either way. That closes the loop; who does the deciding is
+   still a hiring decision, not a code one. */
+const FORMAL_OUTCOMES = new Set(['applied', 'shortlisted', 'rejected', 'placed']);
+
+app.get('/api/admin/formal-applications', requireAdmin, asyncH(async (req, res) => {
+  const wantAll = req.query?.status === 'all';
+  const rows = await all(
+    `SELECT fa.*, u.name AS worker_name, u.phone AS worker_phone, j.title AS job_title, j.employer AS job_employer
+       FROM formal_applications fa
+       JOIN users u ON u.id = fa.worker_id
+       JOIN formal_jobs j ON j.id = fa.job_id
+      ${wantAll ? '' : "WHERE fa.status = 'applied'"}
+      ORDER BY fa.created_at ASC LIMIT 200`
+  );
+  const out = await Promise.all(rows.map(async (r) => {
+    const { cv } = await cvFor(r.worker_id);
+    return {
+      id: r.id, status: r.status, appliedAt: r.created_at, note: r.note ?? null, decidedAt: r.decided_at ?? null,
+      job: { id: r.job_id, title: r.job_title, employer: r.job_employer },
+      worker: {
+        id: r.worker_id, name: r.worker_name, phone: r.worker_phone,
+        tier: cv.tier.name, rating: cv.avg, jobsDone: cv.jobsDone, flags: cv.flags,
+      },
+    };
+  }));
+  res.json(out);
+}));
+
+app.post('/api/admin/formal-applications/:id/decide', requireAdmin, asyncH(async (req, res) => {
+  const row = await get('SELECT * FROM formal_applications WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'That application does not exist.' });
+  const status = String(req.body?.status ?? '');
+  if (!FORMAL_OUTCOMES.has(status)) return res.status(400).json({ error: `status must be one of: ${[...FORMAL_OUTCOMES].join(', ')}.` });
+  const note = String(req.body?.note ?? '').slice(0, 500) || null;
+  const job = await get('SELECT title FROM formal_jobs WHERE id = ?', [row.job_id]);
+  await run('UPDATE formal_applications SET status = ?, note = ?, decided_at = ? WHERE id = ?',
+    [status, note, status === 'applied' ? null : new Date().toISOString(), row.id]);
+
+  // Being told "not this time" is part of the loop working. Silence isn't.
+  if (status !== 'applied') {
+    const heard = status === 'rejected'
+      ? { title: 'An update on your application', body: `${job?.title ?? 'That role'}: not this time. Keep building your record — more roles unlock as you do.` }
+      : { title: `Good news about ${job?.title ?? 'a role'} 🎉`, body: status === 'placed' ? "You've been placed. Congratulations!" : "You've been shortlisted. Expect contact soon." };
+    void notifyUser(row.worker_id, { type: 'formal-decision', ...heard, url: '/?tab=formal', tag: `formal-${row.id}` })
+      .catch((e) => captureError(e, 'notifyUser:formal-decision'));
+  }
+  res.json({ ok: true, status });
+}));
+
+/**
+ * Recent server errors, newest first — the free half of error monitoring.
+ * In-memory and per-process, so a restart clears it; set SENTRY_DSN when
+ * errors need to outlive a deploy.
+ */
+app.get('/api/admin/errors', requireAdmin, (_req, res) => {
+  res.json({ ...errorSummary(), errors: recentErrors() });
+});
+
 // ---- preferences ----
 // Only preferences the SERVER must know about live here (job alerts drive
 // push/SMS). Device-level choices — data saver, language — stay on the device.
@@ -763,6 +1059,52 @@ app.put('/api/me/preferences', requireAuth, asyncH(async (req, res) => {
   if (existing) await run('UPDATE user_preferences SET job_alerts = ?, updated_at = ? WHERE user_id = ?', [jobAlerts, now, req.user.id]);
   else await run('INSERT INTO user_preferences (user_id, job_alerts, updated_at) VALUES (?,?,?)', [req.user.id, jobAlerts, now]);
   res.json(prefsOut(await get('SELECT * FROM user_preferences WHERE user_id = ?', [req.user.id])));
+}));
+
+// ---- push subscriptions ----
+// One row per browser that granted permission. The endpoint is the natural key:
+// the same person on a phone and a laptop is two subscriptions, and a device
+// handed to someone else re-registers the endpoint under the new account.
+app.post('/api/push/subscribe', requireAuth, asyncH(async (req, res) => {
+  if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not switched on for this server yet.' });
+  const endpoint = String(req.body?.endpoint ?? '');
+  const p256dh = String(req.body?.keys?.p256dh ?? '');
+  const auth = String(req.body?.keys?.auth ?? '');
+  if (!/^https:\/\//.test(endpoint) || endpoint.length > 1000) return res.status(400).json({ error: 'That push endpoint is not valid.' });
+  const point = Buffer.from(p256dh, 'base64url');
+  if (point.length !== 65 || point[0] !== 0x04 || Buffer.from(auth, 'base64url').length !== 16) {
+    return res.status(400).json({ error: 'That push subscription is missing its encryption keys.' });
+  }
+  const now = new Date().toISOString();
+  const existing = await get('SELECT id FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+  if (existing) {
+    await run('UPDATE push_subscriptions SET user_id = ?, p256dh = ?, auth = ?, failures = 0 WHERE id = ?', [req.user.id, p256dh, auth, existing.id]);
+  } else {
+    await run('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, created_at, failures) VALUES (?,?,?,?,?,?,0)',
+      [uuid(), req.user.id, endpoint, p256dh, auth, now]);
+  }
+  res.status(201).json({ ok: true });
+}));
+
+app.post('/api/push/unsubscribe', requireAuth, asyncH(async (req, res) => {
+  const endpoint = String(req.body?.endpoint ?? '');
+  if (endpoint) await run('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?', [endpoint, req.user.id]);
+  else await run('DELETE FROM push_subscriptions WHERE user_id = ?', [req.user.id]);
+  res.json({ ok: true });
+}));
+
+/** Let someone prove to themselves that notifications work on this device. */
+app.post('/api/push/test', requireAuth, asyncH(async (req, res) => {
+  if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not switched on for this server yet.' });
+  const sent = await notifyUser(req.user.id, {
+    type: 'test',
+    title: 'Notifications are on ✅',
+    body: "This is how you'll hear about work near you.",
+    url: '/',
+    tag: 'push-test',
+  });
+  if (!sent) return res.status(409).json({ error: "We couldn't reach this device. Allow notifications and try again." });
+  res.json({ ok: true, devices: sent });
 }));
 
 // ---- safety reports ----
@@ -999,17 +1341,39 @@ app.use('/api', (_req, res) => res.status(404).json({ error: 'That endpoint does
 // ---- serve the built front-end (single-service deploy) ----
 const here = dirname(fileURLToPath(import.meta.url));
 const STATIC_DIR = process.env.VUKA_STATIC || join(here, '..', '..', 'vuka-app', 'dist');
+/**
+ * Cache policy — this is what makes an installed PWA update predictably.
+ *
+ * Vite fingerprints everything under /assets (index-A1b2C3.js), so those files
+ * can be cached forever: a new build produces new names. But the files that
+ * POINT at them — index.html, sw.js, registerSW.js — must be revalidated every
+ * time, or a browser or CDN can keep serving a stale service worker and the
+ * installed app never notices a deploy. Express's defaults happened to be
+ * right; stating the policy means a host or proxy can't quietly change it.
+ */
+const ALWAYS_FRESH = new Set(['index.html', 'sw.js', 'registerSW.js', 'manifest.webmanifest']);
+function staticHeaders(res, path) {
+  if (ALWAYS_FRESH.has(basename(path))) res.setHeader('Cache-Control', 'no-cache');
+  else if (path.includes(`${sep}assets${sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  else res.setHeader('Cache-Control', 'public, max-age=86400');   // icons, fonts
+}
+
 if (existsSync(STATIC_DIR)) {
-  app.use(express.static(STATIC_DIR));
-  app.get('*', (_req, res) => res.sendFile(join(STATIC_DIR, 'index.html')));
+  app.use(express.static(STATIC_DIR, { setHeaders: staticHeaders }));
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(join(STATIC_DIR, 'index.html'));
+  });
   console.log(`Serving front-end from ${STATIC_DIR}`);
 }
 
 // ---- error handler ----
+// Every 500 is captured (structured log + ring buffer + Sentry when configured)
+// and the caller gets the id back, so "it broke at 14:32" becomes one lookup.
 // eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  console.error('API error:', err);
-  res.status(500).json({ error: 'Something went wrong on our side. Please try again in a moment.' });
+app.use((err, req, res, _next) => {
+  const ref = captureError(err, `${req.method} ${req.path}`, { role: req.user?.role ?? 'anonymous' });
+  res.status(500).json({ error: 'Something went wrong on our side. Please try again in a moment.', ref });
 });
 
 const PORT = process.env.PORT || 3001;
@@ -1033,5 +1397,10 @@ async function shutdown(signal) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// An error that escapes a route still gets recorded. An uncaught exception
+// leaves the process in an unknown state, so we log it and shut down cleanly —
+// the host restarts us, which is safer than serving from a broken process.
+installProcessHandlers({ onFatal: () => shutdown('uncaughtException') });
 
 export { app };

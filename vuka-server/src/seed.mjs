@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { all, get, run, initDb } from './db.mjs';
 import { hashPassword, uuid } from './auth.mjs';
 import { autoReview } from './engine.mjs';
+import { coordsForPlace } from './geo.mjs';
 
 const NOW = new Date().toISOString();
 
@@ -38,8 +39,8 @@ const TALENT = [
 
 const INS_USER = 'INSERT INTO users (id, role, phone, password_hash, name, created_at) VALUES (?,?,?,?,?,?)';
 const INS_PROFILE = 'INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)';
-const INS_GIG = 'INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
-const INS_FORMAL = 'INSERT INTO formal_jobs (id, title, category, employer, employer_initials, min_tier, type, location, distance_km, salary, education, description, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)';
+const INS_GIG = 'INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, lat, lng, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+const INS_FORMAL = 'INSERT INTO formal_jobs (id, title, category, employer, employer_initials, min_tier, type, location, distance_km, lat, lng, salary, education, description, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 const INS_HIST = 'INSERT INTO history (id, worker_id, job_title, category, employer, employer_initials, employer_id, date, hours, pay, rating, review, safety_flag, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 const INS_EMP_RATING = 'INSERT INTO employer_ratings (id, employer_id, worker_id, gig_id, rating, comment, created_at) VALUES (?,?,?,?,?,?,?)';
 
@@ -83,7 +84,8 @@ export async function seed() {
   await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Weekly garden tidy-up', 'garden', 'Mr. van der Merwe', 'JV', null, '28 Jun 2026', 3, 150, 4, 'Good work and friendly. Garden looked great. A little late but messaged me to let me know.', 0, NOW]);
 
   for (const f of FORMAL_JOBS) {
-    await run(INS_FORMAL, [f.id, f.title, f.category, f.employer, f.ei, f.minTier, f.type, f.location, f.dist, f.salary, f.education, f.description, JSON.stringify(f.perks)]);
+    const at = coordsForPlace(f.location);
+    await run(INS_FORMAL, [f.id, f.title, f.category, f.employer, f.ei, f.minTier, f.type, f.location, f.dist, at?.lat ?? null, at?.lng ?? null, f.salary, f.education, f.description, JSON.stringify(f.perks)]);
   }
 
   // One real employer account per seeded gig (j1 is the demo employer), so the
@@ -96,7 +98,8 @@ export async function seed() {
       await run(INS_USER, [employerId, 'employer', g.phone, hashPassword('demo1234'), g.name, NOW]);
     }
     gigEmployerIds.set(g.id, employerId);
-    await run(INS_GIG, [g.id, employerId, g.title, g.category, g.name, g.ei, g.location, g.dist, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW]);
+    const at = coordsForPlace(g.location);
+    await run(INS_GIG, [g.id, employerId, g.title, g.category, g.name, g.ei, g.location, g.dist, at?.lat ?? null, at?.lng ?? null, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW]);
   }
 
   const talentIds = [];

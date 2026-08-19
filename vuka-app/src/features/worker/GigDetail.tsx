@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { catById, minWagePerHour } from '../../data/catalog';
 import { money, stars } from '../../lib/format';
+import { distanceLabel } from '../../lib/geo';
 import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card } from '../../components/ui';
 import { DetailHeader, FairMeter, Hero, KV, PayBox, StickyCta } from '../../components/bits';
@@ -38,7 +39,7 @@ export function GigDetail({ id }: { id: string }) {
       <Hero
         eyebrow={`${c.icon} ${c.label} · informal gig`}
         title={gig.title}
-        sub={<><Icon name="pin" size={13} /> {gig.location} · {gig.distanceKm} km away · {gig.when}</>}
+        sub={<><Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''} · {gig.when}</>}
         gradient="linear-gradient(150deg,var(--gj-navy),#123e69)"
       >
         <PayBox cells={[

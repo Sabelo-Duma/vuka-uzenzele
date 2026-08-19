@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { locationSupported, requestCoords, type Coords } from '../../lib/geo';
 import { CATEGORIES, minWagePerHour } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import type { CategoryId } from '../../types';
@@ -17,6 +18,22 @@ export function PostJob() {
   const [when, setWhen] = useState('This week');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
+  // Pinning the job to exact coordinates is what lets workers see a real
+  // distance instead of an estimate — so it's offered, and it's optional.
+  const [pin, setPin] = useState<Coords | null>(null);
+  const [pinning, setPinning] = useState(false);
+
+  const pinHere = async () => {
+    setPinning(true);
+    try {
+      setPin(await requestCoords());
+      toast('Job pinned to this spot — workers will see the real distance 📍');
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setPinning(false);
+    }
+  };
 
   const rateNum = Number(rate) || 0;
   const minWage = minWagePerHour();
@@ -26,7 +43,7 @@ export function PostJob() {
     if (!title.trim()) { toast('Give your job a title first ✍️'); return; }
     setBusy(true);
     try {
-      await postGig({ title, category, hours: Number(hours) || 2, payPerHour: rateNum, location: loc, when, description, urgent: false });
+      await postGig({ title, category, hours: Number(hours) || 2, payPerHour: rateNum, location: loc, when, description, urgent: false, ...(pin ?? {}) });
       toast('Job posted! Verified youth nearby can now apply 🚀');
       navigate('home');
     } catch (e) {
@@ -57,7 +74,31 @@ export function PostJob() {
         <div className="flex-1"><Field label="Rate / hr"><input className={inputCls} type="number" min={1} value={rate} onChange={(e) => setRate(e.target.value)} aria-label="Rate per hour" /></Field></div>
       </div>
 
-      <Field label="Where"><input className={inputCls} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => setLoc(e.target.value)} aria-label="Location" /></Field>
+      <Field label="Where">
+        <input className={inputCls} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => setLoc(e.target.value)} aria-label="Location" />
+        {locationSupported() && (
+          <div className="flex items-center gap-2 mt-2 text-[12.5px]">
+            {pin ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">📍 Pinned to this spot</span>
+                <button type="button" onClick={() => setPin(null)} className="text-muted font-semibold underline underline-offset-2 hover:text-navy transition">Remove pin</button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={pinHere}
+                  disabled={pinning}
+                  className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong text-navy font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+                >
+                  📍 {pinning ? 'Getting location…' : 'Pin my exact location'}
+                </button>
+                <span className="text-subtle">Optional — helps nearby workers find you</span>
+              </>
+            )}
+          </div>
+        )}
+      </Field>
 
       <Field label="When"><input className={inputCls} placeholder="e.g. Sat, 09:00" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When" /></Field>
 

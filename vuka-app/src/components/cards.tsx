@@ -1,5 +1,6 @@
 import { catById, minWagePerHour, TIERS } from '../data/catalog';
 import { money } from '../lib/format';
+import { distanceLabel } from '../lib/geo';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
 import { Avatar, Card, Chip, Skeleton, TierBadge } from './ui';
 import { Icon } from './Icon';
@@ -96,7 +97,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
           <div className="flex-1 min-w-0">
             <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h4>
             <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5">
-              <Icon name="pin" size={13} /> {gig.location} · {gig.distanceKm} km
+              <Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''}
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -126,7 +127,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
       <div className="flex-1 min-w-0">
         <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{job.title}</h4>
         <div className="text-[11.5px] text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
-        <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location} · {job.distanceKm} km</div>
+        <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
       </div>
       <div className="text-right shrink-0">
         <b className="text-[14px] font-extrabold text-navy tnum">{amount.trim()}</b>

@@ -44,8 +44,8 @@ their tiers are computed for real (Elite/Professional).
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/health` | – | Health, store driver, whether payouts are configured |
-| GET | `/api/config` | – | **Authoritative** min wage + tier/badge thresholds (the app adopts these at boot) |
+| GET | `/api/health` | – | Health, store driver, and whether payouts / SMS / push / monitoring are configured |
+| GET | `/api/config` | – | **Authoritative** min wage + tier/badge thresholds (the app adopts these at boot), plus the push public key |
 | POST | `/api/auth/otp` | – | Send an SMS sign-up code to a phone number |
 | POST | `/api/auth/otp/verify` | – | Check the code → `{verifyToken}` |
 | POST | `/api/auth/register` | – | Create account. **Requires `verifyToken`** → `{token,user,cv?}` |
@@ -53,7 +53,7 @@ their tiers are computed for real (Elite/Professional).
 | POST | `/api/auth/password/request` | – | SMS a reset code (same reply for unknown numbers) |
 | POST | `/api/auth/password/confirm` | – | Set a new password, ends older sessions, signs in |
 | GET | `/api/auth/me` | Bearer | Current user (+ cv for workers) |
-| GET | `/api/gigs` · `/api/gigs/:id` | – | Open gigs / one gig (with the employer's real rating) |
+| GET | `/api/gigs` · `/api/gigs/:id` | – | Open gigs / one gig. Pass `?lat=&lng=` for **measured** distances, nearest first |
 | POST | `/api/gigs` | employer | Post a gig |
 | POST | `/api/gigs/:id/apply` | worker | Apply |
 | GET | `/api/gigs/:id/applicants` | employer (owner) | Everyone who applied, with their real CV numbers |
@@ -64,7 +64,7 @@ their tiers are computed for real (Elite/Professional).
 | GET | `/api/me/hires` | employer | Work I've hired, incl. what needs confirming |
 | GET | `/api/me/applications` | worker | My applied gig ids + status |
 | GET | `/api/me/cv` | worker | History + reputation/tier snapshot |
-| GET | `/api/formal-jobs` | – | Tier-gated formal jobs |
+| GET | `/api/formal-jobs` | – | Tier-gated formal jobs (also takes `?lat=&lng=`) |
 | POST | `/api/formal-jobs/:id/apply` | worker | Apply with the verified CV (tier-gated server-side) |
 | GET | `/api/me/formal-applications` | worker | Formal roles I've applied to |
 | GET/PUT/DELETE | `/api/me/banking` | Bearer | Payout details — **encrypted at rest, returned masked** |
@@ -72,9 +72,16 @@ their tiers are computed for real (Elite/Professional).
 | POST | `/api/me/id-verification` | Bearer | Submit an SA ID number for checking (validated + encrypted) |
 | GET/PUT | `/api/me/preferences` | Bearer | Account-level preferences (job alerts) |
 | POST | `/api/safety/report` | Bearer | File a safety concern |
+| POST | `/api/push/subscribe` · `/unsubscribe` · `/test` | Bearer | Web-push registration for this device, and a self-test |
 | GET | `/api/me/employer-rating` | employer | My rating, averaged from worker reviews |
 | GET | `/api/talent` · `/api/talent/:id` | employer | Browse verified workers (with tier) |
-| GET/POST | `/api/admin/id-verifications*` | `x-admin-token` | Ops: review pending KYC. Off unless `VUKA_ADMIN_TOKEN` is set |
+| GET/POST | `/api/admin/id-verifications*` | `x-admin-token` | Ops: review pending KYC |
+| GET/POST | `/api/admin/safety-reports*` | `x-admin-token` | Ops: the safety queue — list open reports, resolve with a note |
+| GET/POST | `/api/admin/formal-applications*` | `x-admin-token` | Ops: formal applications, with each worker's verified record; deciding one notifies them |
+| GET | `/api/admin/errors` | `x-admin-token` | Recent server errors, newest first |
+
+Every `/api/admin/*` route returns 404 unless `VUKA_ADMIN_TOKEN` is set — with it blank
+they don't exist at all.
 
 Plus invitations, chat, follows and the public CV — see `src/server.mjs`.
 
@@ -88,6 +95,26 @@ what writes the verified reference onto the CV. Neither side can advance it alon
 worker can't award themselves a reference.
 
 Error responses are recovery-oriented (what happened + what to do), never bare HTTP codes.
+A 500 also carries a `ref` id that matches the captured error, so a user's "it broke" turns
+into one lookup at `/api/admin/errors`.
+
+**Distance is measured, not typed in** (`src/geo.mjs`). Listings carry coordinates — from
+the employer's device at post time, or from a local gazetteer of the townships and suburbs
+this product serves — and the viewer's browser optionally supplies its position. Where both
+are known the server measures a great-circle distance and marks it `distanceSource:
+"measured"`; where they aren't, the listing's own label comes back as `"listed"` and the app
+renders it as an estimate. No geocoding API, no maps bill.
+
+**Notifications ride on web push** (`src/push.mjs`), implemented against RFC 8291 / 8188 /
+8292 with Node's built-in crypto — no dependency, no gateway, nothing per message. The
+encryption is verified in `npm test` against the known-answer vector published in RFC 8291
+§5. Posting a gig alerts opted-in workers within `VUKA_ALERT_RADIUS_KM`; if the gig can't be
+placed, nobody is notified, because "a gig near you" that isn't near you is worse than
+silence.
+
+**Errors are captured for free** (`src/monitor.mjs`): one structured JSON line per error
+plus an in-memory ring buffer at `/api/admin/errors`. Set `SENTRY_DSN` and the same events
+also go to Sentry's free tier so they outlive a restart.
 
 ## Deploy (production)
 
@@ -100,6 +127,11 @@ Host on any Node platform (Render / Railway / Fly.io / a VM). Set:
   code. Without a provider, set `VUKA_OTP_ECHO=1` for a closed pilot only (insecure).
 - `DATABASE_URL` — Postgres (e.g. Supabase) so data survives deploys. Without it the
   server falls back to an ephemeral SQLite file.
+- `VUKA_ADMIN_TOKEN` — turns on the ops queues (KYC, safety, formal applications, errors).
+- `VUKA_VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` / `_SUBJECT` — free web-push notifications.
+  Generate the pair once with `npm run vapid:keys` and keep it: changing the keys
+  invalidates every subscription already granted.
+- `SENTRY_DSN` — optional. Errors are captured either way; this makes them survive a restart.
 
 See `.env.example` for every variable, and `../DEPLOY.md` for the full table.
 
@@ -108,8 +140,13 @@ See `.env.example` for every variable, and `../DEPLOY.md` for the full table.
 Real and enforced server-side: phone-verified sign-up, password reset, payout details
 (encrypted), the two-sided hiring/completion loop, employer ratings, safety reports.
 
+Also real: measured distances, free web-push job alerts, ops queues for safety reports and
+formal applications, error capture, and `npm run backup` / `npm run restore` snapshots that
+move between SQLite and Postgres.
+
 Still needs a provider or a person:
-- **SMS** is a seam (`src/notify.mjs`) — it needs a paid gateway before real users.
+- **SMS** is a seam (`src/notify.mjs`) — it needs a paid gateway before real users. Push
+  covers everything *except* sign-up, which has to reach a phone before the app exists on it.
 - **ID verification** validates the ID number (13 digits, real date of birth, Luhn check)
   and stores it encrypted, then waits for a decision. A Home Affairs / bureau integration
   drops into the same place; until then approvals go through the ops route.

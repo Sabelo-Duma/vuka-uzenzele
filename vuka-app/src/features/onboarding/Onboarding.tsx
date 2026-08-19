@@ -6,6 +6,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import type { CategoryId, Role } from '../../types';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
 
 type OBView = 'landing' | 'role' | 'reg' | 'login' | 'reset';
@@ -469,6 +470,25 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
         </div>
       )}
       <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? 'Creating your account…' : worker ? 'Create account & start' : 'Create account'}</Button>
+      <Consent />
     </div>
+  );
+}
+
+/** Consent, in the one place where it actually means something. */
+function Consent() {
+  const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
+  return (
+    <>
+      <p className="text-[11.5px] text-muted leading-relaxed mt-3">
+        By creating an account you agree to our{' '}
+        <button onClick={() => setLegal('terms')} className="font-bold text-navy underline underline-offset-2">Terms of use</button>
+        {' '}and to us handling your information as set out in the{' '}
+        <button onClick={() => setLegal('privacy')} className="font-bold text-navy underline underline-offset-2">Privacy notice</button>.
+        You must be 18 or older.
+      </p>
+      {legal === 'privacy' && <PrivacySheet onClose={() => setLegal(null)} />}
+      {legal === 'terms' && <TermsSheet onClose={() => setLegal(null)} />}
+    </>
   );
 }

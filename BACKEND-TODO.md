@@ -1,89 +1,138 @@
-# Backend TODO — what's left
+# What's left
 
-Everything the frontend was waiting on has been built. What remains needs a
-**paid provider, a person, or an ops decision** — not more code.
+Everything that could be built has been built, and everything that could be
+solved for free has been. What remains needs **money, a person, or a decision
+only you can make** — that's the whole list now.
 
-## 1. Production config
-
-Checked against the live service on 2026-08-18 (`GET /api/health` → `store: "pg"`):
-
-| Variable | Status | Why it matters |
-|---|---|---|
-| `DATABASE_URL` | ✅ **already set** — the live service runs on Postgres, so real sign-ups persist across deploys | Without it: ephemeral SQLite, data lost every deploy |
-| `VUKA_JWT_SECRET` | ✅ set (server refuses to boot without it in production) | Session signing |
-| `VUKA_SMS_PROVIDER` | ❌ **not set** | Sign-up needs an SMS code, so **new registrations return 503**. Existing accounts and the demo logins keep working. `VUKA_OTP_ECHO=1` unblocks it for a closed pilot only — insecure, codes come back in the API response |
-| `VUKA_ENCRYPTION_KEY` | ❌ not set (now in `render.yaml` with `generateValue: true`, so a blueprint sync provisions it) | Payout details + ID numbers. Without it, only those endpoints 503 |
-| `VUKA_ADMIN_TOKEN` | ❌ not set | Enables the KYC review routes. Blank = they don't exist |
-
-> **Note on the first deploy of this work:** schema migrations are additive
-> (`ALTER TABLE … ADD COLUMN`, guarded by a column check) and were verified
-> against a pre-existing SQLite database. The Postgres path is the same code but
-> has not been exercised against a live Supabase instance — worth watching the
-> deploy log the first time.
-
-## 2. Needs a provider or a person
-
-- **SMS gateway** — `vuka-server/src/notify.mjs` is the seam: `console` (dev),
-  `http` (most SA aggregators — Clickatell, BulkSMS, Panacea), or `twilio`.
-  Provider choice is env-only; no caller changes. Needs a contract + sender ID.
-- **ID verification (KYC)** — submissions are validated (13 digits, real date of
-  birth, Luhn check), stored **encrypted**, and land as `pending`. Approval grants
-  the ✅ badge. Today that decision is made through the ops route
-  (`POST /api/admin/id-verifications/:id/decide`, `x-admin-token`); a Home Affairs
-  or bureau integration drops in at exactly that point.
-  → **Decide: who reviews these, and how fast?** The badge gates formal roles.
-- **Payments** — payout details are collected and encrypted, but no money moves.
-  Needs a payments provider (and the FSP/compliance work that comes with it).
-- **Safety reports** — `POST /api/safety/report` stores them and logs a warning;
-  raising a safety flag when completing a job files one automatically.
-  → **Decide: who is on the other end of these, and what's the SLA?**
-
-## 3. Before real users (see the Costing Model doc)
-
-- Rate-limiting ✅, helmet ✅, JWT-secret enforcement ✅, encrypted payout
-  storage ✅, session invalidation on password reset ✅.
-- Still needed: **automated DB backups**, **POPIA privacy policy + terms**,
-  **error monitoring** (e.g. Sentry) and an **uptime pinger** on `/api/health`.
-- Zero-rating: the app claims browsing is zero-rated — that needs an actual
-  arrangement with the networks, or the copy should change.
-
-## 4. Product gaps worth a decision (not bugs)
-
-- **Job alerts** — the preference is stored per account (`/api/me/preferences`),
-  but nothing sends them yet. Wiring them to the SMS seam (or web push) is the
-  next obvious use of §2's gateway.
-- **Formal-job applications** — stored server-side and tier-gated, but formal
-  roles are curated listings with no employer inbox. Someone has to actually
-  receive and act on these applications.
-- **Distance** — `distanceKm` is seeded, not computed. Real proximity needs
-  location capture + a geo query.
-- **One hire per gig** — a job is filled by one worker. Multi-worker jobs would
-  need the applications lifecycle to allow several `hired` rows per gig.
+Last worked: 19 August 2026 · `npm test` → 180 assertions passing.
 
 ---
 
-## What changed (reference)
+## 1. You have to do these (nobody else can)
 
-Previously listed as missing, now built and covered by `npm test` (138 assertions):
+| # | What | Why it's yours | Blocks |
+|---|---|---|---|
+| 1 | Paste a **VAPID keypair** into Render → Environment | Generate it once with `cd vuka-server && npm run vapid:keys`. It's a secret, so it can't live in git, and it can't be auto-generated per deploy — regenerating silently kills every notification permission users already granted. | All notifications (job alerts, hire notices, confirmations) |
+| 2 | Fill in **`vuka-app/src/data/legal.ts`** | Three values: registered company name, the appointed Information Officer, and a privacy mailbox that someone actually reads. POPIA requires them; I can't invent them. Until they're set the privacy notice shows a visible "not final yet" banner. | Launching to the public |
+| 3 | Add **`DATABASE_URL`** as a GitHub repo *secret* | Turns on the nightly backup workflow. Use Supabase's **session** pooler (port 5432 — the transaction pooler on 6543 can't run `pg_dump`). | Automated backups |
+| 4 | Run the **restore drill once** | `gunzip -c vuka-backup-*.sql.gz \| psql $DATABASE_URL` against a throwaway database. A backup nobody has restored is a hypothesis. | Trusting the backups |
+| 5 | Sync the Render **blueprint** | `render.yaml` now provisions `VUKA_ENCRYPTION_KEY` and `VUKA_ADMIN_TOKEN` automatically — but only on a blueprint sync. | Payout/ID endpoints, all ops queues |
 
-- **Phone OTP** — real codes, hashed, rate-limited, 10-min expiry; registration
-  requires a proof-of-phone token bound to the number.
-- **Password reset** — SMS code + "Forgot password?" in the app. Confirming ends
-  every older session, so a reset actually locks the other person out.
-- **Two-sided completion** — `applied → hired → worker_done → completed`. The
-  worker rates the employer when marking work done; the **employer's
-  confirmation** is what writes the verified reference onto the CV. A worker can
-  no longer award themselves a reference.
-- **Employer sees applicants** — `GET /api/gigs/:id/applicants` plus an
-  Applicants screen with Hire and Confirm & rate. Applicants no longer vanish;
-  the ones not chosen are told.
-- **Employer ratings** — averaged from real worker→employer reviews. A new
-  employer shows "New employer", not an invented 5.0.
-- **ID verification** — client self-assertion removed; the server ignores
-  `idVerified` at registration. Age now comes from the ID number.
-- **Banking** — server-side, AES-256-GCM at rest, only ever returned masked
-  (`•••• 4321`); nothing sensitive touches the device.
-- **Formal applications, job-alert preference, safety reports** — all real
-  endpoints; the localStorage stubs are gone.
-- **Engine drift** — `GET /api/config` publishes the authoritative min wage and
-  tier/badge thresholds, and the app adopts them at boot.
+Optional, also free, also yours: a **Sentry** DSN (free tier, 5k events/month) if
+you want errors to survive a restart and to alert you. Without it errors are
+still captured — structured log lines plus `GET /api/admin/errors`.
+
+---
+
+## 2. Needs money
+
+| What | The seam | Roughly what it costs |
+|---|---|---|
+| **SMS gateway** | `vuka-server/src/notify.mjs` — `console` / `http` / `twilio`, env-only, no caller changes | Per message. **This is the one real blocker: sign-up needs a code that arrives before the app exists on the phone, so without a provider new registrations return 503.** Existing accounts and the demo logins keep working, and `VUKA_OTP_ECHO=1` unblocks a *closed* pilot only (insecure — codes come back in the API response) |
+| **Payments** | Payout details are collected and encrypted; nothing moves money | A payments provider, plus the FSP/compliance work that comes with it |
+| **ID verification at scale** | `POST /api/admin/id-verifications/:id/decide` is exactly where a Home Affairs or bureau integration drops in | Per lookup — until then, a human decides |
+
+Everything else that used to be on this list is now free and working. Costing
+model territory: this table.
+
+---
+
+## 3. Needs a decision, not code
+
+The queues exist, they're decidable today with `VUKA_ADMIN_TOKEN` and curl, and
+the person on the other end gets told the outcome. What's missing is **who** and
+**how fast**:
+
+- **ID verifications** — `GET /api/admin/id-verifications`. The ✅ badge gates
+  formal roles, so a slow queue is a blocked worker.
+- **Safety reports** — `GET /api/admin/safety-reports`, resolve with a note.
+  What's the SLA? Who is on call?
+- **Formal applications** — `GET /api/admin/formal-applications`, with each
+  worker's verified record attached. Deciding one notifies them, including a
+  rejection, because silence is the worst outcome. A real employer inbox
+  eventually replaces this; a person can work the queue now.
+- **Zero-rating** — the copy no longer claims it (see §5). If you want the claim
+  back, it needs a signed arrangement with the networks.
+
+---
+
+## 4. Product gaps worth a decision
+
+- **One hire per gig** — a job is filled by one worker. Multi-worker jobs would
+  need the applications lifecycle to allow several `hired` rows per gig.
+- **Formal roles are curated listings** — no employer-side posting or inbox for
+  them yet.
+- **Languages** — the picker saves a preference; only English is translated.
+
+---
+
+## 5. Done since the last pass (all free)
+
+**Distance is measured, not typed in.** `vuka-server/src/geo.mjs`. Listings carry
+coordinates — from the employer's device at post time, or from a local gazetteer
+of the townships and suburbs this product serves — and the browser optionally
+offers the viewer's position. Where both are known the server measures a
+great-circle distance and marks it `measured`, and the feed sorts nearest-first;
+where they aren't, the listing's own label comes back as `listed` and the app
+renders it as an estimate. No geocoding API, no maps bill, and the seeded
+`distanceKm` numbers are no longer presented as facts.
+
+**Job alerts actually arrive.** `vuka-server/src/push.mjs` implements web push
+against RFC 8291 / 8188 / 8292 with Node's built-in crypto — no dependency, no
+gateway, nothing per message. The encryption is verified in `npm test` against
+the known-answer vector published in RFC 8291 §5, byte for byte. Posting a gig
+notifies opted-in workers within `VUKA_ALERT_RADIUS_KM`; hires, work-done notices
+and confirmations push too. If a gig can't be placed, nobody is notified — "a gig
+near you" that isn't near you is worse than silence. Dead subscriptions are
+pruned on the push service's own 404/410.
+
+**Error monitoring, free by default.** `vuka-server/src/monitor.mjs`: every error
+becomes one structured JSON line (greppable in `render logs`) plus an in-memory
+ring buffer at `GET /api/admin/errors`, deduplicated with a repeat count. A 500
+hands the caller a `ref` id that matches the record, so "it broke at 14:32" is
+one lookup. `SENTRY_DSN` is optional and adds no dependency.
+
+**Uptime monitoring, free.** `.github/workflows/uptime.yml` pings
+`/api/health` every 10 minutes, retries before crying outage, and **fails the run
+— which emails repo watchers — if the API is down or is quietly running on
+ephemeral SQLite instead of Postgres**. It also keeps a free-tier instance warm.
+
+**Automated backups, free.** `.github/workflows/backup.yml` takes a nightly
+`pg_dump`, gzips it, verifies the archive, fails if it came back suspiciously
+small, and keeps 90 days of artifacts. Plus `npm run backup` / `npm run restore`
+for an on-the-spot snapshot that moves between SQLite and Postgres.
+
+**POPIA privacy notice + terms of use.** `vuka-app/src/features/profile/LegalSheets.tsx`,
+reachable from both profiles, from the landing footer, and at the point of
+consent on sign-up. Written to claim only what the code does — ID numbers and
+account numbers encrypted and shown masked, location asked for and never taken,
+no money moving through Vuka — and it names the Information Regulator as the
+place to complain.
+
+**Ops triage queues.** Safety reports and formal applications are now listable,
+decidable and resolvable with a note, and the worker is notified of a formal
+decision either way.
+
+**Honest data claims.** The "Zero-rated · costs no data" copy is gone from the
+app, the prototype and the README. What's there instead is true: the shell is
+cached, so browsing is light on data and works offline. Actual zero-rating needs
+a network arrangement.
+
+**Predictable PWA updates.** Static serving now states its cache policy instead
+of relying on Express defaults: `/assets/*` is immutable for a year (Vite
+fingerprints it), and `index.html` / `sw.js` / `registerSW.js` always revalidate
+— so a host or CDN can't quietly serve a stale service worker and strand
+installed copies on an old build.
+
+**Coverage.** 180 assertions, up from 138: the RFC push vector, distance
+measurement and ordering, gazetteer and coordinate validation, push subscription
+lifecycle, and every ops-triage route.
+
+---
+
+## Reference: the earlier pass
+
+Phone OTP, password reset with session invalidation, two-sided completion
+(`applied → hired → worker_done → completed`), the employer's applicants screen,
+real employer ratings, server-side ID verification, encrypted banking, and
+`/api/config` as the single source of truth for thresholds. See git history.

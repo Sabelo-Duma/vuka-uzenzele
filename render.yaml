@@ -27,3 +27,24 @@ services:
       # reseeds on each deploy).
       - key: DATABASE_URL
         sync: false            # you paste the Supabase URL in the dashboard
+      # Turns on the ops routes that review ID verifications, triage safety
+      # reports and decide formal applications. Generated here so those queues
+      # have a reviewer from the first deploy; read it from the dashboard and
+      # send it as the x-admin-token header.
+      - key: VUKA_ADMIN_TOKEN
+        generateValue: true
+      # Web push (free): job alerts, hire notices and confirmations, with no SMS
+      # contract. These MUST be a matching pair — generate them once with
+      # `npm run vapid:keys` in vuka-server and paste both in the dashboard.
+      # Regenerating them silently invalidates every existing subscription, so
+      # they are deliberately not auto-generated here.
+      - key: VUKA_VAPID_PUBLIC_KEY
+        sync: false
+      - key: VUKA_VAPID_PRIVATE_KEY
+        sync: false
+      - key: VUKA_VAPID_SUBJECT
+        sync: false            # mailto: address a push service can contact
+      # Optional: ship errors to Sentry's free tier so they survive a restart.
+      # Unset, errors are still captured in the log and at GET /api/admin/errors.
+      - key: SENTRY_DSN
+        sync: false

@@ -41,6 +41,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // Notification handling lives in public/push-sw.js and is pulled into
+        // the generated worker, so precaching and auto-update stay untouched.
+        importScripts: ['push-sw.js'],
       },
       // Keep the SW out of the dev server to avoid caching surprises while coding.
       devOptions: { enabled: false },

@@ -1,0 +1,86 @@
+name: Database backup
+
+# Free, automated, off-site database backups.
+#
+# Supabase's free tier does not include point-in-time recovery, and a managed
+# daily snapshot you can't download is not a backup you control. This takes a
+# real pg_dump every night, compresses it, and stores it as a workflow artifact
+# — off-site, versioned, downloadable, and inside the storage the repo already
+# has. Restoring is one command (see below).
+#
+# ── Setup (once) ────────────────────────────────────────────────────────────
+# Settings → Secrets and variables → Actions → New repository secret:
+#   Name:  DATABASE_URL
+#   Value: the same Postgres connection string the app uses
+# Supabase: use the SESSION pooler (port 5432), not the transaction pooler
+# (6543) — pg_dump needs session-level features the transaction pooler drops.
+#
+# ── Restoring ───────────────────────────────────────────────────────────────
+#   gunzip -c vuka-backup-YYYY-MM-DD.sql.gz | psql "$DATABASE_URL"
+# Test that on a throwaway database before you ever need it for real. A backup
+# nobody has restored is a hypothesis, not a backup.
+
+on:
+  schedule:
+    # 01:20 UTC ≈ 03:20 SAST — quiet hours for a South African audience.
+    - cron: '20 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  dump:
+    name: pg_dump → artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the secret is present
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error title=DATABASE_URL not set::Add the connection string as a repository secret (see the comments in this workflow). Nothing is being backed up until you do."
+            exit 1
+          fi
+
+      - name: Install a matching pg_dump
+        # Ubuntu ships an older client; the dump must not be older than the
+        # server or pg_dump refuses to run against it.
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+
+      - name: Dump and compress
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%d)
+          # --no-owner / --no-acl so the dump restores cleanly into a database
+          # with different role names than production.
+          pg_dump "$DATABASE_URL" \
+            --no-owner --no-acl --clean --if-exists \
+            | gzip -9 > "vuka-backup-${stamp}.sql.gz"
+
+          size=$(stat -c%s "vuka-backup-${stamp}.sql.gz")
+          echo "dump is ${size} bytes"
+          # A dump that came back nearly empty means the connection succeeded
+          # but the data didn't — worse than an outright failure, because it
+          # looks like a success. Fail loudly instead.
+          if [ "$size" -lt 2048 ]; then
+            echo "::error title=Backup looks empty::The dump is only ${size} bytes. Check the connection string points at the production database."
+            exit 1
+          fi
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - name: Verify the archive is intact
+        run: gzip -t "vuka-backup-${STAMP}.sql.gz" && echo "archive is readable"
+
+      - name: Store it off-site
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuka-backup-${{ env.STAMP }}
+          path: vuka-backup-${{ env.STAMP }}.sql.gz
+          # Three months of nightly restore points. Raise it if you need longer;
+          # 90 days is the maximum GitHub allows on the free plan.
+          retention-days: 90
+          if-no-files-found: error

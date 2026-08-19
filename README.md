@@ -46,7 +46,7 @@ Best viewed as a phone. On a laptop you'll see the phone mock-up next to a pitch
 on a real phone it fills the screen.
 
 > Plain HTML/CSS/JavaScript — **no frameworks, no CDNs, no network calls** — deliberately,
-> to honour the product's *zero-rated / works-offline* promise.
+> to honour the product's *low-data / works-offline* promise.
 
 ---
 
@@ -109,7 +109,9 @@ call-centre roles.
 - **🛡️ Trust by design** — ID verification, two-way reviews, one-tap safety flag that
   gates tier progress.
 - **⚖️ Fair Pay meter** — live minimum-wage check on every job and every employer rate.
-- **📶 Zero-rated ethos** — no external requests; browsing and applying cost no data.
+- **📶 Low-data ethos** — no external requests; the shell is cached, so browsing and
+  applying use very little data and work offline. (Actual *zero-rating* would need a
+  signed arrangement with the mobile networks — the copy deliberately does not claim it.)
 - **🎨 Gijima brand + youth energy** — navy/red brand, red-dot accents, pill buttons,
   plus bright tier colours, gamification and big-tap cards that stay catchy for youth.
 

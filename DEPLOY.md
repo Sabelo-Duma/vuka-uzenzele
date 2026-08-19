@@ -90,7 +90,12 @@ cd ../vuka-server && npm start        # detects ../vuka-app/dist and serves it
 | `VUKA_SMS_URL` / `VUKA_SMS_AUTH` | Gateway endpoint + `Authorization` header for `provider=http` | unset |
 | `VUKA_TWILIO_SID` / `_TOKEN` / `_FROM` | Credentials for `provider=twilio` | unset |
 | `VUKA_OTP_ECHO` | **Pilot only, insecure.** `1` returns one-time codes in API responses so sign-up works with no SMS contract. | unset |
-| `VUKA_ADMIN_TOKEN` | Enables the ID-verification review routes (`x-admin-token` header). Blank = routes don't exist. | unset |
+| `VUKA_ADMIN_TOKEN` | Enables every ops queue — ID verifications, safety reports, formal applications, recent errors (`x-admin-token` header). Blank = those routes don't exist. | unset |
+| `VUKA_VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` | **Free web push** — job alerts, hire notices, confirmations. Generate the pair once: `cd vuka-server && npm run vapid:keys`. Changing them invalidates every subscription already granted. | unset → push off |
+| `VUKA_VAPID_SUBJECT` | `mailto:` contact a push service can reach you on (required by RFC 8292) | a placeholder — **set it** |
+| `VUKA_ALERT_RADIUS_KM` / `VUKA_ALERT_FANOUT_MAX` | How far "a gig near you" reaches, and the most people one posting may notify | `15` / `200` |
+| `SENTRY_DSN` | Optional. Errors are always captured (structured log + `/api/admin/errors`); this also ships them to Sentry's free tier so they survive a restart. | unset |
+| `VUKA_ERROR_BUFFER` | Distinct recent errors kept in memory | `100` |
 | `NODE_ENV` | `production` enables prod behaviour | — |
 | `DATABASE_URL` | **Postgres connection string (e.g. Supabase).** When set, all data persists across deploys. Leave unset to use ephemeral SQLite (demo only). | unset → SQLite |
 | `VUKA_DB` | SQLite file path (only used when `DATABASE_URL` is unset) | `./data.db` |
@@ -110,11 +115,50 @@ Or tap **Demo worker / Demo employer** on the login screen.
 
 ---
 
+## Automated ops (free, already in the repo)
+
+Two GitHub Actions run on a schedule, on the minutes this repo already has:
+
+| Workflow | Cadence | What it does | Setup |
+|---|---|---|---|
+| `.github/workflows/uptime.yml` | every 10 min | `GET /api/health`, retries, then **fails the run** (which emails repo watchers) if the API is down *or* is running on ephemeral SQLite instead of Postgres. Also keeps a free-tier instance warm, so nobody waits on a cold start. | Nothing, unless your URL differs — then set a repo **variable** `VUKA_URL`. |
+| `.github/workflows/backup.yml` | nightly 01:20 UTC | `pg_dump` → gzip → 90-day workflow artifact. Verifies the archive and fails if the dump came back suspiciously small. | Add `DATABASE_URL` as a repo **secret**, using Supabase's **session** pooler (port 5432, not 6543). |
+
+Restore a nightly backup with:
+
+```bash
+gunzip -c vuka-backup-YYYY-MM-DD.sql.gz | psql "$DATABASE_URL"
+```
+
+For an on-the-spot snapshot before a risky change, `cd vuka-server && npm run backup`
+writes a JSON snapshot that `npm run restore -- <file>` loads back — and it moves between
+SQLite and Postgres, which is the migration path off a pilot database.
+
+> **Do the restore drill once, on a throwaway database.** A backup nobody has restored is
+> a hypothesis, not a backup.
+
+---
+
+## Before real users
+
+- **Fill in `vuka-app/src/data/legal.ts`** — the registered company name, the Information
+  Officer and a monitored privacy mailbox. Until those are set, the in-app privacy notice
+  shows a visible "not final yet" banner, on purpose.
+- **Set `VUKA_SMS_PROVIDER`** — sign-up needs a code that reaches a phone, so without it
+  new registrations return 503. Everything else, including notifications, works without it.
+- **Decide who reviews** ID verifications, safety reports and formal applications. The
+  queues exist and are decidable today with the admin token; what they need is a person and
+  a turnaround time.
+
+---
+
 ## After it's live
 
 - Open the URL on a phone → browser menu → **Install app / Add to Home Screen**.
+- Installed copies update themselves: the service worker picks up each deploy and refreshes
+  on next launch. There's no app store and nothing for users to re-download.
 - Share the URL with the Innovation Engine reviewers.
 - Post a gig as the employer, then open it as a worker on another device — real shared data.
 
-*Prototype scope: SMS OTP, ID verification and payments remain mocked (they need paid
-providers). Formal-employer names are fictional.*
+*Still needs a paid provider: SMS delivery and payments. Formal-employer names in the seed
+are fictional.*

@@ -81,6 +81,8 @@ export interface ServerConfig {
   minWage: number;
   tiers: { id: TierId; name: string; minJobs: number; minRating: number; maxFlags: number }[];
   badges: { id: string; threshold: number | null; special: string | null }[];
+  /** Public key for push subscriptions. Empty string = push is off server-side. */
+  vapidPublicKey?: string;
 }
 /** Payout details as the server is willing to return them — never the full number. */
 export interface BankingSummary {
@@ -98,7 +100,18 @@ export interface BankingInput {
   accountNumber?: string;
 }
 export interface Preferences { jobAlerts: boolean; }
-export interface FormalApplication { jobId: string; status: string; appliedAt: string; }
+export interface FormalApplication {
+  jobId: string;
+  /** applied | shortlisted | rejected | placed — decided by whoever reviews them. */
+  status: string;
+  appliedAt: string;
+  note?: string | null;
+  decidedAt?: string | null;
+}
+export interface PushSubscriptionInput {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
 
 export interface RegisterInput {
   role: Role; name: string; phone: string; password: string;
@@ -157,7 +170,14 @@ export interface IdVerification {
 export interface CreateGigInput {
   title: string; category: CategoryId; hours: number; payPerHour: number;
   location: string; when: string; description: string; urgent?: boolean;
+  /** Exact coordinates, when the employer chose to share them. Optional by
+   *  design: without them the server places the job from its location text. */
+  lat?: number; lng?: number;
 }
+
+/** Viewer position, appended so the server can measure real distances. */
+export type Near = { lat: number; lng: number } | null | undefined;
+const nearQuery = (near: Near) => (near ? `?lat=${encodeURIComponent(near.lat)}&lng=${encodeURIComponent(near.lng)}` : '');
 
 /** Map a server talent record to the client's TalentWorker (tier as index). */
 export function toTalentWorker(t: ServerTalent): TalentWorker {
@@ -177,8 +197,9 @@ export const api = {
   requestPasswordReset: (phone: string) => request<ResetRequested>('POST', '/auth/password/request', { phone }),
   confirmPasswordReset: (phone: string, code: string, password: string) =>
     request<AuthResult>('POST', '/auth/password/confirm', { phone, code, password }),
-  listGigs: () => request<Gig[]>('GET', '/gigs'),
-  getGig: (id: string) => request<Gig>('GET', `/gigs/${id}`),
+  /** Pass the viewer's position to get measured distances, nearest first. */
+  listGigs: (near?: Near) => request<Gig[]>('GET', `/gigs${nearQuery(near)}`),
+  getGig: (id: string, near?: Near) => request<Gig>('GET', `/gigs/${id}${nearQuery(near)}`),
   createGig: (input: CreateGigInput) => request<Gig>('POST', '/gigs', input),
   applyGig: (id: string) => request<{ ok: boolean }>('POST', `/gigs/${id}/apply`),
   /** Worker marks the work done and rates the employer. The CV moves only on the employer's confirmation. */
@@ -193,7 +214,7 @@ export const api = {
   getIdVerification: () => request<IdVerification>('GET', '/me/id-verification'),
   submitIdVerification: (fullName: string, idNumber: string) => request<IdVerification>('POST', '/me/id-verification', { fullName, idNumber }),
   listApplications: () => request<{ gigId: string; status: string }[]>('GET', '/me/applications'),
-  listFormal: () => request<FormalJob[]>('GET', '/formal-jobs'),
+  listFormal: (near?: Near) => request<FormalJob[]>('GET', `/formal-jobs${nearQuery(near)}`),
   getCv: () => request<CvResult>('GET', '/me/cv'),
   listTalent: () => request<ServerTalent[]>('GET', '/talent'),
   getTalent: (id: string) => request<ServerTalent>('GET', `/talent/${id}`),
@@ -222,4 +243,8 @@ export const api = {
   savePreferences: (prefs: Preferences) => request<Preferences>('PUT', '/me/preferences', prefs),
   reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
     request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),
+  subscribePush: (sub: PushSubscriptionInput) => request<{ ok: boolean }>('POST', '/push/subscribe', sub),
+  unsubscribePush: (endpoint?: string) => request<{ ok: boolean }>('POST', '/push/unsubscribe', { endpoint }),
+  /** Sends one notification to this account's devices, so the user can see it work. */
+  testPush: () => request<{ ok: boolean; devices: number }>('POST', '/push/test'),
 };

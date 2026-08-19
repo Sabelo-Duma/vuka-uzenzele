@@ -90,7 +90,11 @@ export async function initDb() {
       employer_initials TEXT NOT NULL,
       employer_rating REAL NOT NULL DEFAULT 5.0,
       location TEXT NOT NULL,
+      /* distance_km is a fallback label only. When lat/lng are present the
+         server computes the real distance from the viewer's position. */
       distance_km REAL NOT NULL DEFAULT 0,
+      lat REAL,
+      lng REAL,
       hours REAL NOT NULL,
       pay_per_hour REAL NOT NULL,
       when_text TEXT NOT NULL,
@@ -110,6 +114,8 @@ export async function initDb() {
       type TEXT NOT NULL,
       location TEXT NOT NULL,
       distance_km REAL NOT NULL,
+      lat REAL,
+      lng REAL,
       salary TEXT NOT NULL,
       education TEXT NOT NULL,
       description TEXT NOT NULL,
@@ -187,6 +193,8 @@ export async function initDb() {
       worker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       status TEXT NOT NULL DEFAULT 'applied',
       created_at TEXT NOT NULL,
+      note TEXT,
+      decided_at TEXT,
       UNIQUE(job_id, worker_id)
     );
 
@@ -196,6 +204,21 @@ export async function initDb() {
       updated_at TEXT NOT NULL
     );
 
+    /* Web-push targets. One row per browser/device that granted permission —
+       a person with a phone and a laptop has two. endpoint is the natural key:
+       the browser reissues it, and a 404/410 from the push service means it's
+       dead and the row should go. */
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT,
+      failures INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS safety_reports (
       id TEXT PRIMARY KEY,
       reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -203,7 +226,9 @@ export async function initDb() {
       gig_id TEXT,
       concern TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'open',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      note TEXT,
+      resolved_at TEXT
     );
 
     /* One-time SMS codes proving someone holds a phone number. Codes are
@@ -271,6 +296,7 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_formalapps_worker ON formal_applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_empratings_employer ON employer_ratings(employer_id);
     CREATE INDEX IF NOT EXISTS idx_safety_reporter ON safety_reports(reporter_id);
+    CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_phoneverif_phone ON phone_verifications(phone);
     CREATE INDEX IF NOT EXISTS idx_pwreset_user ON password_resets(user_id);
     CREATE INDEX IF NOT EXISTS idx_idverif_user ON id_verifications(user_id);
@@ -288,6 +314,17 @@ export async function initDb() {
   await addColumn('applications', 'employer_rating', 'INTEGER'); // employer → worker
   await addColumn('applications', 'employer_review', 'TEXT');
   await addColumn('applications', 'completed_at', 'TEXT');
+  // Safety-report triage: who closed it, when, and why.
+  await addColumn('safety_reports', 'note', 'TEXT');
+  await addColumn('safety_reports', 'resolved_at', 'TEXT');
+  // Formal applications get an outcome the worker can actually see.
+  await addColumn('formal_applications', 'note', 'TEXT');
+  await addColumn('formal_applications', 'decided_at', 'TEXT');
+  // Real distance: a gig's coordinates, when the employer shares them.
+  await addColumn('gigs', 'lat', 'REAL');
+  await addColumn('gigs', 'lng', 'REAL');
+  await addColumn('formal_jobs', 'lat', 'REAL');
+  await addColumn('formal_jobs', 'lng', 'REAL');
 
   initialised = true;
 }

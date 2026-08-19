@@ -11,6 +11,9 @@
     "start": "node --experimental-sqlite src/server.mjs",
     "dev": "node --experimental-sqlite --watch src/server.mjs",
     "seed": "node --experimental-sqlite src/seed.mjs",
+    "vapid:keys": "node src/vapid.mjs",
+    "backup": "node --experimental-sqlite scripts/backup.mjs",
+    "restore": "node --experimental-sqlite scripts/backup.mjs restore",
     "test": "node --experimental-sqlite src/test.mjs"
   },
   "dependencies": {

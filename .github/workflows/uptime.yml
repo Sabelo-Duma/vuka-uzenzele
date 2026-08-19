@@ -1,0 +1,76 @@
+name: Uptime
+
+# Free uptime monitoring, using the CI minutes this repo already has.
+#
+# Two jobs in one: it tells you when the API stops answering, and — because
+# Render's free tier sleeps an idle service — it keeps the app warm, so the
+# first person to open Vuka in the morning doesn't wait 30 seconds for a
+# cold start.
+#
+# When the check fails, GitHub emails the repo's watchers. That's the alerting.
+#
+# Setup: nothing, if the default URL is right. Otherwise set a repository
+# variable named VUKA_URL (Settings → Secrets and variables → Actions →
+# Variables) to your service's base URL.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub's scheduler is best-effort and can run late
+    # under load — treat a single missed run as noise, not an outage.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+# A slow response shouldn't queue up behind the previous run.
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: GET /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the API is alive and serving from the real database
+        env:
+          BASE: ${{ vars.VUKA_URL || 'https://vuka-uzenzele.onrender.com' }}
+        run: |
+          set -uo pipefail
+
+          # Retry a few times before crying outage: a free-tier instance that
+          # has gone to sleep needs a moment to wake, and a single dropped
+          # packet is not an incident.
+          for attempt in 1 2 3 4 5; do
+            body=$(curl --silent --show-error --max-time 45 \
+                        --write-out '\n%{http_code}' "$BASE/api/health" || true)
+            code=$(printf '%s' "$body" | tail -n1)
+            json=$(printf '%s' "$body" | sed '$d')
+            if [ "$code" = "200" ]; then
+              echo "healthy on attempt $attempt: $json"
+
+              # A 200 is not the whole story. If DATABASE_URL is missing the
+              # service still answers, but it is running on an ephemeral SQLite
+              # file that loses every real sign-up on the next deploy — so that
+              # is a failure worth being woken for.
+              store=$(printf '%s' "$json" | grep -o '"store":"[^"]*"' | cut -d'"' -f4)
+              if [ "$store" != "pg" ]; then
+                echo "::error title=Not using Postgres::/api/health reports store=\"$store\" — real sign-ups will be lost on the next deploy. Set DATABASE_URL."
+                exit 1
+              fi
+
+              # Warnings, not failures: these degrade features rather than
+              # losing data, and each one needs a human decision to fix.
+              case "$json" in
+                *'"smsConfigured":false'*) echo "::warning title=No SMS provider::New registrations return 503 until VUKA_SMS_PROVIDER is set." ;;
+              esac
+              case "$json" in
+                *'"payoutsConfigured":false'*) echo "::warning title=No encryption key::Banking and ID endpoints return 503 until VUKA_ENCRYPTION_KEY is set." ;;
+              esac
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP ${code:-no response}"
+            sleep 20
+          done
+
+          echo "::error title=API is down::$BASE/api/health did not return 200 after 5 attempts."
+          exit 1

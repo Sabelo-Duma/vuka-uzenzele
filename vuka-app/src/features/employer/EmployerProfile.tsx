@@ -8,8 +8,9 @@ import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { BankingSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
+import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
-type SheetKey = 'banking' | 'identity' | 'safety';
+type SheetKey = 'banking' | 'identity' | 'safety' | 'privacy' | 'terms';
 
 export function EmployerProfile() {
   const { state, toast, navigate } = useApp();
@@ -46,6 +47,8 @@ export function EmployerProfile() {
     },
     { ic: '⭐', title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)} ⭐ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
     { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
+    { ic: '🔒', title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
+    { ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
   ];
 
   return (
@@ -81,6 +84,8 @@ export function EmployerProfile() {
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
       {sheet === 'identity' && <IdentitySheet verified={false} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
+      {sheet === 'privacy' && <PrivacySheet onClose={closeSheet} />}
+      {sheet === 'terms' && <TermsSheet onClose={closeSheet} />}
     </>
   );
 }

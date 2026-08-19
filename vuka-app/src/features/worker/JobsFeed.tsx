@@ -6,9 +6,10 @@ import { Button, Card, EmptyState, SectionTitle, Segmented } from '../../compone
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { ReputationPanel } from './ReputationPanel';
+import { locationSupported } from '../../lib/geo';
 
 export function JobsFeed() {
-  const { state, setFeed, setCategory, navigate } = useApp();
+  const { state, setFeed, setCategory, navigate, useMyLocation, clearMyLocation } = useApp();
   const cv = computeCv(state.worker);
   const isGigs = state.feed === 'gigs';
   const cat = state.categoryFilter;
@@ -23,7 +24,7 @@ export function JobsFeed() {
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">
           {isGigs
-            ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
+            ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : state.coords ? ' · nearest first' : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
             : `${formalJobs.length} formal role${formalJobs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ''}`}
         </small>
         <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Find work<span className="text-red">.</span></h2>
@@ -38,6 +39,8 @@ export function JobsFeed() {
         ]}
       />
 
+      <NearMe />
+
       <CategoryBar value={cat} onChange={setCategory} />
 
       <div className="mt-4">
@@ -45,6 +48,40 @@ export function JobsFeed() {
       </div>
     </Dashboard>
   );
+
+  /**
+   * Distances are only real once the device says where it is, so this is the
+   * one place that asks — plainly, and only when tapped. Off, the feed still
+   * works on each listing's own estimate; on, it's measured and nearest-first.
+   */
+  function NearMe() {
+    if (!locationSupported()) return null;
+    return (
+      <div className="flex items-center gap-2 mt-2.5 text-[12.5px]">
+        {state.coords ? (
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">
+              📍 Sorted by real distance
+            </span>
+            <button onClick={clearMyLocation} className="text-muted font-semibold underline underline-offset-2 hover:text-navy transition">
+              Turn off
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={useMyLocation}
+              disabled={state.locating}
+              className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong text-navy font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+            >
+              📍 {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
+            </button>
+            <span className="text-subtle">Distances below are estimates</span>
+          </>
+        )}
+      </div>
+    );
+  }
 
   function Gigs({ list }: { list: Gig[] }) {
     if (state.dataLoading && state.gigs.length === 0) return <CardSkeletonGrid count={4} />;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
+import { distanceLabel } from '../../lib/geo';
 import { useApp } from '../../store/appStore';
 import { Button, Card, EmptyState } from '../../components/ui';
 import { DetailHeader, Hero, KV, PayBox, PerkList, StickyCta } from '../../components/bits';
@@ -44,7 +45,7 @@ export function FormalDetail({ id }: { id: string }) {
       <Hero
         eyebrow={`🏢 ${job.employer} · ${job.type}`}
         title={job.title}
-        sub={<><Icon name="pin" size={13} /> {job.location} · {job.distanceKm} km away</>}
+        sub={<><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</>}
         gradient="linear-gradient(150deg,#0D182B,#123e69)"
       >
         <PayBox cells={[{ label: 'Pay', value: job.salary }, { label: 'Type', value: job.type }]} />

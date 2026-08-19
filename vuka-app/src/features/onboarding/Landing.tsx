@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from '../../components/Icon';
+import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
 /**
  * Public marketing landing page — the first thing an anonymous visitor sees.
@@ -7,6 +9,7 @@ import { Icon } from '../../components/Icon';
  */
 export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; onLogin: () => void }) {
   const { resolved, toggle } = useTheme();
+  const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
 
   return (
     <div className="min-h-screen bg-surface text-ink overflow-x-hidden">
@@ -48,7 +51,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
                 I have an account
               </button>
             </div>
-            <p className="ob-rise-3 text-[12.5px] text-subtle mt-4">Zero-rated · browsing &amp; applying costs no data.</p>
+            <p className="ob-rise-3 text-[12.5px] text-subtle mt-4">Free to join · built light on data, and it keeps working offline.</p>
           </div>
 
           {/* Hero visual — a preview built from the app's own cards */}
@@ -158,7 +161,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           <span>🪪 ID-verified</span>
           <span>⚖️ Fair-pay checked</span>
           <span>⭐ Two-way reviews</span>
-          <span>📶 Zero-rated</span>
+          <span>📶 Light on data</span>
         </div>
       </section>
 
@@ -176,8 +179,15 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-8 text-center text-[12px] text-muted leading-relaxed">
           <b className="text-navy">Gijima Innovation Engine · 2026</b><br />
           Built to help close South Africa's youth unemployment gap — nearly 60% for ages 15–24.
+          <div className="flex items-center justify-center gap-4 mt-3">
+            <button onClick={() => setLegal('privacy')} className="font-semibold underline underline-offset-2 hover:text-navy transition">Privacy &amp; your data</button>
+            <button onClick={() => setLegal('terms')} className="font-semibold underline underline-offset-2 hover:text-navy transition">Terms of use</button>
+          </div>
         </div>
       </footer>
+
+      {legal === 'privacy' && <PrivacySheet onClose={() => setLegal(null)} />}
+      {legal === 'terms' && <TermsSheet onClose={() => setLegal(null)} />}
     </div>
   );
 }

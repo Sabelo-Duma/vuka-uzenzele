@@ -6,6 +6,8 @@ import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, typ
 import { computeCv } from '../lib/engine';
 import { applyServerConfig, minWagePerHour } from '../data/catalog';
 import { resetBanking } from '../lib/banking';
+import { cachedCoords, forgetCoords, requestCoords, type Coords } from '../lib/geo';
+import { disablePush, enablePush, pushSupported } from '../lib/push';
 
 export type Screen =
   | 'home' | 'jobs' | 'cv' | 'me'
@@ -29,6 +31,12 @@ export interface AppState {
   appliedFormalIds: string[]; // formal roles this worker has applied to (server-backed)
   myJobs: MyJob[];            // this worker's own work: hired / done / completed
   jobAlerts: boolean;         // account-level preference (drives push/SMS)
+  /** The viewer's position, once they've chosen to share it. Null = distances
+   *  fall back to each listing's own label, clearly marked as an estimate. */
+  coords: Coords | null;
+  locating: boolean;          // true while the device is finding a position
+  /** Server's push public key ('' when push is off server-side). */
+  vapidKey: string;
   /** Set when an employer confirms a job while the worker is in the app, so the
    *  CV growth is celebrated at the moment it actually becomes real. */
   celebrate: { before: CvSnapshot; after: CvSnapshot; jobTitle: string } | null;
@@ -81,7 +89,9 @@ type Action =
   | { type: 'MY_JOBS'; jobs: MyJob[] }
   | { type: 'CELEBRATE'; payload: AppState['celebrate'] }
   | { type: 'JOB_ALERTS'; on: boolean }
-  | { type: 'CONFIG'; minWage: number }
+  | { type: 'CONFIG'; minWage: number; vapidKey: string }
+  | { type: 'COORDS'; coords: Coords | null }
+  | { type: 'LOCATING'; locating: boolean }
   | { type: 'TALENT'; talent: TalentWorker[] }
   | { type: 'INVITATIONS'; invitations: Invitation[] }
   | { type: 'UNREAD'; count: number }
@@ -98,6 +108,9 @@ function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
     gigs: [], formalJobs: [], appliedGigIds: [], appliedFormalIds: [], myJobs: [], celebrate: null, jobAlerts: true,
+    // A position saved in the last 20 minutes is good enough to reuse, so a
+    // returning user gets real distances without being asked again.
+    coords: cachedCoords(), locating: false, vapidKey: '',
     talent: [], invitations: [], unread: 0, pendingConfirmations: 0, minWage: minWagePerHour(),
     feed: 'gigs', categoryFilter: null, nav: { screen: 'home' }, toast: null, error: null,
   };
@@ -118,13 +131,17 @@ function reducer(state: AppState, action: Action): AppState {
     case 'JOB_ALERTS': return { ...state, jobAlerts: action.on };
     // Re-render on the server's config so anything reading the thresholds
     // (fair-pay chips, lock states) picks up the authoritative values.
-    case 'CONFIG': return { ...state, minWage: action.minWage };
+    case 'CONFIG': return { ...state, minWage: action.minWage, vapidKey: action.vapidKey };
+    case 'COORDS': return { ...state, coords: action.coords };
+    case 'LOCATING': return { ...state, locating: action.locating };
     case 'TALENT': return { ...state, talent: action.talent };
     case 'INVITATIONS': return { ...state, invitations: action.invitations };
     case 'UNREAD': return { ...state, unread: action.count };
     case 'PENDING_CONFIRMATIONS': return { ...state, pendingConfirmations: action.count };
     case 'REMOVE_GIG': return { ...state, gigs: state.gigs.filter((g) => g.id !== action.id), appliedGigIds: state.appliedGigIds.filter((id) => id !== action.id) };
-    case 'LOGOUT': return { ...init(), status: 'anon' };
+    // Signing out on a shared phone must not leave the next person with this
+    // one's position. The server config is kept — it isn't personal.
+    case 'LOGOUT': return { ...init(), status: 'anon', coords: null, vapidKey: state.vapidKey };
     case 'NAVIGATE': return { ...state, nav: action.nav };
     case 'SET_FEED': return { ...state, feed: action.feed };
     case 'SET_CATEGORY': return { ...state, categoryFilter: action.category };
@@ -147,6 +164,10 @@ interface Store {
   applyGig: (id: string) => Promise<void>;
   applyFormal: (id: string) => Promise<void>;
   setJobAlerts: (on: boolean) => Promise<void>;
+  /** Ask the device for a position, then reload listings with real distances. */
+  useMyLocation: () => Promise<void>;
+  /** Stop using the position and forget it. */
+  clearMyLocation: () => void;
   /** Worker marks work done + rates the employer. Returns who must confirm it. */
   completeGig: (gigId: string, rating: number, safetyFlag: boolean) => Promise<{ awaitingConfirmationFrom: string }>;
   /** Employer: hire an applicant, then later confirm + rate their work. */
@@ -181,8 +202,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
 
   const loadWorkerData = useCallback(async () => {
+    const near = stateRef.current.coords;
     const [gigs, formalJobs, applications, formalApps, myJobs, invitations, prefs] = await Promise.all([
-      api.listGigs(), api.listFormal(), api.listApplications(), api.listFormalApplications(),
+      api.listGigs(near), api.listFormal(near), api.listApplications(), api.listFormalApplications(),
       api.listMyJobs(), api.listInvitations(), api.getPreferences(),
     ]);
     dispatch({ type: 'GIGS', gigs });
@@ -195,7 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadEmployerData = useCallback(async () => {
-    const [talent, formalJobs, prefs] = await Promise.all([api.listTalent(), api.listFormal(), api.getPreferences()]);
+    const [talent, formalJobs, prefs] = await Promise.all([api.listTalent(), api.listFormal(stateRef.current.coords), api.getPreferences()]);
     dispatch({ type: 'TALENT', talent: talent.map(toTalentWorker) });
     dispatch({ type: 'FORMAL', formalJobs });
     dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
@@ -237,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const cfg = await api.getConfig();
         if (cancelled) return;
         applyServerConfig(cfg);
-        dispatch({ type: 'CONFIG', minWage: minWagePerHour() });
+        dispatch({ type: 'CONFIG', minWage: minWagePerHour(), vapidKey: cfg.vapidPublicKey ?? '' });
       } catch { /* bundled defaults stand in */ }
     })();
     return () => { cancelled = true; };
@@ -328,8 +350,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [login]);
 
   const logout = useCallback(() => {
+    // Drop this device's push subscription first, while the token still works:
+    // otherwise the previous account keeps getting notifications on a phone
+    // that now belongs to someone else. Best-effort, and never blocking.
+    if (pushSupported()) void disablePush().catch(() => { /* signing out matters more */ });
     setToken(null);
     resetBanking(); // never let the next account see the previous one's payout row
+    forgetCoords();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
@@ -345,8 +372,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!cur.includes(id)) dispatch({ type: 'APPLIED_FORMAL', ids: [...cur, id] });
   }, []);
 
-  // Optimistic, but rolled back if the server rejects it — a toggle that lies
-  // about being saved is worse than one that flicks back.
+  /**
+   * Optimistic, but rolled back if the server rejects it — a toggle that lies
+   * about being saved is worse than one that flicks back.
+   *
+   * Turning alerts ON also subscribes this device to push, which is what makes
+   * the promise real: free notifications, no SMS contract. The subscription is
+   * best-effort on purpose — if the browser can't do push, or the user declines
+   * the prompt, the account preference still saves, so nothing is lost when
+   * they open Vuka on a device that can.
+   */
   const setJobAlerts = useCallback(async (on: boolean) => {
     const previous = stateRef.current.jobAlerts;
     dispatch({ type: 'JOB_ALERTS', on });
@@ -357,7 +392,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'JOB_ALERTS', on: previous });
       throw e;
     }
+    if (!pushSupported()) return;
+    try {
+      if (on) await enablePush(stateRef.current.vapidKey);
+      else await disablePush();
+    } catch (e) {
+      // Say what happened — "allow notifications" is actionable, and silently
+      // leaving the toggle on while nothing arrives is not.
+      dispatch({ type: 'TOAST', msg: (e as Error).message });
+    }
   }, []);
+
+  /**
+   * Ask the device where it is, then reload the listings so the distances are
+   * measured rather than estimated. A refusal is a normal answer: we say so and
+   * leave everything working on the listings' own labels.
+   */
+  const useMyLocation = useCallback(async () => {
+    dispatch({ type: 'LOCATING', locating: true });
+    try {
+      const coords = await requestCoords();
+      dispatch({ type: 'COORDS', coords });
+      await loadFor(stateRef.current.role);
+      dispatch({ type: 'TOAST', msg: 'Using your location — distances are exact now 📍' });
+    } catch (e) {
+      dispatch({ type: 'TOAST', msg: (e as Error).message });
+    } finally {
+      dispatch({ type: 'LOCATING', locating: false });
+    }
+  }, [loadFor]);
+
+  const clearMyLocation = useCallback(() => {
+    forgetCoords();
+    dispatch({ type: 'COORDS', coords: null });
+    void loadFor(stateRef.current.role);
+    dispatch({ type: 'TOAST', msg: 'Location off — showing estimated distances' });
+  }, [loadFor]);
 
   /**
    * The worker's half of finishing a job: mark it done and rate the employer.
@@ -423,12 +493,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
-    register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
+    register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
     hireWorker, confirmWork, loadApplicants, loadMyHires,
     dismissCelebration: () => dispatch({ type: 'CELEBRATE', payload: null }),
     refreshUnread, loadConversations, loadThread, sendMessage, reloadData,
     clearError: () => dispatch({ type: 'ERROR', error: null }),
-  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
+  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
