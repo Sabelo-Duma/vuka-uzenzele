@@ -38,12 +38,21 @@ export function tierFor(jobsDone, avg, flags) {
 
 /**
  * Compute the reputation/tier snapshot from a worker's completed history.
+ *
+ * A job the employer never confirmed is auto-released and stored unrated
+ * (rating 0). The work still happened, so it counts toward jobs done and total
+ * earned — but it carries no opinion, so it is kept out of the average. An
+ * employer's silence must not be able to move a worker's rating in either
+ * direction: scoring it 0 would punish the worker for someone else's inaction,
+ * and scoring it 5 would let silence manufacture a reputation.
+ *
  * @param {Array} history rows {rating, safety_flag, category, pay}
  * @param {boolean} idVerified
  */
 export function computeCv(history, idVerified) {
   const jobsDone = history.length;
-  const avg = jobsDone ? history.reduce((s, j) => s + j.rating, 0) / jobsDone : 0;
+  const rated = history.filter((j) => j.rating >= 1);
+  const avg = rated.length ? rated.reduce((s, j) => s + j.rating, 0) / rated.length : 0;
   const totalEarned = history.reduce((s, j) => s + j.pay, 0);
   const flags = history.filter((j) => j.safety_flag).length;
   const categoriesWorked = new Set(history.map((j) => j.category)).size;

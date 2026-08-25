@@ -10,11 +10,20 @@ export function tierFor(jobsDone: number, avg: number, flags: number): Tier {
   return current;
 }
 
-/** Derive the full reputation + tier snapshot from a worker's history. */
+/**
+ * Derive the full reputation + tier snapshot from a worker's history.
+ *
+ * Mirrors computeCv in vuka-server/src/engine.mjs — including the rule that an
+ * auto-released job (stored unrated, rating 0) counts toward jobs done and total
+ * earned but is excluded from the average, so an employer's silence can't move a
+ * worker's rating either way. The two must agree, or the app animates a tier-up
+ * the server won't grant.
+ */
 export function computeCv(worker: WorkerProfile): CvSnapshot {
   const h = worker.history;
   const jobsDone = h.length;
-  const avg = jobsDone ? h.reduce((s, j) => s + j.rating, 0) / jobsDone : 0;
+  const rated = h.filter((j) => j.rating >= 1);
+  const avg = rated.length ? rated.reduce((s, j) => s + j.rating, 0) / rated.length : 0;
   const totalEarned = h.reduce((s, j) => s + j.pay, 0);
   const flags = h.filter((j) => j.safetyFlag).length;
   const categoriesWorked = new Set(h.map((j) => j.category)).size;

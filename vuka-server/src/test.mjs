@@ -481,6 +481,67 @@ async function run() {
   ok(demo.status === 200 && demo.json?.user?.name === 'Thandeka Mokoena', 'demo worker login works');
   ok(demo.json?.cv?.jobsDone === 2 && demo.json?.cv?.jobsToGo === 1, 'demo worker: 2 jobs, 1 to Trusted');
 
+  // 10b) auto-release: work the employer never came back to confirm.
+  // The whole point is that an employer's silence can no longer cancel a
+  // worker's progress — but it must not manufacture a reputation either.
+  {
+    const { releaseDueJobs } = await import('./autorelease.mjs');
+    const { computeCv } = await import('./engine.mjs');
+
+    const mixed = computeCv([
+      { rating: 4, pay: 100, safety_flag: 0, category: 'garden' },
+      { rating: 0, pay: 200, safety_flag: 0, category: 'errands' },
+    ], false);
+    ok(mixed.jobsDone === 2, 'unrated work still counts as a job done');
+    ok(mixed.totalEarned === 300, 'unrated work still counts toward total earned');
+    ok(mixed.avg === 4, 'an unrated job does not drag the average down');
+
+    const unratedOnly = computeCv([{ rating: 0, pay: 50, safety_flag: 0, category: 'errands' }], false);
+    ok(unratedOnly.jobsDone === 1 && unratedOnly.avg === 0, 'a worker with only unrated work has jobs but no average yet');
+
+    ok((await api('GET', '/config')).json?.autoReleaseHours > 0, 'config publishes the confirmation window');
+
+    // A fresh employer: the one above owns phone 0829990002, whose sessions the
+    // password-reset section deliberately invalidates.
+    const arEmp = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Sipho Ndlovu', phone: '0829990007', password: 'test1234', verifyToken: await verifyPhone('0829990007') } })).json.token;
+
+    const posted = await api('POST', '/gigs', { token: arEmp, body: { title: 'Move some boxes', category: 'errands', hours: 3, payPerHour: 55, location: 'Soweto', when: 'Tue 08:00' } });
+    const gigId = posted.json.id;
+    await api('POST', `/gigs/${gigId}/apply`, { token: wTok });
+    await api('POST', `/gigs/${gigId}/hire`, { token: arEmp, body: { workerId: wId } });
+    ok((await api('POST', `/gigs/${gigId}/complete`, { token: wTok, body: { rating: 5 } })).json?.status === 'worker_done', 'worker marks the job done');
+
+    const idle = await releaseDueJobs({ hours: 72 });
+    ok(!idle.some((r) => r.gig_id === gigId), 'a job still inside the window is left alone');
+
+    const before = (await api('GET', '/me/cv', { token: wTok })).json.cv;
+    const later = new Date(Date.now() + 73 * 3_600_000);
+    const released = await releaseDueJobs({ now: later, hours: 72 });
+    ok(released.some((r) => r.gig_id === gigId), 'a job past the window is auto-released');
+
+    // Other fixtures may come due in the same sweep, so measure against what
+    // this sweep actually credited to this worker rather than a fixed number.
+    const mine = released.filter((r) => r.worker_id === wId);
+    const earned = mine.reduce((s, r) => s + Math.round(r.hours * r.pay_per_hour), 0);
+
+    const after = (await api('GET', '/me/cv', { token: wTok })).json;
+    ok(after.cv.jobsDone === before.jobsDone + mine.length, 'auto-released work lands on the CV');
+    ok(after.cv.totalEarned === before.totalEarned + earned, 'auto-released work counts toward total earned');
+    ok(Math.abs(after.cv.avg - before.avg) < 1e-9, "an employer's silence does not move the worker's average");
+
+    const row = after.history.find((h) => h.jobTitle === 'Move some boxes');
+    ok(row?.autoReleased === true, 'the CV entry is flagged as auto-released');
+    ok(row?.rating === 0, 'the auto-released entry carries no rating rather than a zero-star one');
+
+    ok(!(await releaseDueJobs({ now: later, hours: 72 })).some((r) => r.gig_id === gigId), 'a released job is never released twice');
+    ok((await api('GET', '/me/cv', { token: wTok })).json.cv.jobsDone === after.cv.jobsDone, 'a second sweep does not double-count');
+
+    const hire = (await api('GET', '/me/hires', { token: arEmp })).json?.find((h) => h.gig.id === gigId);
+    ok(hire?.status === 'completed', 'the employer sees it as completed');
+    ok((await api('POST', `/applications/${hire.applicationId}/confirm`, { token: arEmp, body: { rating: 5 } })).status === 409,
+      'an employer cannot retro-rate a job that was already auto-released');
+  }
+
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.
   let saw429 = false;

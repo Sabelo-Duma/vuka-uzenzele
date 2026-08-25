@@ -314,6 +314,10 @@ export async function initDb() {
   await addColumn('applications', 'employer_rating', 'INTEGER'); // employer → worker
   await addColumn('applications', 'employer_review', 'TEXT');
   await addColumn('applications', 'completed_at', 'TEXT');
+  /* Auto-release: the employer let the confirmation window lapse, so the job was
+     credited without them. Such a row carries rating 0 — "unrated", not "zero
+     stars" — and is excluded from the worker's average by computeCv. */
+  await addColumn('history', 'auto_released', 'INTEGER');
   // Safety-report triage: who closed it, when, and why.
   await addColumn('safety_reports', 'note', 'TEXT');
   await addColumn('safety_reports', 'resolved_at', 'TEXT');
