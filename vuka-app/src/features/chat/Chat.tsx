@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/appStore';
 import type { Conversation, Message, ChatUser } from '../../lib/api';
 import { Avatar, Card, EmptyState, Skeleton } from '../../components/ui';
@@ -16,6 +16,63 @@ function timeShort(iso: string): string {
 }
 
 const roleLabel = (r: ChatUser['role']) => (r === 'employer' ? 'Employer' : 'Worker');
+
+/** Can this still be edited? Mirrors the server's window, which owns the rule. */
+function withinEditWindow(m: Message, windowMinutes: number): boolean {
+  if (m.deleted) return false;
+  const age = (Date.now() - new Date(m.createdAt).getTime()) / 60_000;
+  return age <= windowMinutes;
+}
+
+/**
+ * The actions on one message, as a sheet anchored to the bubble.
+ *
+ * A menu rather than hover buttons because this is used on a phone: there is no
+ * hover, and swipe-to-reply is invisible to anyone who hasn't been taught it.
+ */
+function MessageActions({ mine, canEdit, onReply, onEdit, onDelete, onCopy, onClose }: {
+  mine: boolean; canEdit: boolean;
+  onReply: () => void; onEdit: () => void; onDelete: () => void; onCopy: () => void; onClose: () => void;
+}) {
+  const item = 'w-full text-left px-4 py-3 text-[14px] font-semibold hover:bg-surface-2 transition flex items-center gap-3';
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label="Message actions">
+      <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
+      <div className="relative w-full sm:w-[320px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
+        <button className={`${item} text-navy`} onClick={onReply}><Icon name="reply" size={16} /> Reply</button>
+        <button className={`${item} text-navy`} onClick={onCopy}><Icon name="copy" size={16} /> Copy text</button>
+        {mine && canEdit && <button className={`${item} text-navy`} onClick={onEdit}><Icon name="edit" size={16} /> Edit</button>}
+        {mine && <button className={`${item} text-red`} onClick={onDelete}><Icon name="trash" size={16} /> Delete for everyone</button>}
+        <button className={`${item} text-muted border-t border-line`} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The little quoted block that sits above a reply's own text.
+ *
+ * Deliberately not interactive: it renders inside the message bubble, which is
+ * itself the button that opens the actions menu, and a button nested in a
+ * button is invalid HTML that browsers resolve unpredictably. Tap-to-jump would
+ * have to move the trigger off the bubble, which costs more than it gains.
+ */
+function QuotedBlock({ label, body, deleted, tone }: {
+  label: string; body: string; deleted: boolean; tone: 'mine' | 'theirs';
+}) {
+  return (
+    <div
+      className={`block w-full text-left rounded-xl px-2.5 py-1.5 mb-1.5 border-l-[3px] ${
+        tone === 'mine' ? 'bg-white/15 border-white/60 dark:bg-navy-deep/10' : 'bg-navy/5 border-navy/40'
+      }`}
+    >
+      <span className={`block text-[10.5px] font-bold uppercase tracking-wide ${tone === 'mine' ? 'opacity-80' : 'text-navy/70'}`}>{label}</span>
+      <span className={`block text-[12px] truncate ${deleted ? 'italic opacity-60' : 'opacity-90'}`}>
+        {deleted ? 'Message deleted' : body}
+      </span>
+    </div>
+  );
+}
 
 /* ---------------- Inbox ---------------- */
 export function Messages() {
@@ -74,14 +131,20 @@ export function Messages() {
 
 /* ---------------- Conversation thread ---------------- */
 export function ChatThread({ id }: { id: string }) {
-  const { state, navigate, loadThread, sendMessage, toast } = useApp();
+  const { state, navigate, loadThread, sendMessage, editMessage, deleteMessage, toast } = useApp();
   const me = state.user?.id;
   const [other, setOther] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // The server owns the edit window; this is just what it told us.
+  const [editWindow, setEditWindow] = useState(15);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<Message | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastCount = useRef(0);
   const loadedRef = useRef(false);
 
@@ -96,6 +159,7 @@ export function ChatThread({ id }: { id: string }) {
         loadedRef.current = true;
         setOther(t.other);
         setMessages(t.messages);
+        setEditWindow(t.editWindowMinutes ?? 15);
         setNotFound(false);
       } catch {
         // Only "not found" if we never loaded it. A failed poll AFTER a good
@@ -116,21 +180,77 @@ export function ChatThread({ id }: { id: string }) {
     }
   }, [messages]);
 
+  /* One submit path for both a new message and an edit — the composer is the
+     same box either way, so the difference lives here rather than in the UI. */
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
+    const wasEditing = editingId;
+    const wasReplyingTo = replyingTo;
     setSending(true);
     setDraft('');
+    setReplyingTo(null);
+    setEditingId(null);
     try {
-      const msg = await sendMessage(id, text);
-      setMessages((prev) => [...(prev ?? []), msg]);
+      if (wasEditing) {
+        const updated = await editMessage(wasEditing, text);
+        setMessages((prev) => (prev ?? []).map((m) => (m.id === updated.id ? updated : m)));
+      } else {
+        const msg = await sendMessage(id, text, wasReplyingTo?.id ?? null);
+        setMessages((prev) => [...(prev ?? []), msg]);
+      }
     } catch (e) {
       toast((e as Error).message);
-      setDraft(text); // restore so the user doesn't lose it
+      // Put the user back exactly where they were — losing a typed message
+      // because the network blinked is its own small betrayal.
+      setDraft(text);
+      setEditingId(wasEditing);
+      setReplyingTo(wasReplyingTo);
     } finally {
       setSending(false);
     }
   };
+
+  const startReply = useCallback((m: Message) => {
+    setMenuFor(null);
+    setReplyingTo(m);
+    setEditingId(null);
+    inputRef.current?.focus();
+  }, []);
+
+  const startEdit = useCallback((m: Message) => {
+    setMenuFor(null);
+    setEditingId(m.id);
+    setReplyingTo(null);
+    setDraft(m.body);
+    inputRef.current?.focus();
+  }, []);
+
+  const removeMessage = useCallback(async (m: Message) => {
+    setMenuFor(null);
+    try {
+      const updated = await deleteMessage(m.id);
+      setMessages((prev) => (prev ?? []).map((x) => (x.id === updated.id ? updated : x)));
+      // If they were mid-edit or mid-reply on this very message, those are now
+      // pointing at something that no longer says anything.
+      setEditingId((cur) => (cur === m.id ? null : cur));
+      setReplyingTo((cur) => (cur?.id === m.id ? null : cur));
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  }, [deleteMessage, toast]);
+
+  const copyText = useCallback(async (m: Message) => {
+    setMenuFor(null);
+    try {
+      await navigator.clipboard.writeText(m.body);
+      toast('Copied');
+    } catch {
+      toast("Your browser wouldn't allow copying.");
+    }
+  }, [toast]);
+
+  const cancelComposing = () => { setReplyingTo(null); setEditingId(null); setDraft(''); };
 
   if (notFound) {
     return <div className="max-w-[720px] mx-auto"><EmptyState icon="🔍" title="Conversation unavailable" hint="This person is no longer on Vuka." /></div>;
@@ -173,11 +293,43 @@ export function ChatThread({ id }: { id: string }) {
           messages.map((m) => {
             const mine = m.senderId === me;
             return (
-              <div key={m.id} className={`max-w-[80%] ${mine ? 'self-end' : 'self-start'}`}>
-                <div className={`px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl ${mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'}`}>
-                  {m.body}
+              <div key={m.id} id={`msg-${m.id}`} className={`max-w-[80%] scroll-mt-4 ${mine ? 'self-end' : 'self-start'}`}>
+                {m.deleted ? (
+                  /* A tombstone, not a blank. The other person already read it;
+                     hiding the fact it existed would be the dishonest option. */
+                  <div className={`px-3.5 py-2.5 text-[13px] italic rounded-2xl border border-dashed border-line text-subtle ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
+                    <Icon name="trash" size={12} /> This message was deleted
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMenuFor(m)}
+                    aria-label="Message actions"
+                    className={`block w-full text-left px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl transition active:scale-[.99] ${
+                      mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'
+                    }`}
+                  >
+                    {m.replyTo && (
+                      <QuotedBlock
+                        tone={mine ? 'mine' : 'theirs'}
+                        label={m.replyTo.senderId === me ? 'You' : other?.name?.split(' ')[0] ?? 'Them'}
+                        body={m.replyTo.body}
+                        deleted={m.replyTo.deleted}
+                      />
+                    )}
+                    <span className="whitespace-pre-wrap break-words">{m.body}</span>
+                  </button>
+                )}
+                <div className={`flex items-center gap-1 text-[10.5px] text-subtle mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <span>{timeShort(m.createdAt)}</span>
+                  {m.editedAt && !m.deleted && <span>· edited</span>}
+                  {/* Read state only means something on your own messages. */}
+                  {mine && !m.deleted && (
+                    <span className={m.read ? 'text-info' : 'text-subtle'} title={m.read ? 'Read' : 'Sent'} aria-label={m.read ? 'Read' : 'Sent'}>
+                      {m.read ? '✓✓' : '✓'}
+                    </span>
+                  )}
                 </div>
-                <div className={`text-[10.5px] text-subtle mt-1 ${mine ? 'text-right' : 'text-left'}`}>{timeShort(m.createdAt)}</div>
               </div>
             );
           })
@@ -188,25 +340,59 @@ export function ChatThread({ id }: { id: string }) {
       {/* Composer. The textarea is text-base (16px) deliberately: below that,
           iOS zooms the viewport every time the field is focused — which in a
           chat means on every single reply. */}
-      <div className="flex items-end gap-2 pt-3 border-t border-line">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          rows={1}
-          placeholder="Type a message…"
-          aria-label="Message"
-          className="flex-1 resize-none max-h-28 border-[1.5px] border-line-strong rounded-2xl px-4 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition"
-        />
-        <button
-          onClick={send}
-          disabled={sending || !draft.trim()}
-          aria-label="Send message"
-          className="grid place-items-center w-11 h-11 rounded-2xl bg-red text-white shrink-0 hover:bg-red-hover transition active:scale-95 disabled:opacity-40"
-        >
-          <Icon name="send" size={18} />
-        </button>
+      <div className="pt-3 border-t border-line">
+        {/* What you're about to do, shown before you do it. */}
+        {(replyingTo || editingId) && (
+          <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-xl bg-surface-2 border border-line">
+            <span className="text-navy mt-0.5 shrink-0"><Icon name={editingId ? 'edit' : 'reply'} size={14} /></span>
+            <div className="flex-1 min-w-0">
+              <span className="block text-[10.5px] font-bold uppercase tracking-wide text-muted">
+                {editingId ? 'Editing your message' : `Replying to ${replyingTo?.senderId === me ? 'yourself' : other?.name?.split(' ')[0] ?? 'them'}`}
+              </span>
+              <span className="block text-[12.5px] text-ink truncate">{editingId ? draft : replyingTo?.body}</span>
+            </div>
+            <button onClick={cancelComposing} aria-label="Cancel" className="shrink-0 text-muted hover:text-navy transition p-1">
+              <Icon name="x" size={15} />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+              if (e.key === 'Escape') cancelComposing();
+            }}
+            rows={1}
+            placeholder={editingId ? 'Edit your message…' : 'Type a message…'}
+            aria-label={editingId ? 'Edit message' : 'Message'}
+            className="flex-1 resize-none max-h-28 border-[1.5px] border-line-strong rounded-2xl px-4 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition"
+          />
+          <button
+            onClick={send}
+            disabled={sending || !draft.trim()}
+            aria-label={editingId ? 'Save edit' : 'Send message'}
+            className="grid place-items-center w-11 h-11 rounded-2xl bg-red text-white shrink-0 hover:bg-red-hover transition active:scale-95 disabled:opacity-40"
+          >
+            <Icon name={editingId ? 'check' : 'send'} size={18} />
+          </button>
+        </div>
       </div>
+
+      {menuFor && (
+        <MessageActions
+          mine={menuFor.senderId === me}
+          canEdit={withinEditWindow(menuFor, editWindow)}
+          onReply={() => startReply(menuFor)}
+          onEdit={() => startEdit(menuFor)}
+          onDelete={() => removeMessage(menuFor)}
+          onCopy={() => copyText(menuFor)}
+          onClose={() => setMenuFor(null)}
+        />
+      )}
     </div>
   );
 }

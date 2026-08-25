@@ -211,6 +211,44 @@ async function run() {
   const convos = await api('GET', '/messages/conversations', { token: eTok });
   ok(convos.json?.length === 1 && convos.json[0]?.user?.id === wId && convos.json[0]?.unread === 1, 'employer sees the conversation with 1 unread reply');
 
+  // 9c-ii) replying, editing and withdrawing a message.
+  {
+    const reply = await api('POST', '/messages', { token: wTok, body: { toUserId: eId, body: 'Saturday from 8am?', replyToId: send1.json.id } });
+    ok(reply.status === 201 && reply.json?.replyTo?.id === send1.json.id, 'a message can quote one already in the thread');
+    ok(reply.json?.replyTo?.body === 'Hi, are you free Saturday?', 'the quote carries the original text');
+
+    // A reply id from outside this conversation must not resolve — otherwise
+    // the quote leaks a stranger's message into someone else's thread.
+    const outsider = await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'unrelated' } });
+    const thirdParty = await loginAs(GIG_OWNER.j2);
+    ok((await api('POST', '/messages', { token: thirdParty, body: { toUserId: wId, body: 'x', replyToId: outsider.json.id } })).status === 400,
+      'cannot quote a message from a conversation you are not part of');
+
+    // Edit: sender only, and always marked.
+    ok((await api('PATCH', `/messages/${reply.json.id}`, { token: eTok, body: { body: 'hacked' } })).status === 403, 'only the sender can edit a message');
+    ok((await api('PATCH', `/messages/${reply.json.id}`, { token: wTok, body: { body: '   ' } })).status === 400, 'an edit cannot blank a message');
+    const edited = await api('PATCH', `/messages/${reply.json.id}`, { token: wTok, body: { body: 'Saturday from 9am?' } });
+    ok(edited.status === 200 && edited.json?.body === 'Saturday from 9am?', 'the sender edits their message');
+    ok(edited.json?.editedAt, 'an edited message is marked as edited');
+    ok(edited.json?.replyTo?.id === send1.json.id, 'editing keeps the quoted message attached');
+
+    // Delete: sender only, soft, and the body never comes back.
+    ok((await api('DELETE', `/messages/${reply.json.id}`, { token: eTok })).status === 403, 'only the sender can delete a message');
+    const deleted = await api('DELETE', `/messages/${reply.json.id}`, { token: wTok });
+    ok(deleted.status === 200 && deleted.json?.deleted === true, 'the sender withdraws their message');
+    ok(deleted.json?.body === '', 'a withdrawn message returns no body');
+    ok((await api('PATCH', `/messages/${reply.json.id}`, { token: wTok, body: { body: 'back again' } })).status === 409, 'a deleted message cannot be edited back');
+
+    const after = await api('GET', `/messages/thread/${wId}`, { token: eTok });
+    const tomb = after.json.messages.find((m) => m.id === reply.json.id);
+    ok(tomb?.deleted === true && tomb?.body === '', 'the thread serves the tombstone, never the withdrawn text');
+    ok(after.json?.editWindowMinutes > 0, 'the thread publishes the edit window');
+
+    // Deleting twice is a no-op rather than an error — the button may well be
+    // tapped twice on a slow connection.
+    ok((await api('DELETE', `/messages/${reply.json.id}`, { token: wTok })).status === 200, 'deleting an already-deleted message is harmless');
+  }
+
   // 9d) follow graph
   const soc0 = await api('GET', `/users/${wId}/social`, { token: eTok });
   ok(soc0.json?.isFollowing === false, 'employer not yet following the worker');

@@ -184,7 +184,9 @@ interface Store {
   refreshUnread: () => Promise<void>;
   loadConversations: () => Promise<Conversation[]>;
   loadThread: (userId: string) => Promise<Thread>;
-  sendMessage: (toUserId: string, body: string) => Promise<Message>;
+  sendMessage: (toUserId: string, body: string, replyToId?: string | null) => Promise<Message>;
+  editMessage: (id: string, body: string) => Promise<Message>;
+  deleteMessage: (id: string) => Promise<Message>;
   reloadData: () => Promise<void>;
   clearError: () => void;
 }
@@ -485,7 +487,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return thread;
   }, [refreshUnread]);
 
-  const sendMessage = useCallback((toUserId: string, body: string) => api.sendMessage(toUserId, body), []);
+  const sendMessage = useCallback(
+    (toUserId: string, body: string, replyToId?: string | null) => api.sendMessage(toUserId, body, replyToId), []);
+  const editMessage = useCallback((id: string, body: string) => api.editMessage(id, body), []);
+  const deleteMessage = useCallback((id: string) => api.deleteMessage(id), []);
 
   const value = useMemo<Store>(() => ({
     state,
@@ -496,9 +501,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
     hireWorker, confirmWork, loadApplicants, loadMyHires,
     dismissCelebration: () => dispatch({ type: 'CELEBRATE', payload: null }),
-    refreshUnread, loadConversations, loadThread, sendMessage, reloadData,
+    refreshUnread, loadConversations, loadThread, sendMessage, editMessage, deleteMessage, reloadData,
     clearError: () => dispatch({ type: 'ERROR', error: null }),
-  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, reloadData]);
+  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, editMessage, deleteMessage, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
