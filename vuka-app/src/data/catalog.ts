@@ -4,8 +4,11 @@ import type { Badge, Category, Tier } from '../types';
  * National Minimum Wage reference used by the Fair-Pay meter — a FALLBACK for
  * first paint and offline use. The live value comes from the server (see
  * applyServerConfig / minWagePerHour below), which is authoritative.
+ *
+ * Gazetted annually, effective 1 March. Keep in step with MIN_WAGE_PER_HOUR in
+ * vuka-server/src/engine.mjs: R28.79 (2025) → R30.23 (effective 1 March 2026).
  */
-export const MIN_WAGE_PER_HOUR_FALLBACK = 28.79;
+export const MIN_WAGE_PER_HOUR_FALLBACK = 30.23;
 
 let runtimeMinWage = MIN_WAGE_PER_HOUR_FALLBACK;
 
