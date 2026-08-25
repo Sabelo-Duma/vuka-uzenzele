@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+// React's synthetic TouchEvent, deliberately shadowing the DOM global of the
+// same name — these handlers receive the synthetic one.
+import type { TouchEvent } from 'react';
 import { useApp } from '../../store/appStore';
 import type { Conversation, Message, ChatUser } from '../../lib/api';
 import { Avatar, Card, EmptyState, Skeleton } from '../../components/ui';
@@ -25,10 +28,12 @@ function withinEditWindow(m: Message, windowMinutes: number): boolean {
 }
 
 /**
- * The actions on one message, as a sheet anchored to the bubble.
+ * The actions on one message, as a bottom sheet.
  *
- * A menu rather than hover buttons because this is used on a phone: there is no
- * hover, and swipe-to-reply is invisible to anyone who hasn't been taught it.
+ * Reached by long-press on touch, right-click or the hover button on desktop —
+ * see MessageBubble. A sheet rather than a popover anchored to the bubble
+ * because a bubble near the bottom of the thread leaves a popover nowhere to go
+ * once the keyboard is up.
  */
 function MessageActions({ mine, canEdit, onReply, onEdit, onDelete, onCopy, onClose }: {
   mine: boolean; canEdit: boolean;
@@ -52,10 +57,9 @@ function MessageActions({ mine, canEdit, onReply, onEdit, onDelete, onCopy, onCl
 /**
  * The little quoted block that sits above a reply's own text.
  *
- * Deliberately not interactive: it renders inside the message bubble, which is
- * itself the button that opens the actions menu, and a button nested in a
- * button is invalid HTML that browsers resolve unpredictably. Tap-to-jump would
- * have to move the trigger off the bubble, which costs more than it gains.
+ * Deliberately not interactive. The bubble around it owns the touch gestures,
+ * and a tappable target inside would swallow the start of a long-press or a
+ * reply-swipe on the exact part of the message people aim at.
  */
 function QuotedBlock({ label, body, deleted, tone }: {
   label: string; body: string; deleted: boolean; tone: 'mine' | 'theirs';
@@ -70,6 +74,139 @@ function QuotedBlock({ label, body, deleted, tone }: {
       <span className={`block text-[12px] truncate ${deleted ? 'italic opacity-60' : 'opacity-90'}`}>
         {deleted ? 'Message deleted' : body}
       </span>
+    </div>
+  );
+}
+
+/** Short haptic tick. Absent on iOS Safari and desktop — never assume it fired. */
+function buzz(ms: number) {
+  try { navigator.vibrate?.(ms); } catch { /* unsupported; the visual cue carries it */ }
+}
+
+const LONG_PRESS_MS = 480;   // below ~400 a scroll starts triggering it
+const SWIPE_TRIGGER_PX = 56; // far enough to be deliberate, short enough for a thumb
+const SWIPE_MAX_PX = 88;
+
+/**
+ * One message, with the gestures people already have muscle memory for.
+ *
+ * Long-press opens the actions; swipe right replies. Plain tap does nothing on
+ * purpose — it was the original design and it was wrong: tapping is also how you
+ * select text and how a scroll that starts on a bubble begins, so the menu kept
+ * appearing when nobody asked for it.
+ *
+ * Desktop gets right-click and a hover button instead, since there is no
+ * long-press with a mouse, and the hover button is what makes the actions
+ * reachable by keyboard at all.
+ */
+function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
+  m: Message; mine: boolean; meId: string | undefined; otherFirstName: string;
+  onMenu: () => void; onReply: () => void;
+}) {
+  const [dragX, setDragX] = useState(0);
+  const start = useRef({ x: 0, y: 0 });
+  const drag = useRef(0);
+  const timer = useRef<number | null>(null);
+  const longFired = useRef(false);
+  const swiping = useRef(false);
+
+  const clearTimer = () => { if (timer.current !== null) { clearTimeout(timer.current); timer.current = null; } };
+
+  const onTouchStart = (e: TouchEvent) => {
+    if (m.deleted) return;
+    const t = e.touches[0];
+    start.current = { x: t.clientX, y: t.clientY };
+    drag.current = 0;
+    longFired.current = false;
+    swiping.current = false;
+    clearTimer();
+    timer.current = window.setTimeout(() => {
+      longFired.current = true;
+      buzz(12);
+      onMenu();
+    }, LONG_PRESS_MS);
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    if (m.deleted) return;
+    const t = e.touches[0];
+    const dx = t.clientX - start.current.x;
+    const dy = t.clientY - start.current.y;
+    // Any real movement means this is a scroll or a swipe, not a press-and-hold.
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clearTimer();
+    // Only a mostly-horizontal, rightward drag counts as reply-swipe — otherwise
+    // the thread would fight the user every time they scrolled it.
+    if (!longFired.current && dx > 0 && Math.abs(dx) > Math.abs(dy)) {
+      swiping.current = true;
+      drag.current = Math.min(dx, SWIPE_MAX_PX);
+      setDragX(drag.current);
+    }
+  };
+
+  const onTouchEnd = () => {
+    clearTimer();
+    if (swiping.current && drag.current >= SWIPE_TRIGGER_PX && !m.deleted) {
+      buzz(8);
+      onReply();
+    }
+    drag.current = 0;
+    swiping.current = false;
+    setDragX(0);
+  };
+
+  const armed = dragX >= SWIPE_TRIGGER_PX;
+
+  if (m.deleted) {
+    return (
+      <div className={`px-3.5 py-2.5 text-[13px] italic rounded-2xl border border-dashed border-line text-subtle inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
+        <Icon name="trash" size={12} /> This message was deleted
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      {/* Slides out from under the bubble as it moves. */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-full transition-colors ${armed ? 'bg-red text-white' : 'bg-surface-2 text-muted'}`}
+        style={{ opacity: Math.min(1, dragX / SWIPE_TRIGGER_PX) }}
+      >
+        <Icon name="reply" size={15} />
+      </span>
+
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        onContextMenu={(e) => { e.preventDefault(); onMenu(); }}
+        style={{ transform: dragX ? `translateX(${dragX}px)` : undefined }}
+        className={`relative px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl select-text ${dragX ? '' : 'transition-transform'} ${
+          mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'
+        }`}
+      >
+        {m.replyTo && (
+          <QuotedBlock
+            tone={mine ? 'mine' : 'theirs'}
+            label={m.replyTo.senderId === meId ? 'You' : otherFirstName}
+            body={m.replyTo.body}
+            deleted={m.replyTo.deleted}
+          />
+        )}
+        <span className="whitespace-pre-wrap break-words">{m.body}</span>
+      </div>
+
+      {/* Mouse and keyboard route to the same menu. Only shown where there's a
+          real pointer — on a phone it would just sit on top of the text. */}
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label="Message actions"
+        className={`hidden [@media(pointer:fine)]:grid place-items-center absolute top-1 w-7 h-7 rounded-full bg-surface border border-line text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition ${mine ? '-left-9' : '-right-9'}`}
+      >
+        <Icon name="chev" size={14} />
+      </button>
     </div>
   );
 }
@@ -287,6 +424,9 @@ export function ChatThread({ id }: { id: string }) {
             <div>
               <div className="text-4xl mb-2" aria-hidden="true">👋</div>
               <p className="text-muted text-[13.5px]">Say hello and sort out the details — start, pay, and where to meet.</p>
+              {/* Gestures are invisible by definition, so say them once, here,
+                  where there is nothing else competing for the space. */}
+              <p className="text-subtle text-[12px] mt-2">Swipe a message to reply · hold it for more</p>
             </div>
           </div>
         ) : (
@@ -294,32 +434,14 @@ export function ChatThread({ id }: { id: string }) {
             const mine = m.senderId === me;
             return (
               <div key={m.id} id={`msg-${m.id}`} className={`max-w-[80%] scroll-mt-4 ${mine ? 'self-end' : 'self-start'}`}>
-                {m.deleted ? (
-                  /* A tombstone, not a blank. The other person already read it;
-                     hiding the fact it existed would be the dishonest option. */
-                  <div className={`px-3.5 py-2.5 text-[13px] italic rounded-2xl border border-dashed border-line text-subtle ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
-                    <Icon name="trash" size={12} /> This message was deleted
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMenuFor(m)}
-                    aria-label="Message actions"
-                    className={`block w-full text-left px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl transition active:scale-[.99] ${
-                      mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'
-                    }`}
-                  >
-                    {m.replyTo && (
-                      <QuotedBlock
-                        tone={mine ? 'mine' : 'theirs'}
-                        label={m.replyTo.senderId === me ? 'You' : other?.name?.split(' ')[0] ?? 'Them'}
-                        body={m.replyTo.body}
-                        deleted={m.replyTo.deleted}
-                      />
-                    )}
-                    <span className="whitespace-pre-wrap break-words">{m.body}</span>
-                  </button>
-                )}
+                <MessageBubble
+                  m={m}
+                  mine={mine}
+                  meId={me}
+                  otherFirstName={other?.name?.split(' ')[0] ?? 'Them'}
+                  onMenu={() => setMenuFor(m)}
+                  onReply={() => startReply(m)}
+                />
                 <div className={`flex items-center gap-1 text-[10.5px] text-subtle mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
                   <span>{timeShort(m.createdAt)}</span>
                   {m.editedAt && !m.deleted && <span>· edited</span>}
