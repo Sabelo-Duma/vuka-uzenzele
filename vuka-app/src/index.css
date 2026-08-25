@@ -161,6 +161,21 @@ h1, h2, h3, h4 {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
+/* ---- Text fields must never be smaller than 16px ----
+   Safari on iOS zooms the whole viewport whenever a focused control's text is
+   below 16px. The page then sits wider than the screen, the layout shifts under
+   the thumb, and the button you were reaching for is pushed off it.
+
+   This is enforced at each field's own class (`text-base`, never `text-sm`)
+   rather than by a blanket `input { font-size: 16px !important }` here — that
+   would also shrink the deliberately large 26px OTP digit boxes, since CSS has
+   no way to say "minimum font-size". If you add a new text field, size it
+   `text-base` or larger.
+
+   The other common fix, `maximum-scale=1` on the viewport, stops the zoom by
+   banning pinch-zoom outright — taking the page away from anyone who needs to
+   magnify it. Not worth it. */
+
 /* ---- Printable CV (browser "Save as PDF") ----
    The CV is rendered via a portal as a direct child of <body>. On screen it's
    hidden; when printing we hide the app and show only the CV document. */

@@ -165,7 +165,9 @@ function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: str
 }
 
 /* ---------------- Login ---------------- */
-const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-sm bg-surface text-navy focus:outline-none focus:border-navy transition';
+// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// anything smaller, which shunts the layout sideways mid-sign-up.
+const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
 function LoginView({ busy, onBack, onLogin, onDemo, onForgot }: { busy: boolean; onBack: () => void; onLogin: (phone: string, password: string) => void; onDemo: (r: Role) => void; onForgot: () => void }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');

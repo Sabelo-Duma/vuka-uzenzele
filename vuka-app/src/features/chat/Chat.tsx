@@ -185,7 +185,9 @@ export function ChatThread({ id }: { id: string }) {
         <div ref={endRef} />
       </div>
 
-      {/* Composer */}
+      {/* Composer. The textarea is text-base (16px) deliberately: below that,
+          iOS zooms the viewport every time the field is focused — which in a
+          chat means on every single reply. */}
       <div className="flex items-end gap-2 pt-3 border-t border-line">
         <textarea
           value={draft}
@@ -194,7 +196,7 @@ export function ChatThread({ id }: { id: string }) {
           rows={1}
           placeholder="Type a message…"
           aria-label="Message"
-          className="flex-1 resize-none max-h-28 border-[1.5px] border-line-strong rounded-2xl px-4 py-2.5 text-sm bg-surface text-navy focus:outline-none focus:border-navy transition"
+          className="flex-1 resize-none max-h-28 border-[1.5px] border-line-strong rounded-2xl px-4 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition"
         />
         <button
           onClick={send}

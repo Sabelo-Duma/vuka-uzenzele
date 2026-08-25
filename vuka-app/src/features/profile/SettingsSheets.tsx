@@ -5,8 +5,11 @@ import { Button, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
 
+// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// anything smaller, and these sit inside a bottom sheet that then can't scroll
+// back into view.
 const field =
-  'w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-sm bg-surface text-navy focus:outline-none focus:border-navy transition';
+  'w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
 
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
