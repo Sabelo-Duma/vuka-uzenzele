@@ -114,7 +114,38 @@ function gigOut(g, rating) {
     distanceSource: 'listed',
   };
 }
-const msgOut = (m) => ({ id: m.id, senderId: m.sender_id, recipientId: m.recipient_id, body: m.body, createdAt: m.created_at, read: !!m.read_at });
+/** How long a sender can still edit what they said. */
+const MESSAGE_EDIT_WINDOW_MIN = Number(process.env.VUKA_MESSAGE_EDIT_MINUTES || 15);
+
+/**
+ * One message, as the client sees it.
+ *
+ * A deleted message keeps its row (so replies pointing at it still resolve, and
+ * the thread doesn't silently reshuffle) but must never ship its body — the
+ * tombstone is the whole point. `parent` is the message being replied to, if
+ * any; callers resolve it, because the thread route already holds every row and
+ * a per-message lookup would be a query each.
+ */
+const msgOut = (m, parent = null) => ({
+  id: m.id,
+  senderId: m.sender_id,
+  recipientId: m.recipient_id,
+  body: m.deleted_at ? '' : m.body,
+  createdAt: m.created_at,
+  read: !!m.read_at,
+  editedAt: m.edited_at ?? null,
+  deleted: !!m.deleted_at,
+  replyTo: parent
+    ? {
+      id: parent.id,
+      senderId: parent.sender_id,
+      deleted: !!parent.deleted_at,
+      // A quote, not the message: enough to recognise, capped so a long
+      // message can't be re-sent in full inside every reply to it.
+      body: parent.deleted_at ? '' : String(parent.body).slice(0, 140),
+    }
+    : null,
+});
 function formalOut(f) {
   return {
     id: f.id, title: f.title, category: f.category, employer: f.employer, employerInitials: f.employer_initials,
@@ -1289,7 +1320,15 @@ app.get('/api/messages/conversations', requireAuth, asyncH(async (req, res) => {
   for (const c of byOther.values()) {
     const u = await get('SELECT id, name, role FROM users WHERE id = ?', [c.otherId]);
     if (!u) continue;
-    convos.push({ user: await chatUser(u), lastMessage: c.last.body, lastAt: c.last.created_at, lastFromMe: c.last.sender_id === req.user.id, unread: c.unread });
+    convos.push({
+      user: await chatUser(u),
+      // The inbox preview must respect a deletion too — otherwise the thread
+      // shows the tombstone while the list still quotes what was withdrawn.
+      lastMessage: c.last.deleted_at ? 'Message deleted' : c.last.body,
+      lastAt: c.last.created_at,
+      lastFromMe: c.last.sender_id === req.user.id,
+      unread: c.unread,
+    });
   }
   convos.sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1));
   res.json(convos);
@@ -1304,21 +1343,89 @@ app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => 
     [req.user.id, u.id, u.id, req.user.id]
   );
   await run('UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL', [new Date().toISOString(), req.user.id, u.id]);
-  res.json({ other: await chatUser(u), messages: rows.map(msgOut) });
+  // Every message in this thread is already in hand, so a reply's parent is a
+  // map lookup rather than a query per message.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  res.json({
+    other: await chatUser(u),
+    messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null)),
+    editWindowMinutes: MESSAGE_EDIT_WINDOW_MIN,
+  });
 }));
 
-// Send a message.
+// Send a message, optionally as a reply to one already in this thread.
 app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
-  const { toUserId, body } = req.body || {};
+  const { toUserId, body, replyToId } = req.body || {};
   const text = (body || '').toString().trim();
   if (!text) return res.status(400).json({ error: 'Type a message first.' });
   if (toUserId === req.user.id) return res.status(400).json({ error: "You can't message yourself." });
   const other = await get('SELECT id FROM users WHERE id = ?', [toUserId]);
   if (!other) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+
+  /* A reply must point at a message from THIS conversation. Without that check
+     any id would do, and the quoted snippet would happily surface a line from
+     someone else's thread to a stranger. */
+  let parent = null;
+  if (replyToId) {
+    parent = await get('SELECT * FROM messages WHERE id = ?', [replyToId]);
+    const inThisThread = parent
+      && ((parent.sender_id === req.user.id && parent.recipient_id === toUserId)
+        || (parent.sender_id === toUserId && parent.recipient_id === req.user.id));
+    if (!inThisThread) return res.status(400).json({ error: "That message isn't part of this conversation." });
+  }
+
   const id = uuid();
-  await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
-    [id, req.user.id, toUserId, text.slice(0, 2000), new Date().toISOString()]);
-  res.status(201).json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [id])));
+  await run('INSERT INTO messages (id, sender_id, recipient_id, body, reply_to_id, created_at) VALUES (?,?,?,?,?,?)',
+    [id, req.user.id, toUserId, text.slice(0, 2000), parent?.id ?? null, new Date().toISOString()]);
+  res.status(201).json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [id]), parent));
+}));
+
+/**
+ * Edit what you said.
+ *
+ * Sender-only and time-boxed, and the result is always marked `editedAt`. These
+ * threads are where a rate and a start time get agreed, so silently rewritable
+ * history would be a genuine hazard — the window plus the mark mean a
+ * correction stays possible while a quiet rewrite does not.
+ */
+app.patch('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
+  const m = await get('SELECT * FROM messages WHERE id = ?', [req.params.id]);
+  if (!m) return res.status(404).json({ error: 'That message no longer exists.' });
+  if (m.sender_id !== req.user.id) return res.status(403).json({ error: 'You can only edit your own messages.' });
+  if (m.deleted_at) return res.status(409).json({ error: "You can't edit a deleted message." });
+
+  const text = (req.body?.body ?? '').toString().trim();
+  if (!text) return res.status(400).json({ error: 'A message can\'t be empty — delete it instead.' });
+
+  const ageMin = (Date.now() - new Date(m.created_at).getTime()) / 60_000;
+  if (ageMin > MESSAGE_EDIT_WINDOW_MIN) {
+    return res.status(409).json({ error: `Messages can only be edited for ${MESSAGE_EDIT_WINDOW_MIN} minutes after sending. Send a correction instead.` });
+  }
+
+  const now = new Date().toISOString();
+  await run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', [text.slice(0, 2000), now, m.id]);
+  const updated = await get('SELECT * FROM messages WHERE id = ?', [m.id]);
+  const parent = updated.reply_to_id ? await get('SELECT * FROM messages WHERE id = ?', [updated.reply_to_id]) : null;
+  res.json(msgOut(updated, parent));
+}));
+
+/**
+ * Withdraw a message for both sides.
+ *
+ * Soft, always: the row stays so replies quoting it still resolve and the
+ * thread keeps its shape, but the body is dropped at the database and never
+ * serialised again. A tombstone is also the honest outcome here — the other
+ * person already read it, and pretending it was never sent would be worse than
+ * showing that it was taken back.
+ */
+app.delete('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
+  const m = await get('SELECT * FROM messages WHERE id = ?', [req.params.id]);
+  if (!m) return res.status(404).json({ error: 'That message no longer exists.' });
+  if (m.sender_id !== req.user.id) return res.status(403).json({ error: 'You can only delete your own messages.' });
+  if (m.deleted_at) return res.json(msgOut(m));
+
+  await run("UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?", [new Date().toISOString(), m.id]);
+  res.json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [m.id])));
 }));
 
 // ---- follow / social graph ----

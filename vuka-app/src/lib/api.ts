@@ -66,9 +66,18 @@ export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiP
 export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; followers?: number; }
 export interface Invitation { id: string; message: string | null; gig: Gig; }
 export interface ChatUser { id: string; name: string; role: Role; initials: string; color: string; }
-export interface Message { id: string; senderId: string; recipientId: string; body: string; createdAt: string; read: boolean; }
+/** The message a reply is quoting — a snippet, not the whole thing. */
+export interface QuotedMessage { id: string; senderId: string; body: string; deleted: boolean; }
+export interface Message {
+  id: string; senderId: string; recipientId: string; body: string; createdAt: string; read: boolean;
+  /** Set once the sender has changed it; the UI must say so. */
+  editedAt: string | null;
+  /** Withdrawn by the sender. `body` is empty — render a tombstone, not a blank. */
+  deleted: boolean;
+  replyTo: QuotedMessage | null;
+}
 export interface Conversation { user: ChatUser; lastMessage: string; lastAt: string; lastFromMe: boolean; unread: number; }
-export interface Thread { other: ChatUser; messages: Message[]; }
+export interface Thread { other: ChatUser; messages: Message[]; editWindowMinutes: number; }
 export interface Social { followers: number; following: number; isFollowing: boolean; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
@@ -226,7 +235,10 @@ export const api = {
   unreadCount: () => request<{ count: number }>('GET', '/messages/unread-count'),
   listConversations: () => request<Conversation[]>('GET', '/messages/conversations'),
   getThread: (userId: string) => request<Thread>('GET', `/messages/thread/${userId}`),
-  sendMessage: (toUserId: string, body: string) => request<Message>('POST', '/messages', { toUserId, body }),
+  sendMessage: (toUserId: string, body: string, replyToId?: string | null) =>
+    request<Message>('POST', '/messages', { toUserId, body, replyToId: replyToId ?? null }),
+  editMessage: (id: string, body: string) => request<Message>('PATCH', `/messages/${id}`, { body }),
+  deleteMessage: (id: string) => request<Message>('DELETE', `/messages/${id}`),
   getSocial: (userId: string) => request<Social>('GET', `/users/${userId}/social`),
   follow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('POST', `/users/${userId}/follow`),
   unfollow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('DELETE', `/users/${userId}/follow`),

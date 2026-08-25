@@ -3,7 +3,8 @@ import type { SVGProps } from 'react';
 export type IconName =
   | 'home' | 'jobs' | 'ladder' | 'user' | 'talent' | 'plus' | 'back' | 'chev'
   | 'pin' | 'shield' | 'bolt' | 'lock' | 'check' | 'sun' | 'moon' | 'briefcase'
-  | 'x' | 'bell' | 'camera' | 'globe' | 'card' | 'wallet' | 'star' | 'chat' | 'send' | 'clock';
+  | 'x' | 'bell' | 'camera' | 'globe' | 'card' | 'wallet' | 'star' | 'chat' | 'send' | 'clock'
+  | 'reply' | 'edit' | 'trash' | 'copy';
 
 const P = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>,
@@ -31,6 +32,10 @@ const P = {
   star: <><path d="M12 3l2.9 6 6.1.9-4.5 4.3 1.1 6.1L12 17.8 6.4 20.3l1.1-6.1L3 9.9 9.1 9z" /></>,
   chat: <><path d="M21 11.5a8.5 8.5 0 0 1-11.7 7.9L3 21l1.6-6.3A8.5 8.5 0 1 1 21 11.5Z" /></>,
   send: <><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" /></>,
+  reply: <><path d="M9 17 4 12l5-5" /><path d="M4 12h11a5 5 0 0 1 5 5v3" /></>,
+  edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></>,
+  trash: <><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></>,
+  copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3.5 2" /></>,
 } as const satisfies Record<IconName, React.ReactNode>;
 

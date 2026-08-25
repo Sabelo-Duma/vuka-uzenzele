@@ -318,6 +318,13 @@ export async function initDb() {
      credited without them. Such a row carries rating 0 — "unrated", not "zero
      stars" — and is excluded from the worker's average by computeCv. */
   await addColumn('history', 'auto_released', 'INTEGER');
+  /* Chat: quoted replies, edit-with-a-mark, and delete-as-tombstone. Deletes are
+     soft on purpose — these threads are where a price and a start time get
+     agreed, so a message that silently vanishes is worse than one visibly
+     withdrawn. */
+  await addColumn('messages', 'reply_to_id', 'TEXT');
+  await addColumn('messages', 'edited_at', 'TEXT');
+  await addColumn('messages', 'deleted_at', 'TEXT');
   // Safety-report triage: who closed it, when, and why.
   await addColumn('safety_reports', 'note', 'TEXT');
   await addColumn('safety_reports', 'resolved_at', 'TEXT');
