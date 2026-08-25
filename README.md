@@ -95,7 +95,7 @@ call-centre roles.
 - **UNICEF** is piloting *blockchain-style verification* to unlock youth employment —
   validating verified reputation as a genuine access mechanism, not a gimmick.
 - SweepSouth faced **Fairwork / unpaid-labour criticism** — so we make **fair pay a
-  first-class, visible feature** (every rate checked against SA minimum wage, R28.79/hr).
+  first-class, visible feature** (every rate checked against SA minimum wage, R30.23/hr).
 
 ## ✨ What the prototype demonstrates
 

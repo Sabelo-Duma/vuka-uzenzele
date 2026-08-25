@@ -1,7 +1,16 @@
 // Reputation + opportunity-tier engine (authoritative, server-side).
 // Mirrors the frontend engine so the client can trust server values.
 
-export const MIN_WAGE_PER_HOUR = 28.79;
+/**
+ * South Africa's National Minimum Wage, in rands per hour. Authoritative — the
+ * app serves this at /api/config and the client's Fair-Pay meter renders it as
+ * "SA min R…/hr", so a stale value here tells an employer that an unlawful rate
+ * is fair.
+ *
+ * The NMW is gazetted annually and takes effect on 1 March. Check it every
+ * March: R28.79 (2025) → R30.23 (effective 1 March 2026).
+ */
+export const MIN_WAGE_PER_HOUR = 30.23;
 
 export const TIERS = [
   { id: 0, name: 'Starter', icon: '🌱', minJobs: 0, minRating: 0, maxFlags: 99, unlocks: 'Informal gigs near you.' },
