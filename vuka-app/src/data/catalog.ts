@@ -16,6 +16,17 @@ let runtimeMinWage = MIN_WAGE_PER_HOUR_FALLBACK;
 export const minWagePerHour = (): number => runtimeMinWage;
 
 /**
+ * Hours an employer has to confirm finished work before the server credits it
+ * without them. Fallback only — the server owns this clock and publishes the
+ * real value at /api/config, so never hardcode "3 days" in copy.
+ */
+const AUTO_RELEASE_HOURS_FALLBACK = 72;
+let runtimeAutoReleaseHours = AUTO_RELEASE_HOURS_FALLBACK;
+
+/** The confirmation window in force right now. */
+export const autoReleaseHours = (): number => runtimeAutoReleaseHours;
+
+/**
  * Adopt the server's engine config. Tier/badge thresholds exist on both sides
  * so the client can animate a tier-up the instant a job completes; overwriting
  * them here means the two can never disagree about what is locked. Presentation
@@ -23,10 +34,12 @@ export const minWagePerHour = (): number => runtimeMinWage;
  */
 export function applyServerConfig(cfg: {
   minWage: number;
+  autoReleaseHours?: number;
   tiers: { id: number; minJobs: number; minRating: number; maxFlags: number }[];
   badges: { id: string; threshold: number | null; special: string | null }[];
 }): void {
   if (typeof cfg.minWage === 'number' && cfg.minWage > 0) runtimeMinWage = cfg.minWage;
+  if (typeof cfg.autoReleaseHours === 'number' && cfg.autoReleaseHours > 0) runtimeAutoReleaseHours = cfg.autoReleaseHours;
 
   for (const t of cfg.tiers ?? []) {
     const local = TIERS.find((x) => x.id === t.id);

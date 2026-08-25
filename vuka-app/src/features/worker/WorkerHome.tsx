@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { CATEGORIES, catById } from '../../data/catalog';
+import { CATEGORIES, catById, autoReleaseHours } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
-import { money } from '../../lib/format';
+import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Invitation, MyJob } from '../../lib/api';
 import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
@@ -110,12 +110,16 @@ function MyWorkCard({ job }: { job: MyJob }) {
   const c = catById(job.gig.category);
   const total = job.gig.hours * job.gig.payPerHour;
   const waiting = job.status === 'worker_done';
+  const autoConfirm = timeToAutoConfirm(job.workerDoneAt, autoReleaseHours());
   const first = job.gig.employer.split(' ')[0];
   return (
     <Card className={`p-4 border-l-4 ${waiting ? 'border-[color:var(--gj-warning,#F59E0B)]' : 'border-success'}`}>
       <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-muted' : 'text-success'}`}>
         <Icon name={waiting ? 'clock' : 'check'} size={13} /> {waiting ? `Waiting for ${first} to confirm` : "You're hired"}
       </div>
+      {waiting && autoConfirm && (
+        <div className="text-[11.5px] text-muted -mt-1 mb-2">Counts automatically if they don't — {autoConfirm.text}</div>
+      )}
       <div className="flex gap-3 items-start">
         <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
         <div className="flex-1 min-w-0">

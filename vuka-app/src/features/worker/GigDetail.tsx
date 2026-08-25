@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { catById, minWagePerHour } from '../../data/catalog';
-import { money, stars } from '../../lib/format';
+import { catById, minWagePerHour, autoReleaseHours } from '../../data/catalog';
+import { money, stars, timeToAutoConfirm } from '../../lib/format';
 import { distanceLabel } from '../../lib/geo';
 import { useApp } from '../../store/appStore';
 import { Avatar, Button, Card } from '../../components/ui';
@@ -31,6 +31,7 @@ export function GigDetail({ id }: { id: string }) {
   const c = catById(gig.category);
   const total = gig.hours * gig.payPerHour;
   const status = mine?.status ?? (state.appliedGigIds.includes(gig.id) ? 'applied' : null);
+  const autoConfirm = timeToAutoConfirm(mine?.workerDoneAt, autoReleaseHours());
   const employerFirstName = gig.employer.split(' ')[0];
 
   return (
@@ -93,6 +94,11 @@ export function GigDetail({ id }: { id: string }) {
           <>
             <Button block variant="ghost" disabled>🕓 Waiting for {employerFirstName} to confirm</Button>
             <p className="text-center text-[12px] text-muted mt-2">You've marked this done. As soon as {employerFirstName} confirms, your pay is released and the verified reference lands on your CV.</p>
+            {autoConfirm && (
+              <p className="text-center text-[12px] text-muted mt-1.5">
+                If they don't respond, this counts automatically — <b className="text-navy">{autoConfirm.text}</b>. It still goes on your CV as work done; it just won't carry a star rating.
+              </p>
+            )}
           </>
         )}
         {status === 'completed' && (

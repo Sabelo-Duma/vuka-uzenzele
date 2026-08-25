@@ -3,8 +3,8 @@
  * waiting on my confirmation. This is where "someone applied" becomes visible.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { catById } from '../../data/catalog';
-import { money } from '../../lib/format';
+import { catById, autoReleaseHours } from '../../data/catalog';
+import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Applicant, Hire } from '../../lib/api';
 import type { Gig } from '../../types';
@@ -61,6 +61,14 @@ export function MyJobs() {
                 {h.worker.name} finished this job · <b className="text-navy tnum">{money(h.gig.hours * h.gig.payPerHour)}</b>
               </div>
               <p className="text-[12px] text-muted leading-snug mt-2 mb-0">Confirming releases their pay and adds your review to their CV.</p>
+              {(() => {
+                const auto = timeToAutoConfirm(h.workerDoneAt, autoReleaseHours());
+                return auto ? (
+                  <p className={`text-[12px] leading-snug mt-1 mb-0 ${auto.soon ? 'text-red font-semibold' : 'text-muted'}`}>
+                    {auto.text} to confirm — after that it counts automatically, without your rating.
+                  </p>
+                ) : null;
+              })()}
               <Button block size="sm" variant="gold" className="mt-3" onClick={() => navigate('applicants', h.gig.id)}>Confirm & rate {h.worker.name.split(' ')[0]}</Button>
             </Card>
           ))}

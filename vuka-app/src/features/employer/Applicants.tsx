@@ -6,8 +6,8 @@
  * other half of that loop.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { catById, TIERS } from '../../data/catalog';
-import { money } from '../../lib/format';
+import { catById, TIERS, autoReleaseHours } from '../../data/catalog';
+import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Applicant } from '../../lib/api';
 import type { Gig } from '../../types';
@@ -163,6 +163,7 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
   onHire?: () => void; onConfirm?: () => void;
 }) {
   const t = TIERS[a.worker.tier.id] ?? TIERS[0];
+  const autoConfirm = timeToAutoConfirm(a.workerDoneAt, autoReleaseHours());
   return (
     <Card className="p-4 mb-2.5">
       <button onClick={onOpen} className="w-full text-left flex gap-3.5 items-center">
@@ -187,6 +188,11 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
       <div className="flex items-center gap-2 flex-wrap mt-3">
         {a.status === 'hired' && <Chip tone="info" icon="check">Hired — work in progress</Chip>}
         {a.status === 'worker_done' && <Chip tone="urgent" icon="bolt">Marked done — needs your confirmation</Chip>}
+        {a.status === 'worker_done' && autoConfirm && (
+          <div className="text-[11.5px] text-muted mt-1">
+            Confirm within <b className="text-navy">{autoConfirm.text}</b> — after that it counts automatically, without your rating.
+          </div>
+        )}
         {a.status === 'completed' && <Chip tone="fair" icon="check">Completed & reviewed</Chip>}
         {a.status === 'not_selected' && <Chip tone="neutral">Not selected</Chip>}
       </div>
