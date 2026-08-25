@@ -222,8 +222,10 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
       </p>
       <StarRating value={rating} onChange={setRating} />
       <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5 mt-4">Your review (optional)</label>
+      {/* text-base (16px): smaller zooms the viewport on iOS, and this one sits
+          in a sheet, so the Confirm button ends up off-screen. */}
       <textarea
-        className="w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-sm bg-surface text-navy focus:outline-none focus:border-navy transition resize-none"
+        className="w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition resize-none"
         rows={3}
         maxLength={600}
         value={review}

@@ -6,7 +6,9 @@ import type { CategoryId } from '../../types';
 import { Button } from '../../components/ui';
 import { Chip } from '../../components/ui';
 
-const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-sm bg-surface text-navy focus:outline-none focus:border-navy';
+// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// anything smaller, hiding the Post button behind the keyboard.
+const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy';
 
 export function PostJob() {
   const { navigate, toast, postGig } = useApp();
