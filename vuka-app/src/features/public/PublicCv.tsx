@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, type PublicCvResult } from '../../lib/api';
 import { catById, TIERS } from '../../data/catalog';
-import { money, stars } from '../../lib/format';
+import { money, ratingLabel, isUnrated } from '../../lib/format';
 import { Card, Ring } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
@@ -122,9 +122,11 @@ function CvBody({ data }: { data: PublicCvResult }) {
                     <b className="text-sm text-navy">{h.jobTitle}</b>
                     <span className="text-[11px] text-muted font-bold whitespace-nowrap">{h.date}</span>
                   </div>
-                  <div className="text-[12px] text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={{ color: '#F59E0B' }}>{stars(h.rating)}</span></div>
+                  <div className="text-[12px] text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
                   <div className="text-[12.5px] text-ink italic my-1.5 leading-snug">“{h.review}”</div>
-                  <div className="text-[11.5px] text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>
+                  {isUnrated(h.rating)
+                    ? <div className="text-[11.5px] text-muted flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
+                    : <div className="text-[11.5px] text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>}
                 </div>
               );
             })}

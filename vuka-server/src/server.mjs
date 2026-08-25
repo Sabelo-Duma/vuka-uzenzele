@@ -19,6 +19,7 @@ import { sendPush, pushConfigured, vapidPublicKey } from './push.mjs';
 import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mjs';
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
+import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
 await initDb();
@@ -90,6 +91,9 @@ function historyOut(h) {
     id: h.id, jobTitle: h.job_title, category: h.category, employer: h.employer,
     employerInitials: h.employer_initials, date: h.date, hours: h.hours, pay: h.pay,
     rating: h.rating, review: h.review, safetyFlag: !!h.safety_flag,
+    // Credited without the employer, so it carries no rating. The app shows
+    // "Not rated" rather than an honest-looking zero-star row.
+    autoReleased: !!h.auto_released,
   };
 }
 /**
@@ -319,6 +323,9 @@ app.get('/api/health', (_req, res) => res.json({
 // lock/unlock states the user sees.
 app.get('/api/config', (_req, res) => res.json({
   minWage: MIN_WAGE_PER_HOUR,
+  // How long an employer has to confirm before the job is credited without
+  // them. The app counts down against this rather than hardcoding "3 days".
+  autoReleaseHours: AUTO_RELEASE_HOURS,
   tiers: TIERS.map((t) => ({ id: t.id, name: t.name, minJobs: t.minJobs, minRating: t.minRating, maxFlags: t.maxFlags })),
   badges: BADGES.map((b) => ({ id: b.id, threshold: b.threshold ?? null, special: b.special ?? null })),
   // Public by design (RFC 8292): the browser needs it to create a subscription.
@@ -1402,6 +1409,39 @@ app.use((err, req, res, _next) => {
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => console.log(`Vuka API listening on http://localhost:${PORT} (store: ${driver})`));
 
+/* Credit work the employer never came back to confirm. Both sides are told what
+   happened: the worker so the silence doesn't read as their job being lost, and
+   the employer so an auto-confirmation is never something that quietly happened
+   to them. The employer's own rating is untouched — they didn't do anything
+   wrong, they just didn't answer. */
+const stopAutoRelease = startAutoRelease({
+  onError: (e) => captureError(e, 'autoRelease:sweep'),
+  onRelease: async (job) => {
+    const worker = await userById(job.worker_id);
+    if (worker) {
+      void notifyUser(worker.id, {
+        type: 'auto-released',
+        title: 'Your job has been counted ✅',
+        body: `${job.employer_name} didn't confirm "${job.title}" in time, so we've added it to your CV. It counts as work done — there's just no star rating on this one.`,
+        url: '/?tab=cv',
+        tag: `auto-released-${job.gig_id}`,
+      }).catch((e) => captureError(e, 'notifyUser:auto-released'));
+    }
+    if (job.employer_id) {
+      const employer = await userById(job.employer_id);
+      if (employer) {
+        void notifyUser(employer.id, {
+          type: 'auto-confirmed',
+          title: 'We confirmed a job for you',
+          body: `"${job.title}" was marked done ${AUTO_RELEASE_HOURS} hours ago and hadn't been confirmed, so we've credited the worker. Rate them next time to help them build their CV.`,
+          url: '/?tab=hires',
+          tag: `auto-confirmed-${job.gig_id}`,
+        }).catch((e) => captureError(e, 'notifyUser:auto-confirmed'));
+      }
+    }
+  },
+});
+
 // Graceful shutdown: Render/containers send SIGTERM on deploy or scale-down.
 // Stop accepting connections, close the DB, then exit — so no request is cut
 // off mid-flight and no DB connection is leaked.
@@ -1410,6 +1450,7 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`${signal} received — shutting down gracefully…`);
+  stopAutoRelease();
   server.close(async () => {
     await closeDb();
     console.log('Closed HTTP server and database. Bye.');

@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { BADGES, catById, TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
-import { money, stars } from '../../lib/format';
+import { money, ratingLabel, isUnrated } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { CvSnapshot, HistoryEntry, Tier, WorkerProfile } from '../../types';
 import { Button, Card, Ring, ProgressBar, SectionTitle, useCountUp } from '../../components/ui';
@@ -150,9 +150,11 @@ function PrintableCv({ w, cv }: { w: WorkerProfile; cv: CvSnapshot }) {
                     <b style={{ color: navy, fontSize: 14 }}>{h.jobTitle}</b>
                     <span style={{ color: '#5a6b7b', fontSize: 12, whiteSpace: 'nowrap' }}>{h.date}</span>
                   </div>
-                  <div style={{ color: '#5a6b7b', fontSize: 12, margin: '2px 0' }}>{c.label} · {h.hours}h · {stars(h.rating)}</div>
+                  <div style={{ color: '#5a6b7b', fontSize: 12, margin: '2px 0' }}>{c.label} · {h.hours}h · {ratingLabel(h.rating)}</div>
                   <div style={{ fontStyle: 'italic', margin: '3px 0' }}>“{h.review}”</div>
-                  <div style={{ fontSize: 11.5, color: '#0E8A09', fontWeight: 700 }}>✔ Verified reference — {h.employer}</div>
+                  {isUnrated(h.rating)
+                    ? <div style={{ fontSize: 11.5, color: '#5a6b7b', fontWeight: 700 }}>• Work confirmed — {h.employer} did not leave a rating</div>
+                    : <div style={{ fontSize: 11.5, color: '#0E8A09', fontWeight: 700 }}>✔ Verified reference — {h.employer}</div>}
                 </div>
               );
             })}
@@ -240,9 +242,11 @@ function CvEntry({ h }: { h: HistoryEntry }) {
     <div className="border-l-2 border-navy pl-3.5 ml-1 pb-3 relative">
       <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-red border-2 border-surface" />
       <div className="flex justify-between items-baseline"><b className="text-sm text-navy">{h.jobTitle}</b><span className="text-[11px] text-muted font-bold">{h.date}</span></div>
-      <div className="text-[12px] text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={{ color: '#F59E0B' }}>{stars(h.rating)}</span></div>
+      <div className="text-[12px] text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
       <div className="text-[12.5px] text-ink italic my-1.5 leading-snug">“{h.review}”</div>
-      <div className="text-[11.5px] text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>
+      {isUnrated(h.rating)
+        ? <div className="text-[11.5px] text-muted flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
+        : <div className="text-[11.5px] text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>}
     </div>
   );
 }

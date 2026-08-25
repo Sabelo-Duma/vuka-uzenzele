@@ -47,9 +47,12 @@ export interface HistoryEntry {
   date: string;
   hours: number;
   pay: number;
-  rating: number;      // 1..5 the employer gave the worker
+  rating: number;      // 1..5 the employer gave the worker; 0 when unrated
   review: string;
   safetyFlag: boolean;
+  /** Confirmed automatically because the employer never responded. Counts as
+   *  work done, but carries no rating and is left out of the average. */
+  autoReleased?: boolean;
 }
 
 /** The signed-in worker. */
