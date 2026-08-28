@@ -84,6 +84,7 @@ function buzz(ms: number) {
 }
 
 const LONG_PRESS_MS = 480;   // below ~400 a scroll starts triggering it
+const MOVE_TOLERANCE_PX = 16; // drift allowed before a hold counts as a scroll
 const SWIPE_TRIGGER_PX = 56; // far enough to be deliberate, short enough for a thumb
 const SWIPE_MAX_PX = 88;
 
@@ -132,8 +133,10 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
     const t = e.touches[0];
     const dx = t.clientX - start.current.x;
     const dy = t.clientY - start.current.y;
-    // Any real movement means this is a scroll or a swipe, not a press-and-hold.
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clearTimer();
+    /* Movement means this is a scroll or a swipe, not a press-and-hold — but a
+       thumb resting still for half a second always drifts a few pixels, and at a
+       10px budget that drift was cancelling legitimate long-presses. */
+    if (Math.abs(dx) > MOVE_TOLERANCE_PX || Math.abs(dy) > MOVE_TOLERANCE_PX) clearTimer();
     // Only a mostly-horizontal, rightward drag counts as reply-swipe — otherwise
     // the thread would fight the user every time they scrolled it.
     if (!longFired.current && dx > 0 && Math.abs(dx) > Math.abs(dy)) {
@@ -143,8 +146,17 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
     }
   };
 
+  const onTouchCancel = () => {
+    clearTimer();
+    drag.current = 0;
+    swiping.current = false;
+    setDragX(0);
+  };
+
   const onTouchEnd = () => {
     clearTimer();
+    // The long-press already did its work; lifting off is not also a swipe.
+    if (longFired.current) { drag.current = 0; swiping.current = false; setDragX(0); return; }
     if (swiping.current && drag.current >= SWIPE_TRIGGER_PX && !m.deleted) {
       buzz(8);
       onReply();
@@ -179,10 +191,18 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         onContextMenu={(e) => { e.preventDefault(); onMenu(); }}
-        style={{ transform: dragX ? `translateX(${dragX}px)` : undefined }}
-        className={`relative px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl select-text ${dragX ? '' : 'transition-transform'} ${
+        /* -webkit-touch-callout is the whole reason long-press works on iOS.
+           Left on, Safari claims the gesture for its own text-selection callout
+           and fires touchcancel partway through — which looked exactly like the
+           finger lifting, so the timer was cleared and the menu never opened.
+           Swipe was unaffected because it finishes before Safari steps in.
+           Selection is disabled with it, deliberately: long-press now selects
+           the message rather than the text, which is what every chat app does,
+           and "Copy text" in the menu is the replacement. */
+        style={{ WebkitTouchCallout: 'none', transform: dragX ? `translateX(${dragX}px)` : undefined }}
+        className={`relative px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl select-none ${dragX ? '' : 'transition-transform'} ${
           mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'
         }`}
       >
