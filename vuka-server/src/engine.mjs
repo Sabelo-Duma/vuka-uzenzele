@@ -12,6 +12,17 @@
  */
 export const MIN_WAGE_PER_HOUR = 30.23;
 
+/**
+ * The job categories the app knows how to render. Anything else stored on a gig
+ * comes back to the client as an unknown id, and its lookup falls through to the
+ * first category — so an unvalidated value doesn't error, it silently mislabels
+ * the job. Validate on the way in instead.
+ */
+export const CATEGORY_IDS = ['cleaning', 'garden', 'dogs', 'moving', 'errands', 'tutoring', 'carwash', 'childcare'];
+
+/** Longest a gig may be worked in one booking, as a sanity bound. */
+export const MAX_GIG_HOURS = 24;
+
 export const TIERS = [
   { id: 0, name: 'Starter', icon: '🌱', minJobs: 0, minRating: 0, maxFlags: 99, unlocks: 'Informal gigs near you.' },
   { id: 1, name: 'Trusted', icon: '🥉', minJobs: 3, minRating: 4.0, maxFlags: 0, unlocks: 'Higher-paying gigs + first formal shift work.' },

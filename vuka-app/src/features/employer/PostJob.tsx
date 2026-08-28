@@ -9,6 +9,11 @@ import { Chip } from '../../components/ui';
 // text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
 // anything smaller, hiding the Post button behind the keyboard.
 const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy';
+/** Same field, outlined in red when it is the one holding up the form. */
+const fieldCls = (error?: string) =>
+  error
+    ? 'w-full border-[1.5px] border-red rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-red'
+    : inputCls;
 
 export function PostJob() {
   const { navigate, toast, postGig } = useApp();
@@ -41,15 +46,48 @@ export function PostJob() {
   const minWage = minWagePerHour();
   const fair = rateNum >= minWage;
 
+  /**
+   * Everything wrong with the form, before anything is sent.
+   *
+   * Mirrors the server's rules — the server is still the boundary, this just
+   * means a mistake is answered next to the field that caused it rather than by
+   * a round trip and a message that has scrolled past.
+   */
+  const problems = (): Record<string, string> => {
+    const p: Record<string, string> = {};
+    const hoursNum = Number(hours);
+    if (!title.trim()) p.title = 'Give the job a title so workers know what it is.';
+    else if (title.trim().length > 120) p.title = 'Keep the title under 120 characters.';
+    if (!Number.isFinite(hoursNum) || hoursNum <= 0) p.hours = 'Enter how many hours the job takes.';
+    else if (hoursNum > 24) p.hours = "A single job can't run longer than 24 hours — split it into more than one booking.";
+    if (!Number.isFinite(rateNum) || rateNum <= 0) p.rate = 'Enter what the job pays per hour.';
+    else if (rateNum < minWage) p.rate = `R${rateNum.toFixed(2)}/hr is below the national minimum wage of R${minWage.toFixed(2)}. Raise it to post this job.`;
+    if (!loc.trim()) p.loc = 'Add a location — workers are shown how far the job is from them.';
+    return p;
+  };
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const clearError = (k: string) => setErrors((e) => (e[k] ? { ...e, [k]: '' } : e));
+
   const submit = async () => {
-    if (!title.trim()) { toast('Give your job a title first ✍️'); return; }
+    const found = problems();
+    setErrors(found);
+    if (Object.keys(found).length) {
+      // Say how many, so a problem scrolled off-screen isn't invisible.
+      const n = Object.keys(found).length;
+      toast(n === 1 ? 'One thing needs fixing before posting' : `${n} things need fixing before posting`);
+      return;
+    }
     setBusy(true);
     try {
-      await postGig({ title, category, hours: Number(hours) || 2, payPerHour: rateNum, location: loc, when, description, urgent: false, ...(pin ?? {}) });
+      await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, ...(pin ?? {}) });
       toast('Job posted! Verified youth nearby can now apply 🚀');
       navigate('home');
     } catch (e) {
-      toast((e as Error).message);
+      // The server names the field it rejected; put the message there.
+      const err = e as { message: string; field?: string };
+      if (err.field) setErrors({ [err.field === 'payPerHour' ? 'rate' : err.field === 'location' ? 'loc' : err.field]: err.message });
+      toast(err.message);
       setBusy(false);
     }
   };
@@ -61,8 +99,8 @@ export function PostJob() {
         <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Post a job<span className="text-red">.</span></h2>
       </header>
 
-      <Field label="What do you need?">
-        <input className={inputCls} placeholder="e.g. Wash my car this Saturday" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Job title" />
+      <Field label="What do you need?" error={errors.title}>
+        <input className={fieldCls(errors.title)} placeholder="e.g. Wash my car this Saturday" value={title} onChange={(e) => { clearError('title'); setTitle(e.target.value); }} aria-label="Job title" aria-invalid={!!errors.title} />
       </Field>
 
       <Field label="Category">
@@ -72,12 +110,12 @@ export function PostJob() {
       </Field>
 
       <div className="flex gap-2.5 mb-3.5">
-        <div className="flex-1"><Field label="Hours"><input className={inputCls} type="number" min={1} value={hours} onChange={(e) => setHours(e.target.value)} aria-label="Hours" /></Field></div>
-        <div className="flex-1"><Field label="Rate / hr"><input className={inputCls} type="number" min={1} value={rate} onChange={(e) => setRate(e.target.value)} aria-label="Rate per hour" /></Field></div>
+        <div className="flex-1"><Field label="Hours" error={errors.hours}><input className={fieldCls(errors.hours)} type="number" min={1} value={hours} onChange={(e) => { clearError('hours'); setHours(e.target.value); }} aria-label="Hours" aria-invalid={!!errors.hours} /></Field></div>
+        <div className="flex-1"><Field label="Rate / hr" error={errors.rate}><input className={fieldCls(errors.rate)} type="number" min={1} value={rate} onChange={(e) => { clearError('rate'); setRate(e.target.value); }} aria-label="Rate per hour" aria-invalid={!!errors.rate} /></Field></div>
       </div>
 
-      <Field label="Where">
-        <input className={inputCls} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => setLoc(e.target.value)} aria-label="Location" />
+      <Field label="Where" error={errors.loc}>
+        <input className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} aria-label="Location" aria-invalid={!!errors.loc} />
         {locationSupported() && (
           <div className="flex items-center gap-2 mt-2 text-[12.5px]">
             {pin ? (
@@ -118,11 +156,13 @@ export function PostJob() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="mb-3.5">
-      <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{label}</label>
+      <label className={`block text-xs font-bold uppercase tracking-wide mb-1.5 ${error ? 'text-red' : 'text-muted'}`}>{label}</label>
       {children}
+      {/* Beside the field that caused it, and it stays until that field changes. */}
+      {error && <p role="alert" className="text-[12.5px] font-semibold text-red mt-1.5 leading-snug">{error}</p>}
     </div>
   );
 }

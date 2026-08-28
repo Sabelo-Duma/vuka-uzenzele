@@ -26,10 +26,14 @@ export class ApiError extends Error {
   /** Machine-readable cause, where the server offers one (e.g. 'no_account'),
    *  so the UI can act on it rather than pattern-matching on English. */
   reason?: string;
-  constructor(message: string, status: number, reason?: string) {
+  /** The form field the server rejected, so the message can be shown against
+   *  it instead of floating free of the thing that caused it. */
+  field?: string;
+  constructor(message: string, status: number, reason?: string, field?: string) {
     super(message);
     this.status = status;
     this.reason = reason;
+    this.field = field;
     this.name = 'ApiError';
   }
 }
@@ -48,9 +52,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   let data: unknown = null;
   try { data = await res.json(); } catch { /* empty body */ }
   if (!res.ok) {
-    const err = data as { error?: string; reason?: string } | null;
+    const err = data as { error?: string; reason?: string; field?: string } | null;
     const msg = err?.error ?? 'Something went wrong. Please try again.';
-    throw new ApiError(msg, res.status, err?.reason);
+    throw new ApiError(msg, res.status, err?.reason, err?.field);
   }
   return data as T;
 }

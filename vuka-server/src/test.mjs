@@ -105,6 +105,35 @@ async function run() {
   ok(gigs2.json.some((g) => g.id === postedId), 'posted gig visible in public feed (multi-user)');
   ok((await api('POST', '/gigs', { token: wTok, body: { title: 'x' } })).status === 403, 'worker cannot post a gig');
 
+  // 6b) posting a job is validated at the boundary, not just in the form, and
+  // every rejection names the field so the app can show it in the right place.
+  {
+    const bad = async (body) => api('POST', '/gigs', { token: eTok, body: { title: 'Test job', category: 'garden', hours: 2, payPerHour: 60, location: 'Soweto', ...body } });
+
+    const noTitle = await bad({ title: '  ' });
+    ok(noTitle.status === 400 && noTitle.json?.field === 'title', 'a job needs a title');
+
+    const belowWage = await bad({ payPerHour: 25 });
+    ok(belowWage.status === 400 && belowWage.json?.field === 'payPerHour', 'a rate below minimum wage is refused');
+    ok(/minimum wage/i.test(belowWage.json?.error ?? ''), 'and the refusal says why, with the legal figure');
+
+    ok((await bad({ payPerHour: 0 })).status === 400, 'a zero rate is refused');
+    ok((await bad({ payPerHour: -50 })).status === 400, 'a negative rate is refused');
+    ok((await bad({ payPerHour: 'free' })).status === 400, 'a non-numeric rate is refused');
+
+    ok((await bad({ hours: 0 })).status === 400, 'zero hours is refused');
+    ok((await bad({ hours: 100 })).status === 400, 'an implausible number of hours is refused');
+
+    const badCat = await bad({ category: 'rocket-science' });
+    ok(badCat.status === 400 && badCat.json?.field === 'category', 'an unknown category is refused rather than silently mislabelled');
+
+    ok((await bad({ location: '   ' })).status === 400, 'a job needs a location');
+
+    // Exactly at the floor is lawful, so it must post.
+    const atFloor = await bad({ payPerHour: 30.23, title: 'Exactly minimum wage' });
+    ok(atFloor.status === 201, 'a rate exactly at minimum wage is accepted');
+  }
+
   // 7) the two-sided work loop: apply → employer hires → worker marks done →
   //    employer confirms & rates → only then does the CV grow.
   const wId = wReg.json.user.id;
