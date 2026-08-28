@@ -279,6 +279,34 @@ async function run() {
 
     ok(toE164('0821234567') === '+27821234567', 'a local number is normalised to E.164');
     ok(toE164('27821234567') === '+27821234567', 'an international number is left alone');
+
+    // Not every gateway wants the leading plus (SMS Messenger does not).
+    const digits = JSON.parse(renderSmsBody('{"recipientNumber":"{{to_digits}}","message":"{{text}}"}', '+27821234567', 'hi'));
+    ok(digits.recipientNumber === '27821234567', '{{to_digits}} drops the leading plus');
+    ok(digits.message === 'hi', 'and still carries the message');
+
+    // {{to}} must not be substituted inside {{to_digits}} first.
+    const both = JSON.parse(renderSmsBody('{"a":"{{to}}","b":"{{to_digits}}"}', '+27821234567', 'x'));
+    ok(both.a === '+27821234567' && both.b === '27821234567', 'both number placeholders resolve independently');
+
+    // Providers that authenticate with their own named headers.
+    const { authHeaders } = await import('./notify.mjs');
+    const prevHeaders = process.env.VUKA_SMS_HEADERS;
+    process.env.VUKA_SMS_HEADERS = '{"email":"me@example.co.za","token":"abc123"}';
+    const h = authHeaders();
+    ok(h.email === 'me@example.co.za' && h.token === 'abc123', 'custom auth headers are passed through');
+    ok(h.Authorization === undefined, 'and no Authorization header is invented');
+
+    process.env.VUKA_SMS_HEADERS = 'not json';
+    let hdrThrew = false;
+    try { authHeaders(); } catch { hdrThrew = true; }
+    ok(hdrThrew, 'a malformed header map fails loudly rather than sending unauthenticated');
+
+    delete process.env.VUKA_SMS_HEADERS;
+    process.env.VUKA_SMS_USER = 'u'; process.env.VUKA_SMS_PASS = 'p';
+    ok(authHeaders().Authorization === `Basic ${Buffer.from('u:p').toString('base64')}`, 'user/pass still builds Basic auth');
+    delete process.env.VUKA_SMS_USER; delete process.env.VUKA_SMS_PASS;
+    if (prevHeaders === undefined) delete process.env.VUKA_SMS_HEADERS; else process.env.VUKA_SMS_HEADERS = prevHeaders;
   }
 
   // 9d) follow graph

@@ -57,6 +57,15 @@ services:
       #                        for a raw Authorization header value
       #   VUKA_SMS_BODY     = payload template, only if your provider's field
       #                       names differ from the {"to","body"} default
+      #   VUKA_SMS_HEADERS  = JSON header map, for providers that authenticate
+      #                       with their own named headers
+      #
+      # Verified working for SMS Messenger (smsmessenger.co.za) — note it wants
+      # named headers rather than Authorization, and the number WITHOUT a plus:
+      #   VUKA_SMS_PROVIDER = http
+      #   VUKA_SMS_URL      = https://sms1.smsmessenger.co.za/app/api/rest/v1/sms/send.json
+      #   VUKA_SMS_BODY     = {"recipientNumber":"{{to_digits}}","message":"{{text}}"}
+      #   VUKA_SMS_HEADERS  = {"email":"YOUR_ACCOUNT_EMAIL","token":"YOUR_API_KEY"}
       #
       # Check it end to end before trusting it:
       #   cd vuka-server && npm run sms:test -- 0821234567
