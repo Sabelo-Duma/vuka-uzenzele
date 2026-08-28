@@ -309,6 +309,20 @@ async function run() {
     if (prevHeaders === undefined) delete process.env.VUKA_SMS_HEADERS; else process.env.VUKA_SMS_HEADERS = prevHeaders;
   }
 
+  // 9c-iv) sign-in tells you which thing went wrong. Someone who never
+  // registered was previously told their "number or password" was incorrect,
+  // so they retyped a correct password forever.
+  {
+    const unknown = await api('POST', '/auth/login', { body: { phone: '0839990404', password: 'whatever123' } });
+    ok(unknown.status === 401, 'an unknown number cannot sign in');
+    ok(unknown.json?.reason === 'no_account', 'and the app is told there is no account, so it can offer sign-up');
+
+    const wrongPw = await api('POST', '/auth/login', { body: { phone: '0829990001', password: 'definitely-wrong' } });
+    ok(wrongPw.status === 401, 'a wrong password cannot sign in');
+    ok(wrongPw.json?.reason === 'wrong_password', 'and is reported as a password problem, not a missing account');
+    ok(wrongPw.json?.error !== unknown.json?.error, 'the two failures no longer read identically');
+  }
+
   // 9d) follow graph
   const soc0 = await api('GET', `/users/${wId}/social`, { token: eTok });
   ok(soc0.json?.isFollowing === false, 'employer not yet following the worker');

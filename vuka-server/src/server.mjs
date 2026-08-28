@@ -471,11 +471,35 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
   res.status(201).json({ token: signToken(user), user: userOut(user), ...extra });
 }));
 
+/**
+ * Sign in.
+ *
+ * "Number or password is incorrect" is the textbook answer, and here it was the
+ * wrong one: someone who never registered gets a message implying they typed
+ * something wrong, so they retype it, repeatedly, and never learn the actual
+ * problem — which is that no account exists.
+ *
+ * The usual justification is that a precise message lets an attacker discover
+ * which numbers are registered. That protection is already absent: requesting a
+ * sign-up OTP answers 409 "already registered" for any number that is taken, by
+ * design, so enumeration is a request away either side of this. Being vague
+ * here therefore costs a real person their sign-in without costing an attacker
+ * anything, and the `reason` lets the app offer sign-up instead of a dead end.
+ */
 app.post('/api/auth/login', asyncH(async (req, res) => {
   const { phone, password } = req.body || {};
   const user = await userByPhone(phone);
-  if (!user || !verifyPassword(password || '', user.password_hash)) {
-    return res.status(401).json({ error: 'That mobile number or password is incorrect. Please try again.' });
+  if (!user) {
+    return res.status(401).json({
+      error: "We don't have an account for that number yet. Create one — it takes a minute.",
+      reason: 'no_account',
+    });
+  }
+  if (!verifyPassword(password || '', user.password_hash)) {
+    return res.status(401).json({
+      error: 'That password is incorrect. Try again, or reset it if you have forgotten it.',
+      reason: 'wrong_password',
+    });
   }
   const extra = user.role === 'worker' ? await cvFor(user.id) : {};
   res.json({ token: signToken(user), user: userOut(user), ...extra });

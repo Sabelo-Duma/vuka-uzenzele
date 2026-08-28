@@ -3,6 +3,7 @@ import { CATEGORIES } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import { api } from '../../lib/api';
 import { useTheme } from '../../providers/ThemeProvider';
+import { ApiError } from '../../lib/api';
 import type { CategoryId, Role } from '../../types';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
@@ -29,6 +30,8 @@ export function Onboarding() {
   const [role, setRole] = useState<Role>('worker');
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** Last sign-in failure, kept on the form until the user changes something. */
+  const [loginError, setLoginError] = useState<{ message: string; reason?: string } | null>(null);
   const [data, setData] = useState<OBData>({ phone: '', otp: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], password: '', verifyToken: '' });
 
   const steps = stepsFor(role);
@@ -64,9 +67,29 @@ export function Onboarding() {
   return (
     <AuthLayout>
       {view === 'role' && <RoleChoose onBack={() => setView('landing')} onPick={(r) => { setRole(r); setStep(0); setView('reg'); }} onLogin={() => setView('login')} />}
-      {view === 'login' && <LoginView busy={busy} onBack={() => setView('landing')} onForgot={() => setView('reset')}
-        onLogin={async (phone, password) => { setBusy(true); try { await login(phone, password); } catch (e) { toast((e as Error).message); setBusy(false); } }}
-        onDemo={async (r) => { setBusy(true); try { await demoLogin(r); } catch (e) { toast((e as Error).message); setBusy(false); } }} />}
+      {view === 'login' && <LoginView
+        busy={busy}
+        error={loginError}
+        onBack={() => { setLoginError(null); setView('landing'); }}
+        onForgot={() => { setLoginError(null); setView('reset'); }}
+        onSignUp={() => { setLoginError(null); setView('role'); }}
+        onClearError={() => setLoginError(null)}
+        onLogin={async (phone, password) => {
+          if (!phone.trim() || !password) {
+            setLoginError({ message: 'Enter your mobile number and password to sign in.' });
+            return;
+          }
+          setBusy(true);
+          setLoginError(null);
+          try {
+            await login(phone, password);
+          } catch (e) {
+            const err = e as ApiError;
+            setLoginError({ message: err.message, reason: err.reason });
+            setBusy(false);
+          }
+        }}
+        onDemo={async (r) => { setBusy(true); setLoginError(null); try { await demoLogin(r); } catch (e) { setLoginError({ message: (e as Error).message }); setBusy(false); } }} />}
       {view === 'reset' && <ResetView onBack={() => setView('login')} />}
       {view === 'reg' && key !== 'done' && (
         <RegStep
@@ -168,17 +191,44 @@ function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: str
 // text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
 // anything smaller, which shunts the layout sideways mid-sign-up.
 const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
-function LoginView({ busy, onBack, onLogin, onDemo, onForgot }: { busy: boolean; onBack: () => void; onLogin: (phone: string, password: string) => void; onDemo: (r: Role) => void; onForgot: () => void }) {
+function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, onClearError }: {
+  busy: boolean;
+  /** Persistent failure from the last attempt. A toast is wrong for this: it
+   *  sits at the bottom of the screen behind the open keyboard, and is gone in
+   *  two seconds — so a failed sign-in looked like the button doing nothing. */
+  error: { message: string; reason?: string } | null;
+  onBack: () => void; onLogin: (phone: string, password: string) => void;
+  onDemo: (r: Role) => void; onForgot: () => void; onSignUp: () => void; onClearError: () => void;
+}) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  // Editing either field means the message is about a previous attempt.
+  const edit = (set: (v: string) => void) => (v: string) => { onClearError(); set(v); };
   return (
     <div>
       <BackRow onBack={onBack} />
       <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
       <p className="text-[13.5px] text-muted mb-6">Sign in to pick up where you left off.</p>
-      <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Mobile number" /></div>
-      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
+      <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => edit(setPhone)(e.target.value)} aria-label="Mobile number" /></div>
+      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
       <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-[12.5px] font-bold text-navy hover:text-red transition">Forgot password?</button></div>
+
+      {error && (
+        <div role="alert" className="mb-4 rounded-2xl border border-red/30 bg-red/5 px-4 py-3">
+          <p className="text-[13px] font-semibold text-red leading-snug m-0">{error.message}</p>
+          {error.reason === 'no_account' && (
+            <button type="button" onClick={onSignUp} className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2">
+              Create an account →
+            </button>
+          )}
+          {error.reason === 'wrong_password' && (
+            <button type="button" onClick={onForgot} className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2">
+              Reset my password →
+            </button>
+          )}
+        </div>
+      )}
+
       <Button block disabled={busy} onClick={() => onLogin(phone, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
 
       <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-[11px] text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
