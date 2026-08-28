@@ -249,6 +249,38 @@ async function run() {
     ok((await api('DELETE', `/messages/${reply.json.id}`, { token: wTok })).status === 200, 'deleting an already-deleted message is harmless');
   }
 
+  // 9c-iii) the SMS payload template. A provider whose field names differ is an
+  // env change, not a code change — but only if the template survives real
+  // message text.
+  {
+    const { renderSmsBody, DEFAULT_SMS_BODY, toE164 } = await import('./notify.mjs');
+
+    ok(JSON.parse(renderSmsBody(DEFAULT_SMS_BODY, '+27821234567', 'Your code is 1234')).to === '+27821234567',
+      'the default template carries the number');
+    ok(JSON.parse(renderSmsBody(DEFAULT_SMS_BODY, '+27821234567', 'Your code is 1234')).body === 'Your code is 1234',
+      'the default template carries the message');
+
+    // The reason values are JSON-escaped rather than interpolated raw.
+    const risky = [
+      'Sipho', String.fromCharCode(34), 's gig',
+      String.fromCharCode(10), 'line two ', String.fromCharCode(92), ' end',
+    ].join('');
+    const out = JSON.parse(renderSmsBody(DEFAULT_SMS_BODY, '+27821234567', risky));
+    ok(out.body === risky, 'quotes, newlines and backslashes survive the template intact');
+
+    // A different provider's field names, purely via the template.
+    const alt = renderSmsBody('{"msisdn":"{{to}}","text":"{{text}}"}', '+27831112222', 'hi');
+    ok(JSON.parse(alt).msisdn === '+27831112222' && JSON.parse(alt).text === 'hi',
+      'a provider with different field names needs no code change');
+
+    let threw = false;
+    try { renderSmsBody('{"to":"{{to}}", oops}', '+27821234567', 'x'); } catch { threw = true; }
+    ok(threw, 'a malformed template fails loudly rather than posting broken JSON');
+
+    ok(toE164('0821234567') === '+27821234567', 'a local number is normalised to E.164');
+    ok(toE164('27821234567') === '+27821234567', 'an international number is left alone');
+  }
+
   // 9d) follow graph
   const soc0 = await api('GET', `/users/${wId}/social`, { token: eTok });
   ok(soc0.json?.isFollowing === false, 'employer not yet following the worker');

@@ -44,6 +44,34 @@ services:
         sync: false
       - key: VUKA_VAPID_SUBJECT
         sync: false            # mailto: address a push service can contact
+      # SMS — the only thing gating new sign-ups. Without it /api/auth/otp
+      # returns 503 and nobody new can register; existing and demo accounts
+      # still work, which is what makes it easy to miss.
+      #
+      # Volume is roughly ONE message per new user (web push carries everything
+      # recurring), so most providers' free trial credits cover a pilot outright.
+      #
+      #   VUKA_SMS_PROVIDER = http
+      #   VUKA_SMS_URL      = your provider's send endpoint
+      #   VUKA_SMS_USER/_PASS  (Basic auth is built for you) — or VUKA_SMS_AUTH
+      #                        for a raw Authorization header value
+      #   VUKA_SMS_BODY     = payload template, only if your provider's field
+      #                       names differ from the {"to","body"} default
+      #
+      # Check it end to end before trusting it:
+      #   cd vuka-server && npm run sms:test -- 0821234567
+      - key: VUKA_SMS_PROVIDER
+        sync: false
+      - key: VUKA_SMS_URL
+        sync: false
+      - key: VUKA_SMS_USER
+        sync: false
+      - key: VUKA_SMS_PASS
+        sync: false
+      - key: VUKA_SMS_AUTH
+        sync: false
+      - key: VUKA_SMS_BODY
+        sync: false
       # Optional: ship errors to Sentry's free tier so they survive a restart.
       # Unset, errors are still captured in the log and at GET /api/admin/errors.
       - key: SENTRY_DSN
