@@ -6,6 +6,11 @@ import type { Config } from 'tailwindcss';
  * theming flows through automatically via the [data-theme] attribute.
  */
 export default {
+  /* On a touch screen there is no pointer to leave, so a `hover:` style latches
+     on after a tap and stays there — after a long-press the sheet opens with a
+     row already looking highlighted, as if something were selected. This scopes
+     every hover: utility to devices that actually have hover. */
+  future: { hoverOnlyWhenSupported: true },
   darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
