@@ -12,7 +12,7 @@ import {
   hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid,
   randomDigits, hashCode, verifyCode, signPurposeToken, verifyPurposeToken,
 } from './auth.mjs';
-import { computeCv, autoReview, MIN_WAGE_PER_HOUR, TIERS, BADGES } from './engine.mjs';
+import { computeCv, autoReview, MIN_WAGE_PER_HOUR, MAX_GIG_HOURS, CATEGORY_IDS, TIERS, BADGES } from './engine.mjs';
 import { encryptField, hasEncryptionKey } from './crypto.mjs';
 import { sendSms, smsConfigured, otpEcho } from './notify.mjs';
 import { sendPush, pushConfigured, vapidPublicKey } from './push.mjs';
@@ -612,17 +612,55 @@ app.get('/api/gigs/:id', asyncH(async (req, res) => {
 
 app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
   const { title, category, hours, payPerHour, location, when, description, urgent } = req.body || {};
-  if (!title?.trim()) return res.status(400).json({ error: 'Please give your job a title.' });
+
+  /* Validated here, not only in the form. The form is a convenience; this is
+     the boundary. Each message names the field and what would fix it, because
+     a 400 the app can only render as "something went wrong" is no better than
+     a silent failure. */
+  if (!title?.trim()) return res.status(400).json({ error: 'Please give your job a title.', field: 'title' });
+  if (title.trim().length > 120) return res.status(400).json({ error: 'That title is too long — keep it under 120 characters.', field: 'title' });
+
+  if (category != null && !CATEGORY_IDS.includes(category)) {
+    return res.status(400).json({ error: 'Please choose one of the listed job categories.', field: 'category' });
+  }
+
+  const hoursNum = Number(hours);
+  if (!Number.isFinite(hoursNum) || hoursNum <= 0) {
+    return res.status(400).json({ error: 'How many hours is the job? Enter a number greater than zero.', field: 'hours' });
+  }
+  if (hoursNum > MAX_GIG_HOURS) {
+    return res.status(400).json({ error: `A single job can't be longer than ${MAX_GIG_HOURS} hours. Split it into more than one booking.`, field: 'hours' });
+  }
+
+  /* The fair-pay floor, enforced rather than merely displayed. The app shows
+     every rate against the National Minimum Wage and calls itself fair-pay —
+     accepting a rate below it would make that claim false, and the rate is
+     unlawful besides. */
+  const rate = Number(payPerHour);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return res.status(400).json({ error: 'Enter what the job pays per hour.', field: 'payPerHour' });
+  }
+  if (rate < MIN_WAGE_PER_HOUR) {
+    return res.status(400).json({
+      error: `R${rate.toFixed(2)}/hour is below South Africa's minimum wage of R${MIN_WAGE_PER_HOUR.toFixed(2)}. Raise the rate to post this job.`,
+      field: 'payPerHour',
+    });
+  }
+
+  if (!String(location ?? '').trim()) {
+    return res.status(400).json({ error: 'Where is the job? Workers are shown how far it is from them.', field: 'location' });
+  }
+
   const user = await userById(req.user.id);
   const id = uuid();
-  const where = location || 'Soweto';
+  const where = String(location).trim();
   // The employer's device may share exact coordinates; otherwise we place the
   // job from its location text. distance_km stays 0 — an unmeasured distance is
   // shown as "no distance", never as a made-up number.
   const coords = parseCoords(req.body?.lat, req.body?.lng) ?? coordsForPlace(where);
   await run('INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, lat, lng, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [id, user.id, title.trim(), category || 'errands', user.name, initialsOf(user.name),
-      where, 0, coords?.lat ?? null, coords?.lng ?? null, Number(hours) || 2, Number(payPerHour) || 50,
+      where, 0, coords?.lat ?? null, coords?.lng ?? null, hoursNum, rate,
       when || 'Flexible', description || '', urgent ? 1 : 0, 'open', new Date().toISOString()]);
   const row = await get('SELECT * FROM gigs WHERE id = ?', [id]);
   // Fire-and-forget: a slow push service must never slow down posting a job.
