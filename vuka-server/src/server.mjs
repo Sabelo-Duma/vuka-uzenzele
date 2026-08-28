@@ -375,7 +375,12 @@ const normPhone = (p) => String(p ?? '').replace(/\D/g, '');
 const isPhone = (p) => normPhone(p).length >= 9 && normPhone(p).length <= 15;
 
 /** Codes are only ever echoed back when an operator has explicitly allowed it. */
-const echoCode = (code) => (otpEcho || (process.env.NODE_ENV !== 'production' && !smsConfigured) ? { devCode: code } : {});
+/* True when the code comes back in the response instead of by SMS — an opted-in
+   pilot, or dev with no provider wired up. Named because two things depend on
+   it: whether to include the code, and whether a failed SMS actually stranded
+   the user or merely didn't matter. */
+const codeIsEchoed = otpEcho || (process.env.NODE_ENV !== 'production' && !smsConfigured);
+const echoCode = (code) => (codeIsEchoed ? { devCode: code } : {});
 
 app.post('/api/auth/otp', asyncH(async (req, res) => {
   const phone = normPhone(req.body?.phone);
@@ -384,7 +389,7 @@ app.post('/api/auth/otp', asyncH(async (req, res) => {
   // Sign-up codes are pointless for a number that already has an account, and
   // saying so here saves the person filling in the whole form first.
   if (await userByPhone(phone)) {
-    return res.status(409).json({ error: 'That mobile number is already registered. Try signing in instead.' });
+    return res.status(409).json({ error: 'That mobile number is already registered. Try signing in instead.', reason: 'already_registered' });
   }
   if (process.env.NODE_ENV === 'production' && !smsConfigured && !otpEcho) {
     console.error('OTP requested but no SMS provider is configured — set VUKA_SMS_PROVIDER.');
@@ -404,6 +409,19 @@ app.post('/api/auth/otp', asyncH(async (req, res) => {
     [uuid(), phone, 'register', hashCode(code), new Date(Date.now() + OTP_TTL_MS).toISOString(), new Date().toISOString()]);
 
   const sms = await sendSms(phone, `Your Vuka Uzenzele code is ${code}. It expires in 10 minutes.`);
+
+  /* A code that was never delivered must not be reported as sent. This answered
+     200 regardless, so the app said "check your SMS" and the person waited for
+     something that did not exist — the single worst failure in the product,
+     because it happens before they have any way to ask for help. */
+  if (!sms.delivered && !codeIsEchoed) {
+    captureError(new Error(`OTP not delivered to ${phone}: ${sms.error ?? `provider "${sms.provider}"`}`), 'auth/otp:send');
+    return res.status(502).json({
+      error: "We couldn't send a code to that number. Check the number is right, then try again — if it keeps failing, it's on our side, not yours.",
+      reason: 'sms_failed',
+    });
+  }
+
   res.json({ ok: true, sent: sms.delivered, expiresInSeconds: OTP_TTL_MS / 1000, ...echoCode(code) });
 }));
 

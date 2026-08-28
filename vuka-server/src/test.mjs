@@ -87,6 +87,15 @@ async function run() {
   // 3) duplicate phone rejected — at the OTP step, before the form is filled in
   ok((await api('POST', '/auth/otp', { body: { phone: '0829990001' } })).status === 409, 'already-registered number is rejected up front');
 
+  // 3a) a number that already has an account is turned away at the OTP step,
+  // and says so in a way the app can act on rather than a dead end.
+  {
+    const dup = await api('POST', '/auth/otp', { body: { phone: '0829990001' } });
+    ok(dup.status === 409 && dup.json?.reason === 'already_registered',
+      'an already-registered number is flagged so the app can offer sign-in');
+    ok(/sign/i.test(dup.json?.error ?? ''), 'and the message points at signing in');
+  }
+
   // 3b) weak password rejected (min 8 chars)
   ok((await api('POST', '/auth/register', { body: { role: 'worker', name: 'Weak Pass', phone: '0829990009', password: 'short', verifyToken: await verifyPhone('0829990009') } })).status === 400, 'password under 8 chars rejected');
 

@@ -5,7 +5,7 @@ import { api } from '../../lib/api';
 import { useTheme } from '../../providers/ThemeProvider';
 import { ApiError } from '../../lib/api';
 import type { CategoryId, Role } from '../../types';
-import { Button } from '../../components/ui';
+import { Button, InlineError } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
@@ -98,6 +98,7 @@ export function Onboarding() {
           onNext={next}
           // The phone and OTP steps advance themselves once the server agrees.
           onVerified={(verifyToken) => { setData((d) => ({ ...d, verifyToken })); setStep((s) => s + 1); }}
+          onSignIn={() => setView('login')}
         />
       )}
       {view === 'reg' && key === 'done' && <Success role={role} name={data.name} busy={busy} onEnter={finish} onBack={back} />}
@@ -191,6 +192,8 @@ function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: str
 // text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
 // anything smaller, which shunts the layout sideways mid-sign-up.
 const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
+/** Same field, outlined red while it is the thing holding up the flow. */
+const inputErrCls = 'w-full border-[1.5px] border-red rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-red transition';
 function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, onClearError }: {
   busy: boolean;
   /** Persistent failure from the last attempt. A toast is wrong for this: it
@@ -252,32 +255,44 @@ function ResetView({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState('');
   const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const request = async () => {
-    if (phone.replace(/\D/g, '').length < 9) return toast('Enter a valid mobile number 📱');
+    if (phone.replace(/\D/g, '').length < 9) {
+      setError("That doesn't look like a full mobile number. Enter all 10 digits, e.g. 072 000 0000.");
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
       const res = await api.requestPasswordReset(phone);
       setDevCode(res.devCode ?? null);
       toast(res.devCode ? `Test mode — your code is ${res.devCode}` : res.message);
       setPhase('code');
     } catch (e) {
-      toast((e as Error).message);
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
 
   const confirm = async () => {
-    if (code.replace(/\D/g, '').length < 6) return toast('Enter the 6-digit code from your SMS 🔢');
-    if (password.length < 8) return toast('Choose a password of at least 8 characters 🔒');
+    if (code.replace(/\D/g, '').length < 6) {
+      setError('Enter all six digits of the code from your SMS.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Choose a password of at least 8 characters.');
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
       // Confirming signs the account straight in, so there's no second login step.
       await api.confirmPasswordReset(phone, code, password).then(async () => { await login(phone, password); });
       toast('Password changed 🔒 Welcome back!');
     } catch (e) {
-      toast((e as Error).message);
+      setError((e as Error).message);
       setBusy(false);
     }
   };
@@ -290,19 +305,21 @@ function ResetView({ onBack }: { onBack: () => void }) {
         <>
           <p className="text-[13.5px] text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
           <div className="mb-5"><Label>Mobile number</Label>
-            <input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
+            <input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} aria-invalid={!!error} onChange={(e) => { setError(null); setPhone(e.target.value); }} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
           </div>
+          {error && <InlineError>{error}</InlineError>}
           <Button block disabled={busy} onClick={request}>{busy ? 'Sending…' : 'Send reset code'}</Button>
         </>
       ) : (
         <>
           <p className="text-[13.5px] text-muted mb-6">If <b className="text-navy">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
           <div className="mb-3.5"><Label>Reset code</Label>
-            <input className={inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} aria-label="Reset code" />
+            <input className={error ? inputErrCls : inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} aria-invalid={!!error} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '')); }} aria-label="Reset code" />
           </div>
           <div className="mb-2"><Label>New password</Label>
-            <input className={inputCls} type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
+            <input className={inputCls} type="password" placeholder="At least 8 characters" value={password} onChange={(e) => { setError(null); setPassword(e.target.value); }} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
           </div>
+          {error && <InlineError action={{ label: 'Start again', onClick: () => { setError(null); setCode(''); setPhase('phone'); } }}>{error}</InlineError>}
           {devCode && <p className="text-[12px] text-muted mb-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
           <Trust>Changing your password signs out anyone else who was using your account.</Trust>
           <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : 'Set new password & sign in'}</Button>
@@ -314,10 +331,12 @@ function ResetView({ onBack }: { onBack: () => void }) {
 }
 
 /* ---------------- Registration step ---------------- */
-function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerified }: {
+function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerified, onSignIn }: {
   stepKey: string; steps: string[]; step: number; data: OBData;
   setData: React.Dispatch<React.SetStateAction<OBData>>;
   onBack: () => void; onNext: () => void; onVerified: (verifyToken: string) => void;
+  /** Offered when the number turns out to already have an account. */
+  onSignIn: () => void;
 }) {
   const total = steps.length - 1;
   const progress = (
@@ -327,7 +346,7 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerifi
   // The phone and code steps own their own button: each has to wait on the
   // server, and "Continue" must not move on until it has.
   if (stepKey === 'phone') {
-    return <div><BackRow onBack={onBack} />{progress}<PhoneStep data={data} setData={setData} onSent={onNext} /></div>;
+    return <div><BackRow onBack={onBack} />{progress}<PhoneStep data={data} setData={setData} onSent={onNext} onSignIn={onSignIn} /></div>;
   }
   if (stepKey === 'otp') {
     return <div><BackRow onBack={onBack} />{progress}<OtpStep data={data} setData={setData} onVerified={onVerified} /></div>;
@@ -360,30 +379,41 @@ const Trust = ({ children }: { children: React.ReactNode }) => (
   <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-[12px] text-navy leading-snug">{children}</span></div>
 );
 
-function PhoneStep({ data, setData, onSent }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onSent: () => void }) {
+function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onSent: () => void; onSignIn: () => void }) {
   const { toast } = useApp();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ message: string; reason?: string } | null>(null);
 
   const send = async () => {
-    if (data.phone.replace(/\D/g, '').length < 9) return toast('Enter a valid mobile number 📱');
+    if (data.phone.replace(/\D/g, '').length < 9) {
+      setError({ message: "That doesn't look like a full mobile number. Enter all 10 digits, e.g. 072 000 0000." });
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
       const res = await api.requestOtp(data.phone);
       setData((d) => ({ ...d, otp: '' }));
       // In a pilot without an SMS contract the server may hand the code back so
       // sign-up still works; say so plainly rather than pretending it was sent.
       lastDevCode.value = res.devCode ?? null;
-      toast(res.sent ? 'Code sent 📱 Check your SMS.' : res.devCode ? `Test mode — your code is ${res.devCode}` : 'Code created — check your SMS.');
+      toast(res.sent ? 'Code sent 📱 Check your SMS.' : `Test mode — your code is ${res.devCode}`);
       onSent();
     } catch (e) {
-      toast((e as Error).message);
+      const err = e as ApiError;
+      setError({ message: err.message, reason: err.reason });
     } finally {
       setBusy(false);
     }
   };
 
   return (<><Head h="What's your number<span class='text-red'>?</span>" sub="We'll send an SMS code to confirm it's you. Your number is never shown to others." />
-    <div><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') send(); }} /></div>
+    <div><Label>Mobile number</Label><input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} aria-invalid={!!error} onChange={(e) => { setError(null); setData({ ...data, phone: e.target.value }); }} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') send(); }} /></div>
+    {error && (
+      <InlineError action={error.reason === 'already_registered' ? { label: 'Sign in instead', onClick: onSignIn } : undefined}>
+        {error.message}
+      </InlineError>
+    )}
     <Trust>Your number is how employers reach you about work — and how you get back in if you forget your password.</Trust>
     <Button block className="mt-7" disabled={busy} onClick={send}>{busy ? 'Sending code…' : 'Send me the code'}</Button></>);
 }
@@ -398,17 +428,25 @@ function OtpStep({ data, setData, onVerified }: {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const [busy, setBusy] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(lastDevCode.value);
+  /* The code auto-submits on the fourth digit and the boxes clear on failure,
+     so a toast was the only trace that anything had happened — and it was gone
+     in two seconds. The reason stays put now. */
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { refs.current[0]?.focus(); }, []);
 
   const submit = async (code: string) => {
-    if (code.replace(/\D/g, '').length < 4) return toast('Enter the 4-digit code 🔢');
+    if (code.replace(/\D/g, '').length < 4) {
+      setError('Enter all four digits of the code.');
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
       const res = await api.verifyOtp(data.phone, code);
       onVerified(res.verifyToken);
     } catch (e) {
-      toast((e as Error).message);
+      setError((e as Error).message);
       setData((d) => ({ ...d, otp: '' }));
       refs.current[0]?.focus();
     } finally {
@@ -428,13 +466,16 @@ function OtpStep({ data, setData, onVerified }: {
 
   const resend = async () => {
     setBusy(true);
+    setError(null);
     try {
       const res = await api.requestOtp(data.phone);
       setDevCode(res.devCode ?? null);
       lastDevCode.value = res.devCode ?? null;
-      toast(res.sent ? 'New code sent 📱' : res.devCode ? `Test mode — your code is ${res.devCode}` : 'New code created.');
+      setData((d) => ({ ...d, otp: '' }));
+      refs.current[0]?.focus();
+      toast(res.sent ? 'New code sent 📱' : `Test mode — your code is ${res.devCode}`);
     } catch (e) {
-      toast((e as Error).message);
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -445,10 +486,14 @@ function OtpStep({ data, setData, onVerified }: {
       {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={`Digit ${i + 1}`} placeholder="•"
         value={data.otp[i] ?? ''}
         disabled={busy}
-        className="w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] border-line-strong rounded-2xl bg-surface focus:outline-none focus:border-navy disabled:opacity-60"
+        aria-invalid={!!error}
+        className={`w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] rounded-2xl bg-surface focus:outline-none disabled:opacity-60 transition-colors ${
+          error ? 'border-red focus:border-red' : 'border-line-strong focus:border-navy'
+        }`}
         onChange={(e) => setDigit(i, e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
+    {error && <InlineError action={{ label: 'Send a new code', onClick: resend }}>{error}</InlineError>}
     {devCode && <p className="text-center text-[12px] text-muted mt-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
     <p className="text-center text-[12.5px] text-muted mt-4">
       Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-navy font-bold underline underline-offset-2 hover:text-red transition disabled:opacity-50">Resend</button>
