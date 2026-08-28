@@ -255,3 +255,44 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     </div>
   );
 }
+
+/**
+ * A problem the user has to act on, shown where it happened and left there.
+ *
+ * Deliberately not a toast. A toast is right for "Saved" and wrong for anything
+ * the user must respond to: it disappears after a couple of seconds, and on a
+ * phone the keyboard is usually covering wherever it appeared. Failures that
+ * block a flow belong on the form, in view, until the thing that caused them
+ * changes.
+ *
+ * `action` is the way out — "Sign in instead", "Send a new code". A message
+ * that only says no leaves the person exactly where they were stuck.
+ */
+export function InlineError({ children, action, tone = 'error' }: {
+  children: ReactNode;
+  action?: { label: string; onClick: () => void };
+  tone?: 'error' | 'warning';
+}) {
+  const isWarning = tone === 'warning';
+  return (
+    <div
+      role="alert"
+      className={`rounded-2xl border px-4 py-3 my-3.5 ${
+        isWarning ? 'border-[color:var(--gj-warning)]/35 bg-[color:var(--gj-warning)]/[.07]' : 'border-red/30 bg-red/5'
+      }`}
+    >
+      <p className={`text-[13px] font-semibold leading-snug m-0 ${isWarning ? 'text-[color:var(--gj-warning)]' : 'text-red'}`}>
+        {children}
+      </p>
+      {action && (
+        <button
+          type="button"
+          onClick={action.onClick}
+          className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2 hover:text-red transition"
+        >
+          {action.label} →
+        </button>
+      )}
+    </div>
+  );
+}
