@@ -13,10 +13,16 @@
              a provider whose field names differ needs no code change:
 
                VUKA_SMS_URL            the endpoint
-               VUKA_SMS_BODY           JSON template; {{to}} and {{text}} are
-                                       substituted. Default {"to":"…","body":"…"}
+               VUKA_SMS_BODY           JSON template. Placeholders:
+                                         {{to}}        +27821234567
+                                         {{to_digits}} 27821234567  (no plus)
+                                         {{text}}      the message
+                                       Default {"to":"…","body":"…"}
                VUKA_SMS_AUTH           sent verbatim as the Authorization header
                VUKA_SMS_USER / _PASS   or these, and Basic auth is built for you
+               VUKA_SMS_HEADERS        or a JSON object of headers, for the
+                                       providers that authenticate with their
+                                       own named headers rather than Authorization
 
              Verify the template against your provider's own docs — field names
              vary (to/body, to/message, msisdn/text) and getting it wrong is a
@@ -61,7 +67,12 @@ export const DEFAULT_SMS_BODY = '{"to":"{{to}}","body":"{{text}}"}';
  */
 export function renderSmsBody(template, to, text) {
   const esc = (v) => JSON.stringify(String(v)).slice(1, -1);
-  const out = template.replace(/\{\{to\}\}/g, esc(to)).replace(/\{\{text\}\}/g, esc(text));
+  /* to_digits first: replacing {{to}} first would leave "{{to_digits}}" as
+     "+27821234567_digits}}". Longest placeholder wins. */
+  const out = template
+    .replace(/\{\{to_digits\}\}/g, esc(String(to).replace(/\D/g, '')))
+    .replace(/\{\{to\}\}/g, esc(to))
+    .replace(/\{\{text\}\}/g, esc(text));
   try {
     JSON.parse(out);
   } catch {
@@ -70,8 +81,27 @@ export function renderSmsBody(template, to, text) {
   return out;
 }
 
-/** Authorization header, however the provider wants it expressed. */
-function authHeader() {
+/**
+ * Auth headers, however the provider wants them expressed.
+ *
+ * Not every gateway uses Authorization: several SA providers authenticate with
+ * their own named headers (SMS Messenger wants `email` and `token`), so an
+ * arbitrary header map has to be supported or those need a code change — which
+ * is the exact thing this module exists to avoid.
+ */
+export function authHeaders() {
+  const extra = process.env.VUKA_SMS_HEADERS;
+  if (extra) {
+    try {
+      const parsed = JSON.parse(extra);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, String(v)]));
+      }
+      throw new Error('not an object');
+    } catch {
+      throw new Error('VUKA_SMS_HEADERS must be a JSON object, e.g. {"email":"you@x.co.za","token":"…"}');
+    }
+  }
   if (process.env.VUKA_SMS_AUTH) return { Authorization: process.env.VUKA_SMS_AUTH };
   const user = process.env.VUKA_SMS_USER;
   const pass = process.env.VUKA_SMS_PASS;
@@ -87,15 +117,28 @@ async function viaHttp(to, body) {
   const payload = renderSmsBody(process.env.VUKA_SMS_BODY || DEFAULT_SMS_BODY, toE164(to), body);
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: payload,
   });
-  if (!res.ok) {
-    /* Carry a little of the provider's own reply. "responded 400" alone sends
-       you to their dashboard to guess; their message usually names the field. */
-    let detail = '';
-    try { detail = (await res.text()).slice(0, 200); } catch { /* no body */ }
-    throw new Error(`SMS gateway responded ${res.status}${detail ? ` — ${detail}` : ''}`);
+  /* Carry a little of the provider's own reply. "responded 400" alone sends you
+     to their dashboard to guess; their message usually names the field. */
+  const text = await res.text().catch(() => '');
+  if (!res.ok) throw new Error(`SMS gateway responded ${res.status}${text ? ` — ${text.slice(0, 200)}` : ''}`);
+
+  /* A 200 is not proof of anything. Several gateways answer 200 with an error
+     in the body — SMS Messenger returns {"messageId":…,"error":null} — and
+     trusting the status alone turns a rejected message into a silent success,
+     which is the worst outcome available for an OTP. */
+  if (text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && parsed.error != null && parsed.error !== '') {
+        throw new Error(`SMS gateway accepted the request but reported: ${JSON.stringify(parsed.error).slice(0, 200)}`);
+      }
+    } catch (e) {
+      if (e instanceof SyntaxError) return; // not JSON; the 2xx is all we have
+      throw e;
+    }
   }
 }
 
