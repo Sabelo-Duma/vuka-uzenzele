@@ -23,7 +23,15 @@ export function getToken() { return token; }
 /** Error carrying the server's user-facing message. */
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) { super(message); this.status = status; this.name = 'ApiError'; }
+  /** Machine-readable cause, where the server offers one (e.g. 'no_account'),
+   *  so the UI can act on it rather than pattern-matching on English. */
+  reason?: string;
+  constructor(message: string, status: number, reason?: string) {
+    super(message);
+    this.status = status;
+    this.reason = reason;
+    this.name = 'ApiError';
+  }
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -40,8 +48,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   let data: unknown = null;
   try { data = await res.json(); } catch { /* empty body */ }
   if (!res.ok) {
-    const msg = (data as { error?: string })?.error ?? 'Something went wrong. Please try again.';
-    throw new ApiError(msg, res.status);
+    const err = data as { error?: string; reason?: string } | null;
+    const msg = err?.error ?? 'Something went wrong. Please try again.';
+    throw new ApiError(msg, res.status, err?.reason);
   }
   return data as T;
 }
