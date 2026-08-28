@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Vuka Uzenzele API — Express + built-in SQLite + JWT auth.",
+  "description": "Vuka Uzenzele API \u2014 Express + built-in SQLite + JWT auth.",
   "engines": {
     "node": ">=22.5.0"
   },
@@ -14,7 +14,8 @@
     "vapid:keys": "node src/vapid.mjs",
     "backup": "node --experimental-sqlite scripts/backup.mjs",
     "restore": "node --experimental-sqlite scripts/backup.mjs restore",
-    "test": "node --experimental-sqlite src/test.mjs"
+    "test": "node --experimental-sqlite src/test.mjs",
+    "sms:test": "node src/smstest.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
