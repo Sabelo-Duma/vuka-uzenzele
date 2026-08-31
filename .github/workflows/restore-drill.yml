@@ -1,0 +1,117 @@
+name: Restore drill
+
+# Proves the nightly backup can actually be put back.
+#
+# A backup nobody has restored is a hypothesis. The usual way to test one is to
+# restore it by hand, which nobody does, because the dump is taken with
+# --clean --if-exists: aimed at the wrong database it DROPS the live tables
+# before it writes. That risk is why this runs here instead.
+#
+# The target is a throwaway Postgres service container that exists for the life
+# of this job. Production is not reachable from it and its connection string is
+# never used, so the drill cannot damage anything no matter what goes wrong.
+#
+# Run it from the Actions tab whenever you want reassurance; it also runs
+# monthly so the answer never goes more than a month stale.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 03:40 UTC on the 1st ≈ 05:40 SAST — after that night's backup.
+    - cron: '40 3 1 * *'
+
+permissions:
+  contents: read
+  actions: read          # to download the backup workflow's artifact
+
+jobs:
+  drill:
+    name: restore the latest backup into a throwaway database
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: drill
+          POSTGRES_USER: drill
+          POSTGRES_DB: drill
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Install a matching psql
+        # Same reasoning as the backup workflow: unpinned, because the managed
+        # provider decides its own major and a hardcoded one rots silently.
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update -qq
+          latest=$(apt-cache search --names-only '^postgresql-client-[0-9]+$' \
+                   | awk '{print $1}' | sed 's/.*-//' | sort -n | tail -1)
+          sudo apt-get install -y --no-install-recommends "postgresql-client-${latest}"
+          echo "PSQL=/usr/lib/postgresql/${latest}/bin/psql" >> "$GITHUB_ENV"
+          "/usr/lib/postgresql/${latest}/bin/psql" --version
+
+      - name: Fetch the most recent successful backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" \
+                     --workflow "Database backup" --status success \
+                     --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error title=No backup to restore::No successful 'Database backup' run was found. There is nothing to drill against."
+            exit 1
+          fi
+          echo "restoring the backup from run $run_id"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --dir ./backup
+          find ./backup -name '*.sql.gz' | head -1 > .archive
+          test -s .archive || { echo "::error title=Archive missing::That run produced no .sql.gz artifact."; exit 1; }
+          echo "ARCHIVE=$(cat .archive)" >> "$GITHUB_ENV"
+          ls -la "$(cat .archive)"
+
+      - name: Restore it
+        env:
+          # The throwaway service container — never production.
+          TARGET: postgresql://drill:drill@localhost:5432/drill
+        run: |
+          set -euo pipefail
+          # psql exits 0 on SQL errors by default, which would make a broken
+          # restore look like a passing drill. ON_ERROR_STOP fixes that.
+          gunzip -c "$ARCHIVE" | "$PSQL" "$TARGET" -v ON_ERROR_STOP=1 --quiet
+          echo "restore completed without a SQL error"
+
+      - name: Check the data actually came back
+        env:
+          TARGET: postgresql://drill:drill@localhost:5432/drill
+        run: |
+          set -euo pipefail
+          q() { "$PSQL" "$TARGET" -tAc "$1"; }
+
+          tables=$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
+          echo "tables restored: $tables"
+          if [ "$tables" -lt 5 ]; then
+            echo "::error title=Restore looks empty::Only ${tables} tables came back. The archive restored without error but the schema is not there."
+            exit 1
+          fi
+
+          # A schema with no rows restores "successfully" and is still useless,
+          # so check the tables that would end a business if they came back bare.
+          for t in users gigs; do
+            n=$(q "SELECT count(*) FROM ${t}")
+            echo "  ${t}: ${n} rows"
+            if [ "$n" -lt 1 ]; then
+              echo "::error title=${t} is empty::The restore produced a ${t} table with no rows."
+              exit 1
+            fi
+          done
+
+          echo "RESTORE DRILL PASSED — the backup is real and restorable."
