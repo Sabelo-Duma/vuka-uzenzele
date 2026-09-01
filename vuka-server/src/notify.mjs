@@ -47,6 +47,26 @@ if (process.env.NODE_ENV === 'production') {
   if (otpEcho) console.warn('WARNING: VUKA_OTP_ECHO=1 in production — one-time codes are returned in API responses. Pilot only; unset before real users.');
 }
 
+/**
+ * Say so at boot when the http provider has no credentials.
+ *
+ * `smsConfigured` only reports that a provider was NAMED, so losing the auth
+ * variables leaves the app looking healthy — /api/health says smsConfigured,
+ * the service boots, and the only symptom is that every OTP is rejected by the
+ * gateway. Worth a line in the log at startup rather than one per user.
+ */
+export function smsAuthConfigured() {
+  try {
+    return Object.keys(authHeaders()).length > 0;
+  } catch {
+    return false; // malformed VUKA_SMS_HEADERS — authHeaders() reports it properly at send time
+  }
+}
+
+if (smsProvider === 'http' && !smsAuthConfigured()) {
+  console.warn('WARNING: VUKA_SMS_PROVIDER=http but no SMS credentials resolved — set VUKA_SMS_HEADERS, VUKA_SMS_AUTH, or VUKA_SMS_USER/_PASS. Requests will go out unauthenticated and the gateway will reject them.');
+}
+
 /** Normalise a SA mobile number to E.164 (+27…) for providers that need it. */
 export function toE164(phone) {
   const digits = String(phone).replace(/\D/g, '');
@@ -115,15 +135,22 @@ async function viaHttp(to, body) {
   const url = process.env.VUKA_SMS_URL;
   if (!url) throw new Error('VUKA_SMS_URL is not set');
   const payload = renderSmsBody(process.env.VUKA_SMS_BODY || DEFAULT_SMS_BODY, toE164(to), body);
+  const auth = authHeaders();
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...auth },
     body: payload,
   });
   /* Carry a little of the provider's own reply. "responded 400" alone sends you
      to their dashboard to guess; their message usually names the field. */
   const text = await res.text().catch(() => '');
-  if (!res.ok) throw new Error(`SMS gateway responded ${res.status}${text ? ` — ${text.slice(0, 200)}` : ''}`);
+  /* Missing credentials look like an ordinary rejection from the outside, and
+     the gateway's wording rarely says "you sent no auth header" — so name it
+     here, where we actually know. Never log the header VALUES. */
+  const hint = Object.keys(auth).length
+    ? ''
+    : ' (no SMS credentials were sent — VUKA_SMS_HEADERS / VUKA_SMS_AUTH / VUKA_SMS_USER+_PASS are all unset)';
+  if (!res.ok) throw new Error(`SMS gateway responded ${res.status}${text ? ` — ${text.slice(0, 200)}` : ''}${hint}`);
 
   /* A 200 is not proof of anything. Several gateways answer 200 with an error
      in the body — SMS Messenger returns {"messageId":…,"error":null} — and
@@ -133,7 +160,7 @@ async function viaHttp(to, body) {
     try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object' && parsed.error != null && parsed.error !== '') {
-        throw new Error(`SMS gateway accepted the request but reported: ${JSON.stringify(parsed.error).slice(0, 200)}`);
+        throw new Error(`SMS gateway accepted the request but reported: ${JSON.stringify(parsed.error).slice(0, 200)}${hint}`);
       }
     } catch (e) {
       if (e instanceof SyntaxError) return; // not JSON; the 2xx is all we have
