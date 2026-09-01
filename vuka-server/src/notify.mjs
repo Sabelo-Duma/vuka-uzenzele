@@ -186,11 +186,24 @@ async function viaTwilio(to, body) {
 }
 
 /**
+ * How many messages this process has tried to send.
+ *
+ * SMS is the only per-use cost the platform carries, so this is a running bill
+ * rather than a curiosity. In memory on purpose — it answers "is something
+ * sending far more than we expect, right now", which is the question worth
+ * catching early. Counts attempts, not successes: a rejected message can still
+ * be a bug that would have cost money.
+ */
+let attempts = 0;
+export const smsAttempts = () => attempts;
+
+/**
  * Send an SMS. Never throws: delivery is best-effort and the caller decides how
  * much a failure matters (an OTP send reports it; a "you're hired" nudge doesn't).
  * @returns {Promise<{delivered: boolean, provider: string, error?: string}>}
  */
 export async function sendSms(to, body) {
+  attempts += 1;
   try {
     if (smsProvider === 'http') await viaHttp(to, body);
     else if (smsProvider === 'twilio') await viaTwilio(to, body);
