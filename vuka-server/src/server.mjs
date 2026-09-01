@@ -279,6 +279,42 @@ async function notifyUser(userId, payload) {
 }
 
 /**
+ * Tell one person something that matters, on the cheapest channel that will
+ * actually reach them: push if any of their devices accepts it, SMS only if
+ * none does.
+ *
+ * Both used to fire unconditionally. For anyone with notifications switched on
+ * that made the SMS a paid duplicate of a free message — and at three messages
+ * per completed job it was the largest avoidable cost the platform had. Keying
+ * the fallback on devices actually reached, rather than on whether a
+ * subscription row exists, means an expired or broken subscription still falls
+ * back to SMS instead of silently dropping the notice.
+ *
+ * Detached on purpose: the caller is completing a hire or a confirmation, and
+ * must neither wait on a push service nor fail because one was unreachable.
+ */
+function reach(user, payload, smsText) {
+  if (!user?.id) return;
+  void (async () => {
+    let devices = 0;
+    try {
+      devices = await notifyUser(user.id, payload);
+    } catch (e) {
+      captureError(e, `reach:${payload.type}`);
+    }
+    if (devices > 0) return;              // the free channel did the job
+    if (!user.phone) return;
+    const sms = await sendSms(user.phone, smsText);
+    if (!sms.delivered && sms.provider !== 'console') {
+      captureError(
+        new Error(`"${payload.type}" notice reached neither push nor SMS: ${sms.error ?? sms.provider}`),
+        `reach:${payload.type}`
+      );
+    }
+  })();
+}
+
+/**
  * The job alert. This is what the "Job alerts" toggle has always promised and
  * nothing delivered: when a gig is posted, the workers who opted in and are
  * within ALERT_RADIUS_KM hear about it.
@@ -787,14 +823,13 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
   // discover it. Best-effort: a failed SMS must not fail the hire.
   const worker = await userById(workerId);
   if (worker) {
-    void sendSms(worker.phone, `Good news! ${g.employer_name} hired you for "${g.title}" on Vuka Uzenzele. Open the app for the details.`);
-    void notifyUser(worker.id, {
+    reach(worker, {
       type: 'hired',
       title: "You've been hired! 🎉",
       body: `${g.employer_name} chose you for "${g.title}".`,
       url: '/?tab=jobs',
       tag: `hired-${g.id}`,
-    }).catch((e) => captureError(e, 'notifyUser:hired'));
+    }, `Good news! ${g.employer_name} hired you for "${g.title}" on Vuka Uzenzele. Open the app for the details.`);
     await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
       [uuid(), req.user.id, worker.id, `You're hired for "${g.title}" 🎉 Let's arrange the details.`, now]);
   }
@@ -829,14 +864,13 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
     const worker = await userById(req.user.id);
     const employer = await userById(g.employer_id);
     if (employer) {
-      void sendSms(employer.phone, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
-      void notifyUser(employer.id, {
+      reach(employer, {
         type: 'work-done',
         title: 'Work marked as done',
         body: `${worker?.name ?? 'Your worker'} finished "${g.title}". Confirm to release their reference.`,
         url: '/?tab=hires',
         tag: `done-${g.id}`,
-      }).catch((e) => captureError(e, 'notifyUser:work-done'));
+      }, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
       await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
         [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy 🙏`, now]);
     }
@@ -906,14 +940,13 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
 
   const worker = await userById(app_.worker_id);
   if (worker) {
-    void sendSms(worker.phone, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`);
-    void notifyUser(worker.id, {
+    reach(worker, {
       type: 'confirmed',
       title: `${rating}/5 — your CV just grew ⭐`,
       body: `${g.employer_name} confirmed "${g.title}". The reference is on your CV.`,
       url: '/?tab=cv',
       tag: `confirmed-${g.id}`,
-    }).catch((e) => captureError(e, 'notifyUser:confirmed'));
+    }, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`);
   }
   res.json({ ok: true, status: 'completed', rating, review });
 }));
@@ -1367,7 +1400,16 @@ app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asy
 
     const employer = gig?.employer_id ? await userById(gig.employer_id) : null;
     if (employer) {
-      void sendSms(employer.phone, `${(await userById(req.user.id))?.name ?? 'A worker'} accepted your invitation for "${gig.title}" on Vuka Uzenzele.`);
+      // Push was never wired up here, so this notice always cost a message.
+      // Going through reach() gives it the free channel first, like the rest.
+      const who = (await userById(req.user.id))?.name ?? 'A worker';
+      reach(employer, {
+        type: 'invitation-accepted',
+        title: 'Your invitation was accepted',
+        body: `${who} accepted your invitation for "${gig.title}".`,
+        url: '/?tab=hires',
+        tag: `invite-accepted-${inv.gig_id}`,
+      }, `${who} accepted your invitation for "${gig.title}" on Vuka Uzenzele.`);
     }
   }
   res.json({ ok: true, accepted: accept, gigId: inv.gig_id });

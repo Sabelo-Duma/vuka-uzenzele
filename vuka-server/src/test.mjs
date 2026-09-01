@@ -556,6 +556,53 @@ async function run() {
     ok((await api('GET', '/health')).json?.pushConfigured === true, 'health reports whether push can actually be delivered');
   }
 
+  // 9o-ii) push is the free channel and SMS is the paid fallback — never both.
+  // Three lifecycle SMS per completed job was the largest avoidable cost the
+  // platform had. A regression here doubles the bill in silence, so it is
+  // guarded in both directions rather than assumed.
+  {
+    const { smsAttempts } = await import('./notify.mjs');
+    const { run: dbRun } = await import('./db.mjs');
+    const { createServer } = await import('node:http');
+    const { randomUUID } = await import('node:crypto');
+
+    // A push endpoint that actually accepts, unlike the .invalid host above —
+    // that one can only ever exercise the failure path.
+    let pushed = 0;
+    const pushHost = createServer((req, res) => { pushed++; res.writeHead(201); res.end(); });
+    await new Promise((r) => pushHost.listen(0, '127.0.0.1', r));
+    const endpoint = `http://127.0.0.1:${pushHost.address().port}/sub/live`;
+
+    const emp = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Thandi Mokoena', phone: '0829990008', password: 'test1234', verifyToken: await verifyPhone('0829990008') } })).json.token;
+
+    /** Post a gig, hire the worker, and wait for the detached notify to settle. */
+    const hireOnce = async (title) => {
+      const g = await api('POST', '/gigs', { token: emp, body: { title, category: 'cleaning', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Wed 09:00' } });
+      await api('POST', `/gigs/${g.json.id}/apply`, { token: wTok });
+      await api('POST', `/gigs/${g.json.id}/hire`, { token: emp, body: { workerId: wId } });
+      await new Promise((r) => setTimeout(r, 400));   // reach() runs detached
+    };
+
+    await dbRun('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, created_at) VALUES (?,?,?,?,?,?)',
+      [randomUUID(), wId, endpoint,
+       'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
+       'BTBZMqHH6r4Tts7J_aSIgg', new Date().toISOString()]);
+
+    const smsBefore = smsAttempts();
+    await hireOnce('Kitchen deep clean');
+    ok(pushed === 1, 'a hire notice goes out over push when the worker has a live subscription');
+    ok(smsAttempts() === smsBefore, 'and costs no SMS — the free channel is not duplicated');
+
+    // Same event, no reachable device: the notice must still arrive.
+    await dbRun('DELETE FROM push_subscriptions WHERE user_id = ?', [wId]);
+    const smsMid = smsAttempts();
+    await hireOnce('Windows and stoep');
+    ok(pushed === 1, 'no further push once the subscription is gone');
+    ok(smsAttempts() === smsMid + 1, 'SMS carries the notice instead — the fallback still fires');
+
+    await new Promise((r) => pushHost.close(r));
+  }
+
   // 9p) ops triage — someone can now receive safety reports and formal applications
   {
     ok((await api('GET', '/admin/safety-reports')).status === 404, 'triage routes are off without VUKA_ADMIN_TOKEN');
