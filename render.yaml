@@ -81,6 +81,14 @@ services:
         sync: false
       - key: VUKA_SMS_BODY
         sync: false
+      # Must be declared here even though the value is set in the dashboard.
+      # A blueprint-managed service takes its env var LIST from this file, so a
+      # variable that only ever existed in the dashboard is dropped on the next
+      # blueprint sync — silently, and the app keeps booting. That is exactly how
+      # SMS Messenger's `email`/`token` headers went missing and every OTP
+      # started failing with the account looking perfectly healthy.
+      - key: VUKA_SMS_HEADERS
+        sync: false
       # Optional: ship errors to Sentry's free tier so they survive a restart.
       # Unset, errors are still captured in the log and at GET /api/admin/errors.
       - key: SENTRY_DSN
