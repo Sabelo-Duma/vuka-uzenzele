@@ -25,5 +25,9 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.11.0",
     "pg": "^8.22.0"
+  },
+  "comment:overrides": "qs <=6.15.3 carries two DoS advisories (GHSA-4mjr-xmp4-gh2g, GHSA-x5fp-wj9c-mxmx) and reaches us through express -> body-parser, where it parses attacker-controlled query strings on a public API. Express 4.22.2 is the newest 4.x and still pins a vulnerable qs, so the only fix without a major upgrade is to force the patched minor here. Same major, API-compatible. Remove this once express ships a 4.x that depends on qs >= 6.16.",
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }
