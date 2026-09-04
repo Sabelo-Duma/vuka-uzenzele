@@ -39,6 +39,34 @@ export default {
       fontFamily: {
         sans: ['"Figtree Variable"', 'Figtree', 'proxima-nova', 'system-ui', 'Arial', 'sans-serif'],
       },
+      /**
+       * The type scale.
+       *
+       * The app had grown 23 distinct arbitrary sizes — text-[9px] through
+       * text-[64px], often a single pixel apart — sitting alongside Tailwind's
+       * own scale. A heading, the line under it and the card title beside it
+       * could each be a different size for no reason anyone chose, which reads
+       * as visual noise rather than hierarchy.
+       *
+       * Eleven steps, each a deliberate jump. Sizes only, no paired
+       * line-height: these replace bare `text-[Npx]`, which never set one, so
+       * adding one here would silently reflow every screen. Existing
+       * `text-sm` / `text-base` and friends keep Tailwind's defaults, including
+       * the 16px `text-base` that stops iOS zooming a focused input.
+       */
+      fontSize: {
+        micro: '11px',
+        small: '13px',
+        body: '15px',
+        lead: '17px',
+        title: '20px',
+        head: '24px',
+        display: '28px',
+        hero: '40px',
+        jumbo: '48px',
+        giant: '56px',
+        mega: '64px',
+      },
       borderRadius: {
         pill: '35px',
         card: '18px',

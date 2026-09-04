@@ -122,11 +122,11 @@ function AuthLayout({ children }: { children: ReactNode }) {
         <div className="relative flex items-center gap-2.5 font-bold text-lg"><span className="w-3 h-3 rounded-full bg-red" />Vuka Uzenzele</div>
 
         <div className="relative max-w-md">
-          <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-[12px] font-bold text-white/90 mb-6">
+          <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-white/90 mb-6">
             <span className="w-2 h-2 rounded-full bg-red floaty" />Youth work, reimagined for South Africa
           </span>
-          <h1 className="ob-rise text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
-          <p className="ob-rise-2 text-white/70 mt-5 text-[15px] leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
+          <h1 className="ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
+          <p className="ob-rise-2 text-white/70 mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
           <ul className="ob-rise-3 mt-9 space-y-4">
             {[
               { icon: '🪜', t: 'The opportunity ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
@@ -135,7 +135,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
             ].map((f) => (
               <li key={f.t} className="flex gap-3.5 items-start">
                 <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 text-xl shrink-0" aria-hidden="true">{f.icon}</span>
-                <span><span className="block font-bold text-[15px]">{f.t}</span><span className="block text-white/60 text-[13px] leading-snug mt-0.5">{f.s}</span></span>
+                <span><span className="block font-bold text-body">{f.t}</span><span className="block text-white/60 text-small leading-snug mt-0.5">{f.s}</span></span>
               </li>
             ))}
           </ul>
@@ -168,21 +168,21 @@ function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; on
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
-      <p className="text-[13.5px] text-muted mb-6">How will you use Vuka?</p>
+      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
+      <p className="text-small text-muted mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
         <RoleOption emoji="🙋" bg="#eaf3fb" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
         <RoleOption emoji="💼" bg="#faf5ff" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
       </div>
-      <div className="text-center mt-6"><button onClick={onLogin} className="text-[13px] text-muted font-semibold hover:text-navy">Already have an account? <b className="text-red">Log in</b></button></div>
+      <div className="text-center mt-6"><button onClick={onLogin} className="text-small text-muted font-semibold hover:text-navy">Already have an account? <b className="text-red">Log in</b></button></div>
     </div>
   );
 }
 function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: string; title: string; sub: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="text-left border border-line-strong rounded-[20px] p-4 bg-surface flex gap-4 items-center hover:border-red hover:shadow-e2 transition active:scale-[.985]">
-      <span className="grid place-items-center w-[54px] h-[54px] rounded-2xl text-[28px] shrink-0 dark:bg-surface-2" style={{ background: bg }} aria-hidden="true">{emoji}</span>
-      <span className="flex-1"><span className="block text-base font-bold text-navy">{title}</span><span className="block text-[12.5px] text-muted mt-0.5 leading-snug">{sub}</span></span>
+      <span className="grid place-items-center w-[54px] h-[54px] rounded-2xl text-display shrink-0 dark:bg-surface-2" style={{ background: bg }} aria-hidden="true">{emoji}</span>
+      <span className="flex-1"><span className="block text-base font-bold text-navy">{title}</span><span className="block text-small text-muted mt-0.5 leading-snug">{sub}</span></span>
       <span className="text-subtle"><Icon name="chev" size={18} /></span>
     </button>
   );
@@ -210,22 +210,22 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
-      <p className="text-[13.5px] text-muted mb-6">Sign in to pick up where you left off.</p>
+      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
+      <p className="text-small text-muted mb-6">Sign in to pick up where you left off.</p>
       <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => edit(setPhone)(e.target.value)} aria-label="Mobile number" /></div>
       <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
-      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-[12.5px] font-bold text-navy hover:text-red transition">Forgot password?</button></div>
+      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-small font-bold text-navy hover:text-red transition">Forgot password?</button></div>
 
       {error && (
         <div role="alert" className="mb-4 rounded-2xl border border-red/30 bg-red/5 px-4 py-3">
-          <p className="text-[13px] font-semibold text-red leading-snug m-0">{error.message}</p>
+          <p className="text-small font-semibold text-red leading-snug m-0">{error.message}</p>
           {error.reason === 'no_account' && (
-            <button type="button" onClick={onSignUp} className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2">
+            <button type="button" onClick={onSignUp} className="mt-2 text-small font-extrabold text-navy underline underline-offset-2">
               Create an account →
             </button>
           )}
           {error.reason === 'wrong_password' && (
-            <button type="button" onClick={onForgot} className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2">
+            <button type="button" onClick={onForgot} className="mt-2 text-small font-extrabold text-navy underline underline-offset-2">
               Reset my password →
             </button>
           )}
@@ -234,7 +234,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
 
       <Button block disabled={busy} onClick={() => onLogin(phone, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
 
-      <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-[11px] text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
+      <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
       <div className="grid grid-cols-2 gap-2.5">
         <Button variant="ghost" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
         <Button variant="ghost" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
@@ -300,10 +300,10 @@ function ResetView({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-[26px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
+      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
       {phase === 'phone' ? (
         <>
-          <p className="text-[13.5px] text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
+          <p className="text-small text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
           <div className="mb-5"><Label>Mobile number</Label>
             <input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} aria-invalid={!!error} onChange={(e) => { setError(null); setPhone(e.target.value); }} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
           </div>
@@ -312,7 +312,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
         </>
       ) : (
         <>
-          <p className="text-[13.5px] text-muted mb-6">If <b className="text-navy">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
+          <p className="text-small text-muted mb-6">If <b className="text-navy">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
           <div className="mb-3.5"><Label>Reset code</Label>
             <input className={error ? inputErrCls : inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} aria-invalid={!!error} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '')); }} aria-label="Reset code" />
           </div>
@@ -320,10 +320,10 @@ function ResetView({ onBack }: { onBack: () => void }) {
             <input className={inputCls} type="password" placeholder="At least 8 characters" value={password} onChange={(e) => { setError(null); setPassword(e.target.value); }} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
           </div>
           {error && <InlineError action={{ label: 'Start again', onClick: () => { setError(null); setCode(''); setPhase('phone'); } }}>{error}</InlineError>}
-          {devCode && <p className="text-[12px] text-muted mb-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
+          {devCode && <p className="text-small text-muted mb-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
           <Trust>Changing your password signs out anyone else who was using your account.</Trust>
           <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : 'Set new password & sign in'}</Button>
-          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-[12.5px] text-muted font-semibold mt-3 hover:text-navy">Use a different number</button>
+          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-small text-muted font-semibold mt-3 hover:text-navy">Use a different number</button>
         </>
       )}
     </div>
@@ -370,13 +370,13 @@ function BackRow({ onBack }: { onBack: () => void }) {
   return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
 function Head({ h, sub }: { h: string; sub: string }) {
-  return (<><h2 className="text-[24px] font-extrabold text-navy mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-[13.5px] text-muted mb-6 leading-relaxed">{sub}</p></>);
+  return (<><h2 className="text-head font-extrabold text-navy mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-muted mb-6 leading-relaxed">{sub}</p></>);
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
 }
 const Trust = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-[12px] text-navy leading-snug">{children}</span></div>
+  <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-small text-navy leading-snug">{children}</span></div>
 );
 
 function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onSent: () => void; onSignIn: () => void }) {
@@ -487,15 +487,15 @@ function OtpStep({ data, setData, onVerified }: {
         value={data.otp[i] ?? ''}
         disabled={busy}
         aria-invalid={!!error}
-        className={`w-16 h-18 py-4 text-center text-[26px] font-bold text-navy border-[1.5px] rounded-2xl bg-surface focus:outline-none disabled:opacity-60 transition-colors ${
+        className={`w-16 h-18 py-4 text-center text-display font-bold text-navy border-[1.5px] rounded-2xl bg-surface focus:outline-none disabled:opacity-60 transition-colors ${
           error ? 'border-red focus:border-red' : 'border-line-strong focus:border-navy'
         }`}
         onChange={(e) => setDigit(i, e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
     {error && <InlineError action={{ label: 'Send a new code', onClick: resend }}>{error}</InlineError>}
-    {devCode && <p className="text-center text-[12px] text-muted mt-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
-    <p className="text-center text-[12.5px] text-muted mt-4">
+    {devCode && <p className="text-center text-small text-muted mt-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
+    <p className="text-center text-small text-muted mt-4">
       Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-navy font-bold underline underline-offset-2 hover:text-red transition disabled:opacity-50">Resend</button>
     </p>
     <Button block className="mt-7" disabled={busy} onClick={() => submit(data.otp)}>{busy ? 'Checking…' : 'Confirm my number'}</Button></>);
@@ -514,8 +514,8 @@ function SkillsStep({ data, setData }: { data: OBData; setData: React.Dispatch<R
     <div className="grid grid-cols-2 gap-2.5">
       {CATEGORIES.map((c) => { const sel = data.skills.includes(c.id); return (
         <button key={c.id} onClick={() => toggleSkill(c.id)} aria-pressed={sel} className={`relative flex gap-2.5 items-center border-[1.5px] rounded-2xl px-3 py-3.5 bg-surface transition ${sel ? 'border-red bg-[#fdecef] dark:bg-red/10' : 'border-line-strong hover:border-navy'}`}>
-          <span className="text-[22px]" aria-hidden="true">{c.icon}</span><b className="text-[13.5px] text-navy">{c.label}</b>
-          {sel && <span className="absolute top-2 right-2.5 text-red font-extrabold text-[13px]">✓</span>}
+          <span className="text-head" aria-hidden="true">{c.icon}</span><b className="text-small text-navy">{c.label}</b>
+          {sel && <span className="absolute top-2 right-2.5 text-red font-extrabold text-small">✓</span>}
         </button>); })}
     </div></>);
 }
@@ -534,9 +534,9 @@ function IdStep() {
     <div className="border-[1.5px] border-dashed border-line-strong bg-surface-2 rounded-[20px] p-6 text-center">
       <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-4xl bg-[#eaf3fb] dark:bg-surface" aria-hidden="true">🪪</div>
       <h4 className="m-0 mb-1 text-base text-navy font-bold">Do this from your profile</h4>
-      <p className="m-0 text-[12.5px] text-muted leading-relaxed">Finish signing up, then open <b className="text-navy">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
+      <p className="m-0 text-small text-muted leading-relaxed">Finish signing up, then open <b className="text-navy">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
     </div>
-    <ul className="mt-4 space-y-2 text-[12.5px] text-navy">
+    <ul className="mt-4 space-y-2 text-small text-navy">
       <li className="flex gap-2 items-start"><span>🔒</span> Your ID number is encrypted and never shown to employers</li>
       <li className="flex gap-2 items-start"><span>⚡</span> Takes under a minute, once</li>
       <li className="flex gap-2 items-start"><span>🪜</span> Unlocks formal roles that require verification</li>
@@ -555,15 +555,15 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
   return (
     <div className="text-center">
       <BackRow onBack={onBack} />
-      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-[54px] text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">{worker ? '🎉' : '💼'}</div>
-      <h2 className="text-[24px] font-extrabold text-navy mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
-      <p className="text-[13.5px] text-muted leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
+      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">{worker ? '🎉' : '💼'}</div>
+      <h2 className="text-head font-extrabold text-navy mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
+      <p className="text-small text-muted leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
       {worker && (
         <div className="text-left bg-navy text-white rounded-[18px] p-4 mt-5">
-          <b className="text-[13px]">Your first 3 steps</b>
-          <div className="text-[13px] text-white/90 mt-2.5">1️⃣ Apply to a gig near you (it's free)</div>
-          <div className="text-[13px] text-white/90 mt-2">2️⃣ Do a great job & get reviewed</div>
-          <div className="text-[13px] text-white/90 mt-2">3️⃣ Watch your CV grow and unlock formal jobs 🪜</div>
+          <b className="text-small">Your first 3 steps</b>
+          <div className="text-small text-white/90 mt-2.5">1️⃣ Apply to a gig near you (it's free)</div>
+          <div className="text-small text-white/90 mt-2">2️⃣ Do a great job & get reviewed</div>
+          <div className="text-small text-white/90 mt-2">3️⃣ Watch your CV grow and unlock formal jobs 🪜</div>
         </div>
       )}
       <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? 'Creating your account…' : worker ? 'Create account & start' : 'Create account'}</Button>
@@ -577,7 +577,7 @@ function Consent() {
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
   return (
     <>
-      <p className="text-[11.5px] text-muted leading-relaxed mt-3">
+      <p className="text-micro text-muted leading-relaxed mt-3">
         By creating an account you agree to our{' '}
         <button onClick={() => setLegal('terms')} className="font-bold text-navy underline underline-offset-2">Terms of use</button>
         {' '}and to us handling your information as set out in the{' '}

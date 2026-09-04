@@ -75,27 +75,27 @@ export function GigDetail({ id }: { id: string }) {
         {status === 'applied' && (
           <>
             <Button block variant="ghost" disabled>⏳ Applied — waiting on {employerFirstName}</Button>
-            <p className="text-center text-[12px] text-muted mt-2">Your CV and tier were sent with your application. {employerFirstName} picks who gets the job — you'll be notified either way.</p>
+            <p className="text-center text-small text-muted mt-2">Your CV and tier were sent with your application. {employerFirstName} picks who gets the job — you'll be notified either way.</p>
           </>
         )}
         {status === 'not_selected' && (
           <>
             <Button block variant="ghost" onClick={() => navigate('jobs')}>Browse other gigs</Button>
-            <p className="text-center text-[12px] text-muted mt-2">{employerFirstName} went with someone else this time. Your application still counts — keep applying, nothing is lost.</p>
+            <p className="text-center text-small text-muted mt-2">{employerFirstName} went with someone else this time. Your application still counts — keep applying, nothing is lost.</p>
           </>
         )}
         {status === 'hired' && (
           <>
             <Button block variant="gold" onClick={() => setReviewing(true)}>✅ I've finished this job</Button>
-            <p className="text-center text-[12px] text-muted mt-2">You're hired 🎉 When the work is done, mark it here and rate {employerFirstName}. They then confirm it — that's what writes the reference onto your CV.</p>
+            <p className="text-center text-small text-muted mt-2">You're hired 🎉 When the work is done, mark it here and rate {employerFirstName}. They then confirm it — that's what writes the reference onto your CV.</p>
           </>
         )}
         {status === 'worker_done' && (
           <>
             <Button block variant="ghost" disabled>🕓 Waiting for {employerFirstName} to confirm</Button>
-            <p className="text-center text-[12px] text-muted mt-2">You've marked this done. As soon as {employerFirstName} confirms, your pay is released and the verified reference lands on your CV.</p>
+            <p className="text-center text-small text-muted mt-2">You've marked this done. As soon as {employerFirstName} confirms, your pay is released and the verified reference lands on your CV.</p>
             {autoConfirm && (
-              <p className="text-center text-[12px] text-muted mt-1.5">
+              <p className="text-center text-small text-muted mt-1.5">
                 If they don't respond, this counts automatically — <b className="text-navy">{autoConfirm.text}</b>. It still goes on your CV as work done; it just won't carry a star rating.
               </p>
             )}
@@ -104,7 +104,7 @@ export function GigDetail({ id }: { id: string }) {
         {status === 'completed' && (
           <>
             <Button block variant="ghost" onClick={() => navigate('cv')}>See it on my CV →</Button>
-            <p className="text-center text-[12px] text-muted mt-2">
+            <p className="text-center text-small text-muted mt-2">
               Confirmed by {employerFirstName}{mine?.employerRatingOfMe ? ` · they rated you ${mine.employerRatingOfMe}★` : ''}. This job is now a verified reference.
             </p>
           </>

@@ -45,7 +45,7 @@ export function MyJobs() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your hiring</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Jobs & applicants<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Jobs & applicants<span className="text-red">.</span></h2>
       </header>
 
       {needsConfirmation.length > 0 && (
@@ -53,18 +53,18 @@ export function MyJobs() {
           <SectionTitle>Waiting on you</SectionTitle>
           {needsConfirmation.map((h) => (
             <Card key={h.applicationId} className="p-4 mb-2.5 border-l-4 border-red">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-red mb-2">
+              <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-red mb-2">
                 <Icon name="bolt" size={13} /> Marked done — needs your confirmation
               </div>
-              <b className="text-[15px] font-extrabold text-navy block tracking-tight">{h.gig.title}</b>
-              <div className="text-[12.5px] text-muted mt-0.5">
+              <b className="text-body font-extrabold text-navy block tracking-tight">{h.gig.title}</b>
+              <div className="text-small text-muted mt-0.5">
                 {h.worker.name} finished this job · <b className="text-navy tnum">{money(h.gig.hours * h.gig.payPerHour)}</b>
               </div>
-              <p className="text-[12px] text-muted leading-snug mt-2 mb-0">Confirming releases their pay and adds your review to their CV.</p>
+              <p className="text-small text-muted leading-snug mt-2 mb-0">Confirming releases their pay and adds your review to their CV.</p>
               {(() => {
                 const auto = timeToAutoConfirm(h.workerDoneAt, autoReleaseHours());
                 return auto ? (
-                  <p className={`text-[12px] leading-snug mt-1 mb-0 ${auto.soon ? 'text-red font-semibold' : 'text-muted'}`}>
+                  <p className={`text-small leading-snug mt-1 mb-0 ${auto.soon ? 'text-red font-semibold' : 'text-muted'}`}>
                     {auto.text} to confirm — after that it counts automatically, without your rating.
                   </p>
                 ) : null;
@@ -75,7 +75,7 @@ export function MyJobs() {
         </>
       )}
 
-      <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => navigate('post')}>Post a job →</button>}>Open jobs</SectionTitle>
+      <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => navigate('post')}>Post a job →</button>}>Open jobs</SectionTitle>
       {posted === null ? (
         <div className="flex flex-col gap-2.5">
           <Skeleton className="h-[86px] w-full rounded-card" />
@@ -95,10 +95,10 @@ export function MyJobs() {
           return (
             <button key={gig.id} onClick={() => navigate('applicants', gig.id)} className="w-full text-left mb-2.5 active:scale-[.99] transition">
               <Card className="p-4 flex gap-3.5 items-center hover:bg-surface-2 hover:border-line-strong transition">
-                <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+                <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <b className="text-[15px] font-extrabold text-navy block leading-tight tracking-tight">{gig.title}</b>
-                  <div className="text-[12px] text-muted mt-0.5">{gig.location} · {gig.when}</div>
+                  <b className="text-body font-extrabold text-navy block leading-tight tracking-tight">{gig.title}</b>
+                  <div className="text-small text-muted mt-0.5">{gig.location} · {gig.when}</div>
                   <div className="mt-1.5">
                     {waiting > 0
                       ? <Chip tone="urgent" icon="bolt">{waiting} {waiting === 1 ? 'applicant' : 'applicants'} to review</Chip>
@@ -117,10 +117,10 @@ export function MyJobs() {
           <SectionTitle>Work in progress</SectionTitle>
           {inProgress.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
-              <span className="text-[20px]" aria-hidden="true">🔨</span>
+              <span className="text-title" aria-hidden="true">🔨</span>
               <div className="flex-1 min-w-0">
-                <b className="text-[14px] text-navy block">{h.gig.title}</b>
-                <div className="text-[12px] text-muted">{h.worker.name} is on it — they'll mark it done when finished</div>
+                <b className="text-body text-navy block">{h.gig.title}</b>
+                <div className="text-small text-muted">{h.worker.name} is on it — they'll mark it done when finished</div>
               </div>
               <Button size="sm" variant="ghost" icon="chat" onClick={() => navigate('chat', h.worker.id)}>Chat</Button>
             </Card>
@@ -133,10 +133,10 @@ export function MyJobs() {
           <SectionTitle>Completed</SectionTitle>
           {finished.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
-              <span className="text-[20px]" aria-hidden="true">✅</span>
+              <span className="text-title" aria-hidden="true">✅</span>
               <div className="flex-1 min-w-0">
-                <b className="text-[14px] text-navy block">{h.gig.title}</b>
-                <div className="text-[12px] text-muted">{h.worker.name} · confirmed and reviewed</div>
+                <b className="text-body text-navy block">{h.gig.title}</b>
+                <div className="text-small text-muted">{h.worker.name} · confirmed and reviewed</div>
               </div>
             </Card>
           ))}

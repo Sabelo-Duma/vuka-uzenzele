@@ -54,7 +54,7 @@ function activeTab(screen: Screen): Screen {
 function UnreadBadge({ count, onDark }: { count: number; onDark?: boolean }) {
   if (count <= 0) return null;
   return (
-    <span className={`grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tnum ${onDark ? 'bg-white text-red' : 'bg-red text-white'}`}>
+    <span className={`grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full text-micro font-bold tnum ${onDark ? 'bg-white text-red' : 'bg-red text-white'}`}>
       {count > 99 ? '99+' : count}
     </span>
   );
@@ -86,10 +86,10 @@ function AccountBar() {
   const { state, logout } = useApp();
   return (
     <div className="rounded-2xl border border-line bg-surface-2 p-3">
-      <div className="text-[11px] text-subtle uppercase tracking-wide font-bold">Signed in</div>
+      <div className="text-micro text-subtle uppercase tracking-wide font-bold">Signed in</div>
       <div className="text-sm font-bold text-navy truncate">{state.user?.name ?? 'You'}</div>
-      <div className="text-[11px] text-muted mb-2 capitalize">{state.role} account</div>
-      <button onClick={logout} className="w-full rounded-pill border border-line-strong text-navy text-[13px] font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
+      <div className="text-micro text-muted mb-2 capitalize">{state.role} account</div>
+      <button onClick={logout} className="w-full rounded-pill border border-line-strong text-navy text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
     </div>
   );
 }
@@ -194,13 +194,13 @@ function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[10.5px] font-bold transition
+      className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-micro font-bold transition
         ${active ? 'text-red' : 'text-subtle'}`}
     >
       <span className="relative">
         <Icon name={item.icon} size={23} />
         {badge > 0 && (
-          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[10px] font-bold tnum">
+          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-micro font-bold tnum">
             {badge > 99 ? '99+' : badge}
           </span>
         )}

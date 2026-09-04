@@ -42,8 +42,8 @@ function ErrorBanner({ msg, onRetry, onDismiss }: { msg: string; onRetry: () => 
   return (
     <div role="alert" className="mb-3 flex items-center gap-3 rounded-2xl border border-[#f5c2cb] dark:border-red/30 bg-[#fdecef] dark:bg-red/10 px-3.5 py-2.5">
       <span className="text-lg shrink-0" aria-hidden="true">⚠️</span>
-      <span className="flex-1 text-[12.5px] text-navy leading-snug">{msg}</span>
-      <button onClick={onRetry} className="shrink-0 rounded-pill bg-navy text-white dark:text-navy-deep text-[12px] font-bold px-3 py-1.5 active:scale-95">Retry</button>
+      <span className="flex-1 text-small text-navy leading-snug">{msg}</span>
+      <button onClick={onRetry} className="shrink-0 rounded-pill bg-navy text-white dark:text-navy-deep text-small font-bold px-3 py-1.5 active:scale-95">Retry</button>
       <button onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-subtle hover:text-navy px-1">✕</button>
     </div>
   );

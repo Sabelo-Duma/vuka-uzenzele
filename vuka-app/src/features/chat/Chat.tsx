@@ -39,7 +39,7 @@ function MessageActions({ mine, canEdit, onReply, onEdit, onDelete, onCopy, onCl
   mine: boolean; canEdit: boolean;
   onReply: () => void; onEdit: () => void; onDelete: () => void; onCopy: () => void; onClose: () => void;
 }) {
-  const item = 'w-full text-left px-4 py-3 text-[14px] font-semibold hover:bg-surface-2 transition flex items-center gap-3';
+  const item = 'w-full text-left px-4 py-3 text-body font-semibold hover:bg-surface-2 transition flex items-center gap-3';
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label="Message actions">
       <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
@@ -70,8 +70,8 @@ function QuotedBlock({ label, body, deleted, tone }: {
         tone === 'mine' ? 'bg-white/15 border-white/60 dark:bg-navy-deep/10' : 'bg-navy/5 border-navy/40'
       }`}
     >
-      <span className={`block text-[10.5px] font-bold uppercase tracking-wide ${tone === 'mine' ? 'opacity-80' : 'text-navy/70'}`}>{label}</span>
-      <span className={`block text-[12px] truncate ${deleted ? 'italic opacity-60' : 'opacity-90'}`}>
+      <span className={`block text-micro font-bold uppercase tracking-wide ${tone === 'mine' ? 'opacity-80' : 'text-navy/70'}`}>{label}</span>
+      <span className={`block text-small truncate ${deleted ? 'italic opacity-60' : 'opacity-90'}`}>
         {deleted ? 'Message deleted' : body}
       </span>
     </div>
@@ -170,7 +170,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
 
   if (m.deleted) {
     return (
-      <div className={`px-3.5 py-2.5 text-[13px] italic rounded-2xl border border-dashed border-line text-subtle inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
+      <div className={`px-3.5 py-2.5 text-small italic rounded-2xl border border-dashed border-line text-subtle inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
         <Icon name="trash" size={12} /> This message was deleted
       </div>
     );
@@ -202,7 +202,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply }: {
            the message rather than the text, which is what every chat app does,
            and "Copy text" in the menu is the replacement. */
         style={{ WebkitTouchCallout: 'none', transform: dragX ? `translateX(${dragX}px)` : undefined }}
-        className={`relative px-3.5 py-2.5 text-[13.5px] leading-snug rounded-2xl select-none ${dragX ? '' : 'transition-transform'} ${
+        className={`relative px-3.5 py-2.5 text-small leading-snug rounded-2xl select-none ${dragX ? '' : 'transition-transform'} ${
           mine ? 'bg-navy text-white dark:text-navy-deep rounded-br-md' : 'bg-surface-2 text-ink border border-line rounded-bl-md'
         }`}
       >
@@ -246,7 +246,7 @@ export function Messages() {
     <div className="max-w-[720px] mx-auto">
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Direct messages</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Chats<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Chats<span className="text-red">.</span></h2>
       </header>
 
       {convos === null ? (
@@ -266,16 +266,16 @@ export function Messages() {
                 <Avatar initials={c.user.initials} color={c.user.color} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <b className="text-[15px] font-extrabold text-navy truncate tracking-tight">{c.user.name}</b>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-subtle shrink-0">{roleLabel(c.user.role)}</span>
+                    <b className="text-body font-extrabold text-navy truncate tracking-tight">{c.user.name}</b>
+                    <span className="text-micro font-bold uppercase tracking-wide text-subtle shrink-0">{roleLabel(c.user.role)}</span>
                   </div>
-                  <div className={`text-[12.5px] truncate mt-0.5 ${c.unread ? 'text-navy font-semibold' : 'text-muted'}`}>
+                  <div className={`text-small truncate mt-0.5 ${c.unread ? 'text-navy font-semibold' : 'text-muted'}`}>
                     {c.lastFromMe && <span className="text-subtle">You: </span>}{c.lastMessage}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-[11px] text-subtle">{timeShort(c.lastAt)}</span>
-                  {c.unread > 0 && <span className="grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full bg-red text-white text-[11px] font-bold tnum">{c.unread}</span>}
+                  <span className="text-micro text-subtle">{timeShort(c.lastAt)}</span>
+                  {c.unread > 0 && <span className="grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full bg-red text-white text-micro font-bold tnum">{c.unread}</span>}
                 </div>
               </Card>
             </button>
@@ -424,8 +424,8 @@ export function ChatThread({ id }: { id: string }) {
           <>
             <Avatar initials={other.initials} color={other.color} size="sm" />
             <div className="min-w-0">
-              <b className="block text-[15px] font-extrabold text-navy truncate tracking-tight">{other.name}</b>
-              <span className="text-[11px] text-muted font-semibold uppercase tracking-wide">{roleLabel(other.role)}</span>
+              <b className="block text-body font-extrabold text-navy truncate tracking-tight">{other.name}</b>
+              <span className="text-micro text-muted font-semibold uppercase tracking-wide">{roleLabel(other.role)}</span>
             </div>
           </>
         ) : <Skeleton className="h-6 w-40" />}
@@ -443,10 +443,10 @@ export function ChatThread({ id }: { id: string }) {
           <div className="flex-1 grid place-items-center text-center py-8">
             <div>
               <div className="text-4xl mb-2" aria-hidden="true">👋</div>
-              <p className="text-muted text-[13.5px]">Say hello and sort out the details — start, pay, and where to meet.</p>
+              <p className="text-muted text-small">Say hello and sort out the details — start, pay, and where to meet.</p>
               {/* Gestures are invisible by definition, so say them once, here,
                   where there is nothing else competing for the space. */}
-              <p className="text-subtle text-[12px] mt-2">Swipe a message to reply · hold it for more</p>
+              <p className="text-subtle text-small mt-2">Swipe a message to reply · hold it for more</p>
             </div>
           </div>
         ) : (
@@ -462,7 +462,7 @@ export function ChatThread({ id }: { id: string }) {
                   onMenu={() => setMenuFor(m)}
                   onReply={() => startReply(m)}
                 />
-                <div className={`flex items-center gap-1 text-[10.5px] text-subtle mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex items-center gap-1 text-micro text-subtle mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
                   <span>{timeShort(m.createdAt)}</span>
                   {m.editedAt && !m.deleted && <span>· edited</span>}
                   {/* Read state only means something on your own messages. */}
@@ -488,10 +488,10 @@ export function ChatThread({ id }: { id: string }) {
           <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-xl bg-surface-2 border border-line">
             <span className="text-navy mt-0.5 shrink-0"><Icon name={editingId ? 'edit' : 'reply'} size={14} /></span>
             <div className="flex-1 min-w-0">
-              <span className="block text-[10.5px] font-bold uppercase tracking-wide text-muted">
+              <span className="block text-micro font-bold uppercase tracking-wide text-muted">
                 {editingId ? 'Editing your message' : `Replying to ${replyingTo?.senderId === me ? 'yourself' : other?.name?.split(' ')[0] ?? 'them'}`}
               </span>
-              <span className="block text-[12.5px] text-ink truncate">{editingId ? draft : replyingTo?.body}</span>
+              <span className="block text-small text-ink truncate">{editingId ? draft : replyingTo?.body}</span>
             </div>
             <button onClick={cancelComposing} aria-label="Cancel" className="shrink-0 text-muted hover:text-navy transition p-1">
               <Icon name="x" size={15} />

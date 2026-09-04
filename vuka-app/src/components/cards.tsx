@@ -66,11 +66,11 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
       <Card className="p-4 flex gap-3.5 items-center transition-shadow duration-200 hover:shadow-e2">
         <Avatar initials={worker.initials} color={worker.color} verified={worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="m-0 text-[15px] font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
+          <h4 className="m-0 text-body font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
             {worker.name}
             {worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
           </h4>
-          <div className="text-[12px] text-muted mt-0.5 mb-1.5 truncate">{worker.tagline}</div>
+          <div className="text-small text-muted mt-0.5 mb-1.5 truncate">{worker.tagline}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <TierBadge icon={t.icon} name={t.name} color={t.color} />
             {worker.skills.map((s) => <span key={s} className="text-base" title={catById(s).label} aria-hidden="true">{catById(s).icon}</span>)}
@@ -78,7 +78,7 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
         </div>
         <div className="text-right shrink-0">
           <b className="text-base" style={{ color: '#F59E0B' }}>{worker.rating.toFixed(1)}★</b>
-          <small className="block text-[11px] text-muted">{worker.jobsDone} jobs</small>
+          <small className="block text-micro text-muted">{worker.jobsDone} jobs</small>
         </div>
       </Card>
     </button>
@@ -93,16 +93,16 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
     <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
         <div className="flex gap-3 items-start">
-          <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+          <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
           <div className="flex-1 min-w-0">
-            <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h4>
-            <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5">
+            <h4 className="m-0 text-body font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h4>
+            <div className="text-small text-muted flex items-center gap-1.5 mt-0.5">
               <Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''}
             </div>
           </div>
           <div className="text-right shrink-0">
-            <b className="text-[17px] font-extrabold text-navy tnum">{money(total)}</b>
-            <small className="block text-[11px] text-muted tnum">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
+            <b className="text-lead font-extrabold text-navy tnum">{money(total)}</b>
+            <small className="block text-micro text-muted tnum">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
@@ -123,15 +123,15 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
 
   const head = (
     <div className="flex gap-3 items-start">
-      <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+      <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
       <div className="flex-1 min-w-0">
-        <h4 className="m-0 text-[15.5px] font-extrabold text-navy leading-tight tracking-tight">{job.title}</h4>
-        <div className="text-[11.5px] text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
-        <div className="text-[12.5px] text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
+        <h4 className="m-0 text-body font-extrabold text-navy leading-tight tracking-tight">{job.title}</h4>
+        <div className="text-micro text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
+        <div className="text-small text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
       </div>
       <div className="text-right shrink-0">
-        <b className="text-[14px] font-extrabold text-navy tnum">{amount.trim()}</b>
-        {per && <small className="block text-[11px] text-muted">/{per.trim()}</small>}
+        <b className="text-body font-extrabold text-navy tnum">{amount.trim()}</b>
+        {per && <small className="block text-micro text-muted">/{per.trim()}</small>}
       </div>
     </div>
   );
@@ -159,7 +159,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
         <div className="grayscale-[.55] opacity-60">{head}</div>
         <div className="flex items-center gap-2.5 bg-navy text-white -mx-4 mt-2.5 px-4 py-3 rounded-b-card">
           <Icon name="lock" size={16} />
-          <div className="flex-1 text-[11.5px] leading-snug">
+          <div className="flex-1 text-micro leading-snug">
             Unlocks at <b className="text-[#ffd9de]">{reqTier.name} {reqTier.icon}</b> — {jobsNeeded > 0 ? `${jobsNeeded} more good job${jobsNeeded > 1 ? 's' : ''}` : 'raise your rating'} to go
             <div className="h-1.5 bg-white/20 rounded-full mt-1.5 overflow-hidden">
               <div className="h-full bg-red rounded-full" style={{ width: `${prog}%` }} />

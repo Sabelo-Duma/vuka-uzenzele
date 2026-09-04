@@ -32,7 +32,7 @@ export function Toast() {
       className={`fixed left-1/2 -translate-x-1/2 z-[70] rounded-2xl sm:rounded-pill bg-navy text-white
         top-[max(12px,env(safe-area-inset-top))] sm:top-auto sm:bottom-8
         max-w-[calc(100vw-24px)] sm:max-w-[min(420px,calc(100vw-32px))]
-        px-4.5 py-3 text-[13px] font-bold text-center shadow-e3 transition-all duration-300
+        px-4.5 py-3 text-small font-bold text-center shadow-e3 transition-all duration-300
         ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 sm:translate-y-4 pointer-events-none'}`}
       style={{ paddingLeft: 18, paddingRight: 18 }}
     >

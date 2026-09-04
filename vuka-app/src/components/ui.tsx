@@ -97,7 +97,7 @@ const CHIP: Record<ChipTone, string> = {
 };
 export function Chip({ tone = 'neutral', icon, children }: { tone?: ChipTone; icon?: IconName; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11px] font-bold ${CHIP[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-micro font-bold ${CHIP[tone]}`}>
       {icon && <Icon name={icon} size={12} />}
       {children}
     </span>
@@ -106,7 +106,7 @@ export function Chip({ tone = 'neutral', icon, children }: { tone?: ChipTone; ic
 
 /* ---------------- Avatar ---------------- */
 export function Avatar({ initials, color, size = 'md', verified, tier }: { initials: string; color: string; size?: 'sm' | 'md' | 'lg'; verified?: boolean; tier?: string }) {
-  const dim = size === 'lg' ? 'w-[76px] h-[76px] text-2xl rounded-[22px]' : size === 'sm' ? 'w-9 h-9 text-[13px] rounded-xl' : 'w-11 h-11 text-[15px] rounded-[14px]';
+  const dim = size === 'lg' ? 'w-[76px] h-[76px] text-2xl rounded-[22px]' : size === 'sm' ? 'w-9 h-9 text-small rounded-xl' : 'w-11 h-11 text-body rounded-[14px]';
   return (
     <div className={`relative grid place-items-center font-bold text-white shadow-e1 shrink-0 ${dim}`} style={{ background: color }} aria-hidden="true">
       {initials}
@@ -116,7 +116,7 @@ export function Avatar({ initials, color, size = 'md', verified, tier }: { initi
         </span>
       )}
       {tier && (
-        <span className="absolute -right-1.5 -top-1.5 grid place-items-center w-[22px] h-[22px] rounded-full bg-surface border-2 border-surface text-[12px] shadow-e1">{tier}</span>
+        <span className="absolute -right-1.5 -top-1.5 grid place-items-center w-[22px] h-[22px] rounded-full bg-surface border-2 border-surface text-small shadow-e1">{tier}</span>
       )}
     </div>
   );
@@ -157,7 +157,7 @@ export function ProgressBar({ pct, tone = 'red', track = 'rgba(255,255,255,.16)'
 /* ---------------- TierBadge ---------------- */
 export function TierBadge({ icon, name, color }: { icon: string; name: string; color: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: color }}>
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-extrabold uppercase tracking-wide text-white" style={{ background: color }}>
       <span aria-hidden="true">{icon}</span>{name}
     </span>
   );
@@ -167,7 +167,7 @@ export function TierBadge({ icon, name, color }: { icon: string; name: string; c
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mt-5 mb-3 px-1">
-      <h3 className="text-[17px] font-extrabold text-navy m-0 tracking-tight">{children}<span className="text-red">.</span></h3>
+      <h3 className="text-lead font-extrabold text-navy m-0 tracking-tight">{children}<span className="text-red">.</span></h3>
       {action}
     </div>
   );
@@ -185,7 +185,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-pill py-2.5 text-[13px] font-bold transition
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-pill py-2.5 text-small font-bold transition
               ${active ? 'bg-red text-white' : 'text-muted hover:text-navy'}`}
           >
             {o.label}
@@ -207,7 +207,7 @@ export function StarRating({ value, onChange }: { value: number; onChange: (v: n
           aria-checked={value === n}
           aria-label={`${n} star${n > 1 ? 's' : ''}`}
           onClick={() => onChange(n)}
-          className={`text-[38px] leading-none transition active:scale-90 ${n <= value ? 'grayscale-0 opacity-100 scale-105' : 'grayscale opacity-40'}`}
+          className={`text-hero leading-none transition active:scale-90 ${n <= value ? 'grayscale-0 opacity-100 scale-105' : 'grayscale opacity-40'}`}
         >
           ⭐
         </button>
@@ -222,7 +222,7 @@ export function EmptyState({ icon, title, hint, action }: { icon: string; title:
     <Card className="p-8 text-center">
       <div className="text-5xl mb-2" aria-hidden="true">{icon}</div>
       <h4 className="text-navy font-bold text-base m-0">{title}</h4>
-      <p className="text-muted text-[13px] leading-relaxed mt-1.5 mb-0">{hint}</p>
+      <p className="text-muted text-small leading-relaxed mt-1.5 mb-0">{hint}</p>
       {action && <div className="mt-4">{action}</div>}
     </Card>
   );
@@ -281,14 +281,14 @@ export function InlineError({ children, action, tone = 'error' }: {
         isWarning ? 'border-[color:var(--gj-warning)]/35 bg-[color:var(--gj-warning)]/[.07]' : 'border-red/30 bg-red/5'
       }`}
     >
-      <p className={`text-[13px] font-semibold leading-snug m-0 ${isWarning ? 'text-[color:var(--gj-warning)]' : 'text-red'}`}>
+      <p className={`text-small font-semibold leading-snug m-0 ${isWarning ? 'text-[color:var(--gj-warning)]' : 'text-red'}`}>
         {children}
       </p>
       {action && (
         <button
           type="button"
           onClick={action.onClick}
-          className="mt-2 text-[13px] font-extrabold text-navy underline underline-offset-2 hover:text-red transition"
+          className="mt-2 text-small font-extrabold text-navy underline underline-offset-2 hover:text-red transition"
         >
           {action.label} →
         </button>

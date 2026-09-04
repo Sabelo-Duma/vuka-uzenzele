@@ -27,7 +27,7 @@ export function JobsFeed() {
             ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : state.coords ? ' · nearest first' : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
             : `${formalJobs.length} formal role${formalJobs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ''}`}
         </small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Find work<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Find work<span className="text-red">.</span></h2>
       </header>
 
       <Segmented
@@ -57,7 +57,7 @@ export function JobsFeed() {
   function NearMe() {
     if (!locationSupported()) return null;
     return (
-      <div className="flex items-center gap-2 mt-2.5 text-[12.5px]">
+      <div className="flex items-center gap-2 mt-2.5 text-small">
         {state.coords ? (
           <>
             <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">
@@ -93,7 +93,7 @@ export function JobsFeed() {
     return (
       <>
         <div className="grid sm:grid-cols-2 gap-x-3">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
+        <p className="text-center text-small text-muted leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
       </>
     );
   }
@@ -109,13 +109,13 @@ export function JobsFeed() {
       <>
         <Card className="p-3.5 mb-3 flex gap-2.5 items-center bg-[#eaf3fb] dark:bg-info/10 border-[#cfe3f5] dark:border-info/25">
           <span className="text-xl" aria-hidden="true">🪜</span>
-          <div className="text-[12.5px] text-navy leading-snug">
+          <div className="text-small text-navy leading-snug">
             <b>You're {cv.tier.name} {cv.tier.icon}.</b> {unlocked.length} formal job{unlocked.length !== 1 ? 's' : ''} open to you now{locked.length ? ` · ${locked.length} more unlock as you rise` : ''}.
           </div>
         </Card>
         {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
         {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
+        <p className="text-center text-small text-muted leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
       </>
     );
   }
@@ -124,7 +124,7 @@ export function JobsFeed() {
 /** Horizontal, scrollable category filter. "All" clears the filter. */
 function CategoryBar({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
   const pill = (active: boolean) =>
-    `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-bold transition active:scale-95 ${
+    `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-small font-bold transition active:scale-95 ${
       active ? 'bg-navy text-white dark:text-navy-deep border-navy' : 'bg-surface text-muted border-line hover:border-line-strong hover:text-navy'
     }`;
   return (
@@ -140,5 +140,5 @@ function CategoryBar({ value, onChange }: { value: string | null; onChange: (id:
 }
 
 function Cnt({ n }: { n: number }) {
-  return <span className="text-[10px] bg-white/25 px-1.5 rounded-full">{n}</span>;
+  return <span className="text-micro bg-white/25 px-1.5 rounded-full">{n}</span>;
 }

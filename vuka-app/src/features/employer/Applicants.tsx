@@ -85,10 +85,10 @@ export function Applicants({ id }: { id: string }) {
       {gig && (
         <Card className="p-4 mb-4">
           <div className="flex gap-3 items-start">
-            {c && <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>}
+            {c && <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>}
             <div className="flex-1 min-w-0">
-              <h3 className="m-0 text-[16px] font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h3>
-              <div className="text-[12.5px] text-muted mt-0.5">{gig.location} · {gig.when} · <b className="text-navy tnum">{money(gig.hours * gig.payPerHour)}</b></div>
+              <h3 className="m-0 text-lead font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h3>
+              <div className="text-small text-muted mt-0.5">{gig.location} · {gig.when} · <b className="text-navy tnum">{money(gig.hours * gig.payPerHour)}</b></div>
             </div>
           </div>
         </Card>
@@ -107,7 +107,7 @@ export function Applicants({ id }: { id: string }) {
         <>
           {hired && (
             <>
-              <h4 className="text-[13px] font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-1">Working on this job</h4>
+              <h4 className="text-small font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-1">Working on this job</h4>
               <ApplicantCard
                 a={hired}
                 busy={busyId === hired.applicationId}
@@ -120,7 +120,7 @@ export function Applicants({ id }: { id: string }) {
 
           {waiting.length > 0 && (
             <>
-              <h4 className="text-[13px] font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-4">
+              <h4 className="text-small font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-4">
                 {hired ? 'Also applied' : `${waiting.length} ${waiting.length === 1 ? 'person' : 'people'} applied`}
               </h4>
               {waiting.map((a) => (
@@ -133,12 +133,12 @@ export function Applicants({ id }: { id: string }) {
                   onHire={hired ? undefined : () => hire(a)}
                 />
               ))}
-              {hired && <p className="text-[12px] text-muted leading-relaxed px-1 mt-1">These applicants have been told the job is taken. Invite them to your next one from Talent.</p>}
+              {hired && <p className="text-small text-muted leading-relaxed px-1 mt-1">These applicants have been told the job is taken. Invite them to your next one from Talent.</p>}
             </>
           )}
 
           {passedOver.length > 0 && (
-            <p className="text-[12px] text-muted leading-relaxed px-1 mt-3">
+            <p className="text-small text-muted leading-relaxed px-1 mt-3">
               {passedOver.length} other {passedOver.length === 1 ? 'applicant was' : 'applicants were'} told this job is filled.
             </p>
           )}
@@ -169,11 +169,11 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
       <button onClick={onOpen} className="w-full text-left flex gap-3.5 items-center">
         <Avatar initials={a.worker.initials} color={a.worker.color} verified={a.worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="m-0 text-[15px] font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
+          <h4 className="m-0 text-body font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
             {a.worker.name}
             {a.worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
           </h4>
-          <div className="text-[12px] text-muted mt-0.5 truncate">{a.worker.tagline}</div>
+          <div className="text-small text-muted mt-0.5 truncate">{a.worker.tagline}</div>
           <div className="flex gap-2 flex-wrap items-center mt-1.5">
             <TierBadge icon={t.icon} name={t.name} color={t.color} />
             {a.worker.skills.slice(0, 4).map((s) => <span key={s} className="text-base" title={catById(s).label} aria-hidden="true">{catById(s).icon}</span>)}
@@ -181,7 +181,7 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
         </div>
         <div className="text-right shrink-0">
           <b className="text-base" style={{ color: '#F59E0B' }}>{a.worker.rating.toFixed(1)}★</b>
-          <small className="block text-[11px] text-muted">{a.worker.jobsDone} jobs</small>
+          <small className="block text-micro text-muted">{a.worker.jobsDone} jobs</small>
         </div>
       </button>
 
@@ -189,7 +189,7 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
         {a.status === 'hired' && <Chip tone="info" icon="check">Hired — work in progress</Chip>}
         {a.status === 'worker_done' && <Chip tone="urgent" icon="bolt">Marked done — needs your confirmation</Chip>}
         {a.status === 'worker_done' && autoConfirm && (
-          <div className="text-[11.5px] text-muted mt-1">
+          <div className="text-micro text-muted mt-1">
             Confirm within <b className="text-navy">{autoConfirm.text}</b> — after that it counts automatically, without your rating.
           </div>
         )}
@@ -217,7 +217,7 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
   return (
     <Sheet title="Confirm the work" onClose={onClose}>
       <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How did {first} do?</h3>
-      <p className="text-muted text-[13.5px] leading-relaxed mb-4">
+      <p className="text-muted text-small leading-relaxed mb-4">
         Confirming “{gigTitle}” releases {first}'s pay and writes your review onto their CV as a verified reference. Please be fair — it's the record employers after you will read.
       </p>
       <StarRating value={rating} onChange={setRating} />
@@ -233,7 +233,7 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
         placeholder={`e.g. ${first} arrived on time and did a thorough job.`}
         aria-label="Your review"
       />
-      <p className="text-[11.5px] text-muted mt-1.5">Leave it blank and we'll write a short note from your star rating.</p>
+      <p className="text-micro text-muted mt-1.5">Leave it blank and we'll write a short note from your star rating.</p>
       <Button block className="mt-4" disabled={busy} onClick={() => onConfirm(rating, review.trim())}>
         {busy ? 'Confirming…' : `Confirm & rate ${rating}★`}
       </Button>
