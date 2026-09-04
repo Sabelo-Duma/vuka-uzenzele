@@ -372,8 +372,19 @@ async function alertNearbyWorkers(gig) {
 
 // ---- health ----
 const STARTED_AT = Date.now();
+
+/* Which build is actually serving.
+   Without this the only way to tell whether a deploy landed is to infer it
+   from uptime and asset hashes, which answers "something restarted", not
+   "the new code is live" — and those differ exactly when it matters, during
+   a failed or queued deploy. Render sets RENDER_GIT_COMMIT on every build;
+   the fallbacks keep it honest anywhere else rather than claiming a version
+   it doesn't have. A commit SHA is public information — it is in the repo. */
+const COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || '').slice(0, 7) || 'unknown';
+
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
+  commit: COMMIT,
   minWage: MIN_WAGE_PER_HOUR,
   store: driver,
   payoutsConfigured: hasEncryptionKey,
