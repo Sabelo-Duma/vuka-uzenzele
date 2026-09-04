@@ -554,6 +554,10 @@ async function run() {
 
     ok((await api('GET', '/config')).json?.vapidPublicKey === process.env.VUKA_VAPID_PUBLIC_KEY, 'the client can fetch the VAPID public key it needs to subscribe');
     ok((await api('GET', '/health')).json?.pushConfigured === true, 'health reports whether push can actually be delivered');
+    // Deploy verification depends on this being present and never invented.
+    const commit = (await api('GET', '/health')).json?.commit;
+    ok(typeof commit === 'string' && commit.length > 0, 'health names the build it is serving');
+    ok(commit === 'unknown' || /^[0-9a-f]{7}$/.test(commit), 'the build marker is a short SHA, or an honest "unknown"');
   }
 
   // 9o-ii) push is the free channel and SMS is the paid fallback — never both.
