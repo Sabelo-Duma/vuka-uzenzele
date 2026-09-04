@@ -19,9 +19,9 @@ export function Hero({ eyebrow, title, sub, gradient, children }: { eyebrow: Rea
     <div className="relative rounded-card p-5 text-white overflow-hidden" style={{ background: gradient }}>
       <span aria-hidden="true" className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.28), transparent 70%)' }} />
       <div className="relative">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-white/70">{eyebrow}</div>
-        <h2 className="mt-1.5 mb-1 text-[24px] font-extrabold leading-tight tracking-tight">{title}</h2>
-        <div className="text-[13px] opacity-90 flex items-center gap-1.5">{sub}</div>
+        <div className="text-micro font-bold uppercase tracking-widest text-white/70">{eyebrow}</div>
+        <h2 className="mt-1.5 mb-1 text-head font-extrabold leading-tight tracking-tight">{title}</h2>
+        <div className="text-small opacity-90 flex items-center gap-1.5">{sub}</div>
         {children}
       </div>
     </div>
@@ -34,8 +34,8 @@ export function PayBox({ cells }: { cells: { label: string; value: string }[] })
     <div className="flex gap-2.5 mt-4">
       {cells.map((c) => (
         <div key={c.label} className="flex-1 bg-white/[.13] rounded-[13px] px-3 py-2.5">
-          <small className="block text-[11px] opacity-80">{c.label}</small>
-          <b className="text-[15px] font-extrabold tnum">{c.value}</b>
+          <small className="block text-micro opacity-80">{c.label}</small>
+          <b className="text-body font-extrabold tnum">{c.value}</b>
         </div>
       ))}
     </div>
@@ -59,15 +59,15 @@ export function FairMeter({ ratePerHour, minWage }: { ratePerHour: number; minWa
   return (
     <div className="my-3.5">
       <div className="flex justify-between items-center mb-1.5">
-        <b className="text-[13px] text-navy flex items-center gap-1.5"><Icon name="shield" size={14} /> Fair Pay check</b>
-        <span className={`text-[11px] font-bold rounded-pill px-2.5 py-1 ${above ? 'bg-[#e6f5e6] text-success dark:bg-success/15' : 'bg-[#fdecef] text-red dark:bg-red/15'}`}>
+        <b className="text-small text-navy flex items-center gap-1.5"><Icon name="shield" size={14} /> Fair Pay check</b>
+        <span className={`text-micro font-bold rounded-pill px-2.5 py-1 ${above ? 'bg-[#e6f5e6] text-success dark:bg-success/15' : 'bg-[#fdecef] text-red dark:bg-red/15'}`}>
           {above ? 'Above minimum wage' : 'Below minimum'}
         </span>
       </div>
       <div className="h-2.5 bg-surface-3 rounded-full overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--gj-success),#4ade80)' }} />
       </div>
-      <div className="flex justify-between text-[11px] text-muted font-semibold mt-1.5">
+      <div className="flex justify-between text-micro text-muted font-semibold mt-1.5">
         <span>SA min R{minWage}/hr</span>
         <span>R{ratePerHour}/hr</span>
       </div>
@@ -80,7 +80,7 @@ export function PerkList({ perks }: { perks: string[] }) {
   return (
     <div className="grid gap-2 mt-1.5">
       {perks.map((p) => (
-        <div key={p} className="flex gap-2.5 items-center text-[13.5px] text-ink">
+        <div key={p} className="flex gap-2.5 items-center text-small text-ink">
           <span className="text-success shrink-0"><Icon name="check" size={15} /></span>{p}
         </div>
       ))}
@@ -102,7 +102,7 @@ export function TrustStrip() {
         <span key={p.label} className="flex items-center gap-2">
           {i > 0 && <span className="hidden sm:inline w-1 h-1 rounded-full bg-line-strong -ml-2 sm:-ml-3" aria-hidden="true" />}
           <span aria-hidden="true">{p.icon}</span>
-          <span className="text-[12px] font-bold text-navy">{p.label}</span>
+          <span className="text-small font-bold text-navy">{p.label}</span>
         </span>
       ))}
     </div>

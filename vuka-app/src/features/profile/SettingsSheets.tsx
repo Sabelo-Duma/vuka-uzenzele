@@ -76,8 +76,8 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
 
   return (
     <Sheet title="Banking details" onClose={onClose}>
-      <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">Get paid<span className="text-red">.</span></h3>
-      <p className="text-[12.5px] text-muted mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
+      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Get paid<span className="text-red">.</span></h3>
+      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
 
       <div className="mb-3">
         <Label>Account holder</Label>
@@ -90,7 +90,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
           <option value="" disabled>Choose your bank</option>
           {SA_BANKS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        {branch && <p className="text-[11px] text-muted mt-1.5">Universal branch code: <b className="text-navy tnum">{branch}</b></p>}
+        {branch && <p className="text-micro text-muted mt-1.5">Universal branch code: <b className="text-navy tnum">{branch}</b></p>}
       </div>
 
       <div className="mb-3">
@@ -103,7 +103,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
           placeholder={existing ? `•••• ${existing.last4} — leave blank to keep` : 'e.g. 1234567890'}
           aria-label="Account number"
         />
-        {existing && <p className="text-[11px] text-muted mt-1.5">For your safety we never show a saved account number. Type a new one only if it changed.</p>}
+        {existing && <p className="text-micro text-muted mt-1.5">For your safety we never show a saved account number. Type a new one only if it changed.</p>}
       </div>
 
       <div className="mb-4">
@@ -114,7 +114,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
               key={t}
               onClick={() => setAccountType(t)}
               aria-pressed={accountType === t}
-              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-[13px] font-bold capitalize transition ${accountType === t ? 'border-navy bg-navy text-white dark:text-navy-deep' : 'border-line-strong text-muted hover:border-navy'}`}
+              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-small font-bold capitalize transition ${accountType === t ? 'border-navy bg-navy text-white dark:text-navy-deep' : 'border-line-strong text-muted hover:border-navy'}`}
             >
               {t}
             </button>
@@ -124,11 +124,11 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
 
       <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-xl px-3.5 py-3 mb-4">
         <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-        <span className="text-[12px] text-navy leading-snug">Encrypted and stored on Vuka's servers — never on this device. Only the last 4 digits are ever shown back to you.</span>
+        <span className="text-small text-navy leading-snug">Encrypted and stored on Vuka's servers — never on this device. Only the last 4 digits are ever shown back to you.</span>
       </div>
 
       <Button block disabled={busy} onClick={save}>{busy ? 'Saving…' : existing ? 'Update details' : 'Save details'}</Button>
-      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-[12.5px] text-red font-bold mt-3 disabled:opacity-50">Remove banking details</button>}
+      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-small text-red font-bold mt-3 disabled:opacity-50">Remove banking details</button>}
     </Sheet>
   );
 }
@@ -177,8 +177,8 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {status === 'verified' && (
         <>
-          <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">Verified with SA ID<span className="text-red">.</span></h3>
-          <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
+          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Verified with SA ID<span className="text-red">.</span></h3>
+          <p className="text-small text-muted mt-1.5 leading-relaxed">
             Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your ✅ Verified badge, and formal roles that require verification are open to you.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
@@ -187,8 +187,8 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {status === 'pending' && (
         <>
-          <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">We're checking your ID<span className="text-red">.</span></h3>
-          <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
+          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">We're checking your ID<span className="text-red">.</span></h3>
+          <p className="text-small text-muted mt-1.5 leading-relaxed">
             Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
@@ -197,13 +197,13 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {(status === 'none' || status === 'rejected') && (
         <>
-          <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">Verify your identity<span className="text-red">.</span></h3>
+          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Verify your identity<span className="text-red">.</span></h3>
           {status === 'rejected' && (
-            <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mt-3 text-[12.5px] text-navy leading-snug">
+            <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mt-3 text-small text-navy leading-snug">
               <b>We couldn't verify your last submission.</b>{submission?.reason ? ` ${submission.reason}` : ' Please check the details and try again.'}
             </div>
           )}
-          <p className="text-[13px] text-muted mt-1.5 leading-relaxed">Verifying adds a ✅ badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
+          <p className="text-small text-muted mt-1.5 leading-relaxed">Verifying adds a ✅ badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
 
           {loading ? (
             <div className="flex flex-col gap-3 mt-4" aria-busy="true"><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>
@@ -224,14 +224,14 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
                   placeholder="13 digits"
                   aria-label="South African ID number"
                 />
-                <p className="text-[11px] text-muted mt-1.5">We check the number is valid, then confirm it against Home Affairs records.</p>
+                <p className="text-micro text-muted mt-1.5">We check the number is valid, then confirm it against Home Affairs records.</p>
               </div>
               <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-xl px-3.5 py-3 mb-4">
                 <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-                <span className="text-[12px] text-navy leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
+                <span className="text-small text-navy leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
               </div>
               <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for verification'}</Button>
-              <button onClick={onClose} className="w-full text-center text-[12.5px] text-muted font-bold mt-3 hover:text-navy">Maybe later</button>
+              <button onClick={onClose} className="w-full text-center text-small text-muted font-bold mt-3 hover:text-navy">Maybe later</button>
             </>
           )}
         </>
@@ -260,21 +260,21 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
   };
   return (
     <Sheet title="Safety centre" onClose={onClose}>
-      <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
-      <p className="text-[12.5px] text-muted mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
-      <ul className="space-y-2 text-[12.5px] text-navy mb-4">
+      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
+      <p className="text-small text-muted mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
+      <ul className="space-y-2 text-small text-navy mb-4">
         <li className="flex gap-2 items-start"><span>🪪</span> Only ID-verified users can be hired or hire</li>
         <li className="flex gap-2 items-start"><span>⭐</span> Two-way ratings after every job keep everyone accountable</li>
         <li className="flex gap-2 items-start"><span>⚖️</span> Fair-pay checks flag any gig below minimum wage</li>
         <li className="flex gap-2 items-start"><span>📍</span> Meet in public, tell someone where you'll be</li>
       </ul>
-      <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mb-4 text-[12.5px] text-navy leading-snug">
+      <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mb-4 text-small text-navy leading-snug">
         <b>In an emergency, call 10111 (SAPS)</b> or 112 from any mobile.
       </div>
       <Label>Report a concern</Label>
       <textarea className={`${field} resize-none`} rows={3} value={concern} onChange={(e) => setConcern(e.target.value)} placeholder="Tell us what happened…" aria-label="Report a concern" />
       <Button block className="mt-3" disabled={busy} onClick={report}>{busy ? 'Sending…' : 'Submit report'}</Button>
-      <p className="text-center text-[11.5px] text-muted mt-2.5">Reports go to Vuka's safety team and are kept confidential.</p>
+      <p className="text-center text-micro text-muted mt-2.5">Reports go to Vuka's safety team and are kept confidential.</p>
     </Sheet>
   );
 }
@@ -300,8 +300,8 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
   };
   return (
     <Sheet title="Language" onClose={onClose}>
-      <h3 className="text-[19px] font-extrabold text-navy tracking-tight m-0">Language<span className="text-red">.</span></h3>
-      <p className="text-[12.5px] text-muted mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
+      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Language<span className="text-red">.</span></h3>
+      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
       <div className="flex flex-col gap-2">
         {LANGS.map((l) => (
           <button
@@ -310,7 +310,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
             aria-pressed={lang === l.id}
             className={`flex items-center justify-between rounded-xl border-[1.5px] px-3.5 py-3 text-sm font-bold transition ${lang === l.id ? 'border-navy bg-surface-2' : 'border-line-strong hover:border-navy'}`}
           >
-            <span className="text-navy">{l.label} {!l.ready && <span className="text-[11px] font-semibold text-muted">· coming soon</span>}</span>
+            <span className="text-navy">{l.label} {!l.ready && <span className="text-micro font-semibold text-muted">· coming soon</span>}</span>
             {lang === l.id && <span className="text-navy"><Icon name="check" size={18} /></span>}
           </button>
         ))}

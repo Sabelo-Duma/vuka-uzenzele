@@ -32,16 +32,17 @@ export function WorkerHome() {
       <header className="flex items-center justify-between mb-3">
         <div>
           <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Sawubona 👋</small>
-          <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
+          <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
         </div>
         <Avatar initials={state.worker.initials || 'ME'} color={state.worker.color} verified={state.worker.idVerified} tier={cv.tier.icon} />
       </header>
 
-      <div className="bg-navy text-white rounded-[14px] px-3.5 py-2.5 text-[12px] font-semibold flex gap-2 items-center mb-3">
-        <span className="bg-red text-white px-2 py-0.5 rounded-full text-[11px] font-bold">LOW DATA</span> Built light — pages are saved on your phone, so browsing works offline too 📶
-      </div>
-
-      <TrustStrip />
+      {/* Order here is deliberate: work first, everything else after.
+          Someone opens this screen because they need a job today, so the first
+          thing under the greeting is an invitation or a shift they're already
+          on, then gigs near them. The tier card and the trust and low-data
+          strips are all worth saying — just not ahead of the work, which is
+          what they came for and the only thing they'll tell a friend about. */}
 
       {state.invitations.length > 0 && (
         <div className="mb-1">
@@ -61,45 +62,50 @@ export function WorkerHome() {
         </div>
       )}
 
+      <SectionTitle>What are you good at</SectionTitle>
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5">
+        {CATEGORIES.map((c) => (
+          <button key={c.id} onClick={() => { setCategory(c.id); setFeed('gigs'); navigate('jobs'); }} className="flex flex-col items-center gap-1.5 shrink-0">
+            <span className="grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface border border-line shadow-e1 text-2xl" style={{ color: c.color }} aria-hidden="true">{c.icon}</span>
+            <span className="text-micro font-semibold text-muted">{c.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
+      {state.dataLoading && state.gigs.length === 0
+        ? <CardSkeletonGrid count={2} />
+        : featured.length > 0
+        ? <div className="grid sm:grid-cols-2 gap-x-3">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
+        : <Card className="p-6 text-center text-muted text-small">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
+
+      {teaser && (
+        <>
+          <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
+        </>
+      )}
+
       {/* Tier strip — mobile only; desktop shows the richer rail instead. */}
-      <Card className="lg:hidden p-4 text-white mb-1.5" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
+      <Card className="lg:hidden p-4 text-white mt-1 mb-1.5" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
         <div className="flex items-center gap-3">
-          <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-[26px]" aria-hidden="true">{cv.tier.icon}</span>
+          <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display" aria-hidden="true">{cv.tier.icon}</span>
           <div className="flex-1">
             <small className="text-white/70 text-xs">Your tier</small>
             <h3 className="m-0 text-lg font-bold">{cv.tier.name} · <span className="opacity-80 font-semibold text-sm">{unlockedCount} formal jobs unlocked</span></h3>
           </div>
           <Button size="sm" onClick={() => navigate('cv')}>Ladder</Button>
         </div>
-        <div className="text-[12.5px] text-white/85 my-2.5">{nextText}</div>
+        <div className="text-small text-white/85 my-2.5">{nextText}</div>
         <ProgressBar pct={cv.tierProgress} />
       </Card>
 
-      <SectionTitle>What are you good at</SectionTitle>
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5">
-        {CATEGORIES.map((c) => (
-          <button key={c.id} onClick={() => { setCategory(c.id); setFeed('gigs'); navigate('jobs'); }} className="flex flex-col items-center gap-1.5 shrink-0">
-            <span className="grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface border border-line shadow-e1 text-2xl" style={{ color: c.color }} aria-hidden="true">{c.icon}</span>
-            <span className="text-[11px] font-semibold text-muted">{c.label}</span>
-          </button>
-        ))}
-      </div>
+      <TrustStrip />
 
-      <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
-      {state.dataLoading && state.gigs.length === 0
-        ? <CardSkeletonGrid count={2} />
-        : featured.length > 0
-        ? <div className="grid sm:grid-cols-2 gap-x-3">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        : <Card className="p-6 text-center text-muted text-[13px]">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
-
-      {teaser && (
-        <>
-          <SectionTitle action={<button className="text-[13px] text-red font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
-          <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
-        </>
-      )}
-
-      <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-2">Total earned so far: <b className="text-navy">{money(cv.totalEarned)}</b> across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}.</p>
+      <p className="text-center text-small text-muted leading-relaxed px-4 pb-2">
+        Total earned so far: <b className="text-navy">{money(cv.totalEarned)}</b> across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}.
+        <span className="block text-micro text-subtle mt-1">Built light on data — pages are saved on your phone, so browsing works offline too 📶</span>
+      </p>
     </Dashboard>
   );
 }
@@ -114,17 +120,17 @@ function MyWorkCard({ job }: { job: MyJob }) {
   const first = job.gig.employer.split(' ')[0];
   return (
     <Card className={`p-4 border-l-4 ${waiting ? 'border-[color:var(--gj-warning,#F59E0B)]' : 'border-success'}`}>
-      <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-muted' : 'text-success'}`}>
+      <div className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-muted' : 'text-success'}`}>
         <Icon name={waiting ? 'clock' : 'check'} size={13} /> {waiting ? `Waiting for ${first} to confirm` : "You're hired"}
       </div>
       {waiting && autoConfirm && (
-        <div className="text-[11.5px] text-muted -mt-1 mb-2">Counts automatically if they don't — {autoConfirm.text}</div>
+        <div className="text-micro text-muted -mt-1 mb-2">Counts automatically if they don't — {autoConfirm.text}</div>
       )}
       <div className="flex gap-3 items-start">
-        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
         <div className="flex-1 min-w-0">
-          <b className="text-[15px] font-extrabold text-navy leading-tight block tracking-tight">{job.gig.title}</b>
-          <div className="text-[12px] text-muted mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-navy tnum">{money(total)}</b></div>
+          <b className="text-body font-extrabold text-navy leading-tight block tracking-tight">{job.gig.title}</b>
+          <div className="text-small text-muted mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-navy tnum">{money(total)}</b></div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2.5 mt-3">
@@ -155,15 +161,15 @@ function InviteCard({ inv }: { inv: Invitation }) {
 
   return (
     <Card className="p-4 border-l-4 border-red">
-      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-red mb-2"><Icon name="bolt" size={13} /> Job invitation</div>
+      <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-red mb-2"><Icon name="bolt" size={13} /> Job invitation</div>
       <div className="flex gap-3 items-start">
-        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-[22px] shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
         <div className="flex-1 min-w-0">
-          <b className="text-[15px] font-extrabold text-navy leading-tight block tracking-tight">{inv.gig.title}</b>
-          <div className="text-[12px] text-muted mt-0.5">{inv.gig.employer} · {inv.gig.location} · <b className="text-navy tnum">{money(total)}</b></div>
+          <b className="text-body font-extrabold text-navy leading-tight block tracking-tight">{inv.gig.title}</b>
+          <div className="text-small text-muted mt-0.5">{inv.gig.employer} · {inv.gig.location} · <b className="text-navy tnum">{money(total)}</b></div>
         </div>
       </div>
-      {inv.message && <p className="text-[12.5px] text-ink italic bg-surface-2 rounded-xl px-3 py-2 mt-2.5 leading-snug">“{inv.message}”</p>}
+      {inv.message && <p className="text-small text-ink italic bg-surface-2 rounded-xl px-3 py-2 mt-2.5 leading-snug">“{inv.message}”</p>}
       <div className="grid grid-cols-2 gap-2.5 mt-3">
         <Button size="sm" disabled={busy} onClick={() => respond(true)}>{busy ? '…' : 'Accept'}</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => respond(false)}>Decline</Button>

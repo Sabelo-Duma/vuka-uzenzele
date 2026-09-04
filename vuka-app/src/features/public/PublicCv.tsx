@@ -43,7 +43,7 @@ function TopBar({ showCta = true }: { showCta?: boolean }) {
         <a href="/" className="flex items-center gap-2 font-extrabold text-navy tracking-tight">
           <span className="w-2.5 h-2.5 rounded-full bg-red" />Vuka Uzenzele
         </a>
-        {showCta && <a href="/" className="rounded-pill bg-red text-white text-[13px] font-bold px-4 py-2 hover:bg-red-hover transition active:scale-95">Create your free CV</a>}
+        {showCta && <a href="/" className="rounded-pill bg-red text-white text-small font-bold px-4 py-2 hover:bg-red-hover transition active:scale-95">Create your free CV</a>}
       </div>
     </header>
   );
@@ -58,7 +58,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
   return (
     <>
       <div className="text-center mb-4">
-        <span className="inline-flex items-center gap-1.5 rounded-pill bg-[#e6f5e6] dark:bg-success/15 text-success text-[11.5px] font-bold px-3 py-1">
+        <span className="inline-flex items-center gap-1.5 rounded-pill bg-[#e6f5e6] dark:bg-success/15 text-success text-micro font-bold px-3 py-1">
           <Icon name="shield" size={13} /> Verified Vuka CV
         </span>
       </div>
@@ -70,8 +70,8 @@ function CvBody({ data }: { data: PublicCvResult }) {
           <div className="relative flex items-center gap-4">
             <span className="grid place-items-center w-16 h-16 rounded-[20px] bg-white/15 text-2xl font-extrabold shrink-0">{initials}</span>
             <div className="min-w-0">
-              <h1 className="m-0 text-[26px] font-extrabold leading-tight tracking-tight truncate">{name}</h1>
-              <p className="m-0 mt-0.5 text-[13px] text-white/85">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
+              <h1 className="m-0 text-display font-extrabold leading-tight tracking-tight truncate">{name}</h1>
+              <p className="m-0 mt-0.5 text-small text-white/85">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
             </div>
           </div>
           <div className="relative flex flex-wrap gap-2 mt-4">
@@ -96,7 +96,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
       {profile?.bio && (
         <Card className="p-5 mb-3.5">
           <H>About</H>
-          <p className="m-0 text-[13.5px] text-ink leading-relaxed">{profile.bio}</p>
+          <p className="m-0 text-small text-ink leading-relaxed">{profile.bio}</p>
         </Card>
       )}
 
@@ -104,7 +104,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
         <Card className="p-5 mb-3.5">
           <H>Skills</H>
           <div className="flex flex-wrap gap-1.5">
-            {profile.skills.map((s) => <span key={s} className="bg-[#eaf3fb] dark:bg-info/15 text-info text-[12px] font-bold px-3 py-1 rounded-full">{catById(s).label}</span>)}
+            {profile.skills.map((s) => <span key={s} className="bg-[#eaf3fb] dark:bg-info/15 text-info text-small font-bold px-3 py-1 rounded-full">{catById(s).label}</span>)}
           </div>
         </Card>
       )}
@@ -112,7 +112,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
       <Card className="p-5">
         <H>Verified work history · {cv.jobsDone}</H>
         {ordered.length === 0
-          ? <p className="text-[13px] text-muted m-0">No completed jobs yet.</p>
+          ? <p className="text-small text-muted m-0">No completed jobs yet.</p>
           : ordered.map((h) => {
               const c = catById(h.category);
               return (
@@ -120,20 +120,20 @@ function CvBody({ data }: { data: PublicCvResult }) {
                   <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-red border-2 border-surface" />
                   <div className="flex justify-between items-baseline gap-3">
                     <b className="text-sm text-navy">{h.jobTitle}</b>
-                    <span className="text-[11px] text-muted font-bold whitespace-nowrap">{h.date}</span>
+                    <span className="text-micro text-muted font-bold whitespace-nowrap">{h.date}</span>
                   </div>
-                  <div className="text-[12px] text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
-                  <div className="text-[12.5px] text-ink italic my-1.5 leading-snug">“{h.review}”</div>
+                  <div className="text-small text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
+                  <div className="text-small text-ink italic my-1.5 leading-snug">“{h.review}”</div>
                   {isUnrated(h.rating)
-                    ? <div className="text-[11.5px] text-muted flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
-                    : <div className="text-[11.5px] text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>}
+                    ? <div className="text-micro text-muted flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
+                    : <div className="text-micro text-muted flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>}
                 </div>
               );
             })}
       </Card>
 
       <div className="text-center mt-6 mb-2">
-        <p className="text-[12.5px] text-muted leading-relaxed mb-3">Every reference above is verified by Vuka — built automatically from real, completed jobs. No self-written claims.</p>
+        <p className="text-small text-muted leading-relaxed mb-3">Every reference above is verified by Vuka — built automatically from real, completed jobs. No self-written claims.</p>
         <a href="/" className="inline-flex items-center gap-2 rounded-pill bg-navy text-white dark:text-navy-deep font-bold text-sm px-5 py-3 hover:bg-navy-2 transition active:scale-95">
           Build your own verified CV — free →
         </a>
@@ -144,13 +144,13 @@ function CvBody({ data }: { data: PublicCvResult }) {
 
 function Badge({ children, tone }: { children: React.ReactNode; tone?: 'verified' }) {
   const cls = tone === 'verified' ? 'bg-success text-white' : 'bg-white/15 text-white';
-  return <span className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[12px] font-bold ${cls}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-small font-bold ${cls}`}>{children}</span>;
 }
 function Stat({ value, label }: { value: string; label: string }) {
-  return <div className="text-center"><b className="block text-[16px] font-extrabold text-navy leading-tight tnum">{value}</b><span className="text-[10px] text-muted font-bold uppercase tracking-wide">{label}</span></div>;
+  return <div className="text-center"><b className="block text-lead font-extrabold text-navy leading-tight tnum">{value}</b><span className="text-micro text-muted font-bold uppercase tracking-wide">{label}</span></div>;
 }
 function H({ children }: { children: React.ReactNode }) {
-  return <h2 className="m-0 mb-2.5 text-[11px] uppercase tracking-widest text-muted font-bold">{children}</h2>;
+  return <h2 className="m-0 mb-2.5 text-micro uppercase tracking-widest text-muted font-bold">{children}</h2>;
 }
 
 function LoadingCv() {
@@ -170,11 +170,11 @@ function Notice({ title, body }: { title: string; body: string }) {
     <Card className="p-8 text-center">
       <div className="text-5xl mb-2" aria-hidden="true">🔍</div>
       <h2 className="text-navy font-extrabold text-lg m-0">{title}</h2>
-      <p className="text-muted text-[13.5px] leading-relaxed mt-1.5 mb-4">{body}</p>
+      <p className="text-muted text-small leading-relaxed mt-1.5 mb-4">{body}</p>
       <a href="/" className="inline-flex rounded-pill bg-red text-white font-bold text-sm px-5 py-3 hover:bg-red-hover transition">Go to Vuka Uzenzele</a>
     </Card>
   );
 }
 function Footer() {
-  return <p className="text-center text-[11px] text-subtle pb-8 px-4">Vuka Uzenzele · Rise up &amp; do it for yourself</p>;
+  return <p className="text-center text-micro text-subtle pb-8 px-4">Vuka Uzenzele · Rise up &amp; do it for yourself</p>;
 }

@@ -96,7 +96,7 @@ export function PostJob() {
     <>
       <header className="mb-4">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Reach verified youth nearby</small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Post a job<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Post a job<span className="text-red">.</span></h2>
       </header>
 
       <Field label="What do you need?" error={errors.title}>
@@ -117,7 +117,7 @@ export function PostJob() {
       <Field label="Where" error={errors.loc}>
         <input className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} aria-label="Location" aria-invalid={!!errors.loc} />
         {locationSupported() && (
-          <div className="flex items-center gap-2 mt-2 text-[12.5px]">
+          <div className="flex items-center gap-2 mt-2 text-small">
             {pin ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">📍 Pinned to this spot</span>
@@ -151,7 +151,7 @@ export function PostJob() {
       </div>
 
       <Button block variant="navy" disabled={busy} onClick={submit}>{busy ? 'Posting…' : "Post job — it's free to post"}</Button>
-      <p className="text-center text-[12px] text-muted leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
+      <p className="text-center text-small text-muted leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
     </>
   );
 }
@@ -162,7 +162,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className={`block text-xs font-bold uppercase tracking-wide mb-1.5 ${error ? 'text-red' : 'text-muted'}`}>{label}</label>
       {children}
       {/* Beside the field that caused it, and it stays until that field changes. */}
-      {error && <p role="alert" className="text-[12.5px] font-semibold text-red mt-1.5 leading-snug">{error}</p>}
+      {error && <p role="alert" className="text-small font-semibold text-red mt-1.5 leading-snug">{error}</p>}
     </div>
   );
 }

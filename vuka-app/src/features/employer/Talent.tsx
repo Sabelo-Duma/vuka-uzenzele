@@ -25,7 +25,7 @@ export function Talent() {
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">
           {workers.length} verified worker{workers.length !== 1 ? 's' : ''}{catLabel ? ` · ${catLabel}` : ' nearby'}
         </small>
-        <h2 className="m-0 mt-0.5 text-[23px] font-extrabold text-navy tracking-tight">Browse talent<span className="text-red">.</span></h2>
+        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Browse talent<span className="text-red">.</span></h2>
       </header>
 
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5 mb-3">
