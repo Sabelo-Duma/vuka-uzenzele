@@ -61,7 +61,7 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
           <span aria-hidden="true" className="absolute inset-0" style={{ background: 'radial-gradient(60% 60% at 50% 0%, rgba(242,0,35,.35), transparent 70%)' }} />
           <div className="relative">
             <div className="text-jumbo animate-pop" aria-hidden="true">{after.tier.icon}</div>
-            <h4 className="m-0 mt-1.5 text-lg font-extrabold tracking-tight">TIER UP — you're now {after.tier.name}!</h4>
+            <h4 className="font-display m-0 mt-1.5 text-lg font-extrabold tracking-tight">TIER UP — you're now {after.tier.name}!</h4>
             <p className="m-0 text-small text-white/85 leading-snug mt-1">{after.tier.unlocks}</p>
             {newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-small font-bold bg-red rounded-full px-3 py-1 animate-pop">🔓 {newlyUnlocked} new formal job{newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
           </div>
@@ -69,7 +69,7 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
       ) : (
         <div className="text-center">
           <div className="text-mega animate-pop" aria-hidden="true">🎉</div>
-          <h3 className="text-xl font-extrabold text-navy mt-2 mb-1 tracking-tight">Confirmed — CV updated!</h3>
+          <h3 className="font-display text-xl font-extrabold text-ink mt-2 mb-1 tracking-tight">Confirmed — CV updated!</h3>
           <p className="text-muted text-small leading-relaxed mb-4">
             The employer confirmed <b className="text-navy">“{jobTitle}”</b> and left you a verified reference. Reputation now <b className="tnum">{shownRep}/100</b>.
           </p>

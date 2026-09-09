@@ -120,7 +120,7 @@ function InstallHelpSheet({ onClose }: { onClose: () => void }) {
       <div className="flex items-center gap-3 mb-3">
         <span className="grid place-items-center w-12 h-12 rounded-[16px] text-white text-2xl shrink-0" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">V</span>
         <div>
-          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">{title}</h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{title}</h3>
           <p className="text-small text-muted m-0 mt-0.5">Works offline · no app store needed · free</p>
         </div>
       </div>

@@ -100,7 +100,7 @@ function InviteSheet({ workerId, workerName, onClose }: { workerId: string; work
 
   return (
     <Sheet title={`Invite ${first}`} onClose={onClose}>
-      <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">Invite to a job</h3>
+      <h3 className="font-display text-xl font-extrabold text-ink m-0 mb-1 tracking-tight">Invite to a job</h3>
       <p className="text-muted text-small leading-relaxed mb-4">Pick one of your open jobs. {first} will see the invitation and can accept it.</p>
       {gigs === null ? (
         <div className="flex flex-col gap-2.5">{[0, 1].map((i) => <div key={i} className="skeleton h-[68px] rounded-2xl" />)}</div>

@@ -66,7 +66,7 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
       <Card className="p-4 flex gap-3.5 items-center transition-shadow duration-200 hover:shadow-e2">
         <Avatar initials={worker.initials} color={worker.color} verified={worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="m-0 text-body font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
+          <h4 className="font-display m-0 text-body font-extrabold text-ink flex items-center gap-1.5 tracking-tight">
             {worker.name}
             {worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
           </h4>
@@ -95,14 +95,14 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
         <div className="flex gap-3 items-start">
           <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
           <div className="flex-1 min-w-0">
-            <h4 className="m-0 text-body font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h4>
+            <h4 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h4>
             <div className="text-small text-muted flex items-center gap-1.5 mt-0.5">
               <Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''}
             </div>
           </div>
           <div className="text-right shrink-0">
-            <b className="text-lead font-extrabold text-navy tnum">{money(total)}</b>
-            <small className="block text-micro text-muted tnum">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
+            <b className="font-display text-title font-extrabold text-money tnum leading-none">{money(total)}</b>
+            <small className="block text-micro text-muted tnum mt-1">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
@@ -125,12 +125,12 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
     <div className="flex gap-3 items-start">
       <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
       <div className="flex-1 min-w-0">
-        <h4 className="m-0 text-body font-extrabold text-navy leading-tight tracking-tight">{job.title}</h4>
+        <h4 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{job.title}</h4>
         <div className="text-micro text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
         <div className="text-small text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
       </div>
       <div className="text-right shrink-0">
-        <b className="text-body font-extrabold text-navy tnum">{amount.trim()}</b>
+        <b className="font-display text-lead font-extrabold text-money tnum">{amount.trim()}</b>
         {per && <small className="block text-micro text-muted">/{per.trim()}</small>}
       </div>
     </div>

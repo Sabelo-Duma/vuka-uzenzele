@@ -125,7 +125,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
           <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-white/90 mb-6">
             <span className="w-2 h-2 rounded-full bg-red floaty" />Youth work, reimagined for South Africa
           </span>
-          <h1 className="ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
+          <h1 className="font-display ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
           <p className="ob-rise-2 text-white/70 mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
           <ul className="ob-rise-3 mt-9 space-y-4">
             {[
@@ -168,7 +168,7 @@ function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; on
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
       <p className="text-small text-muted mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
         <RoleOption emoji="🙋" bg="#eaf3fb" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
@@ -210,7 +210,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
       <p className="text-small text-muted mb-6">Sign in to pick up where you left off.</p>
       <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => edit(setPhone)(e.target.value)} aria-label="Mobile number" /></div>
       <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
@@ -300,7 +300,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="text-display font-extrabold text-navy mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
       {phase === 'phone' ? (
         <>
           <p className="text-small text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
@@ -370,7 +370,7 @@ function BackRow({ onBack }: { onBack: () => void }) {
   return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
 function Head({ h, sub }: { h: string; sub: string }) {
-  return (<><h2 className="text-head font-extrabold text-navy mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-muted mb-6 leading-relaxed">{sub}</p></>);
+  return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-muted mb-6 leading-relaxed">{sub}</p></>);
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
@@ -533,7 +533,7 @@ function IdStep() {
   return (<><Head h="Verify your identity<span class='text-red'>.</span>" sub="Optional — but verified workers get the ✅ badge, more employer trust, and access to formal roles that require it." />
     <div className="border-[1.5px] border-dashed border-line-strong bg-surface-2 rounded-[20px] p-6 text-center">
       <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-4xl bg-[#eaf3fb] dark:bg-surface" aria-hidden="true">🪪</div>
-      <h4 className="m-0 mb-1 text-base text-navy font-bold">Do this from your profile</h4>
+      <h4 className="font-display m-0 mb-1 text-base text-ink font-bold">Do this from your profile</h4>
       <p className="m-0 text-small text-muted leading-relaxed">Finish signing up, then open <b className="text-navy">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
     </div>
     <ul className="mt-4 space-y-2 text-small text-navy">
@@ -556,7 +556,7 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
     <div className="text-center">
       <BackRow onBack={onBack} />
       <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">{worker ? '🎉' : '💼'}</div>
-      <h2 className="text-head font-extrabold text-navy mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
+      <h2 className="font-display text-head font-extrabold text-ink mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
       <p className="text-small text-muted leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
       {worker && (
         <div className="text-left bg-navy text-white rounded-[18px] p-4 mt-5">

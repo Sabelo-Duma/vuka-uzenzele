@@ -39,6 +39,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        /* Precache only the Latin cut of each font.
+           Fontsource ships latin, latin-ext and Vietnamese, and every face
+           carries a unicode-range, so a browser fetches at most the one it
+           needs — but the service worker would otherwise download all of them
+           up front, which is ~46 KB of a South African user's data bundle spent
+           on glyph ranges this app will never render. They stay on the server
+           and are still fetched on demand in the rare case one is needed. */
+        globIgnores: ['**/*-{latin-ext,vietnamese}-*.woff2'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // Notification handling lives in public/push-sw.js and is pulled into

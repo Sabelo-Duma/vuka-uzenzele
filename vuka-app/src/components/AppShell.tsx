@@ -9,7 +9,7 @@ interface NavItem { screen: Screen; label: string; icon: IconName; }
 const WORKER_NAV: NavItem[] = [
   { screen: 'home', label: 'Home', icon: 'home' },
   { screen: 'jobs', label: 'Jobs', icon: 'jobs' },
-  { screen: 'cv', label: 'Ladder', icon: 'ladder' },
+  { screen: 'cv', label: 'My record', icon: 'ladder' },
   { screen: 'me', label: 'Me', icon: 'user' },
 ];
 const EMPLOYER_NAV: NavItem[] = [
@@ -30,7 +30,7 @@ const MOBILE_TABS: Record<'worker' | 'employer', NavItem[]> = {
   worker: [
     { screen: 'home', label: 'Home', icon: 'home' },
     CHAT_TAB,
-    { screen: 'cv', label: 'Ladder', icon: 'ladder' },
+    { screen: 'cv', label: 'My record', icon: 'ladder' },
     { screen: 'me', label: 'Me', icon: 'user' },
   ],
   employer: [
@@ -194,7 +194,7 @@ function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-micro font-bold transition
+      className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-micro font-bold transition whitespace-nowrap
         ${active ? 'text-red' : 'text-subtle'}`}
     >
       <span className="relative">

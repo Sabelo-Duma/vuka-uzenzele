@@ -23,7 +23,7 @@ const responsibleParty = OPERATOR.legalName || `${OPERATOR.tradingName} (registe
 const privacyContact = OPERATOR.privacyEmail || 'the contact address published in the app';
 
 function H({ children }: { children: React.ReactNode }) {
-  return <h4 className="text-small font-extrabold text-navy tracking-tight mt-4 mb-1.5">{children}</h4>;
+  return <h4 className="font-display text-small font-extrabold text-ink tracking-tight mt-4 mb-1.5">{children}</h4>;
 }
 function P({ children }: { children: React.ReactNode }) {
   return <p className="text-small text-muted leading-relaxed mb-2">{children}</p>;
@@ -56,7 +56,7 @@ function Updated() {
 export function PrivacySheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Privacy & your data" onClose={onClose}>
-      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Privacy &amp; your data<span className="text-red">.</span></h3>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Privacy &amp; your data<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-3 leading-relaxed">
         What {OPERATOR.product} collects, why, and what you can make us do about it. Written under the
         Protection of Personal Information Act (POPIA).
@@ -183,7 +183,7 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 export function TermsSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Terms of use" onClose={onClose}>
-      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Terms of use<span className="text-red">.</span></h3>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Terms of use<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-3 leading-relaxed">The deal between you and {OPERATOR.product}. Plain language, and it means what it says.</p>
       <DraftNotice />
 

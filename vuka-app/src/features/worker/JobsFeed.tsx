@@ -27,7 +27,7 @@ export function JobsFeed() {
             ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : state.coords ? ' · nearest first' : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
             : `${formalJobs.length} formal role${formalJobs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ''}`}
         </small>
-        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Find work<span className="text-red">.</span></h2>
+        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find work<span className="text-red">.</span></h2>
       </header>
 
       <Segmented
