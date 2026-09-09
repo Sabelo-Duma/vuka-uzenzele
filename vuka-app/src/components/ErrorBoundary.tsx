@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="p-8 text-center" role="alert">
         <div className="text-5xl mb-3" aria-hidden="true">😕</div>
-        <h2 className="text-navy text-lg font-bold m-0">This screen ran into a problem</h2>
+        <h2 className="font-display text-ink text-lg font-bold m-0">This screen ran into a problem</h2>
         <p className="text-muted text-sm leading-relaxed mt-2 mb-5">
           Something on this page didn't load correctly. Your saved profile is safe. Go back to the home screen and try again.
         </p>

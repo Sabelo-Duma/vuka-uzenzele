@@ -167,7 +167,7 @@ export function TierBadge({ icon, name, color }: { icon: string; name: string; c
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mt-5 mb-3 px-1">
-      <h3 className="text-lead font-extrabold text-navy m-0 tracking-tight">{children}<span className="text-red">.</span></h3>
+      <h3 className="font-display text-lead font-extrabold text-ink m-0 tracking-tight">{children}<span className="text-red">.</span></h3>
       {action}
     </div>
   );
@@ -221,7 +221,7 @@ export function EmptyState({ icon, title, hint, action }: { icon: string; title:
   return (
     <Card className="p-8 text-center">
       <div className="text-5xl mb-2" aria-hidden="true">{icon}</div>
-      <h4 className="text-navy font-bold text-base m-0">{title}</h4>
+      <h4 className="font-display text-ink font-bold text-base m-0">{title}</h4>
       <p className="text-muted text-small leading-relaxed mt-1.5 mb-0">{hint}</p>
       {action && <div className="mt-4">{action}</div>}
     </Card>

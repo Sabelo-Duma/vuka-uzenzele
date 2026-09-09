@@ -36,7 +36,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-surface-2 border border-line px-3 py-1.5 text-small font-bold text-navy mb-6">
               <span className="w-2 h-2 rounded-full bg-red floaty" />Youth work, reimagined for South Africa
             </span>
-            <h1 className="ob-rise text-[clamp(2.1rem,6vw,3.6rem)] font-extrabold text-navy leading-[1.04] tracking-[-0.02em]">
+            <h1 className="font-display ob-rise text-[clamp(2.1rem,6vw,3.6rem)] font-extrabold text-ink leading-[1.04] tracking-[-0.02em]">
               Your first job shouldn't need a CV<span className="text-red">.</span>
             </h1>
             <p className="ob-rise-2 text-muted text-[clamp(1rem,2.2vw,1.2rem)] leading-relaxed mt-5 max-w-[46ch]">
@@ -116,7 +116,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 py-16">
         <div className="text-center mb-10">
           <p className="text-small font-bold uppercase tracking-widest text-red">How it works</p>
-          <h2 className="text-[clamp(1.6rem,3.6vw,2.3rem)] font-extrabold text-navy tracking-tight mt-2">Start today. Rise as you go.</h2>
+          <h2 className="font-display text-[clamp(1.6rem,3.6vw,2.3rem)] font-extrabold text-ink tracking-tight mt-2">Start today. Rise as you go.</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {[
@@ -129,7 +129,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
                 <span className="grid place-items-center w-12 h-12 rounded-2xl bg-surface-2 border border-line text-2xl">{s.ic}</span>
                 <span className="text-small font-extrabold text-subtle tnum">0{i + 1}</span>
               </div>
-              <h3 className="text-lead font-extrabold text-navy mt-4 tracking-tight">{s.t}</h3>
+              <h3 className="font-display text-lead font-extrabold text-ink mt-4 tracking-tight">{s.t}</h3>
               <p className="text-small text-muted leading-relaxed mt-1.5">{s.p}</p>
             </div>
           ))}
@@ -142,14 +142,14 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           <span className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.3), transparent 70%)' }} />
           <div className="relative">
             <div className="text-2xl">🙋</div>
-            <h3 className="text-xl font-extrabold mt-2">Looking for work?</h3>
+            <h3 className="font-display text-xl font-extrabold mt-2">Looking for work?</h3>
             <p className="text-white/80 text-body leading-relaxed mt-2">Build a verified CV from real jobs, get paid fairly, and unlock formal employment — starting from zero.</p>
             <button onClick={onGetStarted} className="mt-5 rounded-pill bg-white text-navy font-bold text-body px-5 py-3 hover:bg-white/90 transition active:scale-95">Start earning →</button>
           </div>
         </div>
         <div className="rounded-[24px] p-7 bg-surface border border-line shadow-e2">
           <div className="text-2xl">💼</div>
-          <h3 className="text-xl font-extrabold text-navy mt-2 tracking-tight">Need to hire?</h3>
+          <h3 className="font-display text-xl font-extrabold text-ink mt-2 tracking-tight">Need to hire?</h3>
           <p className="text-muted text-body leading-relaxed mt-2">Find ID-verified youth nearby with real reviews and earned tiers. Post a job, invite, and chat directly.</p>
           <button onClick={onGetStarted} className="mt-5 rounded-pill bg-navy text-white dark:text-navy-deep font-bold text-body px-5 py-3 hover:bg-navy-2 transition active:scale-95">Post a job →</button>
         </div>
@@ -167,7 +167,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
 
       {/* Final CTA */}
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 py-16 text-center">
-        <h2 className="text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-navy tracking-tight max-w-[18ch] mx-auto">Rise up &amp; do it for yourself<span className="text-red">.</span></h2>
+        <h2 className="font-display text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-ink tracking-tight max-w-[18ch] mx-auto">Rise up &amp; do it for yourself<span className="text-red">.</span></h2>
         <p className="text-muted text-body mt-4 max-w-[44ch] mx-auto">Join young South Africans turning everyday work into a career. It's free, and it starts now.</p>
         <div className="flex flex-wrap gap-3 justify-center mt-7">
           <button onClick={onGetStarted} className="rounded-pill bg-red text-white font-bold text-body px-7 py-3.5 hover:bg-red-hover transition active:scale-95 shadow-e2">Get started free</button>

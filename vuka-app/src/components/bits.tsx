@@ -8,7 +8,7 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
       <button onClick={onBack} aria-label="Go back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy hover:bg-surface-2 transition active:scale-95">
         <Icon name="back" size={22} />
       </button>
-      <h3 className="m-0 text-base font-extrabold text-navy uppercase tracking-wide">{title}</h3>
+      <h3 className="font-display m-0 text-base font-extrabold text-ink uppercase tracking-wide">{title}</h3>
     </div>
   );
 }
@@ -20,7 +20,7 @@ export function Hero({ eyebrow, title, sub, gradient, children }: { eyebrow: Rea
       <span aria-hidden="true" className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.28), transparent 70%)' }} />
       <div className="relative">
         <div className="text-micro font-bold uppercase tracking-widest text-white/70">{eyebrow}</div>
-        <h2 className="mt-1.5 mb-1 text-head font-extrabold leading-tight tracking-tight">{title}</h2>
+        <h2 className="font-display mt-1.5 mb-1 text-head font-extrabold leading-tight tracking-tight">{title}</h2>
         <div className="text-small opacity-90 flex items-center gap-1.5">{sub}</div>
         {children}
       </div>

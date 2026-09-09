@@ -33,7 +33,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
   if (phase === 'review') {
     return (
       <Sheet title="Mark the job done" onClose={onClose}>
-        <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How was the job?</h3>
+        <h3 className="font-display text-xl font-extrabold text-ink m-0 mb-1 tracking-tight">How was the job?</h3>
         <p className="text-muted text-small leading-relaxed mb-4">
           Rate <b>{gig.employer}</b> for “{gig.title}”. Your rating is part of their public employer score.
         </p>
@@ -54,7 +54,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
     <Sheet title="Waiting for confirmation" onClose={onClose}>
       <div className="text-center">
         <div className="text-giant animate-pop" aria-hidden="true">🕓</div>
-        <h3 className="text-xl font-extrabold text-navy mt-2 mb-1 tracking-tight">Sent to {gig.employer.split(' ')[0]}<span className="text-red">.</span></h3>
+        <h3 className="font-display text-xl font-extrabold text-ink mt-2 mb-1 tracking-tight">Sent to {gig.employer.split(' ')[0]}<span className="text-red">.</span></h3>
         <p className="text-muted text-small leading-relaxed">
           Your rating is in. As soon as <b className="text-navy">{gig.employer}</b> confirms the work, the reference and your pay are released — and your CV updates on the spot.
         </p>

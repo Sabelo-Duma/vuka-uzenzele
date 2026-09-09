@@ -69,7 +69,7 @@ export function FormalDetail({ id }: { id: string }) {
         <Card className="p-4 my-4 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
           <div className="flex items-center gap-3">
             <span className="grid place-items-center w-11 h-11 rounded-[13px] bg-white/15 text-xl"><Icon name="lock" size={20} /></span>
-            <div><small className="text-white/70 text-micro uppercase tracking-wide">Locked</small><h3 className="m-0 text-lg font-bold">Reach {reqTier.name} {reqTier.icon}</h3></div>
+            <div><small className="text-white/70 text-micro uppercase tracking-wide">Locked</small><h3 className="font-display m-0 text-lg font-bold">Reach {reqTier.name} {reqTier.icon}</h3></div>
           </div>
           <div className="flex gap-2 mt-3">
             <Req ok={cv.jobsDone >= reqTier.minJobs} label="Jobs done" value={`${cv.jobsDone}/${reqTier.minJobs}`} />

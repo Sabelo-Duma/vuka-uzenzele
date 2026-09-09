@@ -22,6 +22,10 @@ export function WorkerHome() {
   // Work that still needs something to happen: you're on it, or you're waiting
   // on the employer to confirm.
   const activeWork = state.myJobs.filter((j) => j.status === 'hired' || j.status === 'worker_done');
+  // Finished but not yet confirmed: earned, not yet paid. Worth naming.
+  const awaitingPayment = activeWork
+    .filter((j) => j.status === 'worker_done')
+    .reduce((sum, j) => sum + j.gig.hours * j.gig.payPerHour, 0);
 
   const nextText = cv.nextTier
     ? <>{cv.jobsToGo === 0 ? <b>Rating up</b> : <b>{cv.jobsToGo} more job{cv.jobsToGo > 1 ? 's' : ''}</b>} to reach <b>{cv.nextTier.name}</b> {cv.nextTier.icon}</>
@@ -32,17 +36,31 @@ export function WorkerHome() {
       <header className="flex items-center justify-between mb-3">
         <div>
           <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Sawubona 👋</small>
-          <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
+          <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
         </div>
         <Avatar initials={state.worker.initials || 'ME'} color={state.worker.color} verified={state.worker.idVerified} tier={cv.tier.icon} />
       </header>
 
-      {/* Order here is deliberate: work first, everything else after.
-          Someone opens this screen because they need a job today, so the first
-          thing under the greeting is an invitation or a shift they're already
-          on, then gigs near them. The tier card and the trust and low-data
-          strips are all worth saying — just not ahead of the work, which is
-          what they came for and the only thing they'll tell a friend about. */}
+      {/* Money first, then work, then everything else.
+          Nobody opens this screen to look at a badge — they open it because they
+          need to earn. So the top of the screen is the sentence a worker would
+          actually repeat to a friend ("I've made R2 480 on here"), and the one
+          red button on the screen takes them straight to more of it. The tier
+          card and the trust and low-data strips still say true and useful
+          things; they just don't get to stand between arrival and work. */}
+
+      <Card className="p-4 mb-3 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#0B2947)' }}>
+        <small className="text-micro font-extrabold uppercase tracking-widest text-white/60">Earned on Vuka</small>
+        <div className="font-display text-hero font-extrabold tracking-tight leading-none tnum mt-1">{money(cv.totalEarned)}</div>
+        <div className="text-small text-white/75 mt-1.5">
+          Across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}
+          {awaitingPayment > 0 && <> · <b className="text-white">{money(awaitingPayment)}</b> still to come</>}
+        </div>
+      </Card>
+
+      <Button className="w-full mb-4" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>
+        Find work near me
+      </Button>
 
       {state.invitations.length > 0 && (
         <div className="mb-1">
@@ -72,7 +90,7 @@ export function WorkerHome() {
         ))}
       </div>
 
-      <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
+      <SectionTitle action={<button className="text-small text-navy font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
       {state.dataLoading && state.gigs.length === 0
         ? <CardSkeletonGrid count={2} />
         : featured.length > 0
@@ -81,7 +99,7 @@ export function WorkerHome() {
 
       {teaser && (
         <>
-          <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
+          <SectionTitle action={<button className="text-small text-navy font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
         </>
       )}
@@ -92,7 +110,7 @@ export function WorkerHome() {
           <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display" aria-hidden="true">{cv.tier.icon}</span>
           <div className="flex-1">
             <small className="text-white/70 text-xs">Your tier</small>
-            <h3 className="m-0 text-lg font-bold">{cv.tier.name} · <span className="opacity-80 font-semibold text-sm">{unlockedCount} formal jobs unlocked</span></h3>
+            <h3 className="font-display m-0 text-lg font-bold">{cv.tier.name} · <span className="opacity-80 font-semibold text-sm">{unlockedCount} formal jobs unlocked</span></h3>
           </div>
           <Button size="sm" onClick={() => navigate('cv')}>Ladder</Button>
         </div>
@@ -102,9 +120,8 @@ export function WorkerHome() {
 
       <TrustStrip />
 
-      <p className="text-center text-small text-muted leading-relaxed px-4 pb-2">
-        Total earned so far: <b className="text-navy">{money(cv.totalEarned)}</b> across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}.
-        <span className="block text-micro text-subtle mt-1">Built light on data — pages are saved on your phone, so browsing works offline too 📶</span>
+      <p className="text-center text-micro text-subtle leading-relaxed px-4 pb-2">
+        Built light on data — pages are saved on your phone, so browsing works offline too 📶
       </p>
     </Dashboard>
   );

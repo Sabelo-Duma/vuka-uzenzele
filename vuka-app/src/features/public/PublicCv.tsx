@@ -70,7 +70,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
           <div className="relative flex items-center gap-4">
             <span className="grid place-items-center w-16 h-16 rounded-[20px] bg-white/15 text-2xl font-extrabold shrink-0">{initials}</span>
             <div className="min-w-0">
-              <h1 className="m-0 text-display font-extrabold leading-tight tracking-tight truncate">{name}</h1>
+              <h1 className="font-display m-0 text-display font-extrabold leading-tight tracking-tight truncate">{name}</h1>
               <p className="m-0 mt-0.5 text-small text-white/85">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
             </div>
           </div>
@@ -150,7 +150,7 @@ function Stat({ value, label }: { value: string; label: string }) {
   return <div className="text-center"><b className="block text-lead font-extrabold text-navy leading-tight tnum">{value}</b><span className="text-micro text-muted font-bold uppercase tracking-wide">{label}</span></div>;
 }
 function H({ children }: { children: React.ReactNode }) {
-  return <h2 className="m-0 mb-2.5 text-micro uppercase tracking-widest text-muted font-bold">{children}</h2>;
+  return <h2 className="font-display m-0 mb-2.5 text-micro uppercase tracking-widest text-muted font-bold">{children}</h2>;
 }
 
 function LoadingCv() {
@@ -169,7 +169,7 @@ function Notice({ title, body }: { title: string; body: string }) {
   return (
     <Card className="p-8 text-center">
       <div className="text-5xl mb-2" aria-hidden="true">🔍</div>
-      <h2 className="text-navy font-extrabold text-lg m-0">{title}</h2>
+      <h2 className="font-display text-ink font-extrabold text-lg m-0">{title}</h2>
       <p className="text-muted text-small leading-relaxed mt-1.5 mb-4">{body}</p>
       <a href="/" className="inline-flex rounded-pill bg-red text-white font-bold text-sm px-5 py-3 hover:bg-red-hover transition">Go to Vuka Uzenzele</a>
     </Card>

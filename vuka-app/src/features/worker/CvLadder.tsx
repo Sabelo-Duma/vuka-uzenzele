@@ -17,7 +17,7 @@ export function CvLadder() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Auto-generated · always up to date</small>
-        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">My CV &amp; ladder<span className="text-red">.</span></h2>
+        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">My CV &amp; ladder<span className="text-red">.</span></h2>
       </header>
 
       {/* Reputation ring */}
@@ -58,7 +58,7 @@ export function CvLadder() {
       <SectionTitle>Your CV document</SectionTitle>
       <Card className="overflow-hidden">
         <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#1A3B68)' }}>
-          <h3 className="m-0 text-head font-extrabold tracking-tight">{w.name}</h3>
+          <h3 className="font-display m-0 text-head font-extrabold tracking-tight">{w.name}</h3>
           <p className="m-0 mt-1 text-small opacity-90">{w.location} · Age {w.age} · {w.education} · Member since {w.joined}</p>
           {w.idVerified && (
             <span className="inline-flex gap-1.5 items-center mt-2.5 bg-white/15 px-2.5 py-1 rounded-full text-micro font-bold">
@@ -187,7 +187,7 @@ function TierCard({ cv }: { cv: CvSnapshot }) {
     return (
       <Card className="p-4.5 p-4 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
         <div className="flex items-center gap-3"><span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display">{cv.tier.icon}</span>
-          <div><small className="text-white/70 text-xs">Your tier · top of the ladder</small><h3 className="m-0 text-lg font-bold">{cv.tier.name}</h3></div>
+          <div><small className="text-white/70 text-xs">Your tier · top of the ladder</small><h3 className="font-display m-0 text-lg font-bold">{cv.tier.name}</h3></div>
         </div>
         <p className="text-small text-white/85 leading-snug mt-3 mb-0">You're in the top 5% — employers see you first, and every formal job is open to you. 🎉</p>
       </Card>
@@ -198,7 +198,7 @@ function TierCard({ cv }: { cv: CvSnapshot }) {
     <Card className="p-4.5 p-4 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
       <div className="flex items-center gap-3">
         <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display">{cv.tier.icon}</span>
-        <div className="flex-1"><small className="text-white/70 text-xs">Your tier</small><h3 className="m-0 text-lg font-bold">{cv.tier.name}</h3></div>
+        <div className="flex-1"><small className="text-white/70 text-xs">Your tier</small><h3 className="font-display m-0 text-lg font-bold">{cv.tier.name}</h3></div>
         <div className="text-right"><small className="text-white/70 text-micro uppercase">Next</small><div className="font-bold">{n.icon} {n.name}</div></div>
       </div>
       <div className="text-small text-white/85 my-2.5 leading-snug">Reach <b>{n.name}</b> to unlock: {n.unlocks}</div>
@@ -226,7 +226,7 @@ function Rung({ tier, cv }: { tier: Tier; cv: CvSnapshot }) {
       </div>
       <div className="flex-1 pt-0.5">
         <div className="flex items-center gap-2">
-          <h4 className={`m-0 text-body font-bold ${reached ? 'text-navy' : 'text-subtle'}`}>{tier.name}</h4>
+          <h4 className={`font-display m-0 text-body font-bold ${reached ? 'text-ink' : 'text-subtle'}`}>{tier.name}</h4>
           {current && <span className="text-micro font-extrabold uppercase tracking-wide bg-red text-white px-2 py-0.5 rounded-full">You are here</span>}
           {!reached && <span className="text-micro text-subtle font-bold ml-auto">{tier.minJobs}+ jobs · {tier.minRating.toFixed(1)}★</span>}
         </div>

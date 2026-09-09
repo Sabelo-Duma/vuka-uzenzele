@@ -10,18 +10,32 @@
 @tailwind utilities;
 
 :root {
-  /* Brand */
-  --gj-red: #F20023;
-  --gj-red-hover: #D40020;
+  /* Brand.
+     Red is now reserved for the single primary action on a screen. It used to
+     be brand, action AND error at once, which made a "See all →" link look as
+     urgent as a failed payment. Slightly deepened so it also passes contrast
+     as text. */
+  --gj-red: #D81E2C;
+  --gj-red-hover: #B8121F;
   --gj-navy: #0E355A;
   --gj-navy-2: #1A3B68;
   --gj-navy-deep: #0D182B;
 
-  /* Text */
-  --gj-text: #0E355A;
-  --gj-text-muted: #767676;
-  --gj-text-subtle: #A5A5A5;
-  --gj-link: #D40020;
+  /* Text.
+     Body copy was set in --gj-navy, the brand colour. With headings, links and
+     ordinary sentences all rendering in the same saturated navy, nothing on a
+     screen receded and so nothing stood out — which is most of why the app read
+     as "too much going on". Ink is a near-black carrying a slight blue bias, so
+     it still sits in the brand family while letting navy mean something again. */
+  --gj-text: #101826;
+  --gj-text-muted: #5D6B7E;
+  --gj-text-subtle: #8593A6;
+  --gj-link: #0E355A;
+
+  /* Money has its own colour and nothing else may use it. A rand amount is the
+     reason a card is being read, so it should never be mistaken for a success
+     tick or a status pill. */
+  --gj-money: #067A4E;
 
   /* Surfaces */
   --gj-bg: #FFFFFF;
@@ -66,7 +80,10 @@
   --gj-text: #E8EDF4;
   --gj-text-muted: #A8B4C4;
   --gj-text-subtle: #7A8699;
-  --gj-link: #FF4D66;
+  --gj-link: #7FB0E6;
+
+  /* Money, lifted for a dark ground while staying unmistakably green. */
+  --gj-money: #3FBF87;
 
   --gj-bg: #0D182B;
   --gj-bg-light: #152238;

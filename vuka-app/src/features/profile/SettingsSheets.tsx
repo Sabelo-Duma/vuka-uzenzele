@@ -76,7 +76,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
 
   return (
     <Sheet title="Banking details" onClose={onClose}>
-      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Get paid<span className="text-red">.</span></h3>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Get paid<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
 
       <div className="mb-3">
@@ -177,7 +177,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {status === 'verified' && (
         <>
-          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Verified with SA ID<span className="text-red">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verified with SA ID<span className="text-red">.</span></h3>
           <p className="text-small text-muted mt-1.5 leading-relaxed">
             Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your ✅ Verified badge, and formal roles that require verification are open to you.
           </p>
@@ -187,7 +187,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {status === 'pending' && (
         <>
-          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">We're checking your ID<span className="text-red">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">We're checking your ID<span className="text-red">.</span></h3>
           <p className="text-small text-muted mt-1.5 leading-relaxed">
             Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
           </p>
@@ -197,7 +197,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {(status === 'none' || status === 'rejected') && (
         <>
-          <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Verify your identity<span className="text-red">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verify your identity<span className="text-red">.</span></h3>
           {status === 'rejected' && (
             <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mt-3 text-small text-navy leading-snug">
               <b>We couldn't verify your last submission.</b>{submission?.reason ? ` ${submission.reason}` : ' Please check the details and try again.'}
@@ -260,7 +260,7 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
   };
   return (
     <Sheet title="Safety centre" onClose={onClose}>
-      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
       <ul className="space-y-2 text-small text-navy mb-4">
         <li className="flex gap-2 items-start"><span>🪪</span> Only ID-verified users can be hired or hire</li>
@@ -300,7 +300,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
   };
   return (
     <Sheet title="Language" onClose={onClose}>
-      <h3 className="text-title font-extrabold text-navy tracking-tight m-0">Language<span className="text-red">.</span></h3>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Language<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
       <div className="flex flex-col gap-2">
         {LANGS.map((l) => (

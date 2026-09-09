@@ -87,7 +87,7 @@ export function Applicants({ id }: { id: string }) {
           <div className="flex gap-3 items-start">
             {c && <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>}
             <div className="flex-1 min-w-0">
-              <h3 className="m-0 text-lead font-extrabold text-navy leading-tight tracking-tight">{gig.title}</h3>
+              <h3 className="font-display m-0 text-lead font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h3>
               <div className="text-small text-muted mt-0.5">{gig.location} · {gig.when} · <b className="text-navy tnum">{money(gig.hours * gig.payPerHour)}</b></div>
             </div>
           </div>
@@ -107,7 +107,7 @@ export function Applicants({ id }: { id: string }) {
         <>
           {hired && (
             <>
-              <h4 className="text-small font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-1">Working on this job</h4>
+              <h4 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2.5 mt-1">Working on this job</h4>
               <ApplicantCard
                 a={hired}
                 busy={busyId === hired.applicationId}
@@ -120,7 +120,7 @@ export function Applicants({ id }: { id: string }) {
 
           {waiting.length > 0 && (
             <>
-              <h4 className="text-small font-extrabold text-navy uppercase tracking-wide mb-2.5 mt-4">
+              <h4 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2.5 mt-4">
                 {hired ? 'Also applied' : `${waiting.length} ${waiting.length === 1 ? 'person' : 'people'} applied`}
               </h4>
               {waiting.map((a) => (
@@ -169,7 +169,7 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
       <button onClick={onOpen} className="w-full text-left flex gap-3.5 items-center">
         <Avatar initials={a.worker.initials} color={a.worker.color} verified={a.worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="m-0 text-body font-extrabold text-navy flex items-center gap-1.5 tracking-tight">
+          <h4 className="font-display m-0 text-body font-extrabold text-ink flex items-center gap-1.5 tracking-tight">
             {a.worker.name}
             {a.worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
           </h4>
@@ -216,7 +216,7 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
   const first = a.worker.name.split(' ')[0];
   return (
     <Sheet title="Confirm the work" onClose={onClose}>
-      <h3 className="text-xl font-extrabold text-navy m-0 mb-1 tracking-tight">How did {first} do?</h3>
+      <h3 className="font-display text-xl font-extrabold text-ink m-0 mb-1 tracking-tight">How did {first} do?</h3>
       <p className="text-muted text-small leading-relaxed mb-4">
         Confirming “{gigTitle}” releases {first}'s pay and writes your review onto their CV as a verified reference. Please be fair — it's the record employers after you will read.
       </p>

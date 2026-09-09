@@ -26,6 +26,7 @@ export default {
         surface: 'var(--gj-bg)',
         'surface-2': 'var(--gj-bg-light)',
         'surface-3': 'var(--gj-bg-hover)',
+        money: 'var(--gj-money)',
         info: 'var(--gj-info)',
         success: 'var(--gj-success)',
         warning: 'var(--gj-warning)',
@@ -38,6 +39,10 @@ export default {
       },
       fontFamily: {
         sans: ['"Figtree Variable"', 'Figtree', 'proxima-nova', 'system-ui', 'Arial', 'sans-serif'],
+        /* Headings and rand amounts. Archivo is tighter and more assertive than
+           Figtree, so a heading reads as a heading without needing to also be a
+           different size, weight and colour. Two faces, each with one job. */
+        display: ['"Archivo Variable"', 'Archivo', 'Figtree', 'system-ui', 'Arial', 'sans-serif'],
       },
       /**
        * The type scale.

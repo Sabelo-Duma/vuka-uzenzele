@@ -45,7 +45,7 @@ export function MyJobs() {
     <>
       <header className="mb-3">
         <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your hiring</small>
-        <h2 className="m-0 mt-0.5 text-head font-extrabold text-navy tracking-tight">Jobs & applicants<span className="text-red">.</span></h2>
+        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Jobs & applicants<span className="text-red">.</span></h2>
       </header>
 
       {needsConfirmation.length > 0 && (
