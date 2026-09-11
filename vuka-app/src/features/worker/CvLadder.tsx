@@ -70,7 +70,7 @@ export function CvLadder() {
               an employer reading a CV — and a CV with no contact number is unusable
               however good the history behind it is. */}
           <p className="m-0 mt-0.5 text-small font-bold opacity-95">{cvRole}</p>
-          <p className="m-0 mt-1.5 text-small opacity-80">{[state.user?.phone, w.location, w.age ? `Age ${w.age}` : ''].filter(Boolean).join(' · ')}</p>
+          <p className="m-0 mt-1.5 text-small opacity-80">{[state.user?.phone, state.user?.email, w.location, w.age ? `Age ${w.age}` : ''].filter(Boolean).join(' · ')}</p>
           {w.idVerified && (
             <span className="inline-flex gap-1.5 items-center mt-2.5 bg-white/15 px-2.5 py-1 rounded-full text-micro font-bold">
               <Icon name="shield" size={13} /> Identity verified against SA ID
@@ -103,7 +103,7 @@ export function CvLadder() {
       </div>
       <p className="text-center text-small text-muted leading-relaxed px-4 py-3">A proper CV — your contact details, profile, skills, dated work experience and references — built from jobs you actually completed. No writing required. Tap <b>Download PDF</b>, then choose “Save as PDF”.</p>
 
-      <PrintableCv w={w} cv={cv} phone={state.user?.phone} />
+      <PrintableCv w={w} cv={cv} phone={state.user?.phone} email={state.user?.email} />
     </>
   );
 }
@@ -120,7 +120,7 @@ export function CvLadder() {
 
    Everything here is assembled from completed, employer-confirmed jobs. That is
    the whole promise: the worker writes nothing. */
-function PrintableCv({ w, cv, phone }: { w: WorkerProfile; cv: CvSnapshot; phone?: string }) {
+function PrintableCv({ w, cv, phone, email }: { w: WorkerProfile; cv: CvSnapshot; phone?: string; email?: string | null }) {
   const generated = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
   const history = [...w.history].reverse();
   const navy = '#0E355A';
@@ -171,7 +171,7 @@ function PrintableCv({ w, cv, phone }: { w: WorkerProfile; cv: CvSnapshot; phone
           </h1>
           <div style={{ fontSize: 14, fontWeight: 700, color: navy, marginTop: 2 }}>{targetRole}</div>
           <div style={{ color: soft, fontSize: 12, marginTop: 6 }}>
-            {[phone, w.location, w.age ? 'Age ' + w.age : ''].filter(Boolean).join('  ·  ')}
+            {[phone, email, w.location, w.age ? 'Age ' + w.age : ''].filter(Boolean).join('  ·  ')}
           </div>
           {w.idVerified && (
             <div style={{ marginTop: 7, display: 'inline-block', background: '#E6F4EC', color: green, border: '1px solid #B8E0CB', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
@@ -222,6 +222,8 @@ function PrintableCv({ w, cv, phone }: { w: WorkerProfile; cv: CvSnapshot; phone
             ))}
 
         {w.education && (<><PH>Education</PH><p style={{ margin: '0 0 14px' }}>{w.education}</p></>)}
+
+        {w.languages.length > 0 && (<><PH>Languages</PH><p style={{ margin: '0 0 14px' }}>{w.languages.join(', ')}</p></>)}
 
         <PH>References</PH>
         <p style={{ margin: '0 0 4px' }}>

@@ -108,6 +108,18 @@ function CvBody({ data }: { data: PublicCvResult }) {
         </Card>
       )}
 
+      {/* Languages, but deliberately not the email address. This page is a public
+          URL: a phone number is already the account identity and an employer can
+          reach the candidate through the platform, whereas publishing an inbox
+          invites everything that finds it. The address goes on the downloadable
+          CV instead, which the worker hands over on purpose. */}
+      {profile?.languages && profile.languages.length > 0 && (
+        <Card className="p-5 mb-3.5">
+          <H>Languages</H>
+          <p className="m-0 text-small text-ink">{profile.languages.join(', ')}</p>
+        </Card>
+      )}
+
       {profile?.skills && profile.skills.length > 0 && (
         <Card className="p-5 mb-3.5">
           <H>Skills</H>

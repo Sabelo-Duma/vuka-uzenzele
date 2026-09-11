@@ -304,6 +304,16 @@ export async function initDb() {
 
   // Migrations for databases created by an earlier version. Additive only.
   await addColumn('history', 'employer_id', 'TEXT');
+  /* Email: a second way in, and the contact detail a CV is expected to carry.
+     Deliberately nullable — the phone number stays the identity, because this
+     platform's users reliably have a phone and do not reliably have an inbox.
+     Stored lower-cased so the unique index below is effectively
+     case-insensitive without needing a functional index on both engines. */
+  await addColumn('users', 'email', 'TEXT');
+  /* Languages spoken, as JSON. Distinct from the interface-language preference,
+     which records what the app should display, not what the person speaks —
+     only the second belongs on a CV. */
+  await addColumn('worker_profiles', 'languages', 'TEXT');
   // Unix seconds; tokens issued before this stop working (password reset).
   await addColumn('users', 'sessions_valid_from', 'INTEGER');
   // Two-sided completion: applied → hired → worker_done → completed.
@@ -336,6 +346,16 @@ export async function initDb() {
   await addColumn('gigs', 'lng', 'REAL');
   await addColumn('formal_jobs', 'lat', 'REAL');
   await addColumn('formal_jobs', 'lng', 'REAL');
+
+  /* One account per email, but only where one was given. A partial index is the
+     point: a plain UNIQUE would treat every NULL as distinct on Postgres and as
+     a collision risk on other engines, and most accounts here will never have
+     an email at all. Has to run after the column exists, so it lives here
+     rather than with the other indexes above. */
+  await exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
+      ON users(email) WHERE email IS NOT NULL;
+  `);
 
   initialised = true;
 }
