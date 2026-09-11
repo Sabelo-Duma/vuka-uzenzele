@@ -68,6 +68,29 @@ export const CATEGORIES: Category[] = [
 export const catById = (id: string): Category =>
   CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0];
 
+/**
+ * The occupational title a category maps to on a CV.
+ *
+ * A category label describes the work we advertise ("Moving help"); a job title
+ * describes the person who did it ("Removals Assistant"). An employer reading a
+ * CV is scanning for the second. This is the difference between a log of gigs
+ * and a work history someone can be hired from, and it costs us nothing — the
+ * data is already there, it was only ever labelled for the wrong reader.
+ */
+const ROLE_TITLES: Record<string, string> = {
+  cleaning: 'Domestic Cleaner',
+  garden: 'Gardener',
+  dogs: 'Dog Walker',
+  moving: 'Removals Assistant',
+  errands: 'General Assistant',
+  tutoring: 'Tutor',
+  carwash: 'Car Wash Attendant',
+  childcare: 'Childminder',
+};
+
+export const roleTitleFor = (categoryId: string): string =>
+  ROLE_TITLES[categoryId] ?? 'General Worker';
+
 /** The opportunity ladder — earned, not bought. */
 export const TIERS: Tier[] = [
   {

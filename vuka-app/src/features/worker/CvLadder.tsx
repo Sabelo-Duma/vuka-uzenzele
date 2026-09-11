@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { BADGES, catById, TIERS } from '../../data/catalog';
+import { BADGES, catById, roleTitleFor, TIERS } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
 import { money, ratingLabel, isUnrated } from '../../lib/format';
 import { useApp } from '../../store/appStore';
@@ -12,6 +12,12 @@ export function CvLadder() {
   const cv = computeCv(state.worker);
   const w = state.worker;
   const animRep = useCountUp(cv.rep);
+  // The job title this record qualifies them for, taken from where they have
+  // the most completed work rather than whatever they happened to do last.
+  const jobsPerCategory = w.history.reduce<Record<string, number>>(
+    (acc, h) => ({ ...acc, [h.category]: (acc[h.category] ?? 0) + 1 }), {});
+  const mostWorked = Object.entries(jobsPerCategory).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const cvRole = roleTitleFor(mostWorked ?? w.skills[0] ?? '');
 
   return (
     <>
@@ -59,10 +65,15 @@ export function CvLadder() {
       <Card className="overflow-hidden">
         <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#1A3B68)' }}>
           <h3 className="font-display m-0 text-head font-extrabold tracking-tight">{w.name}</h3>
-          <p className="m-0 mt-1 text-small opacity-90">{w.location} · Age {w.age} · {w.education} · Member since {w.joined}</p>
+          {/* The role, then how to reach them. Tier and rep score are deliberately
+              absent: they rank someone inside this marketplace and mean nothing to
+              an employer reading a CV — and a CV with no contact number is unusable
+              however good the history behind it is. */}
+          <p className="m-0 mt-0.5 text-small font-bold opacity-95">{cvRole}</p>
+          <p className="m-0 mt-1.5 text-small opacity-80">{[state.user?.phone, w.location, w.age ? `Age ${w.age}` : ''].filter(Boolean).join(' · ')}</p>
           {w.idVerified && (
             <span className="inline-flex gap-1.5 items-center mt-2.5 bg-white/15 px-2.5 py-1 rounded-full text-micro font-bold">
-              <Icon name="shield" size={13} /> Identity verified · {cv.tier.name} tier · {cv.jobsDone} verified references
+              <Icon name="shield" size={13} /> Identity verified against SA ID
             </span>
           )}
         </div>
@@ -90,89 +101,145 @@ export function CvLadder() {
           else toast('Share link: ' + link);
         }}>🔗 Copy share link</Button>
       </div>
-      <p className="text-center text-small text-muted leading-relaxed px-4 py-3">This CV was built automatically from real, completed jobs and verified references — no writing required. Tap <b>Download PDF</b>, then choose “Save as PDF”.</p>
+      <p className="text-center text-small text-muted leading-relaxed px-4 py-3">A proper CV — your contact details, profile, skills, dated work experience and references — built from jobs you actually completed. No writing required. Tap <b>Download PDF</b>, then choose “Save as PDF”.</p>
 
-      <PrintableCv w={w} cv={cv} />
+      <PrintableCv w={w} cv={cv} phone={state.user?.phone} />
     </>
   );
 }
 
-/* ---------------- Printable CV document (browser Save-as-PDF) ---------------- */
-function PrintableCv({ w, cv }: { w: WorkerProfile; cv: CvSnapshot }) {
+/* ---------------- Printable CV document (browser Save-as-PDF) ----------------
+   Written to the shape a South African employer or recruiter expects: contact
+   details first, then a profile, key skills, dated work experience with duties,
+   education and references.
+
+   The previous version led with tier and reputation score — numbers that rank a
+   person inside this marketplace and mean nothing outside it — and it carried no
+   phone number at all, which makes a CV unusable however good the work history
+   behind it is.
+
+   Everything here is assembled from completed, employer-confirmed jobs. That is
+   the whole promise: the worker writes nothing. */
+function PrintableCv({ w, cv, phone }: { w: WorkerProfile; cv: CvSnapshot; phone?: string }) {
   const generated = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
   const history = [...w.history].reverse();
   const navy = '#0E355A';
+  const ink = '#101826';
+  const soft = '#5D6B7E';
+  const green = '#067A4E';
+
+  // Experience per skill, counted from real jobs — the evidence behind each
+  // claim, so the skills list is not just a list of assertions.
+  const bySkill = history.reduce<Record<string, { jobs: number; hours: number }>>((acc, h) => {
+    const cur = acc[h.category] ?? { jobs: 0, hours: 0 };
+    acc[h.category] = { jobs: cur.jobs + 1, hours: cur.hours + h.hours };
+    return acc;
+  }, {});
+  const skillRows = Object.entries(bySkill).sort((a, b) => b[1].jobs - a[1].jobs);
+
+  // The role this person can apply for, taken from where they actually have the
+  // most jobs rather than from whatever they happened to do last.
+  const topCategory = skillRows[0]?.[0] ?? w.skills[0];
+  const targetRole = topCategory ? roleTitleFor(topCategory) : 'General Worker';
+
+  // A profile paragraph nobody had to write. It only ever states what the record
+  // can support, so it stays true on day one as well as after fifty jobs.
+  const totalHours = history.reduce((n, h) => n + h.hours, 0);
+  const spread = skillRows.slice(0, 3).map(([c]) => catById(c).label.toLowerCase()).join(', ');
+  const autoProfile = history.length === 0
+    ? targetRole + ' based in ' + (w.location || 'South Africa') + ', available for work and building a verified record of completed jobs through Vuka Uzenzele.'
+    : targetRole + ' based in ' + (w.location || 'South Africa') + ' with ' + totalHours + ' hours across '
+      + history.length + ' completed job' + (history.length === 1 ? '' : 's')
+      + (skillRows.length > 1 ? ' in ' + spread : '')
+      + '. Every role below was confirmed by the employer who hired me, and each reference is verified by the platform rather than written by me.';
+
+  const referees = history.filter((h) => !isUnrated(h.rating));
+  const refereeNames = Array.from(new Set(referees.map((h) => h.employer)));
+
   const doc = (
     <div className="print-cv-root">
-      <div style={{ maxWidth: 720, margin: '0 auto', color: '#243447', fontFamily: "'Figtree Variable', system-ui, sans-serif", fontSize: 13, lineHeight: 1.5 }}>
-        {/* Header */}
-        <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: 14, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#F20023' }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#F20023', display: 'inline-block' }} />Vuka Uzenzele · Verified CV
+      <div style={{ maxWidth: 720, margin: '0 auto', color: ink, fontFamily: "'Figtree Variable', system-ui, sans-serif", fontSize: 12.5, lineHeight: 1.5 }}>
+
+        {/* Identity and contact. A CV without these cannot be acted on. */}
+        <div style={{ borderBottom: '3px solid ' + navy, paddingBottom: 12, marginBottom: 14 }}>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: ink, letterSpacing: '-.02em', fontFamily: "'Archivo Variable', system-ui, sans-serif" }}>
+            {w.name || 'Your name'}
+          </h1>
+          <div style={{ fontSize: 14, fontWeight: 700, color: navy, marginTop: 2 }}>{targetRole}</div>
+          <div style={{ color: soft, fontSize: 12, marginTop: 6 }}>
+            {[phone, w.location, w.age ? 'Age ' + w.age : ''].filter(Boolean).join('  ·  ')}
           </div>
-          <h1 style={{ margin: '8px 0 2px', fontSize: 30, fontWeight: 800, color: navy, letterSpacing: '-.02em' }}>{w.name || 'Your name'}</h1>
-          <div style={{ color: '#5a6b7b', fontSize: 13 }}>{[w.location, w.age ? `Age ${w.age}` : '', w.education].filter(Boolean).join('  ·  ')}</div>
-          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ background: navy, color: '#fff', borderRadius: 999, padding: '3px 10px' }}>{cv.tier.icon} {cv.tier.name} tier</span>
-            <span style={{ border: `1px solid ${navy}`, color: navy, borderRadius: 999, padding: '3px 10px' }}>Reputation {cv.rep}/100</span>
-            {w.idVerified && <span style={{ background: '#0E8A09', color: '#fff', borderRadius: 999, padding: '3px 10px' }}>✔ Identity verified</span>}
-          </div>
+          {w.idVerified && (
+            <div style={{ marginTop: 7, display: 'inline-block', background: '#E6F4EC', color: green, border: '1px solid #B8E0CB', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+              Identity verified against SA ID
+            </div>
+          )}
         </div>
 
-        {/* Summary numbers */}
-        <div style={{ display: 'flex', gap: 24, marginBottom: 16 }}>
-          <PStat n={String(cv.jobsDone)} l="Verified jobs" />
-          <PStat n={`${cv.avg.toFixed(1)}★`} l="Avg rating" />
-          <PStat n={money(cv.totalEarned)} l="Total earned" />
-          <PStat n={w.joined || '—'} l="Member since" />
-        </div>
+        <PH>Profile</PH>
+        <p style={{ margin: '0 0 14px' }}>{w.bio || autoProfile}</p>
 
-        {/* About */}
-        {w.bio && (<><PH>About</PH><p style={{ margin: '0 0 14px' }}>{w.bio}</p></>)}
-
-        {/* Skills */}
-        {w.skills.length > 0 && (
-          <><PH>Skills</PH>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-            {w.skills.map((s) => <span key={s} style={{ border: '1px solid #cfd8e3', borderRadius: 6, padding: '3px 9px', fontSize: 12, fontWeight: 600, color: navy }}>{catById(s).label}</span>)}
-          </div></>
+        {skillRows.length > 0 && (
+          <>
+            <PH>Key skills</PH>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
+              <tbody>
+                {skillRows.map(([cat, v]) => (
+                  <tr key={cat}>
+                    <td style={{ padding: '3px 0', fontWeight: 700, width: '45%' }}>{catById(cat).label}</td>
+                    <td style={{ padding: '3px 0', color: soft }}>
+                      {v.jobs} job{v.jobs === 1 ? '' : 's'} · {v.hours} hour{v.hours === 1 ? '' : 's'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
 
-        {/* Work history */}
-        <PH>Verified work history ({cv.jobsDone})</PH>
+        <PH>Work experience</PH>
         {history.length === 0
-          ? <p style={{ color: '#5a6b7b', margin: 0 }}>No completed jobs yet.</p>
-          : history.map((h) => {
-              const c = catById(h.category);
-              return (
-                <div key={h.id} style={{ paddingLeft: 14, borderLeft: `2px solid ${navy}`, marginBottom: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <b style={{ color: navy, fontSize: 14 }}>{h.jobTitle}</b>
-                    <span style={{ color: '#5a6b7b', fontSize: 12, whiteSpace: 'nowrap' }}>{h.date}</span>
-                  </div>
-                  <div style={{ color: '#5a6b7b', fontSize: 12, margin: '2px 0' }}>{c.label} · {h.hours}h · {ratingLabel(h.rating)}</div>
-                  <div style={{ fontStyle: 'italic', margin: '3px 0' }}>“{h.review}”</div>
-                  {isUnrated(h.rating)
-                    ? <div style={{ fontSize: 11.5, color: '#5a6b7b', fontWeight: 700 }}>• Work confirmed — {h.employer} did not leave a rating</div>
-                    : <div style={{ fontSize: 11.5, color: '#0E8A09', fontWeight: 700 }}>✔ Verified reference — {h.employer}</div>}
+          ? <p style={{ color: soft, margin: '0 0 14px' }}>No completed jobs yet. Every job you finish is added here automatically.</p>
+          : history.map((h) => (
+              <div key={h.id} style={{ marginBottom: 13, breakInside: 'avoid' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline' }}>
+                  <b style={{ color: ink, fontSize: 13.5 }}>{roleTitleFor(h.category)}</b>
+                  <span style={{ color: soft, fontSize: 11.5, whiteSpace: 'nowrap' }}>{h.date}</span>
                 </div>
-              );
-            })}
+                <div style={{ color: navy, fontSize: 12, fontWeight: 600 }}>{h.employer}</div>
+                <div style={{ color: soft, fontSize: 11.5, margin: '1px 0 3px' }}>{h.jobTitle} · {h.hours} hour{h.hours === 1 ? '' : 's'}</div>
+                {h.review && <div style={{ fontStyle: 'italic', margin: '0 0 3px' }}>“{h.review}”</div>}
+                <div style={{ fontSize: 11, color: isUnrated(h.rating) ? soft : green, fontWeight: 700 }}>
+                  {isUnrated(h.rating)
+                    ? 'Work confirmed by ' + h.employer
+                    : 'Reference verified · rated ' + h.rating + '/5 by ' + h.employer}
+                </div>
+              </div>
+            ))}
 
-        {/* Footer */}
-        <div style={{ marginTop: 20, paddingTop: 12, borderTop: '1px solid #dbe3ec', fontSize: 11, color: '#5a6b7b' }}>
-          Generated {generated} from real, completed jobs on Vuka Uzenzele. Every reference above is verified by the platform — no self-written claims.
+        {w.education && (<><PH>Education</PH><p style={{ margin: '0 0 14px' }}>{w.education}</p></>)}
+
+        <PH>References</PH>
+        <p style={{ margin: '0 0 4px' }}>
+          {referees.length > 0
+            ? referees.length + ' verified reference' + (referees.length === 1 ? '' : 's') + ' from ' + refereeNames.join(', ') + '.'
+            : 'References are added automatically as employers confirm completed work.'}
+        </p>
+        <p style={{ margin: 0, color: soft, fontSize: 11.5 }}>
+          Contactable on request through Vuka Uzenzele, which confirmed each job above was completed.
+        </p>
+
+        <div style={{ marginTop: 18, paddingTop: 10, borderTop: '1px solid #dbe3ec', fontSize: 10.5, color: soft }}>
+          Generated {generated} · Vuka Uzenzele. Built from {cv.jobsDone} completed job{cv.jobsDone === 1 ? '' : 's'}, each one confirmed by the employer who hired this candidate. No self-written claims.
         </div>
       </div>
     </div>
   );
   return createPortal(doc, document.body);
 }
-function PStat({ n, l }: { n: string; l: string }) {
-  return <div><div style={{ fontSize: 18, fontWeight: 800, color: '#0E355A' }}>{n}</div><div style={{ fontSize: 11, color: '#5a6b7b', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>{l}</div></div>;
-}
+
 function PH({ children }: { children: React.ReactNode }) {
-  return <h2 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.12em', color: '#0E355A', fontWeight: 800, margin: '0 0 6px', borderBottom: '1px solid #eef2f7', paddingBottom: 4 }}>{children}</h2>;
+  return <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: '#0E355A', fontWeight: 800, margin: '0 0 5px', borderBottom: '1px solid #eef2f7', paddingBottom: 3, fontFamily: "'Archivo Variable', system-ui, sans-serif" }}>{children}</h2>;
 }
 
 function Stat({ value, label }: { value: string; label: string }) {

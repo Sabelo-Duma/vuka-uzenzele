@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, type PublicCvResult } from '../../lib/api';
-import { catById, TIERS } from '../../data/catalog';
-import { money, ratingLabel, isUnrated } from '../../lib/format';
-import { Card, Ring } from '../../components/ui';
+import { catById, roleTitleFor } from '../../data/catalog';
+import { ratingLabel, isUnrated } from '../../lib/format';
+import { Card } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
 /**
@@ -51,9 +51,17 @@ function TopBar({ showCta = true }: { showCta?: boolean }) {
 
 function CvBody({ data }: { data: PublicCvResult }) {
   const { name, cv, profile, history } = data;
-  const tier = TIERS[cv.tier.id] ?? TIERS[0]; // fall back if server sends an unexpected tier id
   const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
   const ordered = [...(history ?? [])].reverse();
+  // CV-shaped evidence, computed from the same confirmed jobs.
+  const hoursWorked = (history ?? []).reduce((n, h) => n + h.hours, 0);
+  const verifiedRefs = (history ?? []).filter((h) => !isUnrated(h.rating)).length;
+  const jobsPerCategory = (history ?? []).reduce<Record<string, number>>(
+    (acc, h) => ({ ...acc, [h.category]: (acc[h.category] ?? 0) + 1 }), {});
+  const cvRole = roleTitleFor(
+    Object.entries(jobsPerCategory).sort((a, b) => b[1] - a[1])[0]?.[0]
+    ?? profile?.skills?.[0] ?? ''
+  );
 
   return (
     <>
@@ -71,25 +79,25 @@ function CvBody({ data }: { data: PublicCvResult }) {
             <span className="grid place-items-center w-16 h-16 rounded-[20px] bg-white/15 text-2xl font-extrabold shrink-0">{initials}</span>
             <div className="min-w-0">
               <h1 className="font-display m-0 text-display font-extrabold leading-tight tracking-tight truncate">{name}</h1>
-              <p className="m-0 mt-0.5 text-small text-white/85">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
+              <p className="m-0 mt-0.5 text-small font-bold text-white/90">{cvRole}</p>
+              <p className="m-0 mt-1 text-small text-white/75">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
             </div>
           </div>
+          {/* Tier and reputation score are gone from here on purpose: they rank
+              someone inside this marketplace and mean nothing to an employer,
+              which is who opens this link. */}
           <div className="relative flex flex-wrap gap-2 mt-4">
-            <Badge>{tier.icon} {cv.tier.name} tier</Badge>
-            <Badge>Reputation {cv.rep}/100</Badge>
             {profile?.idVerified && <Badge tone="verified"><Icon name="shield" size={12} /> Identity verified</Badge>}
             {typeof data.followers === 'number' && data.followers > 0 && <Badge>{data.followers} follower{data.followers === 1 ? '' : 's'}</Badge>}
           </div>
         </div>
-        <div className="p-4 flex items-center gap-4">
-          <Ring pct={cv.rep} colors={tier.ring} size={72} stroke={8} gradId="publicRing">
-            <b className="text-lg font-extrabold text-navy leading-none tnum">{cv.rep}</b>
-          </Ring>
-          <div className="grid grid-cols-3 gap-2 flex-1">
-            <Stat value={String(cv.jobsDone)} label="Verified jobs" />
-            <Stat value={`${cv.avg.toFixed(1)}★`} label="Avg rating" />
-            <Stat value={money(cv.totalEarned)} label="Earned" />
-          </div>
+        {/* Evidence of work, not a scoreboard — and deliberately not earnings.
+            This page is public, and telling whoever is about to make an offer
+            exactly what this person has accepted before bargains against them. */}
+        <div className="p-4 grid grid-cols-3 gap-2">
+          <Stat value={String(cv.jobsDone)} label="Jobs completed" />
+          <Stat value={String(hoursWorked)} label="Hours worked" />
+          <Stat value={String(verifiedRefs)} label="References" />
         </div>
       </Card>
 
@@ -114,15 +122,14 @@ function CvBody({ data }: { data: PublicCvResult }) {
         {ordered.length === 0
           ? <p className="text-small text-muted m-0">No completed jobs yet.</p>
           : ordered.map((h) => {
-              const c = catById(h.category);
               return (
                 <div key={h.id} className="border-l-2 border-navy pl-3.5 ml-1 pb-3.5 last:pb-0 relative">
                   <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-red border-2 border-surface" />
                   <div className="flex justify-between items-baseline gap-3">
-                    <b className="text-sm text-navy">{h.jobTitle}</b>
+                    <b className="text-sm text-ink">{roleTitleFor(h.category)} <span className="font-semibold text-muted">· {h.employer}</span></b>
                     <span className="text-micro text-muted font-bold whitespace-nowrap">{h.date}</span>
                   </div>
-                  <div className="text-small text-muted mt-0.5">{c.icon} {c.label} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
+                  <div className="text-small text-muted mt-0.5">{h.jobTitle} · {h.hours}h · <span style={isUnrated(h.rating) ? undefined : { color: '#F59E0B' }}>{ratingLabel(h.rating)}</span></div>
                   <div className="text-small text-ink italic my-1.5 leading-snug">“{h.review}”</div>
                   {isUnrated(h.rating)
                     ? <div className="text-micro text-muted flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
