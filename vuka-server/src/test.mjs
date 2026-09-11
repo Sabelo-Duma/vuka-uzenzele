@@ -619,6 +619,20 @@ async function run() {
       'an unknown email says so in the language of an email, not a phone number');
   }
 
+  // 9n-iii) the shared CV is shareable, not publishable.
+  // A page naming a young person and listing where they live and everywhere
+  // they have worked must not end up in a search for their name.
+  {
+    const res = await fetch(`${BASE}/public/cv/${wId}`);
+    const body = await res.json();
+    ok(res.status === 200, 'a shared CV link resolves without auth');
+    ok(/noindex/.test(res.headers.get('x-robots-tag') ?? ''), 'and tells search engines not to index it');
+    ok(body.profile && body.profile.age === undefined, 'age is not sent to the public page — it can identify a minor');
+    ok(body.profile && body.profile.education === undefined, 'nor education level, which says nothing about the work');
+    ok(typeof body.profile.location === 'string', 'the suburb is still sent, because an employer needs to know where they are');
+    ok(Array.isArray(body.history), 'the work history — the point of the page — is still there');
+  }
+
   // 9o-ii) push is the free channel and SMS is the paid fallback — never both.
   // Three lifecycle SMS per completed job was the largest avoidable cost the
   // platform had. A regression here doubles the bill in silence, so it is
