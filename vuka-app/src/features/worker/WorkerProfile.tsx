@@ -8,10 +8,10 @@ import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
-import { BankingSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
+import { BankingSheet, EditProfileSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
-type SheetKey = 'banking' | 'identity' | 'safety' | 'language' | 'privacy' | 'terms';
+type SheetKey = 'editProfile' | 'banking' | 'identity' | 'safety' | 'language' | 'privacy' | 'terms';
 
 export function WorkerProfile() {
   const { state, navigate, toast, setJobAlerts } = useApp();
@@ -60,6 +60,7 @@ export function WorkerProfile() {
       act: toggleJobAlerts },
     { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
       act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
+    { kind: 'link', ic: '📝', title: 'Edit your profile', sub: 'Name, email, education and languages — these go on your CV', go: () => setSheet('editProfile') },
     { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
     { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
     { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
@@ -104,6 +105,7 @@ export function WorkerProfile() {
 
       <div className="mt-4"><AccountBar /></div>
 
+      {sheet === 'editProfile' && <EditProfileSheet onClose={closeSheet} />}
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
       {sheet === 'identity' && <IdentitySheet verified={w.idVerified} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}

@@ -560,6 +560,65 @@ async function run() {
     ok(commit === 'unknown' || /^[0-9a-f]{7}$/.test(commit), 'the build marker is a short SHA, or an honest "unknown"');
   }
 
+  // 9n-ii) the profile can be edited, and email is a second way in.
+  // Until this existed a profile was written once at sign-up and never again —
+  // so a typo in a name was permanent, and the Education section of every CV
+  // was empty because sign-up never asked for it.
+  {
+    const { isValidEmail, normEmail } = await import('./server.mjs');
+
+    ok(isValidEmail('thandeka@example.co.za'), 'a normal address is accepted');
+    ok(isValidEmail('a.b+tag@mail.example.com'), 'plus-addressing and dots are accepted');
+    ok(!isValidEmail('thandeka'), 'a bare word is rejected');
+    ok(!isValidEmail('thandeka@localhost'), 'a domain with no dot is rejected');
+    ok(!isValidEmail('a b@example.co.za'), 'whitespace is rejected');
+    ok(!isValidEmail(''), 'empty is rejected');
+    ok(normEmail('  Thandeka@Example.CO.ZA ') === 'thandeka@example.co.za', 'addresses are normalised for storage');
+
+    const before = (await api('GET', '/me/profile', { token: wTok })).json;
+    ok(before?.profile !== undefined, 'a worker can read their own profile');
+    ok(Array.isArray(before?.languages) && before.languages.includes('isiZulu'),
+      'the languages a CV can list are offered by the server, not hard-coded in the app');
+
+    // Everything sign-up never asked for.
+    const saved = await api('PUT', '/me/profile', { token: wTok, body: {
+      name: 'Thandeka Mokoena', location: 'Soweto, Johannesburg',
+      education: 'National Senior Certificate, Morris Isaacson High School, 2021',
+      bio: 'Reliable and on time.', email: 'Thandeka@Example.CO.ZA',
+      languages: ['English', 'isiZulu', 'Klingon'],
+    } });
+    ok(saved.status === 200, 'the profile saves');
+    ok(saved.json?.profile?.education?.startsWith('National Senior Certificate'), 'education is stored — the CV section that was always empty');
+    ok(saved.json?.user?.email === 'thandeka@example.co.za', 'the email is stored lower-cased');
+    ok(JSON.stringify(saved.json?.profile?.languages) === JSON.stringify(['English', 'isiZulu']),
+      'only real South African languages are kept; anything else is dropped rather than trusted');
+
+    ok((await api('PUT', '/me/profile', { token: wTok, body: { name: '', location: 'Soweto' } })).status === 400, 'a blank name is refused');
+    ok((await api('PUT', '/me/profile', { token: wTok, body: { name: 'T', location: '' } })).status === 400, 'a blank location is refused');
+    const badEmail = await api('PUT', '/me/profile', { token: wTok, body: { name: 'T', location: 'Soweto', email: 'not-an-address' } });
+    ok(badEmail.status === 400 && badEmail.json?.field === 'email', 'a malformed email is refused, and the field is named so the form can point at it');
+
+    // One account per address.
+    // A second account, registered here so this block does not depend on
+    // tokens the password-reset section deliberately invalidates.
+    const otherTok = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Kagiso Moloi', phone: '0829990011', password: 'test1234', verifyToken: await verifyPhone('0829990011') } })).json.token;
+    const taken = await api('PUT', '/me/profile', { token: otherTok, body: {
+      name: 'Someone Else', location: 'Sandton', email: 'thandeka@example.co.za',
+    } });
+    ok(taken.status === 400 && /already used/i.test(taken.json?.error ?? ''), 'an email already on another account is refused');
+
+    // Sign in with either credential, in the same field.
+    ok((await api('POST', '/auth/login', { body: { identifier: 'thandeka@example.co.za', password: 'test1234' } })).status === 200,
+      'the email signs in');
+    ok((await api('POST', '/auth/login', { body: { identifier: 'THANDEKA@EXAMPLE.CO.ZA', password: 'test1234' } })).status === 200,
+      'and is case-insensitive, because nobody types their own address the same way twice');
+    ok((await api('POST', '/auth/login', { body: { identifier: '0829990001', password: 'test1234' } })).status === 200,
+      'the phone number still signs in');
+    const wrongEmail = await api('POST', '/auth/login', { body: { identifier: 'nobody@example.co.za', password: 'test1234' } });
+    ok(wrongEmail.status === 401 && /email address/i.test(wrongEmail.json?.error ?? ''),
+      'an unknown email says so in the language of an email, not a phone number');
+  }
+
   // 9o-ii) push is the free channel and SMS is the paid fallback — never both.
   // Three lifecycle SMS per completed job was the largest avoidable cost the
   // platform had. A regression here doubles the bill in silence, so it is
@@ -592,16 +651,22 @@ async function run() {
        'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
        'BTBZMqHH6r4Tts7J_aSIgg', new Date().toISOString()]);
 
+    /* Count the change, not the total. Posting a gig also pushes a job alert to
+       nearby workers who opted in, so how many pushes land here depends on where
+       this worker happens to live — an absolute count silently becomes a test of
+       the gazetteer instead of a test of the fallback. */
     const smsBefore = smsAttempts();
+    const pushBefore = pushed;
     await hireOnce('Kitchen deep clean');
-    ok(pushed === 1, 'a hire notice goes out over push when the worker has a live subscription');
+    ok(pushed > pushBefore, 'a hire notice goes out over push when the worker has a live subscription');
     ok(smsAttempts() === smsBefore, 'and costs no SMS — the free channel is not duplicated');
 
     // Same event, no reachable device: the notice must still arrive.
     await dbRun('DELETE FROM push_subscriptions WHERE user_id = ?', [wId]);
     const smsMid = smsAttempts();
+    const pushMid = pushed;
     await hireOnce('Windows and stoep');
-    ok(pushed === 1, 'no further push once the subscription is gone');
+    ok(pushed === pushMid, 'no further push once the subscription is gone');
     ok(smsAttempts() === smsMid + 1, 'SMS carries the notice instead — the fallback still fires');
 
     await new Promise((r) => pushHost.close(r));

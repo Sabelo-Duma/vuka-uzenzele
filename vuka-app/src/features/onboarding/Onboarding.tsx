@@ -200,10 +200,12 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
    *  sits at the bottom of the screen behind the open keyboard, and is gone in
    *  two seconds — so a failed sign-in looked like the button doing nothing. */
   error: { message: string; reason?: string } | null;
-  onBack: () => void; onLogin: (phone: string, password: string) => void;
+  onBack: () => void; onLogin: (identifier: string, password: string) => void;
   onDemo: (r: Role) => void; onForgot: () => void; onSignUp: () => void; onClearError: () => void;
 }) {
-  const [phone, setPhone] = useState('');
+  // One field for both credentials. Asking someone to first classify their own
+  // credential is a question the software can answer from the '@'.
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   // Editing either field means the message is about a previous attempt.
   const edit = (set: (v: string) => void) => (v: string) => { onClearError(); set(v); };
@@ -212,8 +214,8 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
       <BackRow onBack={onBack} />
       <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
       <p className="text-small text-muted mb-6">Sign in to pick up where you left off.</p>
-      <div className="mb-3.5"><Label>Mobile number</Label><input className={inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} onChange={(e) => edit(setPhone)(e.target.value)} aria-label="Mobile number" /></div>
-      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(phone, password); }} /></div>
+      <div className="mb-3.5"><Label>Mobile number or email</Label><input className={inputCls} type="text" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="072 000 0000" value={identifier} onChange={(e) => edit(setIdentifier)(e.target.value)} aria-label="Mobile number or email address" /></div>
+      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(identifier, password); }} /></div>
       <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-small font-bold text-navy hover:text-red transition">Forgot password?</button></div>
 
       {error && (
@@ -232,7 +234,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
         </div>
       )}
 
-      <Button block disabled={busy} onClick={() => onLogin(phone, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
+      <Button block disabled={busy} onClick={() => onLogin(identifier, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
 
       <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
       <div className="grid grid-cols-2 gap-2.5">

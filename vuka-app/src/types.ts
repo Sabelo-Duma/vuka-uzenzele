@@ -63,6 +63,8 @@ export interface WorkerProfile {
   location: string;
   education: string;
   bio: string;
+  /** Languages the person speaks. Distinct from the interface language. */
+  languages: string[];
   skills: CategoryId[];
   idVerified: boolean;
   joined: string;

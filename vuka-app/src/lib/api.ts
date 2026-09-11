@@ -60,10 +60,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 // ---- server response shapes ----
-export interface ApiUser { id: string; role: Role; name: string; phone: string; }
+export interface ApiUser { id: string; role: Role; name: string; phone: string; email?: string | null; }
 export interface ApiProfile {
   age: number; location: string; education: string; bio: string;
   skills: CategoryId[]; idVerified: boolean; color: string; joined: string; tagline: string;
+  languages?: string[];
 }
 export interface ServerTier { id: TierId; name: string; icon: string; minJobs: number; minRating: number; maxFlags: number; unlocks: string; }
 export interface ServerCv {
@@ -212,7 +213,11 @@ export function toTalentWorker(t: ServerTalent): TalentWorker {
 
 export const api = {
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
-  login: (phone: string, password: string) => request<AuthResult>('POST', '/auth/login', { phone, password }),
+  /** One field, either credential. The server tells a phone from an email. */
+  login: (identifier: string, password: string) => request<AuthResult>('POST', '/auth/login', { identifier, password }),
+  getProfile: () => request<{ user: ApiUser; profile: ApiProfile | null; languages: string[] }>('GET', '/me/profile'),
+  saveProfile: (body: { name: string; location: string; education: string; bio: string; email: string; languages: string[] }) =>
+    request<{ ok: true; user: ApiUser; profile: ApiProfile | null }>('PUT', '/me/profile', body),
   me: () => request<AuthResult>('GET', '/auth/me'),
   requestOtp: (phone: string) => request<OtpSent>('POST', '/auth/otp', { phone }),
   verifyOtp: (phone: string, code: string) => request<OtpVerified>('POST', '/auth/otp/verify', { phone, code }),

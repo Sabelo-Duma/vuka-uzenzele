@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../store/appStore';
-import { api, type IdVerification } from '../../lib/api';
-import { Button, Sheet, Skeleton } from '../../components/ui';
+import { api, ApiError, type IdVerification } from '../../lib/api';
+import { Button, InlineError, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
 
@@ -319,3 +319,131 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
     </Sheet>
   );
 }
+
+/* ---------------- Edit profile ----------------
+   The details a CV needs and sign-up deliberately does not ask for. Sign-up
+   stays short because every field on that funnel costs completions; this is
+   where the rest gets filled in, once there is a reason to.
+
+   Before this existed a profile was written once at registration and never
+   again: a typo in a name was permanent, and nobody could fill in education,
+   so the Education section of every generated CV was empty. */
+export function EditProfileSheet({ onClose }: { onClose: () => void }) {
+  const { toast, reloadData } = useApp();
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<{ message: string; field?: string } | null>(null);
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [offered, setOffered] = useState<string[]>([]);
+  const [f, setF] = useState({ name: '', location: '', education: '', bio: '', email: '' });
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getProfile()
+      .then((d) => {
+        if (cancelled) return;
+        setF({
+          name: d.user.name ?? '',
+          location: d.profile?.location ?? '',
+          education: d.profile?.education ?? '',
+          bio: d.profile?.bio ?? '',
+          email: d.user.email ?? '',
+        });
+        setLanguages(d.profile?.languages ?? []);
+        setOffered(d.languages ?? []);
+      })
+      .catch((e) => { if (!cancelled) setErr({ message: e instanceof Error ? e.message : 'Could not load your profile.' }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const set = (k: keyof typeof f) => (v: string) => { setErr(null); setF((p) => ({ ...p, [k]: v })); };
+  const toggleLang = (l: string) =>
+    setLanguages((p) => (p.includes(l) ? p.filter((x) => x !== l) : [...p, l]));
+
+  const save = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.saveProfile({ ...f, languages });
+      await reloadData();
+      toast('Profile saved — your CV is up to date 📄');
+      onClose();
+    } catch (e) {
+      const ae = e as ApiError;
+      setErr({ message: ae.message, field: ae.field });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const bad = (field: string) => (err?.field === field ? 'border-red' : '');
+
+  return (
+    <Sheet title="Edit your profile" onClose={onClose}>
+      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">
+        These details go on your CV. Employers see them when you apply.
+      </p>
+
+      {loading ? <Skeleton className="h-56" /> : (
+        <>
+          <SheetLabel>Full name</SheetLabel>
+          <input className={`${fieldCls} ${bad('name')}`} value={f.name} onChange={(e) => set('name')(e.target.value)} aria-label="Full name" />
+
+          <SheetLabel>Where you live</SheetLabel>
+          <input className={`${fieldCls} ${bad('location')}`} value={f.location} onChange={(e) => set('location')(e.target.value)} placeholder="Suburb, City" aria-label="Where you live" />
+
+          <SheetLabel>Email address <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <input
+            className={`${fieldCls} ${bad('email')}`} value={f.email} type="email" inputMode="email"
+            autoCapitalize="none" spellCheck={false} placeholder="you@example.co.za"
+            onChange={(e) => set('email')(e.target.value)} aria-label="Email address"
+          />
+          <p className="text-micro text-subtle mt-1 mb-1 leading-relaxed">
+            Employers expect one on a CV, and you can use it to sign in as well as your number.
+          </p>
+
+          <SheetLabel>Education <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <input className={fieldCls} value={f.education} onChange={(e) => set('education')(e.target.value)} placeholder="e.g. Matric, Morris Isaacson High School, 2021" aria-label="Education" />
+
+          <SheetLabel>Languages you speak</SheetLabel>
+          <div className="flex flex-wrap gap-1.5 mb-1">
+            {offered.map((l) => {
+              const on = languages.includes(l);
+              return (
+                <button
+                  key={l} type="button" onClick={() => toggleLang(l)} aria-pressed={on}
+                  className={`rounded-pill border-[1.5px] px-3 py-1.5 text-small font-bold transition active:scale-95 ${
+                    on ? 'border-navy bg-navy text-white' : 'border-line-strong text-muted hover:border-navy'}`}
+                >
+                  {l}
+                </button>
+              );
+            })}
+          </div>
+
+          <SheetLabel>About you <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <textarea
+            className={`${fieldCls} min-h-[88px] resize-none`} value={f.bio} maxLength={600}
+            onChange={(e) => set('bio')(e.target.value)} placeholder="A sentence or two about how you work."
+            aria-label="About you"
+          />
+          <p className="text-micro text-subtle mt-1 mb-3 leading-relaxed">
+            Leave this blank and we write it for you from the jobs you have completed.
+          </p>
+
+          {err && <InlineError>{err.message}</InlineError>}
+
+          <Button block className="mt-4" disabled={busy} onClick={save}>
+            {busy ? 'Saving…' : 'Save profile'}
+          </Button>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+function SheetLabel({ children }: { children: React.ReactNode }) {
+  return <label className="block text-micro font-extrabold uppercase tracking-wide text-muted mt-3.5 mb-1.5">{children}</label>;
+}
+const fieldCls = 'w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-navy transition';

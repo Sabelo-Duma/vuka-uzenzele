@@ -77,13 +77,14 @@ const initialsOf = (name) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ---- serializers ----
-const userOut = (u) => ({ id: u.id, role: u.role, name: u.name, phone: u.phone });
+const userOut = (u) => ({ id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null });
 function profileOut(p) {
   if (!p) return null;
   return {
     age: p.age, location: p.location, education: p.education, bio: p.bio,
     skills: JSON.parse(p.skills || '[]'), idVerified: !!p.id_verified,
     color: p.color, joined: p.joined, tagline: p.tagline,
+    languages: JSON.parse(p.languages || '[]'),
   };
 }
 function historyOut(h) {
@@ -158,6 +159,40 @@ function formalOut(f) {
 // ---- query helpers ----
 const userByPhone = (phone) => get('SELECT * FROM users WHERE phone = ?', [phone]);
 const userById = (id) => get('SELECT * FROM users WHERE id = ?', [id]);
+
+/* ---------------- email ----------------
+   A second way in, and the contact detail a CV is expected to carry. The phone
+   number stays the account's identity: it is what this platform's users
+   reliably have, what the OTP needs, and what payouts are tied to. Email is
+   optional everywhere. */
+
+/** Lower-cased and trimmed, so the unique index is effectively case-insensitive. */
+export const normEmail = (v) => String(v ?? '').trim().toLowerCase();
+
+/**
+ * Deliberately conservative. Not RFC 5322 — that grammar accepts addresses no
+ * mail provider would issue, and the cost of wrongly rejecting one here is a
+ * user who cannot save their profile. Rejects the shapes that are certainly
+ * wrong: no @, nothing either side of it, no dot in the domain, whitespace.
+ */
+export function isValidEmail(v) {
+  const s = normEmail(v);
+  return s.length >= 6 && s.length <= 254 && /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(s);
+}
+
+const userByEmail = (email) => get('SELECT * FROM users WHERE email = ?', [normEmail(email)]);
+
+/**
+ * Resolve whatever the sign-in form sent. One field accepts either a phone
+ * number or an email address, because asking someone to first classify their
+ * own credential is a question the software can answer for them. An "@" is the
+ * only signal needed and it cannot appear in a phone number.
+ */
+async function userByIdentifier(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  return s.includes('@') ? userByEmail(s) : userByPhone(normPhone(s));
+}
 const profileOf = (id) => get('SELECT * FROM worker_profiles WHERE user_id = ?', [id]);
 const historyOf = (id) => all('SELECT * FROM history WHERE worker_id = ? ORDER BY created_at ASC', [id]);
 
@@ -552,11 +587,17 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
  * anything, and the `reason` lets the app offer sign-up instead of a dead end.
  */
 app.post('/api/auth/login', asyncH(async (req, res) => {
-  const { phone, password } = req.body || {};
-  const user = await userByPhone(phone);
+  /* `identifier` is what the single sign-in field sends; `phone` and `email`
+     are accepted too so an older client keeps working. */
+  const { identifier, phone, email, password } = req.body || {};
+  const credential = identifier ?? email ?? phone;
+  const looksLikeEmail = String(credential ?? '').includes('@');
+  const user = await userByIdentifier(credential);
   if (!user) {
     return res.status(401).json({
-      error: "We don't have an account for that number yet. Create one — it takes a minute.",
+      error: looksLikeEmail
+        ? "We don't have an account for that email address. Check it, or sign in with your mobile number instead."
+        : "We don't have an account for that number yet. Create one — it takes a minute.",
       reason: 'no_account',
     });
   }
@@ -1007,6 +1048,64 @@ const bankingOut = (row) => (row ? {
   holder: row.holder, bank: row.bank, accountType: row.account_type,
   last4: row.account_last4, updatedAt: row.updated_at,
 } : null);
+
+/* ---------------- profile ----------------
+   Until now a profile could only be written once, during sign-up, and sign-up
+   never asked for education or a bio at all — so the Education section of every
+   real CV was empty and a typo in a name was permanent. Sign-up stays short
+   deliberately (every extra field costs completions); this is where the rest
+   gets filled in, at leisure, once there is a reason to. */
+const LANGUAGES = [
+  'English', 'isiZulu', 'isiXhosa', 'Afrikaans', 'Sepedi', 'Setswana',
+  'Sesotho', 'Xitsonga', 'siSwati', 'Tshivenda', 'isiNdebele',
+];
+app.get('/api/me/profile', requireAuth, asyncH(async (req, res) => {
+  const me = await userById(req.user.id);
+  res.json({ user: userOut(me), profile: profileOut(await profileOf(req.user.id)), languages: LANGUAGES });
+}));
+
+app.put('/api/me/profile', requireAuth, asyncH(async (req, res) => {
+  const b = req.body || {};
+  const bad = (error, field) => res.status(400).json({ error, field });
+
+  const name = String(b.name ?? '').trim();
+  if (!name) return bad('Please enter your name.', 'name');
+  if (name.length > 80) return bad('That name is too long — 80 characters at most.', 'name');
+
+  const location = String(b.location ?? '').trim();
+  if (!location) return bad('Please enter where you live, so we can show you work nearby.', 'location');
+  if (location.length > 120) return bad('That is too long — 120 characters at most.', 'location');
+
+  const education = String(b.education ?? '').trim().slice(0, 160);
+  const bio = String(b.bio ?? '').trim().slice(0, 600);
+
+  const languages = Array.isArray(b.languages)
+    ? b.languages.filter((l) => LANGUAGES.includes(l)).slice(0, LANGUAGES.length)
+    : [];
+
+  /* Email is optional, but if given it has to be usable and unclaimed —
+     otherwise the CV carries an address that bounces, and a second account
+     could quietly take over this one's sign-in. */
+  let email = null;
+  if (String(b.email ?? '').trim()) {
+    if (!isValidEmail(b.email)) return bad("That email address doesn't look right. Check it and try again.", 'email');
+    email = normEmail(b.email);
+    const owner = await userByEmail(email);
+    if (owner && owner.id !== req.user.id) {
+      return bad('That email address is already used by another account.', 'email');
+    }
+  }
+
+  await run('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, req.user.id]);
+  if (req.user.role === 'worker') {
+    await run(
+      'UPDATE worker_profiles SET location = ?, education = ?, bio = ?, languages = ? WHERE user_id = ?',
+      [location, education, bio, JSON.stringify(languages), req.user.id]
+    );
+  }
+  const me = await userById(req.user.id);
+  res.json({ ok: true, user: userOut(me), profile: profileOut(await profileOf(req.user.id)) });
+}));
 
 app.get('/api/me/banking', requireAuth, asyncH(async (req, res) => {
   res.json(bankingOut(await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id])));
