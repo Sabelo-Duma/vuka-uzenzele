@@ -145,7 +145,11 @@ function PrintableCv({ w, cv, phone }: { w: WorkerProfile; cv: CvSnapshot; phone
   // A profile paragraph nobody had to write. It only ever states what the record
   // can support, so it stays true on day one as well as after fifty jobs.
   const totalHours = history.reduce((n, h) => n + h.hours, 0);
-  const spread = skillRows.slice(0, 3).map(([c]) => catById(c).label.toLowerCase()).join(', ');
+  // Read as a sentence, not a comma list: "cleaning, gardening and moving help".
+  const spreadParts = skillRows.slice(0, 3).map(([c]) => catById(c).label.toLowerCase());
+  const spread = spreadParts.length > 1
+    ? spreadParts.slice(0, -1).join(', ') + ' and ' + spreadParts[spreadParts.length - 1]
+    : spreadParts[0] ?? '';
   const autoProfile = history.length === 0
     ? targetRole + ' based in ' + (w.location || 'South Africa') + ', available for work and building a verified record of completed jobs through Vuka Uzenzele.'
     : targetRole + ' based in ' + (w.location || 'South Africa') + ' with ' + totalHours + ' hours across '
