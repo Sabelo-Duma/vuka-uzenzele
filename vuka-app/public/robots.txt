@@ -1,0 +1,17 @@
+# Shared CVs are for the person the worker sends the link to, not for search.
+#
+# A public CV names a young person and lists where they live and everywhere
+# they have worked. That is fine when they hand the link to an employer, and
+# not fine when it turns up in a search for their name years later. POPIA
+# treats this as personal information of a kind that needs a purpose, and
+# "indexed forever" was never the purpose.
+#
+# The X-Robots-Tag header on these routes is the real enforcement — robots.txt
+# is a request, and a disallowed URL can still be indexed if it is linked from
+# elsewhere. Both are set.
+
+User-agent: *
+Disallow: /cv/
+Disallow: /api/
+
+Allow: /

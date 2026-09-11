@@ -80,7 +80,10 @@ function CvBody({ data }: { data: PublicCvResult }) {
             <div className="min-w-0">
               <h1 className="font-display m-0 text-display font-extrabold leading-tight tracking-tight truncate">{name}</h1>
               <p className="m-0 mt-0.5 text-small font-bold text-white/90">{cvRole}</p>
-              <p className="m-0 mt-1 text-small text-white/75">{[profile?.location, profile?.age ? `Age ${profile.age}` : '', profile?.education].filter(Boolean).join('  ·  ')}</p>
+              {/* Suburb only. Age and education level are personal information
+                  with no bearing on whether someone can do the work, and the
+                  server no longer sends them to this page at all. */}
+              <p className="m-0 mt-1 text-small text-white/75">{profile?.location}</p>
             </div>
           </div>
           {/* Tier and reputation score are gone from here on purpose: they rank

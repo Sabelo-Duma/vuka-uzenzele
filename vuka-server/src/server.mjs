@@ -1696,12 +1696,29 @@ app.delete('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
   res.json({ ok: true, isFollowing: false, followers: await followerCount(req.params.id) });
 }));
 
-// ---- public CV (shareable, no auth) ----
-app.get('/api/public/cv/:id', asyncH(async (req, res) => {
+/* ---- public CV (shareable, no auth) ----
+   Shared deliberately, one link at a time, with an employer. Not published.
+
+   A page naming a young person, where they live and everywhere they have
+   worked is reasonable when they hand the link over, and not reasonable when
+   it surfaces in a search for their name three years later. robots.txt asks
+   politely; this header is what actually keeps it out of an index, including
+   when the link gets posted somewhere public.
+
+   Age and education level are withheld here for the same reason they are not
+   guessed at elsewhere: both are personal information under POPIA with no
+   bearing on whether someone can do the work, and age in particular can
+   identify a minor. Both still appear on the downloadable CV, which the worker
+   hands over on purpose. */
+const noIndex = (_req, res, next) => { res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive'); next(); };
+
+app.get('/api/public/cv/:id', noIndex, asyncH(async (req, res) => {
   const u = await userById(req.params.id);
   if (!u || u.role !== 'worker') return res.status(404).json({ error: 'This CV is not available. The link may be old or incorrect.' });
   const { cv, history, profile } = await cvFor(u.id);
-  res.json({ name: u.name, cv, history, profile, followers: await followerCount(u.id) });
+  const { age, education, ...publicProfile } = profile ?? {};
+  void age; void education;
+  res.json({ name: u.name, cv, history, profile: profile ? publicProfile : null, followers: await followerCount(u.id) });
 }));
 
 // ---- unknown API routes ----
@@ -1729,8 +1746,11 @@ function staticHeaders(res, path) {
 
 if (existsSync(STATIC_DIR)) {
   app.use(express.static(STATIC_DIR, { setHeaders: staticHeaders }));
-  app.get('*', (_req, res) => {
+  app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
+    // The shared-CV route is one HTML shell like every other screen, so the
+    // header has to be set by path rather than by what gets rendered into it.
+    if (req.path.startsWith('/cv/')) res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
     res.sendFile(join(STATIC_DIR, 'index.html'));
   });
   console.log(`Serving front-end from ${STATIC_DIR}`);
