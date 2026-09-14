@@ -219,7 +219,7 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
         {a.status === 'not_selected' && <Chip tone="neutral">Not selected</Chip>}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 mt-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 mt-3 [&>*]:flex-1">
         {onHire && <Button size="sm" disabled={busy} onClick={onHire}>{busy ? 'Hiring…' : 'Hire for this job'}</Button>}
         {onConfirm && <Button size="sm" variant="primary" disabled={busy} onClick={onConfirm}>Confirm & rate</Button>}
         <Button size="sm" variant="ghost" icon="chat" onClick={onMessage}>Message</Button>
