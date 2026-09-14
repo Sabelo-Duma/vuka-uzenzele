@@ -78,7 +78,7 @@ function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
-      className="grid place-items-center w-10 h-10 rounded-xl border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95"
+      className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95"
     >
       <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
     </button>
@@ -92,7 +92,7 @@ function AccountBar() {
       <div className="text-micro text-faint uppercase tracking-wide font-bold">Signed in</div>
       <div className="text-small font-bold text-ink truncate">{state.user?.name ?? 'You'}</div>
       <div className="text-micro text-dim mb-2 capitalize">{state.role} account</div>
-      <button onClick={logout} className="w-full rounded-pill border border-line text-ink text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
+      <button onClick={logout} className="w-full min-h-[44px] rounded-pill border border-line text-ink text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
     </div>
   );
 }
@@ -159,7 +159,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-line bg-surface shrink-0">
+        <header className="lg:hidden flex items-center justify-between gap-3 h-14 border-b border-line bg-surface shrink-0
+          pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
           <BrandMark />
           <ThemeToggle />
         </header>
@@ -170,7 +171,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Mobile bottom nav */}
         {/* Pinned: it is a sibling of the scrolling <main>, not part of it. */}
-        <nav className="lg:hidden flex items-stretch border-t border-line bg-surface px-1.5 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 shrink-0" aria-label="Primary">
+        <nav
+          className="tabbar lg:hidden flex items-stretch border-t border-line bg-surface shrink-0
+            pt-1.5 pb-[max(6px,env(safe-area-inset-bottom))]
+            pl-[max(6px,env(safe-area-inset-left))] pr-[max(6px,env(safe-area-inset-right))]"
+          aria-label="Primary"
+        >
           {mobileTabs.slice(0, 2).map((item) => (
             <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
           ))}
@@ -179,7 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label={state.role === 'worker' ? 'Find work' : 'Post a job'}
             className="flex-1 flex justify-center"
           >
-            <span className="grid place-items-center w-[50px] h-[50px] -mt-6 rounded-2xl bg-brand-solid text-brand-on shadow-e2">
+            <span className="fab grid place-items-center w-[52px] h-[52px] -mt-5 rounded-2xl bg-brand-solid text-brand-on shadow-e2 border-4 border-surface">
               <Icon name="plus" size={26} />
             </span>
           </button>

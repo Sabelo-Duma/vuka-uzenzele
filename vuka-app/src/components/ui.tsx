@@ -231,6 +231,24 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
   );
 }
 
+/* ---------------- TextAction ----------------
+   The "See all →" link beside a section heading, and anything shaped like it.
+   Written as bare text it measured 21px tall — half the 44px a thumb needs —
+   so the padding here is negative-margined back out, buying the target
+   without changing how the row looks. */
+export function TextAction({ onClick, children, tone = 'brand' }: { onClick: () => void; children: ReactNode; tone?: 'brand' | 'ink' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 min-h-[44px] px-2 -mx-2 -my-2 rounded-chip text-small font-bold transition
+        hover:bg-surface-2 ${tone === 'brand' ? 'text-brand' : 'text-ink'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /* ---------------- Segmented ----------------
    A real tab list: `aria-selected` is the attribute the tab role defines, and
    each button owns the panel it names. */

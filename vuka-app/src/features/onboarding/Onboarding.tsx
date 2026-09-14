@@ -150,7 +150,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center justify-between px-5 sm:px-8 h-16 shrink-0">
           <div className="flex items-center gap-2 font-bold text-ink lg:invisible"><span className="w-2.5 h-2.5 rounded-full bg-brand-solid" />Vuka Uzenzele</div>
-          <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-10 h-10 rounded-xl border border-line text-ink hover:bg-surface transition active:scale-95">
+          <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface transition active:scale-95">
             <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
           </button>
         </div>
@@ -398,7 +398,7 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerifi
 }
 
 function BackRow({ onBack }: { onBack: () => void }) {
-  return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line bg-surface text-ink mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
+  return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line bg-surface text-ink mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
 function Head({ h, sub }: { h: string; sub: string }) {
   return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-dim mb-6 leading-relaxed">{sub}</p></>);

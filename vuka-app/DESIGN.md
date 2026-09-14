@@ -101,9 +101,36 @@ One `h1` per screen — its title. `SectionTitle` renders `h2`. Card titles are
 
 ---
 
-## Touch targets
+## Devices
 
-Every button clears 44px, including `size="sm"`. `IconButton` is a 44px square.
+The app is opened on a 320px handset and a 1440px desktop, and it has to be
+clean at both. `npm run check:responsive` drives a real browser at five widths —
+iPhone SE, iPhone 14, iPad portrait, iPad landscape, desktop — signs in as both
+demo accounts, walks every primary screen and asserts:
+
+1. the page never scrolls sideways
+2. nothing sticks out past the right edge
+3. the tab bar and its **+** button are fully on screen
+4. **every tappable control clears 44px**
+
+It needs a dev or preview server running, so it is not part of `npm run build`.
+Its first run found 201 problems — the theme toggle at 40px, every "See all →"
+at 21px, the whole category rail at 35px.
+
+### Viewport height on a phone
+
+`.app-shell` declares its height three times, and that is deliberate:
+
+```css
+height: 100vh;                  /* universal, and wrong on mobile */
+height: -webkit-fill-available; /* older iOS Safari */
+height: 100dvh;                 /* the real answer */
+```
+
+`100vh` on a phone means "the viewport with the browser chrome hidden", which is
+taller than what you can see. On an iPhone that pushes the tab bar under
+Safari's toolbar and clips the **+** button — the tallest thing in it. Do not
+tidy those three lines into one.
 
 ---
 

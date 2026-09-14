@@ -8,7 +8,7 @@ import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Applicant, Hire } from '../../lib/api';
 import type { Gig } from '../../types';
-import { Button, Card, Chip, EmptyState, LiveDot, SectionTitle, Skeleton, Tile } from '../../components/ui';
+import { Button, Card, Chip, EmptyState, LiveDot, SectionTitle, Skeleton, Tile, TextAction } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
 interface PostedJob { gig: Gig; applicants: Applicant[] }
@@ -77,7 +77,7 @@ export function MyJobs() {
         </>
       )}
 
-      <SectionTitle action={<button className="text-small text-brand font-bold" onClick={() => navigate('post')}>Post a job →</button>}>Open jobs</SectionTitle>
+      <SectionTitle action={<TextAction onClick={() => navigate('post')}>Post a job →</TextAction>}>Open jobs</SectionTitle>
       {posted === null ? (
         <div className="flex flex-col gap-2.5">
           <Skeleton className="h-[86px] w-full rounded-card" />

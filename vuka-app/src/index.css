@@ -200,12 +200,30 @@ h1, h2, h3, h4 {
 }
 
 /* The app shell owns the viewport, so only the content column scrolls and the
-   tab bar stays under the thumb. `100vh` on a phone means "the viewport with
-   the address bar hidden", which is taller than what you can actually see — so
-   the last row of a long screen, and the tab bar with it, sat below the fold.
-   `dvh` is the visible height; the vh line is the fallback for browsers that
-   do not know it. */
-.app-shell { height: 100vh; height: 100dvh; }
+   tab bar stays under the thumb.
+
+   Three declarations, deliberately, because `100vh` on a phone means "the
+   viewport with the browser chrome hidden" — taller than what you can actually
+   see. On an iPhone that pushes the tab bar under Safari's toolbar and clips
+   the + button, which is the tallest thing in it.
+
+   Later wins, and an unsupported value is ignored:
+     100vh                    universal, wrong on mobile
+     -webkit-fill-available   older iOS Safari, the long-standing fix there
+     100dvh                   the real answer, Safari 15.4+ and every evergreen
+
+   Do not "tidy" this into one line. */
+.app-shell {
+  height: 100vh;
+  height: -webkit-fill-available;
+  height: 100dvh;
+}
+
+/* The + button is lifted above the tab bar, so it is the first thing to be
+   clipped if anything goes wrong. It sits on its own layer and the bar around
+   it never clips. */
+.tabbar { overflow: visible; }
+.tabbar .fab { position: relative; z-index: 1; }
 
 /* Figures that line up in a column: money, ratings, distances, counts. */
 .tnum { font-variant-numeric: tabular-nums; }

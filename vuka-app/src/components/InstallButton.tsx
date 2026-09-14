@@ -44,7 +44,7 @@ export function InstallButton({ className = '' }: { className?: string }) {
     <>
       <button
         onClick={onClick}
-        className={`inline-flex items-center justify-center gap-2 rounded-pill bg-ink text-canvas font-bold text-small px-4 py-2.5 hover:bg-ink transition active:scale-95 ${className}`}
+        className={`inline-flex items-center justify-center gap-2 rounded-pill bg-ink text-canvas font-bold text-small min-h-[44px] px-4 py-2.5 hover:bg-ink transition active:scale-95 ${className}`}
       >
         <Icon name="plus" size={16} /> Install app
       </button>
