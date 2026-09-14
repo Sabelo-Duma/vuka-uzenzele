@@ -85,7 +85,10 @@ async function measure(page) {
 
       // Tappable and too small for a thumb.
       const tappable = el.matches('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="tab"]');
-      if (tappable && (r.width < 44 || r.height < 44)) {
+      // Half a pixel of tolerance: a 44px control laid out on a fractional
+      // grid measures 43.99, and reporting that as "44x44 is too small" is
+      // noise nobody can act on.
+      if (tappable && (r.width < 43.5 || r.height < 43.5)) {
         out.small.push({ el: describe(el), w: Math.round(r.width), h: Math.round(r.height) });
       }
 
@@ -145,12 +148,21 @@ async function check(page, viewport, screen) {
   return m;
 }
 
-async function signIn(page, role) {
+async function signIn(page, viewport, role) {
   await page.goto(BASE, { waitUntil: 'networkidle' });
   const login = page.getByRole('button', { name: /^log in$/i }).first();
   if (await login.count()) await login.click();
+
+  // The sign-in form is a screen too, and the walk never reaches it.
+  await check(page, viewport, 'Sign in');
+
   await page.getByRole('button', { name: new RegExp(`demo ${role}`, 'i') }).first().click();
-  await page.waitForTimeout(1200);
+
+  /* Wait for the app itself, not for a guess. A fixed delay is long enough on
+     a dev server and not on a cold one, and the checks then run against the
+     sign-in form while reporting it as Home. */
+  await page.getByRole('navigation', { name: /primary/i }).first().waitFor({ state: 'attached', timeout: 30000 });
+  await page.waitForTimeout(600);
 }
 
 const WORKER_SCREENS = ['Home', 'Find work', 'My Record', 'Chats', 'Me'];
@@ -216,12 +228,12 @@ for (const v of VIEWPORTS) {
   await check(page, v, 'Landing');
   await checkSheetCloses(page, v);
 
-  await signIn(page, 'worker');
+  await signIn(page, v, 'worker');
   await walk(page, v, WORKER_SCREENS);
 
   await context.clearCookies();
   await page.evaluate(() => { try { localStorage.clear(); } catch { /* blocked */ } });
-  await signIn(page, 'employer');
+  await signIn(page, v, 'employer');
   await walk(page, v, EMPLOYER_SCREENS);
 
   console.log(`  done  ${v.name} (${v.width}x${v.height})`);
