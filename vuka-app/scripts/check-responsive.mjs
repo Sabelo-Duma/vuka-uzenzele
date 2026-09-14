@@ -190,7 +190,47 @@ async function walk(page, viewport, screens) {
       await page.waitForTimeout(500);
     }
     await check(page, viewport, name);
+    // The inbox is a list of links; the conversation behind it is where the
+    // composer lives, and the composer is the tightest row in the app.
+    if (/^chats$/i.test(name)) await checkThread(page, viewport);
   }
+}
+
+/**
+ * Inside a conversation.
+ *
+ * Reached separately because the tab walk only ever sees the inbox, and the
+ * screen that actually has to survive a 320px phone is the one underneath it:
+ * a text box, a photo button, a microphone and a send button on one line —
+ * plus a recording bar that replaces all four with a timer, a level meter, a
+ * countdown and two more buttons.
+ */
+async function checkThread(page, viewport) {
+  const row = page.locator('button').filter({ hasText: /employer|worker/i }).first();
+  if (!(await row.count())) return;
+  await row.click().catch(() => {});
+
+  const back = page.getByRole('button', { name: /back to chats/i }).first();
+  const opened = await back.waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+  if (!opened) return;
+  await page.waitForTimeout(400);
+  await check(page, viewport, 'Chat thread');
+
+  const mic = page.getByRole('button', { name: /record a voice note/i }).first();
+  if (await mic.count()) {
+    await mic.click().catch(() => {});
+    const sendVoice = page.getByRole('button', { name: /send voice note/i }).first();
+    const recording = await sendVoice.waitFor({ timeout: 8000 }).then(() => true).catch(() => false);
+    if (recording) {
+      await page.waitForTimeout(300);
+      await check(page, viewport, 'Recording');
+      await page.getByRole('button', { name: /discard/i }).first().click().catch(() => {});
+      await page.waitForTimeout(300);
+    }
+  }
+
+  await back.click().catch(() => {});
+  await page.waitForTimeout(400);
 }
 
 /**
@@ -236,11 +276,17 @@ async function checkSheetCloses(page, viewport) {
 }
 
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+    /* A synthetic microphone, so the recording bar can be measured. Without it
+       getUserMedia rejects, the composer shows a permission notice instead, and
+       the row that most needs checking is never drawn. */
+    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+  });
 console.log(`\nLayout check against ${BASE}\n`);
 
 for (const v of VIEWPORTS) {
   const context = await browser.newContext({
+    permissions: ['microphone'],
     viewport: { width: v.width, height: v.height },
     deviceScaleFactor: 2,
     isMobile: v.mobile,

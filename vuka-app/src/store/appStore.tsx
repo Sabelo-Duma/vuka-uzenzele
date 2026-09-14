@@ -2,7 +2,9 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type Applicant, type AuthResult, type Conversation, type CreateGigInput, type Hire, type Invitation, type Message, type MyJob, type RegisterInput, type Thread } from '../lib/api';
+import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type Applicant, type AuthResult, type Conversation, type CreateGigInput, type Hire, type Invitation, type MyJob, type RegisterInput } from '../lib/api';
+import { onChatEvent, startChatTransport, stopChatTransport } from '../lib/chatTransport';
+import { clearOutbox, flushOutbox, startOutbox, stopOutbox } from '../lib/outbox';
 import { computeCv } from '../lib/engine';
 import { applyServerConfig, minWagePerHour } from '../data/catalog';
 import { resetBanking } from '../lib/banking';
@@ -205,10 +207,6 @@ interface Store {
   respondInvitation: (id: string, accept: boolean) => Promise<{ accepted: boolean; gigId: string }>;
   refreshUnread: () => Promise<void>;
   loadConversations: () => Promise<Conversation[]>;
-  loadThread: (userId: string) => Promise<Thread>;
-  sendMessage: (toUserId: string, body: string, replyToId?: string | null) => Promise<Message>;
-  editMessage: (id: string, body: string) => Promise<Message>;
-  deleteMessage: (id: string) => Promise<Message>;
   reloadData: () => Promise<void>;
   clearError: () => void;
 }
@@ -381,6 +379,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToken(null);
     resetBanking(); // never let the next account see the previous one's payout row
     forgetCoords();
+    /* Unsent messages belong to the account that wrote them. Leaving them
+       queued would mean the next person to sign in on this phone sends them. */
+    clearOutbox();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
@@ -503,16 +504,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadConversations = useCallback(() => api.listConversations(), []);
 
-  const loadThread = useCallback(async (userId: string) => {
-    const thread = await api.getThread(userId); // server marks incoming as read
-    refreshUnread();
-    return thread;
-  }, [refreshUnread]);
+  /* One live connection and one outbox for the whole session, started when
+     there is somebody to be signed in as and stopped when there isn't.
 
-  const sendMessage = useCallback(
-    (toUserId: string, body: string, replyToId?: string | null) => api.sendMessage(toUserId, body, replyToId), []);
-  const editMessage = useCallback((id: string, body: string) => api.editMessage(id, body), []);
-  const deleteMessage = useCallback((id: string) => api.deleteMessage(id), []);
+     They live here rather than in the chat screen for the same reason the
+     unread badge does: a message can arrive while you are looking at a job
+     listing, and a message written in a lift has to keep trying after you have
+     navigated away from the conversation you wrote it in. */
+  /* Open what the notification was about.
+     A push notice for a message carries ?chat=<their id>, and until now the
+     app read none of that — tapping "Sipho: I'm at the gate" opened the home
+     screen and left you to find the conversation yourself, which for a
+     notification about somebody waiting outside is most of the value gone.
+     Consumed once and cleared from the address bar, so a refresh an hour later
+     doesn't drag you back into the same thread. */
+  useEffect(() => {
+    if (state.status !== 'authed') return;
+    let params: URLSearchParams;
+    try { params = new URLSearchParams(window.location.search); } catch { return; }
+    const chat = params.get('chat');
+    const tab = params.get('tab');
+    if (!chat && !tab) return;
+    if (chat) dispatch({ type: 'NAVIGATE', nav: { screen: 'chat', id: chat } });
+    else if (tab === 'messages') dispatch({ type: 'NAVIGATE', nav: { screen: 'messages' } });
+    else if (tab === 'cv') dispatch({ type: 'NAVIGATE', nav: { screen: 'cv' } });
+    else if (tab === 'hires') dispatch({ type: 'NAVIGATE', nav: { screen: 'hires' } });
+    try {
+      params.delete('chat'); params.delete('tab');
+      const rest = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (rest ? '?' + rest : ''));
+    } catch { /* not worth failing over */ }
+  }, [state.status]);
+
+  useEffect(() => {
+    if (state.status !== 'authed') return;
+    startChatTransport();
+    startOutbox();
+    const off = onChatEvent((e) => {
+      if (e.type === 'unread') dispatch({ type: 'UNREAD', count: e.count });
+      /* A message arriving means the tally moved, but only the server knows
+         where to — one you sent yourself changes nothing. Ask rather than
+         guess. */
+      if (e.type === 'message') void refreshUnread();
+      // The connection coming back is the moment queued messages can go.
+      if (e.type === 'status' && e.live) void flushOutbox();
+    });
+    return () => { off(); stopChatTransport(); stopOutbox(); };
+  }, [state.status, refreshUnread]);
 
   const value = useMemo<Store>(() => ({
     state,
@@ -528,9 +566,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
     hireWorker, confirmWork, loadApplicants, loadMyHires,
     dismissCelebration: () => dispatch({ type: 'CELEBRATE', payload: null }),
-    refreshUnread, loadConversations, loadThread, sendMessage, editMessage, deleteMessage, reloadData,
+    refreshUnread, loadConversations, reloadData,
     clearError: () => dispatch({ type: 'ERROR', error: null }),
-  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, loadThread, sendMessage, editMessage, deleteMessage, reloadData]);
+  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

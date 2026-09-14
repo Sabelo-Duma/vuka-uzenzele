@@ -8,6 +8,7 @@
     "build": "npm run check:contrast && tsc --noEmit && vite build && npm run check:classes",
     "check:classes": "node scripts/check-classes.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
+    "check:chat": "node scripts/check-chat.mjs",
     "check:responsive": "node scripts/check-responsive.mjs",
     "dev": "vite",
     "gen:figures": "python scripts/subset-mono.py",

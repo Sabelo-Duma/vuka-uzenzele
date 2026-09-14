@@ -6,7 +6,7 @@ import morgan from 'morgan';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { all, get, run, initDb, closeDb, driver } from './db.mjs';
+import { all, get, run, initDb, closeDb, driver, toBytes } from './db.mjs';
 import { seedIfEmpty } from './seed.mjs';
 import {
   hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid,
@@ -20,6 +20,7 @@ import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mj
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
+import { subscribe, emit, isOnline, connectionStats, closeAll } from './realtime.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
 await initDb();
@@ -37,10 +38,15 @@ app.set('trust proxy', 1);
 // (HSTS, X-Content-Type-Options, frameguard, referrer policy, etc.).
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-// Request logging (concise in prod, readable in dev). Health-check pings are
-// skipped so they don't flood the logs.
+/* Request logging (concise in prod, readable in dev).
+
+   Health-check pings are skipped so they don't flood the logs. So is the live
+   chat channel, for two reasons: it is one long-lived request that would only
+   ever be logged when it ends, and its query string carries a connection
+   ticket — short-lived and single-purpose, but still not something to write
+   into an access log every time a phone comes back onto a signal. */
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
-  skip: (req) => req.path === '/api/health',
+  skip: (req) => req.path === '/api/health' || req.path === '/api/events',
 }));
 
 // CORS: same-origin single-service deploys need none. If you split the
@@ -55,7 +61,11 @@ app.use(express.json({ limit: '64kb' }));
 // against password brute-forcing and sign-up spam.
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,          // 1 minute
-  max: 300,                     // ~5 req/s per IP — well above real usage
+  /* ~5 req/s per IP — well above real usage. Overridable because the end-to-end
+     suite drives hundreds of requests from one address in under a minute, and
+     the alternative was to make the test thinner than the behaviour it checks.
+     Unset, it stays 300 in production. */
+  max: Number(process.env.VUKA_RATE_MAX || 300),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down and try again shortly.' },
@@ -131,19 +141,30 @@ const MESSAGE_EDIT_WINDOW_MIN = Number(process.env.VUKA_MESSAGE_EDIT_MINUTES || 
  * any; callers resolve it, because the thread route already holds every row and
  * a per-message lookup would be a query each.
  */
-const msgOut = (m, parent = null) => ({
+const msgOut = (m, parent = null, attachment = null) => ({
   id: m.id,
+  /* The sender's own id for this message, minted before it was ever sent. It
+     comes back so the app can match the answer to the bubble it is already
+     showing, instead of drawing the same message twice. */
+  clientId: m.client_id ?? null,
   senderId: m.sender_id,
   recipientId: m.recipient_id,
+  kind: m.kind || 'text',
   body: m.deleted_at ? '' : m.body,
   createdAt: m.created_at,
+  /* Three states, not two. Reading something implies it arrived, so read folds
+     into delivered — otherwise every row written before delivery receipts
+     existed would show as read but never delivered. */
+  delivered: !!(m.delivered_at || m.read_at),
   read: !!m.read_at,
   editedAt: m.edited_at ?? null,
   deleted: !!m.deleted_at,
+  attachment: attachment && !m.deleted_at ? attachmentOut(attachment) : null,
   replyTo: parent
     ? {
       id: parent.id,
       senderId: parent.sender_id,
+      kind: parent.kind || 'text',
       deleted: !!parent.deleted_at,
       // A quote, not the message: enough to recognise, capped so a long
       // message can't be re-sent in full inside every reply to it.
@@ -446,6 +467,10 @@ app.get('/api/health', (_req, res) => res.json({
   smsConfigured,
   pushConfigured,
   monitoring: monitoringTarget,
+  // How many devices are holding a live chat channel open right now. Worth
+  // watching: it is the one number that says whether people are getting
+  // messages pushed to them or quietly falling back to polling.
+  live: connectionStats(),
   uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
 }));
 
@@ -1635,10 +1660,176 @@ app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asy
 }));
 
 // ---- chat / direct messages ----
+
+/**
+ * A strictly increasing timestamp for chat.
+ *
+ * Ordering and delta sync both hang off created_at, and two messages written
+ * inside the same millisecond would be a tie: the thread could reshuffle
+ * between loads, and a "give me everything since T" cursor has no safe way to
+ * resume out of the middle of one. Nudging forward by a millisecond when the
+ * clock hasn't moved makes the column a total order for this process — which,
+ * on one instance, is the whole system. (More than one would need a shared
+ * sequence; realtime.mjs carries the same caveat for the same reason.)
+ */
+let lastChatStamp = 0;
+function chatNow() {
+  const now = Math.max(Date.now(), lastChatStamp + 1);
+  lastChatStamp = now;
+  return new Date(now).toISOString();
+}
+
 const chatUser = async (u) => {
   const prof = await get('SELECT color FROM worker_profiles WHERE user_id = ?', [u.id]);
   return { id: u.id, name: u.name, role: u.role, initials: initialsOf(u.name), color: prof?.color || '#0E355A' };
 };
+
+/* ---- attachments ----
+
+   A voice note is capped at sixty seconds. Not an arbitrary number: at the
+   bitrates browsers actually record speech at, a minute is roughly a hundred
+   kilobytes as Opus and several times that as AAC, which is what iOS Safari
+   produces below 18.4. The byte ceiling is what really protects the database,
+   because the duration is only ever the client's word for it.
+
+   Photos are downscaled in the browser before they are uploaded, so the
+   ceiling here is a backstop against something that skipped that path rather
+   than the normal case. */
+const VOICE_MAX_MS = Number(process.env.VUKA_VOICE_MAX_MS || 60_000);
+const ATTACH_MAX_BYTES = Number(process.env.VUKA_ATTACH_MAX_BYTES || 2 * 1024 * 1024);
+
+/* Allow-listed by exact type, not by prefix. "audio/*" would also accept
+   audio/x-anything, and what comes back out of this table is handed to a
+   browser with the content type it was stored under. */
+const AUDIO_TYPES = new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/aac', 'audio/wav']);
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/** Strip codec parameters: browsers send `audio/webm;codecs=opus`. */
+const baseMime = (t) => String(t || '').split(';')[0].trim().toLowerCase();
+
+/** The attachment as the client sees it — everything except the bytes. */
+const attachmentOut = (a) => ({
+  id: a.id,
+  kind: a.kind,
+  mime: a.mime,
+  size: Number(a.size),
+  durationMs: a.duration_ms == null ? null : Number(a.duration_ms),
+  waveform: a.waveform ?? null,
+  width: a.width == null ? null : Number(a.width),
+  height: a.height == null ? null : Number(a.height),
+});
+
+/**
+ * Take the bytes, before any message refers to them.
+ *
+ * Two steps rather than one because a voice note is large and a message is
+ * small: uploading first keeps the send itself a quick JSON round trip that is
+ * safe to retry, and a recording that fails halfway leaves an unattached row
+ * instead of a message with a hole in it.
+ */
+app.post('/api/attachments', requireAuth,
+  express.raw({ type: () => true, limit: ATTACH_MAX_BYTES }),
+  asyncH(async (req, res) => {
+    const bytes = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!bytes || bytes.length === 0) {
+      return res.status(400).json({ error: 'That upload arrived empty. Please try again.' });
+    }
+
+    const mime = baseMime(req.headers['content-type']);
+    const kind = req.query.kind === 'image' ? 'image' : 'voice';
+    const allowed = kind === 'image' ? IMAGE_TYPES : AUDIO_TYPES;
+    if (!allowed.has(mime)) {
+      return res.status(415).json({
+        error: kind === 'image'
+          ? "That image format isn't supported. Use a JPEG, PNG or WebP."
+          : "That audio format isn't supported on our side. Please try recording again.",
+      });
+    }
+
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? Math.round(n) : null; };
+    let durationMs = kind === 'voice' ? num(req.query.durationMs) : null;
+    if (kind === 'voice') {
+      if (durationMs === null || durationMs < 400) {
+        return res.status(400).json({ error: 'That recording was too short. Hold on a little longer.' });
+      }
+      /* A client could claim any length. Trust it only as far as the cap — the
+         bytes are already bounded, so the worst a lie does is mislabel a bubble. */
+      durationMs = Math.min(durationMs, VOICE_MAX_MS);
+    }
+
+    /* The waveform is measured by the sender while recording and travels with
+       the clip, so the receiver never decodes audio just to draw a picture of
+       it. One digit 0-9 per bar. */
+    const waveform = kind === 'voice'
+      ? String(req.query.waveform || '').replace(/[^0-9]/g, '').slice(0, 64) || null
+      : null;
+
+    const width = kind === 'image' ? num(req.query.w) : null;
+    const height = kind === 'image' ? num(req.query.h) : null;
+
+    const id = uuid();
+    await run(
+      `INSERT INTO attachments (id, owner_id, kind, mime, bytes, size, duration_ms, waveform, width, height, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [id, req.user.id, kind, mime, bytes, bytes.length, durationMs, waveform, width, height, new Date().toISOString()],
+    );
+
+    res.status(201).json(attachmentOut({
+      id, kind, mime, size: bytes.length, duration_ms: durationMs, waveform, width, height,
+    }));
+  }));
+
+/**
+ * Hand the bytes back — to the two people in the conversation and nobody else.
+ *
+ * Fetched by the app with its Authorization header and turned into a blob URL,
+ * rather than pointed at by a bare <audio src>. Two reasons, both practical: a
+ * media element cannot send an auth header at all, and Safari expects a server
+ * it streams from to answer byte-range requests, which a blob URL takes off the
+ * table entirely.
+ */
+app.get('/api/attachments/:id', requireAuth, asyncH(async (req, res) => {
+  const a = await get('SELECT * FROM attachments WHERE id = ?', [req.params.id]);
+  if (!a) return res.status(404).json({ error: 'That file is no longer available.' });
+
+  let allowed = a.owner_id === req.user.id;
+  if (!allowed && a.message_id) {
+    const m = await get('SELECT sender_id, recipient_id, deleted_at FROM messages WHERE id = ?', [a.message_id]);
+    allowed = !!m && !m.deleted_at && (m.sender_id === req.user.id || m.recipient_id === req.user.id);
+  }
+  if (!allowed) return res.status(403).json({ error: "That file isn't yours to open." });
+
+  const bytes = toBytes(a.bytes);
+  res.setHeader('Content-Type', a.mime);
+  res.setHeader('Content-Length', String(bytes.length));
+  /* The id is a uuid and the bytes behind it never change, so this is safe to
+     keep indefinitely — and on a metered connection, re-downloading a voice
+     note every time the thread is opened is exactly the cost worth not paying. */
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', 'inline');
+  res.end(bytes);
+}));
+
+/** What a thread preview says when the message isn't words. */
+const previewOf = (m) => {
+  if (m.deleted_at) return 'Message deleted';
+  if (m.kind === 'voice') return '🎤 Voice note';
+  if (m.kind === 'image') return m.body ? `📷 ${m.body}` : '📷 Photo';
+  return m.body;
+};
+
+/** Load every attachment a page of messages points at, in one query. */
+async function attachmentsFor(rows) {
+  const ids = [...new Set(rows.map((r) => r.attachment_id).filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const holes = ids.map(() => '?').join(',');
+  const found = await all(
+    `SELECT id, kind, mime, size, duration_ms, waveform, width, height FROM attachments WHERE id IN (${holes})`,
+    ids,
+  );
+  return new Map(found.map((a) => [a.id, a]));
+}
 
 // Unread message count (for the nav badge).
 app.get('/api/messages/unread-count', requireAuth, asyncH(async (req, res) => {
@@ -1646,62 +1837,283 @@ app.get('/api/messages/unread-count', requireAuth, asyncH(async (req, res) => {
   res.json({ count: Number(r.c) });
 }));
 
-// Inbox: one entry per conversation partner, newest first.
+/**
+ * Inbox: one entry per conversation partner, newest first.
+ *
+ * This used to read every message the account had ever sent or received into
+ * memory and fold it down in JavaScript. Fine at three messages, ruinous at
+ * three thousand — and it is the inbox, the screen opened most often. The
+ * grouping now happens in the database, and the unread tallies arrive as one
+ * extra query rather than one per conversation.
+ */
 app.get('/api/messages/conversations', requireAuth, asyncH(async (req, res) => {
-  const rows = await all('SELECT * FROM messages WHERE sender_id = ? OR recipient_id = ? ORDER BY created_at ASC', [req.user.id, req.user.id]);
-  const byOther = new Map();
-  for (const m of rows) {
-    const otherId = m.sender_id === req.user.id ? m.recipient_id : m.sender_id;
-    let c = byOther.get(otherId);
-    if (!c) { c = { otherId, last: null, unread: 0 }; byOther.set(otherId, c); }
-    c.last = m; // rows are ascending, so the final assignment is the newest
-    if (m.recipient_id === req.user.id && !m.read_at) c.unread++;
-  }
+  const pairs = await all(
+    `SELECT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other_id,
+            MAX(created_at) AS last_at
+       FROM messages
+      WHERE sender_id = ? OR recipient_id = ?
+      GROUP BY 1
+      ORDER BY 2 DESC
+      LIMIT 100`,
+    [req.user.id, req.user.id, req.user.id],
+  );
+
+  const unreadRows = await all(
+    'SELECT sender_id, COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL GROUP BY sender_id',
+    [req.user.id],
+  );
+  const unreadBy = new Map(unreadRows.map((r) => [r.sender_id, Number(r.c)]));
+
   const convos = [];
-  for (const c of byOther.values()) {
-    const u = await get('SELECT id, name, role FROM users WHERE id = ?', [c.otherId]);
+  for (const p of pairs) {
+    const u = await get('SELECT id, name, role FROM users WHERE id = ?', [p.other_id]);
     if (!u) continue;
+    const last = await get(
+      `SELECT * FROM messages
+        WHERE ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))
+          AND created_at = ?
+        ORDER BY id LIMIT 1`,
+      [req.user.id, u.id, u.id, req.user.id, p.last_at],
+    );
+    if (!last) continue;
     convos.push({
       user: await chatUser(u),
-      // The inbox preview must respect a deletion too — otherwise the thread
-      // shows the tombstone while the list still quotes what was withdrawn.
-      lastMessage: c.last.deleted_at ? 'Message deleted' : c.last.body,
-      lastAt: c.last.created_at,
-      lastFromMe: c.last.sender_id === req.user.id,
-      unread: c.unread,
+      lastMessage: previewOf(last),
+      lastKind: last.kind || 'text',
+      lastAt: last.created_at,
+      lastFromMe: last.sender_id === req.user.id,
+      // Only meaningful on your own last message, but always sent so the list
+      // doesn't have to ask a second question to draw one tick.
+      lastRead: !!last.read_at,
+      lastDelivered: !!(last.delivered_at || last.read_at),
+      unread: unreadBy.get(u.id) ?? 0,
+      online: isOnline(u.id),
     });
   }
-  convos.sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1));
   res.json(convos);
 }));
 
-// Full thread with one user (and mark their messages to me as read).
+/**
+ * Mark everything from one person as delivered, and tell them so.
+ *
+ * "Delivered" means the bytes reached a device this person is signed in on —
+ * which is exactly what fetching the thread, or receiving it over the live
+ * stream, proves. The sender is told, because a single tick that never becomes
+ * two is how you find out a message went nowhere.
+ */
+async function markDelivered(recipientId, senderId) {
+  const pending = await all(
+    'SELECT id FROM messages WHERE recipient_id = ? AND sender_id = ? AND delivered_at IS NULL',
+    [recipientId, senderId],
+  );
+  if (pending.length === 0) return;
+  const at = new Date().toISOString();
+  await run(
+    'UPDATE messages SET delivered_at = ? WHERE recipient_id = ? AND sender_id = ? AND delivered_at IS NULL',
+    [at, recipientId, senderId],
+  );
+  emit(senderId, 'receipt', { state: 'delivered', by: recipientId, at, ids: pending.map((r) => r.id) });
+}
+
+/**
+ * One conversation.
+ *
+ * Three shapes, one route:
+ *   (no cursor)    the most recent page — what opening a chat needs
+ *   ?before=<iso>  the page above that — what scrolling up needs
+ *   ?since=<iso>   only what has changed — what staying current needs
+ *
+ * The last one is the point. The thread used to be re-downloaded in full every
+ * four seconds; on a long conversation over a metered bundle that is real money
+ * taken from the person least able to spend it. `since` is inclusive and the
+ * client deduplicates by id, deliberately: an exclusive cursor has to be exactly
+ * right or it skips a message, while a duplicate the client discards costs
+ * nothing.
+ *
+ * Loading the thread no longer marks it read. It marks it delivered. Read is an
+ * explicit statement that the messages were put in front of someone — see
+ * POST /api/messages/read.
+ */
+const THREAD_PAGE = 40;
 app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => {
   const u = await get('SELECT id, name, role FROM users WHERE id = ?', [req.params.userId]);
   if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
-  const rows = await all(
-    'SELECT * FROM messages WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?) ORDER BY created_at ASC',
-    [req.user.id, u.id, u.id, req.user.id]
-  );
-  await run('UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL', [new Date().toISOString(), req.user.id, u.id]);
-  // Every message in this thread is already in hand, so a reply's parent is a
-  // map lookup rather than a query per message.
+
+  const limit = Math.min(Math.max(Number(req.query.limit) || THREAD_PAGE, 1), 100);
+  const pair = [req.user.id, u.id, u.id, req.user.id];
+  const where = '((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))';
+
+  let rows;
+  let hasMore = false;
+  if (req.query.since) {
+    /* Everything at or after the cursor, oldest first. Deliberately no small
+       page size: what changed since a few seconds ago is tiny by definition,
+       and truncating it would silently drop the tail. */
+    rows = await all(
+      `SELECT * FROM messages WHERE ${where} AND created_at >= ? ORDER BY created_at ASC LIMIT 200`,
+      [...pair, String(req.query.since)],
+    );
+  } else {
+    /* Newest page, or the page above `before`. Fetched descending so the
+       database can stop early, then flipped for the client. */
+    const clause = req.query.before ? `${where} AND created_at < ?` : where;
+    const params = req.query.before ? [...pair, String(req.query.before)] : pair;
+    const page = await all(
+      `SELECT * FROM messages WHERE ${clause} ORDER BY created_at DESC LIMIT ?`,
+      [...params, limit + 1],
+    );
+    hasMore = page.length > limit;
+    rows = page.slice(0, limit).reverse();
+  }
+
+  await markDelivered(req.user.id, u.id);
+
+  /* A reply can quote a message older than the page being sent, so parents are
+     looked up rather than assumed to be in hand. */
   const byId = new Map(rows.map((r) => [r.id, r]));
+  const missing = [...new Set(rows.map((r) => r.reply_to_id).filter((pid) => pid && !byId.has(pid)))];
+  if (missing.length) {
+    const holes = missing.map(() => '?').join(',');
+    for (const p of await all(`SELECT * FROM messages WHERE id IN (${holes})`, missing)) byId.set(p.id, p);
+  }
+  const files = await attachmentsFor(rows);
+
   res.json({
     other: await chatUser(u),
-    messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null)),
+    online: isOnline(u.id),
+    messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null, files.get(r.attachment_id) ?? null)),
+    hasMore,
     editWindowMinutes: MESSAGE_EDIT_WINDOW_MIN,
+    voiceMaxMs: VOICE_MAX_MS,
+    attachMaxBytes: ATTACH_MAX_BYTES,
   });
 }));
 
-// Send a message, optionally as a reply to one already in this thread.
+/**
+ * Everything new for me, across every conversation.
+ *
+ * What the app asks for when it comes back from being closed, and what the live
+ * stream degrades to when it cannot connect. One request instead of one per
+ * open thread.
+ */
+app.get('/api/messages/sync', requireAuth, asyncH(async (req, res) => {
+  const since = String(req.query.since || '');
+  const rows = since
+    ? await all(
+      `SELECT * FROM messages
+        WHERE (recipient_id = ? OR sender_id = ?) AND created_at >= ?
+        ORDER BY created_at ASC LIMIT 200`,
+      [req.user.id, req.user.id, since],
+    )
+    : [];
+
+  for (const s of [...new Set(rows.filter((r) => r.recipient_id === req.user.id).map((r) => r.sender_id))]) {
+    await markDelivered(req.user.id, s);
+  }
+
+  const files = await attachmentsFor(rows);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const unread = Number((await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id])).c);
+
+  res.json({
+    now: new Date().toISOString(),
+    unread,
+    messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null, files.get(r.attachment_id) ?? null)),
+  });
+}));
+
+/**
+ * Say that you have actually read them.
+ *
+ * Separate from loading the thread on purpose. A GET that changes state is
+ * wrong on its own terms, but the real reason is that fetching a conversation
+ * and reading it are different events: the app syncs threads in the background,
+ * and every one of those syncs used to tell the other person their message had
+ * been read by somebody who was not looking at it.
+ */
+app.post('/api/messages/read', requireAuth, asyncH(async (req, res) => {
+  const otherId = String(req.body?.userId || '');
+  if (!otherId) return res.status(400).json({ error: 'Which conversation?' });
+  const upTo = req.body?.upTo ? String(req.body.upTo) : null;
+
+  const params = [req.user.id, otherId];
+  const clause = upTo ? 'AND created_at <= ?' : '';
+  if (upTo) params.push(upTo);
+
+  const affected = await all(
+    `SELECT id FROM messages WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL ${clause}`,
+    params,
+  );
+  if (affected.length) {
+    const at = new Date().toISOString();
+    await run(
+      `UPDATE messages SET read_at = ?, delivered_at = COALESCE(delivered_at, ?)
+        WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL ${clause}`,
+      [at, at, ...params],
+    );
+    emit(otherId, 'receipt', { state: 'read', by: req.user.id, at, ids: affected.map((r) => r.id) });
+  }
+  const unread = Number((await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id])).c);
+  res.json({ ok: true, marked: affected.length, unread });
+}));
+
+/**
+ * "…is typing".
+ *
+ * Never stored. It is true for about three seconds and then it is a lie, so
+ * writing it down would only create something that has to be cleaned up again.
+ * If nobody is listening it evaporates, which is the correct outcome.
+ */
+app.post('/api/messages/typing', requireAuth, asyncH(async (req, res) => {
+  const toUserId = String(req.body?.toUserId || '');
+  if (toUserId && toUserId !== req.user.id) {
+    emit(toUserId, 'typing', { from: req.user.id, at: new Date().toISOString() });
+  }
+  res.json({ ok: true });
+}));
+
+/**
+ * Send a message: a line of text, a voice note, or a photo.
+ *
+ * `clientId` is what makes this safe to retry. The app mints one before the
+ * first attempt and reuses it for every retry of that same message, so a reply
+ * sent on a moving taxi — where the request lands but the answer never comes
+ * back — is recognised on the second try and returned rather than posted twice.
+ * The unique index does the real work; this is the friendly path to the same
+ * answer.
+ */
 app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
-  const { toUserId, body, replyToId } = req.body || {};
+  const { toUserId, body, replyToId, clientId, attachmentId } = req.body || {};
   const text = (body || '').toString().trim();
-  if (!text) return res.status(400).json({ error: 'Type a message first.' });
+
   if (toUserId === req.user.id) return res.status(400).json({ error: "You can't message yourself." });
-  const other = await get('SELECT id FROM users WHERE id = ?', [toUserId]);
+  const other = await get('SELECT id, name FROM users WHERE id = ?', [toUserId]);
   if (!other) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+
+  const cid = clientId ? String(clientId).slice(0, 64) : null;
+  if (cid) {
+    const existing = await get('SELECT * FROM messages WHERE sender_id = ? AND client_id = ?', [req.user.id, cid]);
+    if (existing) {
+      const parent = existing.reply_to_id ? await get('SELECT * FROM messages WHERE id = ?', [existing.reply_to_id]) : null;
+      const file = existing.attachment_id ? await get('SELECT * FROM attachments WHERE id = ?', [existing.attachment_id]) : null;
+      // 200, not 201: nothing was created this time round.
+      return res.json(msgOut(existing, parent, file));
+    }
+  }
+
+  /* Claim the attachment here rather than trusting the id. It has to be one
+     this account uploaded and has not already sent — otherwise any id would let
+     someone re-send a stranger's recording as their own. */
+  let file = null;
+  if (attachmentId) {
+    file = await get('SELECT * FROM attachments WHERE id = ?', [String(attachmentId)]);
+    if (!file || file.owner_id !== req.user.id) {
+      return res.status(404).json({ error: 'That recording is no longer available. Please try again.' });
+    }
+    if (file.message_id) return res.status(409).json({ error: 'That recording has already been sent.' });
+  }
+
+  if (!text && !file) return res.status(400).json({ error: 'Type a message first.' });
 
   /* A reply must point at a message from THIS conversation. Without that check
      any id would do, and the quoted snippet would happily surface a line from
@@ -1716,9 +2128,51 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
   }
 
   const id = uuid();
-  await run('INSERT INTO messages (id, sender_id, recipient_id, body, reply_to_id, created_at) VALUES (?,?,?,?,?,?)',
-    [id, req.user.id, toUserId, text.slice(0, 2000), parent?.id ?? null, new Date().toISOString()]);
-  res.status(201).json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [id]), parent));
+  const kind = file ? file.kind : 'text';
+  try {
+    await run(
+      `INSERT INTO messages (id, sender_id, recipient_id, body, reply_to_id, created_at, client_id, kind, attachment_id)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [id, req.user.id, toUserId, text.slice(0, 2000), parent?.id ?? null, chatNow(), cid, kind, file?.id ?? null],
+    );
+  } catch (e) {
+    /* Two retries of the same message arriving together: one inserted, this one
+       lost the unique index. That is deduplication working, so answer with the
+       row that won rather than with an error. */
+    const won = cid ? await get('SELECT * FROM messages WHERE sender_id = ? AND client_id = ?', [req.user.id, cid]) : null;
+    if (!won) throw e;
+    const wonFile = won.attachment_id ? await get('SELECT * FROM attachments WHERE id = ?', [won.attachment_id]) : null;
+    return res.json(msgOut(won, parent, wonFile));
+  }
+
+  if (file) await run('UPDATE attachments SET message_id = ? WHERE id = ?', [id, file.id]);
+
+  const saved = await get('SELECT * FROM messages WHERE id = ?', [id]);
+  const out = msgOut(saved, parent, file);
+
+  /* Push it at the recipient if they are here, and at their phone if they are
+     not. Web push costs nothing, but a buzz about a line already on screen in
+     front of somebody is just noise — so the live connection decides. */
+  const live = emit(toUserId, 'message', out);
+  if (live > 0) {
+    await markDelivered(toUserId, req.user.id);
+  } else {
+    const me = await userById(req.user.id);
+    void notifyUser(toUserId, {
+      type: 'message',
+      title: me?.name || 'New message',
+      body: previewOf(saved).slice(0, 140),
+      url: `/?tab=messages&chat=${req.user.id}`,
+      /* One notification per conversation, replaced as it goes — twenty
+         separate buzzes from one person is how people switch notifications
+         off altogether. */
+      tag: `chat-${req.user.id}`,
+    }).catch((e) => captureError(e, 'notifyUser:message'));
+  }
+  // Their own other devices should show it too.
+  emit(req.user.id, 'message', out);
+
+  res.status(201).json(out);
 }));
 
 /**
@@ -1734,6 +2188,7 @@ app.patch('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
   if (!m) return res.status(404).json({ error: 'That message no longer exists.' });
   if (m.sender_id !== req.user.id) return res.status(403).json({ error: 'You can only edit your own messages.' });
   if (m.deleted_at) return res.status(409).json({ error: "You can't edit a deleted message." });
+  if (m.kind === 'voice') return res.status(409).json({ error: "A voice note can't be edited. Delete it and record another." });
 
   const text = (req.body?.body ?? '').toString().trim();
   if (!text) return res.status(400).json({ error: 'A message can\'t be empty — delete it instead.' });
@@ -1747,7 +2202,11 @@ app.patch('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
   await run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', [text.slice(0, 2000), now, m.id]);
   const updated = await get('SELECT * FROM messages WHERE id = ?', [m.id]);
   const parent = updated.reply_to_id ? await get('SELECT * FROM messages WHERE id = ?', [updated.reply_to_id]) : null;
-  res.json(msgOut(updated, parent));
+  const file = updated.attachment_id ? await get('SELECT * FROM attachments WHERE id = ?', [updated.attachment_id]) : null;
+  const out = msgOut(updated, parent, file);
+  emit(m.recipient_id, 'message-changed', out);
+  emit(m.sender_id, 'message-changed', out);
+  res.json(out);
 }));
 
 /**
@@ -1758,6 +2217,9 @@ app.patch('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
  * serialised again. A tombstone is also the honest outcome here — the other
  * person already read it, and pretending it was never sent would be worse than
  * showing that it was taken back.
+ *
+ * The bytes are a different matter. A withdrawn voice note has to actually stop
+ * existing, not merely stop being linked to, so the attachment row goes.
  */
 app.delete('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
   const m = await get('SELECT * FROM messages WHERE id = ?', [req.params.id]);
@@ -1766,7 +2228,37 @@ app.delete('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
   if (m.deleted_at) return res.json(msgOut(m));
 
   await run("UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?", [new Date().toISOString(), m.id]);
-  res.json(msgOut(await get('SELECT * FROM messages WHERE id = ?', [m.id])));
+  if (m.attachment_id) await run('DELETE FROM attachments WHERE id = ?', [m.attachment_id]);
+
+  const out = msgOut(await get('SELECT * FROM messages WHERE id = ?', [m.id]));
+  emit(m.recipient_id, 'message-changed', out);
+  emit(m.sender_id, 'message-changed', out);
+  res.json(out);
+}));
+
+/* ---- the live channel ----
+
+   EventSource cannot set headers, so the session token cannot travel the way it
+   does everywhere else. It is also the wrong thing to put in a URL: query
+   strings end up in access logs, and this one would be a thirty-day session. So
+   the app trades its token for a ticket that is good for sixty seconds and
+   opens nothing but this stream. */
+app.post('/api/events/ticket', requireAuth, asyncH(async (req, res) => {
+  res.json({ ticket: signPurposeToken('sse', { sub: req.user.id, role: req.user.role }, 60), expiresIn: 60 });
+}));
+
+app.get('/api/events', asyncH(async (req, res) => {
+  const payload = verifyPurposeToken(String(req.query.ticket || ''), 'sse');
+  if (!payload?.sub) return res.status(401).json({ error: 'This live connection expired. Reconnecting…' });
+  /* The same session check requireAuth does: a password reset ends every
+     session, and a stream that outlived one would keep delivering messages
+     into it. */
+  const row = await get('SELECT sessions_valid_from FROM users WHERE id = ?', [payload.sub]);
+  if (!row) return res.status(401).json({ error: 'Your account could not be found. Please sign in again.' });
+  if (row.sessions_valid_from && Number(payload.iat) < Number(row.sessions_valid_from)) {
+    return res.status(401).json({ error: 'Your password was changed, so this session ended. Please sign in again.' });
+  }
+  subscribe(payload.sub, req, res);
 }));
 
 // ---- follow / social graph ----
@@ -1870,6 +2362,16 @@ if (existsSync(STATIC_DIR)) {
 // and the caller gets the id back, so "it broke at 14:32" becomes one lookup.
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
+  /* Two of these are the caller's doing, not ours, and reporting them as "went
+     wrong on our side" is both untrue and unhelpful — the person who recorded
+     a voice note that came out too large has something they can actually do
+     about it, but only if they are told which problem they have. */
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That file is too large to send. Try a shorter recording or a smaller photo.' });
+  }
+  if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: "That request couldn't be read. Please try again." });
+  }
   const ref = captureError(err, `${req.method} ${req.path}`, { role: req.user?.role ?? 'anonymous' });
   res.status(500).json({ error: 'Something went wrong on our side. Please try again in a moment.', ref });
 });
@@ -1919,6 +2421,11 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`${signal} received — shutting down gracefully…`);
   stopAutoRelease();
+  /* An SSE stream never finishes on its own, so server.close() would be waiting
+     for something that is never going to happen and the failsafe below would be
+     what actually ended the process — taking in-flight requests with it. Drop
+     the streams first; the clients reconnect. */
+  closeAll();
   server.close(async () => {
     await closeDb();
     console.log('Closed HTTP server and database. Bye.');

@@ -9,6 +9,26 @@
 const PG_URL = process.env.DATABASE_URL || process.env.VUKA_DATABASE_URL || '';
 export const driver = PG_URL ? 'pg' : 'sqlite';
 
+/* Raw bytes, spelled the way each engine spells it. Postgres has no BLOB type
+   at all, so the shared DDL below cannot simply say BLOB the way it can say
+   TEXT or INTEGER — it has to be interpolated per driver. */
+export const BLOB_TYPE = driver === 'pg' ? 'BYTEA' : 'BLOB';
+
+/**
+ * Bytes out of either driver, as a Buffer.
+ *
+ * node:sqlite hands back a Uint8Array and node-postgres hands back a Buffer.
+ * Both are views over an ArrayBuffer, but only one of them has Buffer's
+ * methods, and code downstream (res.end, byteLength, hashing) wants the same
+ * shape from both. Views are wrapped rather than copied, so this is free.
+ */
+export function toBytes(value) {
+  if (value == null) return null;
+  if (Buffer.isBuffer(value)) return value;
+  if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  return Buffer.from(value);
+}
+
 let pgPool = null;
 let sqlite = null;
 
@@ -165,6 +185,34 @@ export async function initDb() {
       body TEXT NOT NULL,
       created_at TEXT NOT NULL,
       read_at TEXT
+    );
+
+    /* Voice notes and photos sent in chat.
+
+       The bytes live in the database because on this deployment there is
+       nowhere else for them to live: the Render service has no persistent
+       disk, so anything written to the filesystem is gone at the next deploy,
+       and the Postgres behind DATABASE_URL is the only durable store the
+       platform actually has. A voice note is capped at 60 seconds and photos
+       are downscaled in the browser before they are ever uploaded, which keeps
+       a row in the low hundreds of kilobytes.
+
+       Uploaded first, attached second: message_id stays NULL until a message
+       claims it, so a send that never completes leaves a sweepable orphan
+       rather than half a message. */
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      bytes ${BLOB_TYPE} NOT NULL,
+      size INTEGER NOT NULL,
+      duration_ms INTEGER,
+      waveform TEXT,
+      width INTEGER,
+      height INTEGER,
+      message_id TEXT,
+      created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS follows (
@@ -342,6 +390,23 @@ export async function initDb() {
   await addColumn('messages', 'reply_to_id', 'TEXT');
   await addColumn('messages', 'edited_at', 'TEXT');
   await addColumn('messages', 'deleted_at', 'TEXT');
+  /* The delivery spine.
+
+     client_id is the sender's own id for the message, minted before the first
+     attempt. It is what makes a retry safe: the network can drop an answer we
+     already acted on, and without it the obvious fix — send again — posts the
+     message twice. With it the second POST recognises the first and returns it.
+
+     delivered_at is the middle state every chat app has and this one did not:
+     "it reached their phone", which is a different fact from "they read it"
+     and the one that tells a worker their reply is actually going somewhere.
+
+     kind and attachment_id are what let a message be a voice note or a photo
+     instead of only a line of text. */
+  await addColumn('messages', 'client_id', 'TEXT');
+  await addColumn('messages', 'delivered_at', 'TEXT');
+  await addColumn('messages', 'kind', 'TEXT');
+  await addColumn('messages', 'attachment_id', 'TEXT');
   // Safety-report triage: who closed it, when, and why.
   await addColumn('safety_reports', 'note', 'TEXT');
   await addColumn('safety_reports', 'resolved_at', 'TEXT');
@@ -371,6 +436,28 @@ export async function initDb() {
   await exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
       ON users(email) WHERE email IS NOT NULL;
+  `);
+
+  /* One message per (sender, client_id). This is the deduplication, enforced
+     where it cannot be raced: two retries arriving at once both try to insert,
+     and exactly one wins. NULLs do not collide on either engine, so every row
+     written before this existed is unaffected. */
+  await exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_client
+      ON messages(sender_id, client_id) WHERE client_id IS NOT NULL;
+  `);
+  /* Delta sync reads one conversation from a timestamp forward, and history
+     reads it backward from one. Both are this index. */
+  await exec(`
+    CREATE INDEX IF NOT EXISTS idx_msg_pair_time
+      ON messages(sender_id, recipient_id, created_at);
+  `);
+  await exec(`
+    CREATE INDEX IF NOT EXISTS idx_msg_recipient_time
+      ON messages(recipient_id, created_at);
+  `);
+  await exec(`
+    CREATE INDEX IF NOT EXISTS idx_attach_message ON attachments(message_id);
   `);
 
   initialised = true;
