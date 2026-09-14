@@ -280,9 +280,20 @@ function TierCard({ cv }: { cv: CvSnapshot }) {
       </div>
       <div className="text-small text-on-feature-dim my-2.5 leading-snug">Reach <b>{n.name}</b> to unlock: {n.unlocks}</div>
       <ProgressBar pct={cv.tierProgress} label={`Progress to ${n.name}`} />
+      {/* The target belongs in the label, not under a slash.
+
+          "4.6/4.3" read as a fraction — a score out of 4.3 — which is not a
+          thing, because ratings are out of five. It meant "yours is 4.6, you
+          need 4.3", and no amount of staring at it said so. Put the threshold
+          in the label and the figure stands on its own.
+
+          A worker with no rated jobs has an average of 0, which as "0.0★" reads
+          as having been rated zero stars rather than not yet rated at all —
+          the same mistake this app already refuses to make about new
+          employers. */}
       <div className="flex gap-2 mt-3">
-        <Req ok={cv.jobsDone >= n.minJobs} label="Jobs" value={`${cv.jobsDone}/${n.minJobs}`} />
-        <Req ok={cv.ratingMet} label="Rating" value={`${cv.avg.toFixed(1)}/${n.minRating.toFixed(1)}`} />
+        <Req ok={cv.jobsDone >= n.minJobs} label={`Jobs ${n.minJobs}+`} value={String(cv.jobsDone)} />
+        <Req ok={cv.ratingMet} label={`Rating ${n.minRating.toFixed(1)}+`} value={cv.avg === 0 ? '—' : `${cv.avg.toFixed(1)}★`} />
         <Req ok={!cv.flagBlocked} label="No flags" value={cv.flags === 0 ? '✓' : String(cv.flags)} />
       </div>
     </Card>
