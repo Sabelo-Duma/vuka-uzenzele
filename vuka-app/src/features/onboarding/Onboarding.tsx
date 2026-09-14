@@ -114,35 +114,34 @@ function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-surface-2 text-ink">
       {/* Brand / value panel (desktop) */}
-      <aside className="hidden lg:flex flex-col justify-between w-[44%] max-w-[600px] p-12 text-white relative overflow-hidden"
-        style={{ background: 'linear-gradient(160deg,#0D182B 0%, #0E355A 62%, #123e69 100%)' }}>
-        <div aria-hidden="true" className="absolute -right-24 -top-24 w-[420px] h-[420px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(242,0,35,.18), transparent 70%)' }} />
+      <aside className="feature-band hidden lg:flex flex-col justify-between w-[44%] max-w-[600px] p-12 relative overflow-hidden">
+        <div aria-hidden="true" className="absolute -right-24 -top-24 w-[420px] h-[420px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
         <div aria-hidden="true" className="absolute -left-16 bottom-10 w-[280px] h-[280px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,255,255,.06), transparent 70%)' }} />
 
-        <div className="relative flex items-center gap-2.5 font-bold text-lg"><span className="w-3 h-3 rounded-full bg-red" />Vuka Uzenzele</div>
+        <div className="relative flex items-center gap-2.5 font-bold text-lead"><span className="w-3 h-3 rounded-full bg-brand-solid" />Vuka Uzenzele</div>
 
         <div className="relative max-w-md">
-          <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-white/90 mb-6">
-            <span className="w-2 h-2 rounded-full bg-red floaty" />Youth work, reimagined for South Africa
+          <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-on-feature-dim mb-6">
+            <span className="w-2 h-2 rounded-full bg-brand-solid floaty" />Youth work, reimagined for South Africa
           </span>
-          <h1 className="font-display ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-red">.</span></h1>
-          <p className="ob-rise-2 text-white/70 mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
+          <h1 className="font-display ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-brand">.</span></h1>
+          <p className="ob-rise-2 text-on-feature-dim mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
           <ul className="ob-rise-3 mt-9 space-y-4">
             {[
-              { icon: '🪜', t: 'The opportunity ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
+              { icon: '🪜', t: 'The Ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
               { icon: '🧾', t: 'A CV that builds itself', s: 'Real, verified references from every job you complete.' },
               { icon: '🛡️', t: 'Safe & fair by design', s: 'ID verification, two-way reviews, minimum-wage checks.' },
             ].map((f) => (
               <li key={f.t} className="flex gap-3.5 items-start">
-                <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 text-xl shrink-0" aria-hidden="true">{f.icon}</span>
-                <span><span className="block font-bold text-body">{f.t}</span><span className="block text-white/60 text-small leading-snug mt-0.5">{f.s}</span></span>
+                <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 text-title shrink-0" aria-hidden="true">{f.icon}</span>
+                <span><span className="block font-bold text-body">{f.t}</span><span className="block text-on-feature-dim text-small leading-snug mt-0.5">{f.s}</span></span>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="relative text-white/45 text-xs leading-relaxed">
-          <span className="text-white/70 font-semibold">Gijima Innovation Engine · 2026</span><br />
+        <div className="relative text-on-feature-dim text-micro leading-relaxed">
+          <span className="text-on-feature-dim font-semibold">Gijima Innovation Engine · 2026</span><br />
           Built to help close South Africa's youth unemployment gap — nearly 60% for ages 15–24.
         </div>
       </aside>
@@ -150,8 +149,8 @@ function AuthLayout({ children }: { children: ReactNode }) {
       {/* Flow panel */}
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center justify-between px-5 sm:px-8 h-16 shrink-0">
-          <div className="flex items-center gap-2 font-bold text-navy lg:invisible"><span className="w-2.5 h-2.5 rounded-full bg-red" />Vuka Uzenzele</div>
-          <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong text-navy hover:bg-surface transition active:scale-95">
+          <div className="flex items-center gap-2 font-bold text-ink lg:invisible"><span className="w-2.5 h-2.5 rounded-full bg-brand-solid" />Vuka Uzenzele</div>
+          <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-10 h-10 rounded-xl border border-line text-ink hover:bg-surface transition active:scale-95">
             <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
           </button>
         </div>
@@ -168,32 +167,32 @@ function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; on
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Create your account<span className="text-red">.</span></h2>
-      <p className="text-small text-muted mb-6">How will you use Vuka?</p>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Create your account<span className="text-brand">.</span></h2>
+      <p className="text-small text-dim mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
-        <RoleOption emoji="🙋" bg="#eaf3fb" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
-        <RoleOption emoji="💼" bg="#faf5ff" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
+        <RoleOption emoji="🙋" bg="var(--v-info-soft)" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
+        <RoleOption emoji="💼" bg="var(--v-brand-soft)" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
       </div>
-      <div className="text-center mt-6"><button onClick={onLogin} className="text-small text-muted font-semibold hover:text-navy">Already have an account? <b className="text-red">Log in</b></button></div>
+      <div className="text-center mt-6"><button onClick={onLogin} className="text-small text-dim font-semibold hover:text-ink">Already have an account? <b className="text-brand">Log in</b></button></div>
     </div>
   );
 }
 function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: string; title: string; sub: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="text-left border border-line-strong rounded-[20px] p-4 bg-surface flex gap-4 items-center hover:border-red hover:shadow-e2 transition active:scale-[.985]">
+    <button onClick={onClick} className="text-left border border-line rounded-[20px] p-4 bg-surface flex gap-4 items-center hover:border-brand hover:shadow-e2 transition active:scale-[.985]">
       <span className="grid place-items-center w-[54px] h-[54px] rounded-2xl text-display shrink-0 dark:bg-surface-2" style={{ background: bg }} aria-hidden="true">{emoji}</span>
-      <span className="flex-1"><span className="block text-base font-bold text-navy">{title}</span><span className="block text-small text-muted mt-0.5 leading-snug">{sub}</span></span>
-      <span className="text-subtle"><Icon name="chev" size={18} /></span>
+      <span className="flex-1"><span className="block text-lead font-bold text-ink">{title}</span><span className="block text-small text-dim mt-0.5 leading-snug">{sub}</span></span>
+      <span className="text-faint"><Icon name="chev" size={18} /></span>
     </button>
   );
 }
 
 /* ---------------- Login ---------------- */
-// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, which shunts the layout sideways mid-sign-up.
-const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
+const inputCls = 'w-full border-[1.5px] border-line rounded-pill px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-line transition';
 /** Same field, outlined red while it is the thing holding up the flow. */
-const inputErrCls = 'w-full border-[1.5px] border-red rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-red transition';
+const inputErrCls = 'w-full border-[1.5px] border-danger rounded-pill px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-danger transition';
 function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, onClearError }: {
   busy: boolean;
   /** Persistent failure from the last attempt. A toast is wrong for this: it
@@ -212,22 +211,52 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-red">.</span></h2>
-      <p className="text-small text-muted mb-6">Sign in to pick up where you left off.</p>
-      <div className="mb-3.5"><Label>Mobile number or email</Label><input className={inputCls} type="text" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="072 000 0000" value={identifier} onChange={(e) => edit(setIdentifier)(e.target.value)} aria-label="Mobile number or email address" /></div>
-      <div className="mb-2"><Label>Password</Label><input className={inputCls} type="password" placeholder="Your password" value={password} onChange={(e) => edit(setPassword)(e.target.value)} aria-label="Password" onKeyDown={(e) => { if (e.key === 'Enter') onLogin(identifier, password); }} /></div>
-      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-small font-bold text-navy hover:text-red transition">Forgot password?</button></div>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Welcome back<span className="text-brand">.</span></h2>
+      <p className="text-small text-dim mb-6">Sign in to pick up where you left off.</p>
+      <div className="mb-3.5">
+        <Label htmlFor="signin-identifier">Mobile number or email</Label>
+        <input
+          id="signin-identifier"
+          className={error ? inputErrCls : inputCls}
+          type="text"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="072 000 0000"
+          value={identifier}
+          onChange={(e) => edit(setIdentifier)(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'signin-error' : undefined}
+        />
+      </div>
+      <div className="mb-2">
+        <Label htmlFor="signin-password">Password</Label>
+        <input
+          id="signin-password"
+          className={error ? inputErrCls : inputCls}
+          type="password"
+          autoComplete="current-password"
+          placeholder="Your password"
+          value={password}
+          onChange={(e) => edit(setPassword)(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'signin-error' : undefined}
+          onKeyDown={(e) => { if (e.key === 'Enter') onLogin(identifier, password); }}
+        />
+      </div>
+      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-small font-bold text-ink hover:text-brand transition">Forgot password?</button></div>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-2xl border border-red/30 bg-red/5 px-4 py-3">
-          <p className="text-small font-semibold text-red leading-snug m-0">{error.message}</p>
+        <div role="alert" id="signin-error" className="mb-4 rounded-2xl border border-danger bg-danger-soft px-4 py-3">
+          <p className="text-small font-semibold text-danger leading-snug m-0">{error.message}</p>
           {error.reason === 'no_account' && (
-            <button type="button" onClick={onSignUp} className="mt-2 text-small font-extrabold text-navy underline underline-offset-2">
+            <button type="button" onClick={onSignUp} className="mt-2 text-small font-extrabold text-ink underline underline-offset-2">
               Create an account →
             </button>
           )}
           {error.reason === 'wrong_password' && (
-            <button type="button" onClick={onForgot} className="mt-2 text-small font-extrabold text-navy underline underline-offset-2">
+            <button type="button" onClick={onForgot} className="mt-2 text-small font-extrabold text-ink underline underline-offset-2">
               Reset my password →
             </button>
           )}
@@ -236,10 +265,10 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
 
       <Button block disabled={busy} onClick={() => onLogin(identifier, password)}>{busy ? 'Signing in…' : 'Log in'}</Button>
 
-      <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-subtle font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
+      <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
       <div className="grid grid-cols-2 gap-2.5">
-        <Button variant="ghost" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
-        <Button variant="ghost" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
+        <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
+        <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
       </div>
     </div>
   );
@@ -302,10 +331,10 @@ function ResetView({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-red">.</span></h2>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-brand">.</span></h2>
       {phase === 'phone' ? (
         <>
-          <p className="text-small text-muted mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
+          <p className="text-small text-dim mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
           <div className="mb-5"><Label>Mobile number</Label>
             <input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} aria-invalid={!!error} onChange={(e) => { setError(null); setPhone(e.target.value); }} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
           </div>
@@ -314,7 +343,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
         </>
       ) : (
         <>
-          <p className="text-small text-muted mb-6">If <b className="text-navy">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
+          <p className="text-small text-dim mb-6">If <b className="text-ink">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
           <div className="mb-3.5"><Label>Reset code</Label>
             <input className={error ? inputErrCls : inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} aria-invalid={!!error} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '')); }} aria-label="Reset code" />
           </div>
@@ -322,10 +351,10 @@ function ResetView({ onBack }: { onBack: () => void }) {
             <input className={inputCls} type="password" placeholder="At least 8 characters" value={password} onChange={(e) => { setError(null); setPassword(e.target.value); }} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
           </div>
           {error && <InlineError action={{ label: 'Start again', onClick: () => { setError(null); setCode(''); setPhase('phone'); } }}>{error}</InlineError>}
-          {devCode && <p className="text-small text-muted mb-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
+          {devCode && <p className="text-small text-dim mb-3">Test mode — your code is <b className="text-ink font-mono tnum tracking-widest">{devCode}</b></p>}
           <Trust>Changing your password signs out anyone else who was using your account.</Trust>
           <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : 'Set new password & sign in'}</Button>
-          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-small text-muted font-semibold mt-3 hover:text-navy">Use a different number</button>
+          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-small text-dim font-semibold mt-3 hover:text-ink">Use a different number</button>
         </>
       )}
     </div>
@@ -342,7 +371,7 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerifi
 }) {
   const total = steps.length - 1;
   const progress = (
-    <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-red' : 'bg-line-strong'}`} />)}</div>
+    <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-brand-solid' : 'bg-line'}`} />)}</div>
   );
 
   // The phone and code steps own their own button: each has to wait on the
@@ -369,16 +398,16 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerifi
 }
 
 function BackRow({ onBack }: { onBack: () => void }) {
-  return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
+  return <button onClick={onBack} aria-label="Back" className="grid place-items-center w-10 h-10 rounded-xl border border-line bg-surface text-ink mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
 function Head({ h, sub }: { h: string; sub: string }) {
-  return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-muted mb-6 leading-relaxed">{sub}</p></>);
+  return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-dim mb-6 leading-relaxed">{sub}</p></>);
 }
-function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
+function Label({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  return <label htmlFor={htmlFor} className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5">{children}</label>;
 }
 const Trust = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-small text-navy leading-snug">{children}</span></div>
+  <div className="flex gap-2.5 items-start bg-info-soft rounded-[13px] px-3.5 py-3 mt-4"><span className="text-info shrink-0"><Icon name="shield" size={16} /></span><span className="text-small text-ink leading-snug">{children}</span></div>
 );
 
 function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onSent: () => void; onSignIn: () => void }) {
@@ -409,7 +438,7 @@ function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData:
     }
   };
 
-  return (<><Head h="What's your number<span class='text-red'>?</span>" sub="We'll send an SMS code to confirm it's you. Your number is never shown to others." />
+  return (<><Head h="What's your number<span class='text-brand'>?</span>" sub="We'll send an SMS code to confirm it's you. Your number is never shown to others." />
     <div><Label>Mobile number</Label><input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} aria-invalid={!!error} onChange={(e) => { setError(null); setData({ ...data, phone: e.target.value }); }} aria-label="Mobile number" onKeyDown={(e) => { if (e.key === 'Enter') send(); }} /></div>
     {error && (
       <InlineError action={error.reason === 'already_registered' ? { label: 'Sign in instead', onClick: onSignIn } : undefined}>
@@ -483,27 +512,27 @@ function OtpStep({ data, setData, onVerified }: {
     }
   };
 
-  return (<><Head h="Enter your code<span class='text-red'>.</span>" sub={`We sent a 4-digit code to ${data.phone || 'your phone'}.`} />
+  return (<><Head h="Enter your code<span class='text-brand'>.</span>" sub={`We sent a 4-digit code to ${data.phone || 'your phone'}.`} />
     <div className="flex gap-3 justify-center">
       {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={`Digit ${i + 1}`} placeholder="•"
         value={data.otp[i] ?? ''}
         disabled={busy}
         aria-invalid={!!error}
-        className={`w-16 h-18 py-4 text-center text-display font-bold text-navy border-[1.5px] rounded-2xl bg-surface focus:outline-none disabled:opacity-60 transition-colors ${
-          error ? 'border-red focus:border-red' : 'border-line-strong focus:border-navy'
+        className={`w-16 h-18 py-4 text-center text-display font-bold text-ink border-[1.5px] rounded-2xl bg-surface focus:outline-none disabled:opacity-60 transition-colors ${
+          error ? 'border-danger focus:border-danger' : 'border-line focus:border-ink'
         }`}
         onChange={(e) => setDigit(i, e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
     {error && <InlineError action={{ label: 'Send a new code', onClick: resend }}>{error}</InlineError>}
-    {devCode && <p className="text-center text-small text-muted mt-3">Test mode — your code is <b className="text-navy tnum tracking-widest">{devCode}</b></p>}
-    <p className="text-center text-small text-muted mt-4">
-      Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-navy font-bold underline underline-offset-2 hover:text-red transition disabled:opacity-50">Resend</button>
+    {devCode && <p className="text-center text-small text-dim mt-3">Test mode — your code is <b className="text-ink font-mono tnum tracking-widest">{devCode}</b></p>}
+    <p className="text-center text-small text-dim mt-4">
+      Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-ink font-bold underline underline-offset-2 hover:text-brand transition disabled:opacity-50">Resend</button>
     </p>
     <Button block className="mt-7" disabled={busy} onClick={() => submit(data.otp)}>{busy ? 'Checking…' : 'Confirm my number'}</Button></>);
 }
 function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="Tell us about you<span class='text-red'>.</span>" sub="This starts your profile. Keep it simple and honest." />
+  return (<><Head h="Tell us about you<span class='text-brand'>.</span>" sub="This starts your profile. Keep it simple and honest." />
     <div className="mb-3.5"><Label>Full name</Label><input className={inputCls} placeholder="e.g. Thandeka Mokoena" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label="Full name" /></div>
     <div className="flex gap-2.5">
       <div className="flex-1"><Label>Age</Label><input className={inputCls} type="number" min={16} max={35} placeholder="21" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })} aria-label="Age" /></div>
@@ -512,17 +541,17 @@ function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<Re
 }
 function SkillsStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   const toggleSkill = (id: CategoryId) => setData((d) => ({ ...d, skills: d.skills.includes(id) ? d.skills.filter((s) => s !== id) : [...d.skills, id] }));
-  return (<><Head h="What are you good at<span class='text-red'>?</span>" sub="Pick everything you can do — no experience or papers needed. Choose at least one." />
+  return (<><Head h="What are you good at<span class='text-brand'>?</span>" sub="Pick everything you can do — no experience or papers needed. Choose at least one." />
     <div className="grid grid-cols-2 gap-2.5">
       {CATEGORIES.map((c) => { const sel = data.skills.includes(c.id); return (
-        <button key={c.id} onClick={() => toggleSkill(c.id)} aria-pressed={sel} className={`relative flex gap-2.5 items-center border-[1.5px] rounded-2xl px-3 py-3.5 bg-surface transition ${sel ? 'border-red bg-[#fdecef] dark:bg-red/10' : 'border-line-strong hover:border-navy'}`}>
-          <span className="text-head" aria-hidden="true">{c.icon}</span><b className="text-small text-navy">{c.label}</b>
-          {sel && <span className="absolute top-2 right-2.5 text-red font-extrabold text-small">✓</span>}
+        <button key={c.id} onClick={() => toggleSkill(c.id)} aria-pressed={sel} className={`relative flex gap-2.5 items-center border-[1.5px] rounded-2xl px-3 py-3.5 bg-surface transition ${sel ? 'border-brand-solid bg-brand-soft' : 'border-line hover:border-faint'}`}>
+          <span className="text-head" aria-hidden="true">{c.icon}</span><b className="text-small text-ink">{c.label}</b>
+          {sel && <span className="absolute top-2 right-2.5 text-brand font-extrabold text-small">✓</span>}
         </button>); })}
     </div></>);
 }
 function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="Create a password<span class='text-red'>.</span>" sub="You'll use your mobile number and this password to sign in next time." />
+  return (<><Head h="Create a password<span class='text-brand'>.</span>" sub="You'll use your mobile number and this password to sign in next time." />
     <div><Label>Password</Label><input className={inputCls} type="password" placeholder="At least 8 characters" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} aria-label="Password" /></div>
     <Trust>Your password is stored securely (hashed) — never in plain text.</Trust></>);
 }
@@ -532,13 +561,13 @@ function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch
  * and nothing to tick on this screen.
  */
 function IdStep() {
-  return (<><Head h="Verify your identity<span class='text-red'>.</span>" sub="Optional — but verified workers get the ✅ badge, more employer trust, and access to formal roles that require it." />
-    <div className="border-[1.5px] border-dashed border-line-strong bg-surface-2 rounded-[20px] p-6 text-center">
-      <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-4xl bg-[#eaf3fb] dark:bg-surface" aria-hidden="true">🪪</div>
-      <h4 className="font-display m-0 mb-1 text-base text-ink font-bold">Do this from your profile</h4>
-      <p className="m-0 text-small text-muted leading-relaxed">Finish signing up, then open <b className="text-navy">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
+  return (<><Head h="Verify your identity<span class='text-brand'>.</span>" sub="Optional — but verified workers get the ✅ badge, more employer trust, and access to formal roles that require it." />
+    <div className="border-[1.5px] border-dashed border-line bg-surface-2 rounded-[20px] p-6 text-center">
+      <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-hero bg-info-soft dark:bg-surface" aria-hidden="true">🪪</div>
+      <h4 className="font-display m-0 mb-1 text-lead text-ink font-bold">Do this from your profile</h4>
+      <p className="m-0 text-small text-dim leading-relaxed">Finish signing up, then open <b className="text-ink">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
     </div>
-    <ul className="mt-4 space-y-2 text-small text-navy">
+    <ul className="mt-4 space-y-2 text-small text-ink">
       <li className="flex gap-2 items-start"><span>🔒</span> Your ID number is encrypted and never shown to employers</li>
       <li className="flex gap-2 items-start"><span>⚡</span> Takes under a minute, once</li>
       <li className="flex gap-2 items-start"><span>🪜</span> Unlocks formal roles that require verification</li>
@@ -546,7 +575,7 @@ function IdStep() {
     <Trust>You can start applying for gigs straight away — verification is not needed first.</Trust></>);
 }
 function OrgStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="Your details<span class='text-red'>.</span>" sub="So workers know who they're dealing with." />
+  return (<><Head h="Your details<span class='text-brand'>.</span>" sub="So workers know who they're dealing with." />
     <div className="mb-3.5"><Label>Your name or business</Label><input className={inputCls} placeholder="e.g. Sipho Dlamini / Zanele Beauty Bar" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label="Name or business" /></div>
     <div><Label>Where are you</Label><input className={inputCls} placeholder="Suburb, City" value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label="Location" /></div></>);
 }
@@ -557,15 +586,18 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
   return (
     <div className="text-center">
       <BackRow onBack={onBack} />
-      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-white" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">{worker ? '🎉' : '💼'}</div>
+      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-on-feature feature-band" aria-hidden="true">{worker ? '🎉' : '💼'}</div>
       <h2 className="font-display text-head font-extrabold text-ink mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
-      <p className="text-small text-muted leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
+      <p className="text-small text-dim leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
+      {/* An inverted block: `ink` and `canvas` swap between themes, so the
+          secondary lines have to recede from the block's own text colour
+          rather than pick a fixed grey. */}
       {worker && (
-        <div className="text-left bg-navy text-white rounded-[18px] p-4 mt-5">
+        <div className="text-left bg-ink text-canvas rounded-card p-4 mt-5">
           <b className="text-small">Your first 3 steps</b>
-          <div className="text-small text-white/90 mt-2.5">1️⃣ Apply to a gig near you (it's free)</div>
-          <div className="text-small text-white/90 mt-2">2️⃣ Do a great job & get reviewed</div>
-          <div className="text-small text-white/90 mt-2">3️⃣ Watch your CV grow and unlock formal jobs 🪜</div>
+          <div className="text-small opacity-85 mt-2.5">1️⃣ Apply to a gig near you (it's free)</div>
+          <div className="text-small opacity-85 mt-2">2️⃣ Do a great job & get reviewed</div>
+          <div className="text-small opacity-85 mt-2">3️⃣ Watch your CV grow and unlock formal jobs 🪜</div>
         </div>
       )}
       <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? 'Creating your account…' : worker ? 'Create account & start' : 'Create account'}</Button>
@@ -579,11 +611,11 @@ function Consent() {
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
   return (
     <>
-      <p className="text-micro text-muted leading-relaxed mt-3">
+      <p className="text-micro text-dim leading-relaxed mt-3">
         By creating an account you agree to our{' '}
-        <button onClick={() => setLegal('terms')} className="font-bold text-navy underline underline-offset-2">Terms of use</button>
+        <button onClick={() => setLegal('terms')} className="font-bold text-ink underline underline-offset-2">Terms of use</button>
         {' '}and to us handling your information as set out in the{' '}
-        <button onClick={() => setLegal('privacy')} className="font-bold text-navy underline underline-offset-2">Privacy notice</button>.
+        <button onClick={() => setLegal('privacy')} className="font-bold text-ink underline underline-offset-2">Privacy notice</button>.
         You must be 18 or older.
       </p>
       {legal === 'privacy' && <PrivacySheet onClose={() => setLegal(null)} />}

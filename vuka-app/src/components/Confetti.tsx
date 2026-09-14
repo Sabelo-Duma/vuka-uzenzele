@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 
-const COLORS = ['#F20023', '#0E355A', '#FBBF24', '#1273B8', '#18CE0F', '#B45309'];
+/* Confetti is the one place the palette's rules are suspended — it is not
+   carrying meaning, it is celebrating. It still draws from the palette so a
+   burst looks like it belongs to this app rather than to a party shop. */
+const COLORS = [
+  'var(--v-brand-solid)',
+  'var(--v-verified)',
+  'var(--v-live-solid)',
+  'var(--v-on-feature-accent)',
+  'var(--v-info)',
+];
 
 /** Lightweight CSS confetti burst, self-clears after ~3.4s. */
 export function Confetti() {

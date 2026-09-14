@@ -44,7 +44,7 @@ export function InstallButton({ className = '' }: { className?: string }) {
     <>
       <button
         onClick={onClick}
-        className={`inline-flex items-center justify-center gap-2 rounded-pill bg-navy text-white dark:text-navy-deep font-bold text-small px-4 py-2.5 hover:bg-navy-2 transition active:scale-95 ${className}`}
+        className={`inline-flex items-center justify-center gap-2 rounded-pill bg-ink text-canvas font-bold text-small px-4 py-2.5 hover:bg-ink transition active:scale-95 ${className}`}
       >
         <Icon name="plus" size={16} /> Install app
       </button>
@@ -58,7 +58,7 @@ function Steps({ items }: { items: React.ReactNode[] }) {
     <ol className="flex flex-col gap-2.5 mt-1">
       {items.map((it, i) => (
         <li key={i} className="flex gap-3 items-start">
-          <span className="grid place-items-center w-6 h-6 rounded-full bg-navy text-white dark:text-navy-deep text-small font-extrabold shrink-0 tnum">{i + 1}</span>
+          <span className="grid place-items-center w-6 h-6 rounded-full bg-ink text-canvas text-small font-extrabold shrink-0 font-mono tnum">{i + 1}</span>
           <span className="text-small text-ink leading-snug pt-0.5">{it}</span>
         </li>
       ))}
@@ -118,14 +118,14 @@ function InstallHelpSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Install Vuka" onClose={onClose}>
       <div className="flex items-center gap-3 mb-3">
-        <span className="grid place-items-center w-12 h-12 rounded-[16px] text-white text-2xl shrink-0" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">V</span>
+        <span className="grid place-items-center w-12 h-12 rounded-[16px] text-on-feature text-head shrink-0 feature-band" aria-hidden="true">V</span>
         <div>
           <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{title}</h3>
-          <p className="text-small text-muted m-0 mt-0.5">Works offline · no app store needed · free</p>
+          <p className="text-small text-dim m-0 mt-0.5">Opens with no signal · no app store needed · free</p>
         </div>
       </div>
       <Steps items={steps} />
-      {note && <p className="text-small text-muted leading-snug mt-4 bg-surface-2 rounded-xl px-3 py-2.5">💡 {note}</p>}
+      {note && <p className="text-small text-dim leading-snug mt-4 bg-surface-2 rounded-xl px-3 py-2.5">💡 {note}</p>}
       <Button block variant="ghost" className="mt-5" onClick={onClose}>Got it</Button>
     </Sheet>
   );

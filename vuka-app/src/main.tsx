@@ -1,7 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/figtree'; // bundled, self-hosted brand font (offline-friendly)
-import '@fontsource-variable/archivo'; // display face for headings and rand amounts — bundled for the same reason
+// Both faces are bundled rather than pulled from a CDN: the app has to work
+// offline, and a font request to a third party is a request this user pays
+// for. The third face — figures — is a 5.9 KB subset declared in index.css.
+import '@fontsource-variable/public-sans';           // body, labels, buttons
+import '@fontsource-variable/bricolage-grotesque';   // headings, tiers, amounts
 import './lib/pwaInstall'; // capture the PWA install prompt ASAP (before React mounts)
 import './index.css';
 import { App } from './App';

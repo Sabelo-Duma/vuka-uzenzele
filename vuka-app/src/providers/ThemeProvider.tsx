@@ -24,13 +24,17 @@ function systemTheme(): ResolvedTheme {
 }
 
 function readStoredMode(): ThemeMode {
-  // Default to light (white) on first load; honour an explicit stored choice.
-  if (typeof window === 'undefined') return 'light';
+  /* Follow the phone unless the user has said otherwise. Someone who runs
+     their handset in dark mode used to get a white app until they went
+     looking for the toggle — and this app is opened outdoors, at 6am, on a
+     screen turned down to save battery. Keep this in step with the no-flash
+     bootstrap in index.html. */
+  if (typeof window === 'undefined') return 'system';
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return v === 'light' || v === 'dark' ? v : 'light';
+    return v === 'light' || v === 'dark' ? v : 'system';
   } catch {
-    return 'light';
+    return 'system';
   }
 }
 

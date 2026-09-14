@@ -5,14 +5,14 @@ import { Button, InlineError, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
 
-// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, and these sit inside a bottom sheet that then can't scroll
 // back into view.
 const field =
-  'w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-base bg-surface text-navy focus:outline-none focus:border-navy transition';
+  'w-full border-[1.5px] border-line rounded-xl px-3.5 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-line transition';
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-muted uppercase tracking-wide mb-1.5">{children}</label>;
+  return <label className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5">{children}</label>;
 }
 
 /* ---------------- Banking details ---------------- */
@@ -76,8 +76,8 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
 
   return (
     <Sheet title="Banking details" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Get paid<span className="text-red">.</span></h3>
-      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Get paid<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
 
       <div className="mb-3">
         <Label>Account holder</Label>
@@ -90,7 +90,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
           <option value="" disabled>Choose your bank</option>
           {SA_BANKS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        {branch && <p className="text-micro text-muted mt-1.5">Universal branch code: <b className="text-navy tnum">{branch}</b></p>}
+        {branch && <p className="text-micro text-dim mt-1.5">Universal branch code: <b className="text-ink font-mono tnum">{branch}</b></p>}
       </div>
 
       <div className="mb-3">
@@ -103,7 +103,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
           placeholder={existing ? `•••• ${existing.last4} — leave blank to keep` : 'e.g. 1234567890'}
           aria-label="Account number"
         />
-        {existing && <p className="text-micro text-muted mt-1.5">For your safety we never show a saved account number. Type a new one only if it changed.</p>}
+        {existing && <p className="text-micro text-dim mt-1.5">For your safety we never show a saved account number. Type a new one only if it changed.</p>}
       </div>
 
       <div className="mb-4">
@@ -114,7 +114,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
               key={t}
               onClick={() => setAccountType(t)}
               aria-pressed={accountType === t}
-              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-small font-bold capitalize transition ${accountType === t ? 'border-navy bg-navy text-white dark:text-navy-deep' : 'border-line-strong text-muted hover:border-navy'}`}
+              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-small font-bold capitalize transition ${accountType === t ? 'border-ink bg-ink text-canvas' : 'border-line text-dim hover:border-faint'}`}
             >
               {t}
             </button>
@@ -122,13 +122,13 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
         </div>
       </div>
 
-      <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-xl px-3.5 py-3 mb-4">
+      <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
         <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-        <span className="text-small text-navy leading-snug">Encrypted and stored on Vuka's servers — never on this device. Only the last 4 digits are ever shown back to you.</span>
+        <span className="text-small text-ink leading-snug">Encrypted and stored on Vuka's servers — never on this device. Only the last 4 digits are ever shown back to you.</span>
       </div>
 
       <Button block disabled={busy} onClick={save}>{busy ? 'Saving…' : existing ? 'Update details' : 'Save details'}</Button>
-      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-small text-red font-bold mt-3 disabled:opacity-50">Remove banking details</button>}
+      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-small text-danger font-bold mt-3 disabled:opacity-50">Remove banking details</button>}
     </Sheet>
   );
 }
@@ -171,14 +171,14 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
   return (
     <Sheet title="Identity" onClose={onClose}>
-      <div className={`w-16 h-16 rounded-2xl grid place-items-center text-4xl mb-3 ${status === 'verified' ? 'bg-[#e6f5e6]' : 'bg-surface-2'}`} aria-hidden="true">
+      <div className={`w-16 h-16 rounded-2xl grid place-items-center text-hero mb-3 ${status === 'verified' ? 'bg-verified-soft' : 'bg-surface-2'}`} aria-hidden="true">
         {status === 'verified' ? '✅' : status === 'pending' ? '🕓' : '🪪'}
       </div>
 
       {status === 'verified' && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verified with SA ID<span className="text-red">.</span></h3>
-          <p className="text-small text-muted mt-1.5 leading-relaxed">
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verified with SA ID<span className="text-brand">.</span></h3>
+          <p className="text-small text-dim mt-1.5 leading-relaxed">
             Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your ✅ Verified badge, and formal roles that require verification are open to you.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
@@ -187,8 +187,8 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {status === 'pending' && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">We're checking your ID<span className="text-red">.</span></h3>
-          <p className="text-small text-muted mt-1.5 leading-relaxed">
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">We're checking your ID<span className="text-brand">.</span></h3>
+          <p className="text-small text-dim mt-1.5 leading-relaxed">
             Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
@@ -197,13 +197,13 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
       {(status === 'none' || status === 'rejected') && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verify your identity<span className="text-red">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verify your identity<span className="text-brand">.</span></h3>
           {status === 'rejected' && (
-            <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mt-3 text-small text-navy leading-snug">
+            <div className="bg-live-soft rounded-xl px-3.5 py-3 mt-3 text-small text-ink leading-snug">
               <b>We couldn't verify your last submission.</b>{submission?.reason ? ` ${submission.reason}` : ' Please check the details and try again.'}
             </div>
           )}
-          <p className="text-small text-muted mt-1.5 leading-relaxed">Verifying adds a ✅ badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
+          <p className="text-small text-dim mt-1.5 leading-relaxed">Verifying adds a ✅ badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
 
           {loading ? (
             <div className="flex flex-col gap-3 mt-4" aria-busy="true"><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>
@@ -224,14 +224,14 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
                   placeholder="13 digits"
                   aria-label="South African ID number"
                 />
-                <p className="text-micro text-muted mt-1.5">We check the number is valid, then confirm it against Home Affairs records.</p>
+                <p className="text-micro text-dim mt-1.5">We check the number is valid, then confirm it against Home Affairs records.</p>
               </div>
-              <div className="flex gap-2.5 items-start bg-[#eaf3fb] dark:bg-info/10 rounded-xl px-3.5 py-3 mb-4">
+              <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
                 <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-                <span className="text-small text-navy leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
+                <span className="text-small text-ink leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
               </div>
               <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for verification'}</Button>
-              <button onClick={onClose} className="w-full text-center text-small text-muted font-bold mt-3 hover:text-navy">Maybe later</button>
+              <button onClick={onClose} className="w-full text-center text-small text-dim font-bold mt-3 hover:text-ink">Maybe later</button>
             </>
           )}
         </>
@@ -260,9 +260,9 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
   };
   return (
     <Sheet title="Safety centre" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
-      <p className="text-small text-muted mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
-      <ul className="space-y-2 text-small text-navy mb-4">
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Safety centre<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
+      <ul className="space-y-2 text-small text-ink mb-4">
         {/* This used to read "Only ID-verified users can be hired or hire".
             Nothing enforced it — nothing ever has — and a safety claim the
             product does not keep is worse than no claim at all. */}
@@ -271,13 +271,13 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
         <li className="flex gap-2 items-start"><span>⚖️</span> Fair-pay checks flag any gig below minimum wage</li>
         <li className="flex gap-2 items-start"><span>📍</span> Meet in public, tell someone where you'll be</li>
       </ul>
-      <div className="bg-[#fdecef] dark:bg-red/10 rounded-xl px-3.5 py-3 mb-4 text-small text-navy leading-snug">
+      <div className="bg-live-soft rounded-xl px-3.5 py-3 mb-4 text-small text-ink leading-snug">
         <b>In an emergency, call 10111 (SAPS)</b> or 112 from any mobile.
       </div>
       <Label>Report a concern</Label>
       <textarea className={`${field} resize-none`} rows={3} value={concern} onChange={(e) => setConcern(e.target.value)} placeholder="Tell us what happened…" aria-label="Report a concern" />
       <Button block className="mt-3" disabled={busy} onClick={report}>{busy ? 'Sending…' : 'Submit report'}</Button>
-      <p className="text-center text-micro text-muted mt-2.5">Reports go to Vuka's safety team and are kept confidential.</p>
+      <p className="text-center text-micro text-dim mt-2.5">Reports go to Vuka's safety team and are kept confidential.</p>
     </Sheet>
   );
 }
@@ -303,18 +303,18 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
   };
   return (
     <Sheet title="Language" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Language<span className="text-red">.</span></h3>
-      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Language<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
       <div className="flex flex-col gap-2">
         {LANGS.map((l) => (
           <button
             key={l.id}
             onClick={() => pick(l.id, l.ready)}
             aria-pressed={lang === l.id}
-            className={`flex items-center justify-between rounded-xl border-[1.5px] px-3.5 py-3 text-sm font-bold transition ${lang === l.id ? 'border-navy bg-surface-2' : 'border-line-strong hover:border-navy'}`}
+            className={`flex items-center justify-between rounded-xl border-[1.5px] px-3.5 py-3 text-small font-bold transition ${lang === l.id ? 'border-brand-solid bg-brand-soft' : 'border-line hover:border-faint'}`}
           >
-            <span className="text-navy">{l.label} {!l.ready && <span className="text-micro font-semibold text-muted">· coming soon</span>}</span>
-            {lang === l.id && <span className="text-navy"><Icon name="check" size={18} /></span>}
+            <span className="text-ink">{l.label} {!l.ready && <span className="text-micro font-semibold text-dim">· coming soon</span>}</span>
+            {lang === l.id && <span className="text-ink"><Icon name="check" size={18} /></span>}
           </button>
         ))}
       </div>
@@ -380,11 +380,11 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const bad = (field: string) => (err?.field === field ? 'border-red' : '');
+  const bad = (field: string) => (err?.field === field ? 'border-danger' : '');
 
   return (
     <Sheet title="Edit your profile" onClose={onClose}>
-      <p className="text-small text-muted mt-1 mb-4 leading-relaxed">
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">
         These details go on your CV. Employers see them when you apply.
       </p>
 
@@ -396,17 +396,17 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
           <SheetLabel>Where you live</SheetLabel>
           <input className={`${fieldCls} ${bad('location')}`} value={f.location} onChange={(e) => set('location')(e.target.value)} placeholder="Suburb, City" aria-label="Where you live" />
 
-          <SheetLabel>Email address <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <SheetLabel>Email address <span className="font-normal text-faint">(optional)</span></SheetLabel>
           <input
             className={`${fieldCls} ${bad('email')}`} value={f.email} type="email" inputMode="email"
             autoCapitalize="none" spellCheck={false} placeholder="you@example.co.za"
             onChange={(e) => set('email')(e.target.value)} aria-label="Email address"
           />
-          <p className="text-micro text-subtle mt-1 mb-1 leading-relaxed">
+          <p className="text-micro text-faint mt-1 mb-1 leading-relaxed">
             Employers expect one on a CV, and you can use it to sign in as well as your number.
           </p>
 
-          <SheetLabel>Education <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <SheetLabel>Education <span className="font-normal text-faint">(optional)</span></SheetLabel>
           <input className={fieldCls} value={f.education} onChange={(e) => set('education')(e.target.value)} placeholder="e.g. Matric, Morris Isaacson High School, 2021" aria-label="Education" />
 
           <SheetLabel>Languages you speak</SheetLabel>
@@ -417,7 +417,7 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
                 <button
                   key={l} type="button" onClick={() => toggleLang(l)} aria-pressed={on}
                   className={`rounded-pill border-[1.5px] px-3 py-1.5 text-small font-bold transition active:scale-95 ${
-                    on ? 'border-navy bg-navy text-white' : 'border-line-strong text-muted hover:border-navy'}`}
+                    on ? 'border-ink bg-ink text-canvas' : 'border-line text-dim hover:border-faint'}`}
                 >
                   {l}
                 </button>
@@ -425,13 +425,13 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
             })}
           </div>
 
-          <SheetLabel>About you <span className="font-normal text-subtle">(optional)</span></SheetLabel>
+          <SheetLabel>About you <span className="font-normal text-faint">(optional)</span></SheetLabel>
           <textarea
             className={`${fieldCls} min-h-[88px] resize-none`} value={f.bio} maxLength={600}
             onChange={(e) => set('bio')(e.target.value)} placeholder="A sentence or two about how you work."
             aria-label="About you"
           />
-          <p className="text-micro text-subtle mt-1 mb-3 leading-relaxed">
+          <p className="text-micro text-faint mt-1 mb-3 leading-relaxed">
             Leave this blank and we write it for you from the jobs you have completed.
           </p>
 
@@ -447,6 +447,6 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
 }
 
 function SheetLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-micro font-extrabold uppercase tracking-wide text-muted mt-3.5 mb-1.5">{children}</label>;
+  return <label className="block text-micro font-extrabold uppercase tracking-wide text-dim mt-3.5 mb-1.5">{children}</label>;
 }
-const fieldCls = 'w-full border-[1.5px] border-line-strong rounded-xl px-3.5 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-navy transition';
+const fieldCls = 'w-full border-[1.5px] border-line rounded-xl px-3.5 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-line transition';

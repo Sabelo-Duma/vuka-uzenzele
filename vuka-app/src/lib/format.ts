@@ -28,28 +28,38 @@ export function ratingLabel(rating: number): string {
  * unannounced reads as something that happened *to* the employer, and a worker
  * staring at "waiting" deserves to know it doesn't wait forever.
  *
+ * Two shapes, because the same duration reads differently in a sentence:
+ *   `text`      — stands alone: "3 days left"
+ *   `remaining` — goes after a preposition: "Confirm within 3 days"
+ * Reusing `text` in the second position produced "Confirm within 3 days left"
+ * on the screen that releases a worker's pay.
+ *
  * Returns null when there is no deadline to show.
  */
 export function timeToAutoConfirm(
   workerDoneAt: string | null | undefined,
   windowHours: number,
-): { text: string; soon: boolean } | null {
+): { text: string; remaining: string; expired: boolean; soon: boolean } | null {
   if (!workerDoneAt) return null;
   const started = new Date(workerDoneAt).getTime();
   if (Number.isNaN(started)) return null;
 
   const msLeft = started + windowHours * 3_600_000 - Date.now();
-  if (msLeft <= 0) return { text: 'counting automatically now', soon: true };
+  if (msLeft <= 0) {
+    return { text: 'counting automatically now', remaining: '', expired: true, soon: true };
+  }
 
   const hoursLeft = msLeft / 3_600_000;
+  let remaining: string;
   if (hoursLeft < 1) {
     const mins = Math.max(1, Math.round(msLeft / 60_000));
-    return { text: `${mins} min left`, soon: true };
-  }
-  if (hoursLeft < 24) {
+    remaining = `${mins} min`;
+  } else if (hoursLeft < 24) {
     const h = Math.round(hoursLeft);
-    return { text: `${h} hour${h === 1 ? '' : 's'} left`, soon: true };
+    remaining = `${h} hour${h === 1 ? '' : 's'}`;
+  } else {
+    const d = Math.round(hoursLeft / 24);
+    remaining = `${d} day${d === 1 ? '' : 's'}`;
   }
-  const d = Math.round(hoursLeft / 24);
-  return { text: `${d} day${d === 1 ? '' : 's'} left`, soon: false };
+  return { text: `${remaining} left`, remaining, expired: false, soon: hoursLeft < 24 };
 }

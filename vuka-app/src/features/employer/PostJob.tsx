@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { locationSupported, requestCoords, type Coords } from '../../lib/geo';
 import { CATEGORIES, minWagePerHour } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import type { CategoryId } from '../../types';
 import { Button } from '../../components/ui';
-import { Chip } from '../../components/ui';
+import { FairMeter } from '../../components/bits';
 
-// text-base (16px), not text-sm: iOS Safari zooms the viewport on focus for
+// text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, hiding the Post button behind the keyboard.
-const inputCls = 'w-full border-[1.5px] border-line-strong rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-navy';
+const inputCls = 'w-full border-[1.5px] border-line rounded-pill px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-ink';
+/** Multi-line fields keep the same skin but not the pill radius. */
+const areaCls = 'w-full border-[1.5px] border-line rounded-card px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-ink resize-y min-h-[96px]';
 /** Same field, outlined in red when it is the one holding up the form. */
 const fieldCls = (error?: string) =>
   error
-    ? 'w-full border-[1.5px] border-red rounded-pill px-4 py-3 text-base bg-surface text-navy focus:outline-none focus:border-red'
+    ? 'w-full border-[1.5px] border-danger rounded-pill px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-danger'
     : inputCls;
 
 export function PostJob() {
@@ -44,7 +46,6 @@ export function PostJob() {
 
   const rateNum = Number(rate) || 0;
   const minWage = minWagePerHour();
-  const fair = rateNum >= minWage;
 
   /**
    * Everything wrong with the form, before anything is sent.
@@ -95,33 +96,36 @@ export function PostJob() {
   return (
     <>
       <header className="mb-4">
-        <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Reach verified youth nearby</small>
-        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Post a job<span className="text-red">.</span></h2>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Reach verified youth nearby</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Post a job<span className="text-brand">.</span></h1>
       </header>
 
       <Field label="What do you need?" error={errors.title}>
-        <input className={fieldCls(errors.title)} placeholder="e.g. Wash my car this Saturday" value={title} onChange={(e) => { clearError('title'); setTitle(e.target.value); }} aria-label="Job title" aria-invalid={!!errors.title} />
+        {(f) => <input {...f} className={fieldCls(errors.title)} placeholder="e.g. Wash my car this Saturday" value={title} onChange={(e) => { clearError('title'); setTitle(e.target.value); }} />}
       </Field>
 
       <Field label="Category">
-        <select className={inputCls} value={category} onChange={(e) => setCategory(e.target.value as CategoryId)} aria-label="Category">
-          {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-        </select>
+        {(f) => (
+          <select {...f} className={inputCls} value={category} onChange={(e) => setCategory(e.target.value as CategoryId)}>
+            {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+          </select>
+        )}
       </Field>
 
       <div className="flex gap-2.5 mb-3.5">
-        <div className="flex-1"><Field label="Hours" error={errors.hours}><input className={fieldCls(errors.hours)} type="number" min={1} value={hours} onChange={(e) => { clearError('hours'); setHours(e.target.value); }} aria-label="Hours" aria-invalid={!!errors.hours} /></Field></div>
-        <div className="flex-1"><Field label="Rate / hr" error={errors.rate}><input className={fieldCls(errors.rate)} type="number" min={1} value={rate} onChange={(e) => { clearError('rate'); setRate(e.target.value); }} aria-label="Rate per hour" aria-invalid={!!errors.rate} /></Field></div>
+        <div className="flex-1"><Field label="Hours" error={errors.hours}>{(f) => <input {...f} className={fieldCls(errors.hours)} type="number" min={1} value={hours} onChange={(e) => { clearError('hours'); setHours(e.target.value); }} />}</Field></div>
+        <div className="flex-1"><Field label="Rate / hr" error={errors.rate}>{(f) => <input {...f} className={fieldCls(errors.rate)} type="number" min={1} value={rate} onChange={(e) => { clearError('rate'); setRate(e.target.value); }} />}</Field></div>
       </div>
 
       <Field label="Where" error={errors.loc}>
-        <input className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} aria-label="Location" aria-invalid={!!errors.loc} />
+        {(f) => (<>
+        <input {...f} className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} />
         {locationSupported() && (
           <div className="flex items-center gap-2 mt-2 text-small">
             {pin ? (
               <>
-                <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">📍 Pinned to this spot</span>
-                <button type="button" onClick={() => setPin(null)} className="text-muted font-semibold underline underline-offset-2 hover:text-navy transition">Remove pin</button>
+                <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">📍 Pinned to this spot</span>
+                <button type="button" onClick={() => setPin(null)} className="text-dim font-semibold underline underline-offset-2 hover:text-ink transition">Remove pin</button>
               </>
             ) : (
               <>
@@ -129,40 +133,75 @@ export function PostJob() {
                   type="button"
                   onClick={pinHere}
                   disabled={pinning}
-                  className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong text-navy font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
                 >
                   📍 {pinning ? 'Getting location…' : 'Pin my exact location'}
                 </button>
-                <span className="text-subtle">Optional — helps nearby workers find you</span>
+                <span className="text-faint">Optional — helps nearby workers find you</span>
               </>
             )}
           </div>
         )}
+        </>)}
       </Field>
 
-      <Field label="When"><input className={inputCls} placeholder="e.g. Sat, 09:00" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When" /></Field>
+      <Field label="When">{(f) => <input {...f} className={inputCls} placeholder="e.g. Sat, 09:00" value={when} onChange={(e) => setWhen(e.target.value)} />}</Field>
 
-      <Field label="Details"><input className={inputCls} placeholder="What should they know?" value={description} onChange={(e) => setDescription(e.target.value)} aria-label="Details" /></Field>
+      <Field label="Details" hint="What should they know before they arrive? Tools, access, anything heavy.">
+        {(f) => (
+          <textarea
+            {...f}
+            className={areaCls}
+            rows={4}
+            maxLength={600}
+            placeholder="e.g. Two cars, bucket and soap provided. Gate code on arrival."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        )}
+      </Field>
 
-      <div className="mb-3">
-        {fair
-          ? <Chip tone="fair" icon="shield">Fair pay — above SA minimum</Chip>
-          : <Chip tone="urgent">⚠ Below SA minimum wage (R{minWage}/hr)</Chip>}
-      </div>
+      {/* The same meter the worker will see on the listing, so an employer
+          knows exactly what is about to be published about their offer. */}
+      <FairMeter ratePerHour={rateNum} minWage={minWage} />
 
-      <Button block variant="navy" disabled={busy} onClick={submit}>{busy ? 'Posting…' : "Post job — it's free to post"}</Button>
-      <p className="text-center text-small text-muted leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
+      <Button block variant="primary" disabled={busy} onClick={submit}>{busy ? 'Posting…' : "Post job — it's free to post"}</Button>
+      <p className="text-center text-small text-dim leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
     </>
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+/**
+ * A labelled form row.
+ *
+ * The label used to be a bare <label> with nothing to point at, and the error
+ * was a paragraph with no relationship to the field that caused it — so a
+ * screen reader announced neither when the form failed. It now hands the
+ * control its id, its description and its validity, and the caller spreads
+ * them. That is one line per field and it cannot fall out of step.
+ */
+interface FieldControlProps {
+  id: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
+}
+function Field({ label, hint, error, children }: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: (control: FieldControlProps) => React.ReactNode;
+}) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
   return (
     <div className="mb-3.5">
-      <label className={`block text-xs font-bold uppercase tracking-wide mb-1.5 ${error ? 'text-red' : 'text-muted'}`}>{label}</label>
-      {children}
+      <label htmlFor={id} className={`block text-micro font-bold uppercase tracking-wide mb-1.5 ${error ? 'text-danger' : 'text-dim'}`}>{label}</label>
+      {hint && <p id={hintId} className="text-micro text-faint mt-0 mb-1.5 leading-snug">{hint}</p>}
+      {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
       {/* Beside the field that caused it, and it stays until that field changes. */}
-      {error && <p role="alert" className="text-small font-semibold text-red mt-1.5 leading-snug">{error}</p>}
+      {error && <p id={errorId} role="alert" className="text-small font-semibold text-danger mt-1.5 leading-snug">{error}</p>}
     </div>
   );
 }

@@ -1,9 +1,16 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Tailwind config — Gijima brand tokens.
- * Colours map to CSS custom properties (see src/index.css) so light/dark
- * theming flows through automatically via the [data-theme] attribute.
+ * Tailwind config — Vuka 2.0 design tokens.
+ *
+ * Every colour here points at a CSS custom property in src/index.css, so
+ * light and dark flow through the [data-theme] attribute automatically and
+ * there is exactly one place a value can be changed.
+ *
+ * The names describe the JOB, not the hue. `bg-brand` is the one primary
+ * action on a screen; `text-verified` is something a third party checked.
+ * The previous names (`red`, `navy`) described hues, which is how the same
+ * red ended up meaning brand, action and error at once.
  */
 export default {
   /* On a touch screen there is no pointer to leave, so a `hover:` style latches
@@ -16,33 +23,60 @@ export default {
   theme: {
     extend: {
       colors: {
-        red: { DEFAULT: 'var(--gj-red)', hover: 'var(--gj-red-hover)' },
-        navy: { DEFAULT: 'var(--gj-navy)', deep: 'var(--gj-navy-deep)' },
-        ink: 'var(--gj-text)',
-        muted: 'var(--gj-text-muted)',
-        subtle: 'var(--gj-text-subtle)',
-        line: 'var(--gj-border)',
-        'line-strong': 'var(--gj-border-strong)',
-        surface: 'var(--gj-bg)',
-        'surface-2': 'var(--gj-bg-light)',
-        'surface-3': 'var(--gj-bg-hover)',
-        money: 'var(--gj-money)',
-        info: 'var(--gj-info)',
-        success: 'var(--gj-success)',
-        warning: 'var(--gj-warning)',
-        danger: 'var(--gj-danger)',
-        // Tier accents
-        't-starter': 'var(--t-starter)',
-        't-trusted': 'var(--t-trusted)',
-        't-pro': 'var(--t-pro)',
-        't-elite': 'var(--t-elite)',
+        /* Ground */
+        canvas: 'var(--v-canvas)',
+        surface: 'var(--v-surface)',
+        'surface-2': 'var(--v-surface-2)',
+        'surface-3': 'var(--v-surface-3)',
+        'surface-veil': 'var(--v-surface-veil)',   // frosted sticky headers
+        line: 'var(--v-line)',
+        'line-soft': 'var(--v-line-soft)',
+
+        /* Text — three steps and no more. */
+        ink: 'var(--v-text)',
+        dim: 'var(--v-text-dim)',
+        faint: 'var(--v-text-faint)',
+
+        /* Brand, and every primary action. One per screen. */
+        brand: {
+          DEFAULT: 'var(--v-brand)',       // brand as text
+          solid: 'var(--v-brand-solid)',   // the fill of a primary button
+          hover: 'var(--v-brand-hover)',
+          soft: 'var(--v-brand-soft)',     // tinted background
+          on: 'var(--v-on-brand)',         // text sitting on `solid`
+        },
+
+        /* Verified by someone other than us. Never decorative. */
+        verified: { DEFAULT: 'var(--v-verified)', soft: 'var(--v-verified-soft)' },
+
+        /* Happening right now. Never anything else. */
+        live: { DEFAULT: 'var(--v-live)', solid: 'var(--v-live-solid)', soft: 'var(--v-live-soft)' },
+
+        /* Something went wrong, or is about to. */
+        danger: { DEFAULT: 'var(--v-danger)', soft: 'var(--v-danger-soft)' },
+
+        /* A note, not a state. */
+        info: { DEFAULT: 'var(--v-info)', soft: 'var(--v-info-soft)' },
+
+        /* The one deep band a screen is allowed — behind a hero, a CV header
+           or a tier card. A screen gets one, or none. */
+        feature: 'var(--v-feature)',
+        'feature-2': 'var(--v-feature-2)',
+        'on-feature': 'var(--v-on-feature)',
+        'on-feature-dim': 'var(--v-on-feature-dim)',
+        'on-feature-accent': 'var(--v-on-feature-accent)',
+        'on-feature-ok': 'var(--v-on-feature-ok)',
       },
       fontFamily: {
-        sans: ['"Figtree Variable"', 'Figtree', 'proxima-nova', 'system-ui', 'Arial', 'sans-serif'],
-        /* Headings and rand amounts. Archivo is tighter and more assertive than
-           Figtree, so a heading reads as a heading without needing to also be a
-           different size, weight and colour. Two faces, each with one job. */
-        display: ['"Archivo Variable"', 'Archivo', 'Figtree', 'system-ui', 'Arial', 'sans-serif'],
+        /* Body. 'Vuka Figures' sits in front carrying a unicode-range that
+           covers only digits and the marks around them, so figures come out
+           monospaced and tabular wherever they appear and everything else
+           falls through to Public Sans. */
+        sans: ['"Vuka Figures"', '"Public Sans Variable"', '"Public Sans"', 'system-ui', '-apple-system', 'Segoe UI', 'Arial', 'sans-serif'],
+        /* Headings, tiers and amounts. */
+        display: ['"Bricolage Grotesque Variable"', '"Bricolage Grotesque"', '"Public Sans Variable"', 'system-ui', 'sans-serif'],
+        /* Explicit figures: money, ratings, identifiers, counters. */
+        mono: ['"Vuka Figures"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       /**
        * The type scale.
@@ -73,14 +107,14 @@ export default {
         mega: '64px',
       },
       borderRadius: {
-        pill: '35px',
+        pill: '999px',
         card: '18px',
-        chip: '16px',
+        chip: '10px',
       },
       boxShadow: {
-        e1: 'var(--gj-shadow-1)',
-        e2: 'var(--gj-shadow-2)',
-        e3: 'var(--gj-shadow-3)',
+        e1: 'var(--v-shadow-1)',
+        e2: 'var(--v-shadow-2)',
+        e3: 'var(--v-shadow-3)',
       },
       maxWidth: {
         container: '1250px',

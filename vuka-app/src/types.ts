@@ -10,7 +10,6 @@ export interface Category {
   id: CategoryId;
   label: string;
   icon: string;
-  color: string;
 }
 
 export type TierId = 0 | 1 | 2 | 3;
@@ -19,8 +18,8 @@ export interface Tier {
   id: TierId;
   name: string;
   tagline: string;
-  color: string;
-  ring: [string, string];
+  /** The medal. Defined here once — the landing page used to draw its own and
+   *  showed Trusted as silver while the app showed it as bronze. */
   icon: string;
   minJobs: number;
   minRating: number;
@@ -68,7 +67,6 @@ export interface WorkerProfile {
   skills: CategoryId[];
   idVerified: boolean;
   joined: string;
-  color: string;
   history: HistoryEntry[];
 }
 
@@ -131,7 +129,6 @@ export interface TalentWorker {
   jobsDone: number;
   idVerified: boolean;
   tier: TierId;
-  color: string;
   tagline: string;
   badges: string[];
 }

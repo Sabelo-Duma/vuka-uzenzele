@@ -58,7 +58,7 @@ const initialsOf = (name: string) =>
   name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
 
 function blankWorker(): WorkerProfile {
-  return { name: '', age: 18, initials: '', location: '', education: '', bio: '', languages: [], skills: [], idVerified: false, joined: '', color: '#0E355A', history: [] };
+  return { name: '', age: 18, initials: '', location: '', education: '', bio: '', languages: [], skills: [], idVerified: false, joined: '', history: [] };
 }
 
 function buildWorker(name: string, profile: ApiProfile | null | undefined, history: HistoryEntry[] | undefined): WorkerProfile {
@@ -73,7 +73,6 @@ function buildWorker(name: string, profile: ApiProfile | null | undefined, histo
     skills: profile?.skills ?? [],
     idVerified: profile?.idVerified ?? false,
     joined: profile?.joined ?? '',
-    color: profile?.color ?? '#0E355A',
     history: history ?? [],
   };
 }

@@ -15,27 +15,26 @@ export function Talent() {
   const catLabel = cat ? catById(cat).label : null;
 
   const railBtn = (active: boolean) =>
-    `grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface shadow-e1 text-2xl shrink-0 transition active:scale-95 ${
-      active ? 'border-2 border-navy' : 'border border-line hover:border-line-strong'
+    `grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface shadow-e1 text-head shrink-0 transition active:scale-95 ${
+      active ? 'border-2 border-brand-solid' : 'border border-line hover:border-faint'
     }`;
 
   return (
     <Dashboard aside={<><PostJobCard /><EmployerStats /></>}>
       <header className="mb-3">
-        <small className="text-subtle text-xs font-semibold uppercase tracking-wide">
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">
           {workers.length} verified worker{workers.length !== 1 ? 's' : ''}{catLabel ? ` · ${catLabel}` : ' nearby'}
         </small>
-        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Browse talent<span className="text-red">.</span></h2>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Browse talent<span className="text-brand">.</span></h1>
       </header>
 
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5 mb-3">
-        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-navy`} aria-label="All workers" aria-pressed={cat === null}>👥</button>
+        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-ink`} aria-label="All workers" aria-pressed={cat === null}>👥</button>
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
             onClick={() => setCat((v) => (v === c.id ? null : c.id))}
             className={railBtn(cat === c.id)}
-            style={{ color: c.color }}
             aria-label={`Filter by ${c.label}`}
             aria-pressed={cat === c.id}
             title={c.label}

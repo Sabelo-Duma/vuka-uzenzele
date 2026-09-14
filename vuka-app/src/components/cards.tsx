@@ -2,7 +2,7 @@ import { catById, minWagePerHour, TIERS } from '../data/catalog';
 import { money } from '../lib/format';
 import { distanceLabel } from '../lib/geo';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
-import { Avatar, Card, Chip, Skeleton, TierBadge } from './ui';
+import { Avatar, Card, Chip, Skeleton, Stars, TierBadge, Tile } from './ui';
 import { Icon } from './Icon';
 
 /** Shimmer placeholder matching a gig/formal card while data loads. */
@@ -64,21 +64,24 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
   return (
     <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 flex gap-3.5 items-center transition-shadow duration-200 hover:shadow-e2">
-        <Avatar initials={worker.initials} color={worker.color} verified={worker.idVerified} />
+        <Avatar initials={worker.initials} verified={worker.idVerified} />
         <div className="flex-1 min-w-0">
-          <h4 className="font-display m-0 text-body font-extrabold text-ink flex items-center gap-1.5 tracking-tight">
+          <h3 className="font-display m-0 text-body font-extrabold text-ink flex items-center gap-1.5 tracking-tight">
             {worker.name}
             {worker.idVerified && <span className="text-info"><Icon name="shield" size={14} /></span>}
-          </h4>
-          <div className="text-small text-muted mt-0.5 mb-1.5 truncate">{worker.tagline}</div>
+          </h3>
+          <div className="text-small text-dim mt-0.5 mb-1.5 truncate">{worker.tagline}</div>
           <div className="flex gap-2 flex-wrap items-center">
-            <TierBadge icon={t.icon} name={t.name} color={t.color} />
-            {worker.skills.map((s) => <span key={s} className="text-base" title={catById(s).label} aria-hidden="true">{catById(s).icon}</span>)}
+            <TierBadge icon={t.icon} name={t.name} />
+            {worker.skills.map((s) => <span key={s} className="text-lead" title={catById(s).label} aria-hidden="true">{catById(s).icon}</span>)}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <b className="text-base" style={{ color: '#F59E0B' }}>{worker.rating.toFixed(1)}★</b>
-          <small className="block text-micro text-muted">{worker.jobsDone} jobs</small>
+          <span className="flex items-center gap-1 justify-end">
+            <Stars rating={worker.rating} size={13} />
+            <b className="text-small font-mono tnum text-ink">{worker.rating.toFixed(1)}</b>
+          </span>
+          <small className="block text-micro text-dim">{worker.jobsDone} jobs</small>
         </div>
       </Card>
     </button>
@@ -93,22 +96,22 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
     <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
         <div className="flex gap-3 items-start">
-          <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+          <Tile emoji={c.icon} />
           <div className="flex-1 min-w-0">
-            <h4 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h4>
-            <div className="text-small text-muted flex items-center gap-1.5 mt-0.5">
+            <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h3>
+            <div className="text-small text-dim flex items-center gap-1.5 mt-0.5">
               <Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''}
             </div>
           </div>
           <div className="text-right shrink-0">
-            <b className="font-display text-title font-extrabold text-money tnum leading-none">{money(total)}</b>
-            <small className="block text-micro text-muted tnum mt-1">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
+            <b className="font-display text-title font-extrabold text-ink font-mono tnum leading-none">{money(total)}</b>
+            <small className="block text-micro text-dim font-mono tnum mt-1">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
-          {gig.urgent && <Chip tone="urgent" icon="bolt">Urgent</Chip>}
-          {fair && <Chip tone="fair" icon="shield">Fair pay</Chip>}
-          <Chip tone="time">🗓 {gig.when}</Chip>
+          {gig.urgent && <Chip tone="live" icon="bolt">Urgent</Chip>}
+          {fair && <Chip tone="verified" icon="shield">Fair pay</Chip>}
+          <Chip tone="neutral">🗓 {gig.when}</Chip>
         </div>
       </Card>
     </button>
@@ -123,15 +126,15 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
 
   const head = (
     <div className="flex gap-3 items-start">
-      <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+      <Tile emoji={c.icon} />
       <div className="flex-1 min-w-0">
-        <h4 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{job.title}</h4>
+        <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{job.title}</h3>
         <div className="text-micro text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
-        <div className="text-small text-muted flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
+        <div className="text-small text-dim flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
       </div>
       <div className="text-right shrink-0">
-        <b className="font-display text-lead font-extrabold text-money tnum">{amount.trim()}</b>
-        {per && <small className="block text-micro text-muted">/{per.trim()}</small>}
+        <b className="font-display text-lead font-extrabold text-ink font-mono tnum">{amount.trim()}</b>
+        {per && <small className="block text-micro text-dim">/{per.trim()}</small>}
       </div>
     </div>
   );
@@ -142,8 +145,8 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
         <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
           {head}
           <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
-            <Chip tone="formal" icon="shield">Formal</Chip>
-            <Chip tone="time">🎓 {job.education.split('·')[0].trim()}</Chip>
+            <Chip tone="solid" icon="shield">Formal</Chip>
+            <Chip tone="neutral">🎓 {job.education.split('·')[0].trim()}</Chip>
           </div>
         </Card>
       </button>
@@ -157,12 +160,12 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
     <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.99] transition">
       <Card className="p-4 pb-0 overflow-hidden">
         <div className="grayscale-[.55] opacity-60">{head}</div>
-        <div className="flex items-center gap-2.5 bg-navy text-white -mx-4 mt-2.5 px-4 py-3 rounded-b-card">
+        <div className="flex items-center gap-2.5 bg-ink text-canvas -mx-4 mt-2.5 px-4 py-3 rounded-b-card">
           <Icon name="lock" size={16} />
           <div className="flex-1 text-micro leading-snug">
-            Unlocks at <b className="text-[#ffd9de]">{reqTier.name} {reqTier.icon}</b> — {jobsNeeded > 0 ? `${jobsNeeded} more good job${jobsNeeded > 1 ? 's' : ''}` : 'raise your rating'} to go
+            Unlocks at <b className="text-brand">{reqTier.name} {reqTier.icon}</b> — {jobsNeeded > 0 ? `${jobsNeeded} more good job${jobsNeeded > 1 ? 's' : ''}` : 'raise your rating'} to go
             <div className="h-1.5 bg-white/20 rounded-full mt-1.5 overflow-hidden">
-              <div className="h-full bg-red rounded-full" style={{ width: `${prog}%` }} />
+              <div className="h-full bg-brand-solid rounded-full" style={{ width: `${prog}%` }} />
             </div>
           </div>
         </div>

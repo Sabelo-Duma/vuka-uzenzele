@@ -4,7 +4,7 @@ import { computeCv } from '../../lib/engine';
 import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Invitation, MyJob } from '../../lib/api';
-import { Avatar, Button, Card, ProgressBar, SectionTitle } from '../../components/ui';
+import { Avatar, Button, Card, ProgressBar, SectionTitle, Tile } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
@@ -35,10 +35,10 @@ export function WorkerHome() {
     <Dashboard aside={<ReputationPanel />}>
       <header className="flex items-center justify-between mb-3">
         <div>
-          <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Sawubona 👋</small>
-          <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-red">.</span></h2>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Sawubona 👋</small>
+          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-brand">.</span></h1>
         </div>
-        <Avatar initials={state.worker.initials || 'ME'} color={state.worker.color} verified={state.worker.idVerified} tier={cv.tier.icon} />
+        <Avatar initials={state.worker.initials || 'ME'} verified={state.worker.idVerified} tier={cv.tier.icon} />
       </header>
 
       {/* Money first, then work, then everything else.
@@ -49,12 +49,12 @@ export function WorkerHome() {
           card and the trust and low-data strips still say true and useful
           things; they just don't get to stand between arrival and work. */}
 
-      <Card className="p-4 mb-3 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#0B2947)' }}>
-        <small className="text-micro font-extrabold uppercase tracking-widest text-white/60">Earned on Vuka</small>
-        <div className="font-display text-hero font-extrabold tracking-tight leading-none tnum mt-1">{money(cv.totalEarned)}</div>
-        <div className="text-small text-white/75 mt-1.5">
+      <Card className="p-4 mb-3 text-on-feature feature-band">
+        <small className="text-micro font-extrabold uppercase tracking-widest text-on-feature-dim">Earned on Vuka</small>
+        <div className="font-display text-hero font-extrabold tracking-tight leading-none font-mono tnum mt-1">{money(cv.totalEarned)}</div>
+        <div className="text-small text-on-feature-dim mt-1.5">
           Across {cv.jobsDone} job{cv.jobsDone !== 1 ? 's' : ''}
-          {awaitingPayment > 0 && <> · <b className="text-white">{money(awaitingPayment)}</b> still to come</>}
+          {awaitingPayment > 0 && <> · <b className="text-on-feature">{money(awaitingPayment)}</b> still to come</>}
         </div>
       </Card>
 
@@ -84,44 +84,45 @@ export function WorkerHome() {
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5">
         {CATEGORIES.map((c) => (
           <button key={c.id} onClick={() => { setCategory(c.id); setFeed('gigs'); navigate('jobs'); }} className="flex flex-col items-center gap-1.5 shrink-0">
-            <span className="grid place-items-center w-[58px] h-[58px] rounded-[18px] bg-surface border border-line shadow-e1 text-2xl" style={{ color: c.color }} aria-hidden="true">{c.icon}</span>
-            <span className="text-micro font-semibold text-muted">{c.label}</span>
+            <Tile emoji={c.icon} size="lg" />
+            <span className="text-micro font-semibold text-dim">{c.label}</span>
           </button>
         ))}
       </div>
 
-      <SectionTitle action={<button className="text-small text-navy font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
+      <SectionTitle action={<button className="text-small text-ink font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
       {state.dataLoading && state.gigs.length === 0
         ? <CardSkeletonGrid count={2} />
         : featured.length > 0
         ? <div className="grid sm:grid-cols-2 gap-x-3">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        : <Card className="p-6 text-center text-muted text-small">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
+        : <Card className="p-6 text-center text-dim text-small">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
 
       {teaser && (
         <>
-          <SectionTitle action={<button className="text-small text-navy font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
+          <SectionTitle action={<button className="text-small text-ink font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
         </>
       )}
 
       {/* Tier strip — mobile only; desktop shows the richer rail instead. */}
-      <Card className="lg:hidden p-4 text-white mt-1 mb-1.5" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
+      <Card className="lg:hidden p-4 mt-1 mb-1.5">
         <div className="flex items-center gap-3">
-          <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display" aria-hidden="true">{cv.tier.icon}</span>
-          <div className="flex-1">
-            <small className="text-white/70 text-xs">Your tier</small>
-            <h3 className="font-display m-0 text-lg font-bold">{cv.tier.name} · <span className="opacity-80 font-semibold text-sm">{unlockedCount} formal jobs unlocked</span></h3>
+          <span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-surface-3 border border-line text-display" aria-hidden="true">{cv.tier.icon}</span>
+          <div className="flex-1 min-w-0">
+            <small className="text-faint text-micro uppercase tracking-wide font-bold">Your tier</small>
+            <h3 className="font-display m-0 text-lead font-extrabold text-ink">{cv.tier.name}</h3>
+            <span className="text-small text-dim">{unlockedCount} formal jobs unlocked</span>
           </div>
-          <Button size="sm" onClick={() => navigate('cv')}>Ladder</Button>
+          <Button size="sm" variant="ghost" onClick={() => navigate('cv')}>The Ladder</Button>
         </div>
-        <div className="text-small text-white/85 my-2.5">{nextText}</div>
-        <ProgressBar pct={cv.tierProgress} />
+        <div className="text-small text-dim my-2.5">{nextText}</div>
+        <ProgressBar pct={cv.tierProgress} label={`Progress to ${cv.nextTier?.name ?? 'the top tier'}`} />
       </Card>
 
       <TrustStrip />
 
-      <p className="text-center text-micro text-subtle leading-relaxed px-4 pb-2">
-        Built light on data — pages are saved on your phone, so browsing works offline too 📶
+      <p className="text-center text-micro text-faint leading-relaxed px-4 pb-2">
+        Built light on data — the app itself is saved on your phone, so it opens with no signal. Job listings still need a connection. 📶
       </p>
     </Dashboard>
   );
@@ -136,22 +137,22 @@ function MyWorkCard({ job }: { job: MyJob }) {
   const autoConfirm = timeToAutoConfirm(job.workerDoneAt, autoReleaseHours());
   const first = job.gig.employer.split(' ')[0];
   return (
-    <Card className={`p-4 border-l-4 ${waiting ? 'border-[color:var(--gj-warning,#F59E0B)]' : 'border-success'}`}>
-      <div className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-muted' : 'text-success'}`}>
+    <Card className={`p-4 border-l-4 ${waiting ? 'border-[color:var(--v-brand,#F59E0B)]' : 'border-verified'}`}>
+      <div className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide mb-2 ${waiting ? 'text-dim' : 'text-verified'}`}>
         <Icon name={waiting ? 'clock' : 'check'} size={13} /> {waiting ? `Waiting for ${first} to confirm` : "You're hired"}
       </div>
       {waiting && autoConfirm && (
-        <div className="text-micro text-muted -mt-1 mb-2">Counts automatically if they don't — {autoConfirm.text}</div>
+        <div className="text-micro text-dim -mt-1 mb-2">Counts automatically if they don't — {autoConfirm.text}</div>
       )}
       <div className="flex gap-3 items-start">
-        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <Tile emoji={c.icon} />
         <div className="flex-1 min-w-0">
-          <b className="text-body font-extrabold text-navy leading-tight block tracking-tight">{job.gig.title}</b>
-          <div className="text-small text-muted mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-navy tnum">{money(total)}</b></div>
+          <b className="text-body font-extrabold text-ink leading-tight block tracking-tight">{job.gig.title}</b>
+          <div className="text-small text-dim mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-ink font-mono tnum">{money(total)}</b></div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2.5 mt-3">
-        <Button size="sm" variant={waiting ? 'ghost' : 'gold'} onClick={() => navigate('gigDetail', job.gig.id)}>
+        <Button size="sm" variant={waiting ? 'ghost' : 'primary'} onClick={() => navigate('gigDetail', job.gig.id)}>
           {waiting ? 'View job' : "I've finished"}
         </Button>
         <Button size="sm" variant="ghost" icon="chat" onClick={() => navigate('chat', job.gig.employerId ?? '')}>Message {first}</Button>
@@ -177,13 +178,13 @@ function InviteCard({ inv }: { inv: Invitation }) {
   };
 
   return (
-    <Card className="p-4 border-l-4 border-red">
-      <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-red mb-2"><Icon name="bolt" size={13} /> Job invitation</div>
+    <Card className="p-4 border-l-4 border-brand">
+      <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-brand mb-2"><Icon name="bolt" size={13} /> Job invitation</div>
       <div className="flex gap-3 items-start">
-        <span className="grid place-items-center w-11 h-11 rounded-[13px] text-head shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
+        <Tile emoji={c.icon} />
         <div className="flex-1 min-w-0">
-          <b className="text-body font-extrabold text-navy leading-tight block tracking-tight">{inv.gig.title}</b>
-          <div className="text-small text-muted mt-0.5">{inv.gig.employer} · {inv.gig.location} · <b className="text-navy tnum">{money(total)}</b></div>
+          <b className="text-body font-extrabold text-ink leading-tight block tracking-tight">{inv.gig.title}</b>
+          <div className="text-small text-dim mt-0.5">{inv.gig.employer} · {inv.gig.location} · <b className="text-ink font-mono tnum">{money(total)}</b></div>
         </div>
       </div>
       {inv.message && <p className="text-small text-ink italic bg-surface-2 rounded-xl px-3 py-2 mt-2.5 leading-snug">“{inv.message}”</p>}

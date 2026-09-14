@@ -26,12 +26,12 @@ function H({ children }: { children: React.ReactNode }) {
   return <h4 className="font-display text-small font-extrabold text-ink tracking-tight mt-4 mb-1.5">{children}</h4>;
 }
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-small text-muted leading-relaxed mb-2">{children}</p>;
+  return <p className="text-small text-dim leading-relaxed mb-2">{children}</p>;
 }
 function L({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="text-small text-muted leading-relaxed mb-2 space-y-1.5">
-      {items.map((item, i) => <li key={i} className="flex gap-2"><span className="text-navy/40 shrink-0">·</span><span>{item}</span></li>)}
+    <ul className="text-small text-dim leading-relaxed mb-2 space-y-1.5">
+      {items.map((item, i) => <li key={i} className="flex gap-2"><span className="text-faint shrink-0">·</span><span>{item}</span></li>)}
     </ul>
   );
 }
@@ -40,7 +40,7 @@ function L({ items }: { items: React.ReactNode[] }) {
 function DraftNotice() {
   if (legalReady) return null;
   return (
-    <div className="rounded-xl bg-[#fff8e6] dark:bg-amber-400/10 border border-amber-400/40 px-3.5 py-3 mb-3 text-small text-navy leading-snug">
+    <div className="rounded-xl bg-brand-soft dark:bg-amber-400/10 border border-amber-400/40 px-3.5 py-3 mb-3 text-small text-ink leading-snug">
       <b>Not final yet.</b> The registered company details, Information Officer and privacy
       mailbox still have to be confirmed before launch. Everything below describes what the
       app actually does today.
@@ -49,15 +49,15 @@ function DraftNotice() {
 }
 
 function Updated() {
-  return <p className="text-micro text-subtle mt-5 pt-3 border-t border-line">Last updated {OPERATOR.lastUpdated}.</p>;
+  return <p className="text-micro text-faint mt-5 pt-3 border-t border-line">Last updated {OPERATOR.lastUpdated}.</p>;
 }
 
 /* ---------------- Privacy notice (POPIA) ---------------- */
 export function PrivacySheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Privacy & your data" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Privacy &amp; your data<span className="text-red">.</span></h3>
-      <p className="text-small text-muted mt-1 mb-3 leading-relaxed">
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Privacy &amp; your data<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-3 leading-relaxed">
         What {OPERATOR.product} collects, why, and what you can make us do about it. Written under the
         Protection of Personal Information Act (POPIA).
       </p>
@@ -183,8 +183,8 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 export function TermsSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Terms of use" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Terms of use<span className="text-red">.</span></h3>
-      <p className="text-small text-muted mt-1 mb-3 leading-relaxed">The deal between you and {OPERATOR.product}. Plain language, and it means what it says.</p>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Terms of use<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-3 leading-relaxed">The deal between you and {OPERATOR.product}. Plain language, and it means what it says.</p>
       <DraftNotice />
 
       <H>What Vuka is — and isn't</H>

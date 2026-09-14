@@ -207,7 +207,7 @@ export function toTalentWorker(t: ServerTalent): TalentWorker {
   return {
     id: t.id, name: t.name, initials: t.initials, age: t.age, location: t.location,
     skills: t.skills, rating: t.rating, jobsDone: t.jobsDone, idVerified: t.idVerified,
-    tier: t.tier.id, color: t.color, tagline: t.tagline, badges: t.badges,
+    tier: t.tier.id, tagline: t.tagline, badges: t.badges,
   };
 }
 

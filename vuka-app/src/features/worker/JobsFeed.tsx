@@ -22,15 +22,16 @@ export function JobsFeed() {
   return (
     <Dashboard aside={<ReputationPanel />}>
       <header className="mb-3">
-        <small className="text-subtle text-xs font-semibold uppercase tracking-wide">
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">
           {isGigs
             ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : state.coords ? ' · nearest first' : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
             : `${formalJobs.length} formal role${formalJobs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ''}`}
         </small>
-        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find work<span className="text-red">.</span></h2>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find work<span className="text-brand">.</span></h1>
       </header>
 
       <Segmented
+        label="Kind of work"
         value={state.feed}
         onChange={setFeed}
         options={[
@@ -60,10 +61,10 @@ export function JobsFeed() {
       <div className="flex items-center gap-2 mt-2.5 text-small">
         {state.coords ? (
           <>
-            <span className="inline-flex items-center gap-1.5 rounded-pill bg-navy/[.06] text-navy font-bold px-3 py-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
               📍 Sorted by real distance
             </span>
-            <button onClick={clearMyLocation} className="text-muted font-semibold underline underline-offset-2 hover:text-navy transition">
+            <button onClick={clearMyLocation} className="text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
               Turn off
             </button>
           </>
@@ -72,11 +73,11 @@ export function JobsFeed() {
             <button
               onClick={useMyLocation}
               disabled={state.locating}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong text-navy font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
             >
               📍 {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
             </button>
-            <span className="text-subtle">Distances below are estimates</span>
+            <span className="text-faint">Distances below are estimates</span>
           </>
         )}
       </div>
@@ -93,7 +94,7 @@ export function JobsFeed() {
     return (
       <>
         <div className="grid sm:grid-cols-2 gap-x-3">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        <p className="text-center text-small text-muted leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
       </>
     );
   }
@@ -107,15 +108,15 @@ export function JobsFeed() {
     const locked = list.filter((f) => f.minTier > cv.tier.id);
     return (
       <>
-        <Card className="p-3.5 mb-3 flex gap-2.5 items-center bg-[#eaf3fb] dark:bg-info/10 border-[#cfe3f5] dark:border-info/25">
-          <span className="text-xl" aria-hidden="true">🪜</span>
-          <div className="text-small text-navy leading-snug">
+        <Card className="p-3.5 mb-3 flex gap-2.5 items-center bg-info-soft border-info dark:border-info">
+          <span className="text-title" aria-hidden="true">🪜</span>
+          <div className="text-small text-ink leading-snug">
             <b>You're {cv.tier.name} {cv.tier.icon}.</b> {unlocked.length} formal job{unlocked.length !== 1 ? 's' : ''} open to you now{locked.length ? ` · ${locked.length} more unlock as you rise` : ''}.
           </div>
         </Card>
         {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
         {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        <p className="text-center text-small text-muted leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
       </>
     );
   }
@@ -125,7 +126,7 @@ export function JobsFeed() {
 function CategoryBar({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
   const pill = (active: boolean) =>
     `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-small font-bold transition active:scale-95 ${
-      active ? 'bg-navy text-white dark:text-navy-deep border-navy' : 'bg-surface text-muted border-line hover:border-line-strong hover:text-navy'
+      active ? 'bg-ink text-canvas border-ink' : 'bg-surface text-dim border-line hover:border-faint hover:text-ink'
     }`;
   return (
     <div className="flex gap-2 overflow-x-auto no-scrollbar pt-3 -mx-1 px-1">
@@ -140,5 +141,5 @@ function CategoryBar({ value, onChange }: { value: string | null; onChange: (id:
 }
 
 function Cnt({ n }: { n: number }) {
-  return <span className="text-micro bg-white/25 px-1.5 rounded-full">{n}</span>;
+  return <span className="font-mono tnum opacity-70">· {n}</span>;
 }

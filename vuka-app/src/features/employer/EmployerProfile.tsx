@@ -54,14 +54,14 @@ export function EmployerProfile() {
   return (
     <>
       <header className="mb-3">
-        <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your account</small>
-        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-red">.</span></h2>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Your account</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-brand">.</span></h1>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
-        <div className="flex justify-center mb-2.5"><Avatar initials="You" color="var(--gj-navy)" size="lg" /></div>
+        <div className="flex justify-center mb-2.5"><Avatar initials="You" size="lg" /></div>
         <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{state.user?.name ?? 'Employer account'}</h3>
-        <p className="m-0 mt-1 text-small text-muted">Post jobs · hire verified youth</p>
+        <p className="m-0 mt-1 text-small text-dim">Post jobs · hire verified youth</p>
       </Card>
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
@@ -70,15 +70,15 @@ export function EmployerProfile() {
 
       {rows.map((r) => (
         <button key={r.title} onClick={r.go} className="w-full text-left mb-2.5 active:scale-[.99] transition">
-          <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-line-strong transition">
+          <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-faint transition">
             <div className="text-head" aria-hidden="true">{r.ic}</div>
-            <div className="flex-1"><b className="text-sm text-navy block">{r.title}</b><div className="text-small text-muted mt-0.5">{r.sub}</div></div>
-            <span className="text-subtle"><Icon name="chev" size={18} /></span>
+            <div className="flex-1"><b className="text-small text-ink block">{r.title}</b><div className="text-small text-dim mt-0.5">{r.sub}</div></div>
+            <span className="text-faint"><Icon name="chev" size={18} /></span>
           </Card>
         </button>
       ))}
 
-      <p className="text-center text-small text-muted leading-relaxed px-4 py-2">Two-way reviews keep everyone accountable — workers rate employers too.</p>
+      <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Two-way reviews keep everyone accountable — workers rate employers too.</p>
       <div className="mt-2"><AccountBar /></div>
 
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}

@@ -31,8 +31,8 @@ function BootScreen() {
   return (
     <div className="min-h-screen grid place-items-center bg-surface-2 text-center px-6">
       <div>
-        <div className="w-16 h-16 mx-auto rounded-[20px] grid place-items-center text-white text-3xl animate-pop" style={{ background: 'linear-gradient(135deg,var(--gj-navy),#123e69)' }} aria-hidden="true">V</div>
-        <p className="mt-4 text-muted text-sm font-semibold">Loading Vuka Uzenzele…</p>
+        <div className="w-16 h-16 mx-auto rounded-[20px] grid place-items-center text-on-feature text-display animate-pop feature-band" aria-hidden="true">V</div>
+        <p className="mt-4 text-dim text-small font-semibold">Loading Vuka Uzenzele…</p>
       </div>
     </div>
   );
@@ -40,11 +40,11 @@ function BootScreen() {
 
 function ErrorBanner({ msg, onRetry, onDismiss }: { msg: string; onRetry: () => void; onDismiss: () => void }) {
   return (
-    <div role="alert" className="mb-3 flex items-center gap-3 rounded-2xl border border-[#f5c2cb] dark:border-red/30 bg-[#fdecef] dark:bg-red/10 px-3.5 py-2.5">
-      <span className="text-lg shrink-0" aria-hidden="true">⚠️</span>
-      <span className="flex-1 text-small text-navy leading-snug">{msg}</span>
-      <button onClick={onRetry} className="shrink-0 rounded-pill bg-navy text-white dark:text-navy-deep text-small font-bold px-3 py-1.5 active:scale-95">Retry</button>
-      <button onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-subtle hover:text-navy px-1">✕</button>
+    <div role="alert" className="mb-3 flex items-center gap-3 rounded-2xl border border-danger bg-danger-soft px-3.5 py-2.5">
+      <span className="text-lead shrink-0" aria-hidden="true">⚠️</span>
+      <span className="flex-1 text-small text-ink leading-snug">{msg}</span>
+      <button onClick={onRetry} className="shrink-0 rounded-pill bg-ink text-canvas text-small font-bold px-3 py-1.5 active:scale-95">Retry</button>
+      <button onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-faint hover:text-ink px-1">✕</button>
     </div>
   );
 }

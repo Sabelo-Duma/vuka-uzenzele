@@ -14,41 +14,41 @@ export function EmployerHome() {
     <Dashboard aside={<EmployerStats />}>
       <header className="flex items-center justify-between mb-3">
         <div>
-          <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Need a hand today?</small>
-          <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find trusted help<span className="text-red">.</span></h2>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Need a hand today?</small>
+          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find trusted help<span className="text-brand">.</span></h1>
         </div>
-        <Avatar initials="You" color="var(--gj-navy)" />
+        <Avatar initials="You" />
       </header>
 
-      <div className="text-white rounded-[14px] px-3.5 py-2.5 text-small font-semibold flex gap-2 items-center mb-3" style={{ background: 'linear-gradient(90deg,#3b0764,#5B21B6)' }}>
-        <span className="bg-white text-[#6d28d9] px-2 py-0.5 rounded-full text-micro font-bold">SAFE</span>
+      <div className="text-on-feature rounded-[14px] px-3.5 py-2.5 text-small font-semibold flex gap-2 items-center mb-3 feature-band">
+        <span className="bg-on-feature text-feature px-2 py-0.5 rounded-full text-micro font-bold">SAFE</span>
         {verified > 0
-          ? <span><b className="tnum">{verified}</b> ID-verified workers nearby · <b className="tnum">{jobsTotal}</b> jobs completed with reviews 🛡️</span>
+          ? <span><b className="font-mono tnum">{verified}</b> ID-verified workers nearby · <b className="font-mono tnum">{jobsTotal}</b> jobs completed with reviews 🛡️</span>
           : <span>Every worker is ID-verified with a real, reviewed CV and an earned tier 🛡️</span>}
       </div>
 
       <TrustStrip />
 
       {state.pendingConfirmations > 0 && (
-        <Card className="p-4 mb-3.5 border-l-4 border-red">
-          <b className="text-body text-navy">
+        <Card className="p-4 mb-3.5 border-l-4 border-brand">
+          <b className="text-body text-ink">
             {state.pendingConfirmations} job{state.pendingConfirmations === 1 ? '' : 's'} waiting on you
           </b>
-          <p className="text-small text-muted my-1.5 leading-snug">
+          <p className="text-small text-dim my-1.5 leading-snug">
             A worker has marked the job done. Confirming releases their pay and adds your review to their CV — it's how they build a track record.
           </p>
-          <Button block variant="gold" onClick={() => navigate('hires')}>Confirm & rate now</Button>
+          <Button block variant="primary" onClick={() => navigate('hires')}>Confirm & rate now</Button>
         </Card>
       )}
 
-      <Card className="p-4 mb-3.5" style={{ background: 'linear-gradient(150deg,#faf5ff,var(--gj-bg))' }}>
-        <b className="text-body text-navy">Post a job in 30 seconds</b>
-        <p className="text-small text-muted my-1.5 leading-snug">Describe what you need. Verified youth nearby apply — you pick by rating, reviews and tier.</p>
-        <Button block variant="navy" icon="plus" onClick={() => navigate('post')}>Post a job</Button>
+      <Card className="p-4 mb-3.5">
+        <b className="text-body text-ink">Post a job in 30 seconds</b>
+        <p className="text-small text-dim my-1.5 leading-snug">Describe what you need. Verified youth nearby apply — you pick by rating, reviews and tier.</p>
+        <Button block variant={state.pendingConfirmations > 0 ? 'solid' : 'primary'} icon="plus" onClick={() => navigate('post')}>Post a job</Button>
         <Button block variant="ghost" className="mt-2" onClick={() => navigate('hires')}>See my jobs & applicants</Button>
       </Card>
 
-      <SectionTitle action={<button className="text-small text-red font-bold" onClick={() => navigate('talent')}>Browse all →</button>}>Top-rated near you</SectionTitle>
+      <SectionTitle action={<button className="text-small text-brand font-bold" onClick={() => navigate('talent')}>Browse all →</button>}>Top-rated near you</SectionTitle>
       {state.dataLoading && top.length === 0
         ? <CardSkeletonGrid count={2} talent />
         : top.length > 0

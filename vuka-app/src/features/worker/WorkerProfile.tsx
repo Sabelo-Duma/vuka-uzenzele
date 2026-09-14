@@ -72,18 +72,18 @@ export function WorkerProfile() {
   return (
     <>
       <header className="mb-3">
-        <small className="text-subtle text-xs font-semibold uppercase tracking-wide">Your account</small>
-        <h2 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-red">.</span></h2>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Your account</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-brand">.</span></h1>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
-        <div className="flex justify-center mb-2.5"><Avatar initials={w.initials} color={w.color} size="lg" verified={w.idVerified} tier={cv.tier.icon} /></div>
+        <div className="flex justify-center mb-2.5"><Avatar initials={w.initials} size="lg" verified={w.idVerified} tier={cv.tier.icon} /></div>
         <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{w.name}</h3>
-        <p className="m-0 mt-1 text-small text-muted flex items-center justify-center gap-1.5"><Icon name="pin" size={13} /> {w.location} · Age {w.age}</p>
+        <p className="m-0 mt-1 text-small text-dim flex items-center justify-center gap-1.5"><Icon name="pin" size={13} /> {w.location} · Age {w.age}</p>
         <div className="flex justify-center gap-2 flex-wrap mt-2.5">
-          <TierBadge icon={cv.tier.icon} name={cv.tier.name} color={cv.tier.color} />
-          {w.idVerified && <Chip tone="fair" icon="shield">ID Verified</Chip>}
-          <Chip tone="time">⭐ {cv.avg.toFixed(1)} rating</Chip>
+          <TierBadge icon={cv.tier.icon} name={cv.tier.name} />
+          {w.idVerified && <Chip tone="verified" icon="shield">ID Verified</Chip>}
+          <Chip tone="neutral">⭐ {cv.avg.toFixed(1)} rating</Chip>
         </div>
       </Card>
 
@@ -93,12 +93,12 @@ export function WorkerProfile() {
 
       {rows.map((r) => (
         <button key={r.title} onClick={r.kind === 'toggle' ? r.act : r.go} className="w-full text-left mb-2.5 active:scale-[.99] transition">
-          <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-line-strong transition">
+          <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-faint transition">
             <div className="text-head" aria-hidden="true">{r.ic}</div>
-            <div className="flex-1"><b className="text-sm text-navy block">{r.title}</b><div className="text-small text-muted mt-0.5">{r.sub}</div></div>
+            <div className="flex-1"><b className="text-small text-ink block">{r.title}</b><div className="text-small text-dim mt-0.5">{r.sub}</div></div>
             {r.kind === 'toggle'
               ? <Switch on={r.on} />
-              : <span className="text-subtle"><Icon name="chev" size={18} /></span>}
+              : <span className="text-faint"><Icon name="chev" size={18} /></span>}
           </Card>
         </button>
       ))}
@@ -122,7 +122,7 @@ function Switch({ on }: { on: boolean }) {
     <span
       role="switch"
       aria-checked={on}
-      className={`relative inline-block w-10 h-6 rounded-full transition ${on ? 'bg-success' : 'bg-line-strong'}`}
+      className={`relative inline-block w-10 h-6 rounded-full transition ${on ? 'bg-verified' : 'bg-line'}`}
     >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`} />
     </span>
