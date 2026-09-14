@@ -214,9 +214,16 @@ That is affordable because of the caps, and only because of them:
 | photo | 2 MB | ~300 KB |
 
 Uploaded first, attached second: `attachments.message_id` stays `NULL` until a
-message claims it, so a send that dies halfway leaves a sweepable orphan rather
-than a message with a hole in it. A clip can only be claimed by the account that
+message claims it, so a send that dies halfway leaves an orphan rather than a
+message with a hole in it. A clip can only be claimed by the account that
 uploaded it, and only once.
+
+The price of that order is uploads nobody ever claims — the send failed
+permanently and the sender pressed *Discard*, or the app was closed between the
+two requests. `sweepOrphanAttachments()` runs every fifteen minutes and deletes
+unclaimed rows older than an hour. The gap between the two requests is measured
+in seconds, so an hour is generous; without the sweep, every abandoned recording
+would sit in the storage budget forever.
 
 Bytes come back only to the two people in the conversation. Withdrawing a voice
 note **deletes the row**, not just the link to it.
@@ -278,7 +285,7 @@ built yet: an untested layer of indirection is worse than a documented limit.
 ## Testing
 
 ```bash
-cd vuka-server && npm test          # 379 assertions, chat is section 12
+cd vuka-server && npm test          # 385 assertions, chat is section 12
 cd vuka-app    && npm run check:chat # two real browsers, a real microphone
 ```
 
@@ -300,5 +307,6 @@ It needs both servers running (`npm run dev` and the API on `:3001`).
 | `VUKA_VOICE_MAX_MS` | `60000` | longest voice note |
 | `VUKA_ATTACH_MAX_BYTES` | `2097152` | largest attachment |
 | `VUKA_MESSAGE_EDIT_MINUTES` | `15` | how long an edit stays possible |
+| `VUKA_ATTACH_GRACE_HOURS` | `1` | before an unclaimed upload is swept |
 | `VUKA_SSE_MAX` | `200` | live connections this instance will hold |
 | `VUKA_RATE_MAX` | `300` | API requests per IP per minute |
