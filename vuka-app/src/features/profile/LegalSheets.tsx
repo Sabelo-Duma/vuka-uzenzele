@@ -40,7 +40,7 @@ function L({ items }: { items: React.ReactNode[] }) {
 function DraftNotice() {
   if (legalReady) return null;
   return (
-    <div className="rounded-xl bg-brand-soft dark:bg-amber-400/10 border border-amber-400/40 px-3.5 py-3 mb-3 text-small text-ink leading-snug">
+    <div className="rounded-chip bg-brand-soft border border-brand px-3.5 py-3 mb-3 text-small text-ink leading-snug">
       <b>Not final yet.</b> The registered company details, Information Officer and privacy
       mailbox still have to be confirmed before launch. Everything below describes what the
       app actually does today.

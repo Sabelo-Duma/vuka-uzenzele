@@ -22,9 +22,16 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "node_modules/@fontsource-variable/roboto-mono/files/roboto-mono-latin-wght-normal.woff2"
 OUT = ROOT / "src/fonts/roboto-mono-figures.woff2"
 
-# Space, digits, and every mark this interface sets beside a number:
+# Digits and the marks this interface sets beside a number:
 #   R30,23/hr   4,6*   1,3x   06:14   -R500   84%   12.5 km   2013-2014 dashes
-CHARS = " %()+,-./0123456789:R\u00b0\u00b7\u00d7\u2013\u2014\u2248\u2605\u2606"
+#
+# NO SPACE. The space is the one character that must not come from here:
+# this face sits in front of the body font for the whole app, so covering
+# U+0020 made every space in every sentence a monospace space - 9.02px
+# instead of 3.66px, two and a half times too wide, on every screen.
+# Spaces belong to the body face. Keep this in step with the unicode-range
+# in src/index.css.
+CHARS = "%()+,-./0123456789:R°·×–—≈★☆"
 
 
 def main() -> None:

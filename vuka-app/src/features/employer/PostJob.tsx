@@ -121,7 +121,7 @@ export function PostJob() {
         {(f) => (<>
         <input {...f} className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} />
         {locationSupported() && (
-          <div className="flex items-center gap-2 mt-2 text-small">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-small">
             {pin ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">📍 Pinned to this spot</span>
@@ -133,7 +133,7 @@ export function PostJob() {
                   type="button"
                   onClick={pinHere}
                   disabled={pinning}
-                  className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
                 >
                   📍 {pinning ? 'Getting location…' : 'Pin my exact location'}
                 </button>

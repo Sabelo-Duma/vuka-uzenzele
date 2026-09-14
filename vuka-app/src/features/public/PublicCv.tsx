@@ -38,8 +38,8 @@ export function PublicCv({ id }: { id: string }) {
 
 function TopBar({ showCta = true }: { showCta?: boolean }) {
   return (
-    <header className="sticky top-0 z-10 bg-surface-veil backdrop-blur border-b border-line">
-      <div className="max-w-[760px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-10 bg-surface-veil backdrop-blur border-b border-line pt-[env(safe-area-inset-top)]">
+      <div className="max-w-[760px] mx-auto px-4 sm:px-6 min-h-14 flex items-center justify-between gap-2">
         <a href="/" className="flex items-center gap-2 font-extrabold text-ink tracking-tight">
           <span className="w-2.5 h-2.5 rounded-full bg-brand-solid" />Vuka Uzenzele
         </a>

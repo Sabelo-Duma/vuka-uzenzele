@@ -392,10 +392,28 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
         aria-label={title}
         tabIndex={-1}
         className="relative w-full sm:max-w-md bg-surface border border-line rounded-t-[26px] sm:rounded-card
-          p-5 pb-[max(22px,env(safe-area-inset-bottom))] animate-slideup max-h-[92%] overflow-y-auto scroll-area outline-none shadow-e3"
+          pb-[max(22px,env(safe-area-inset-bottom))] animate-slideup max-h-[92%] overflow-y-auto scroll-area outline-none shadow-e3"
       >
-        <div className="w-11 h-1.5 rounded-pill bg-line mx-auto mb-3.5 sm:hidden" />
-        {children}
+        {/* A close button, always in reach.
+            There used to be none: the only ways out were Escape, which a phone
+            has no key for, and tapping the backdrop — which on a sheet that is
+            92% of the screen is an 8% strip most thumbs never find. The privacy
+            notice, the longest sheet in the app, was effectively a trap. It is
+            sticky so it stays reachable however far you scroll. */}
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 bg-surface px-5 pt-4 pb-2">
+          <div className="w-11 h-1.5 rounded-pill bg-line absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" aria-hidden="true" />
+          <span className="sr-only">{title}</span>
+          <span aria-hidden="true" className="flex-1" />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={`Close ${title}`}
+            className="grid place-items-center w-11 h-11 -mr-2 -mt-1 shrink-0 rounded-chip text-dim hover:bg-surface-2 hover:text-ink transition active:scale-95"
+          >
+            <Icon name="x" size={20} />
+          </button>
+        </div>
+        <div className="px-5 -mt-2">{children}</div>
       </div>
     </div>
   );
