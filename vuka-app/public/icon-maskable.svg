@@ -1,0 +1,31 @@
+<!--
+  The same mark, for Android's maskable slot.
+
+  Only two things differ: the background runs corner to corner with no radius,
+  because the launcher supplies the shape and a rounded square inside a circle
+  leaves four pale notches; and the mark is scaled to 78% about the centre so
+  it survives the most aggressive crop (a circle of 80% diameter).
+
+  Generated into maskable-512x512.png by scripts/gen-icons.mjs. Keep the
+  artwork in step with icon.svg.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Vuka Uzenzele">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#172134"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC152"/>
+      <stop offset="1" stop-color="#F5A200"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#sky)"/>
+
+  <g transform="translate(256 256) scale(0.78) translate(-256 -256)">
+    <path d="M156 254a100 100 0 0 1 200 0z" fill="url(#light)"/>
+    <rect x="120" y="288" width="272" height="30" rx="15" fill="url(#light)"/>
+    <rect x="186" y="346" width="140" height="24" rx="12" fill="#F5A200"/>
+  </g>
+</svg>

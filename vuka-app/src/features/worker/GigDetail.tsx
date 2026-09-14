@@ -10,7 +10,7 @@ import { Icon } from '../../components/Icon';
 import { ReviewSheet } from './ReviewSheet';
 
 export function GigDetail({ id }: { id: string }) {
-  const { state, applyGig, toast, navigate } = useApp();
+  const { state, applyGig, toast, navigate, goBack } = useApp();
   const [reviewing, setReviewing] = useState(false);
   const [applying, setApplying] = useState(false);
   // A gig leaves the open feed once it's filled, so a worker's own work is
@@ -21,7 +21,7 @@ export function GigDetail({ id }: { id: string }) {
   if (!gig) {
     return (
       <>
-        <DetailHeader title="Gig details" onBack={() => navigate('jobs')} />
+        <DetailHeader title="Gig details" onBack={() => goBack('jobs')} />
         <EmptyState icon="🔍" title="This gig is no longer available" hint="It may have been filled or you already completed it. Browse other gigs near you." action={<Button onClick={() => navigate('jobs')}>Back to gigs</Button>} />
       </>
     );
@@ -35,7 +35,7 @@ export function GigDetail({ id }: { id: string }) {
 
   return (
     <>
-      <DetailHeader title="Gig details" onBack={() => navigate('jobs')} />
+      <DetailHeader title="Gig details" onBack={() => goBack('jobs')} />
       <Hero
         eyebrow={`${c.icon} ${c.label} · informal gig`}
         title={gig.title}

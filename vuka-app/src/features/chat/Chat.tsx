@@ -288,7 +288,7 @@ export function Messages() {
 
 /* ---------------- Conversation thread ---------------- */
 export function ChatThread({ id }: { id: string }) {
-  const { state, navigate, loadThread, sendMessage, editMessage, deleteMessage, toast } = useApp();
+  const { state, goBack, loadThread, sendMessage, editMessage, deleteMessage, toast } = useApp();
   const me = state.user?.id;
   const [other, setOther] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
@@ -415,9 +415,11 @@ export function ChatThread({ id }: { id: string }) {
 
   return (
     <div className="max-w-[720px] mx-auto flex flex-col" style={{ minHeight: 'min(72vh, 640px)' }}>
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-3 border-b border-line mb-3">
-        <button onClick={() => navigate('messages')} aria-label="Back to chats" className="grid place-items-center w-11 h-11 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95 shrink-0">
+      {/* Header. Sticky, because it holds the only way out of a long thread and
+          you were otherwise scrolling to the top of the conversation to find
+          it. Swiping from the left edge works too — see useEdgeSwipeBack. */}
+      <div className="sticky top-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-3 bg-canvas">
+        <button onClick={() => goBack('messages')} aria-label="Back to chats" className="grid place-items-center w-11 h-11 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95 shrink-0">
           <Icon name="back" size={20} />
         </button>
         {other ? (

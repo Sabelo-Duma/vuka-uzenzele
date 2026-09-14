@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CATEGORIES, catById } from '../../data/catalog';
 import { computeCv } from '../../lib/engine';
 import { useApp } from '../../store/appStore';
@@ -7,16 +8,20 @@ import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { ReputationPanel } from './ReputationPanel';
 import { locationSupported } from '../../lib/geo';
+import { applyToFormal, applyToGigs, EMPTY_FILTER, FilterBar, type JobFilter } from './JobFilters';
 
 export function JobsFeed() {
   const { state, setFeed, setCategory, navigate, useMyLocation, clearMyLocation } = useApp();
   const cv = computeCv(state.worker);
   const isGigs = state.feed === 'gigs';
   const cat = state.categoryFilter;
+  const [filter, setFilter] = useState<JobFilter>(EMPTY_FILTER);
 
-  // Real filtering: when a category is active, only matching jobs are shown.
-  const gigs = cat ? state.gigs.filter((g) => g.category === cat) : state.gigs;
-  const formalJobs = cat ? state.formalJobs.filter((f) => f.category === cat) : state.formalJobs;
+  // Category first, then everything the filter bar asks for.
+  const byCat = cat ? state.gigs.filter((g) => g.category === cat) : state.gigs;
+  const byCatFormal = cat ? state.formalJobs.filter((f) => f.category === cat) : state.formalJobs;
+  const gigs = applyToGigs(byCat, filter);
+  const formalJobs = applyToFormal(byCatFormal, filter);
   const catLabel = cat ? catById(cat).label : null;
 
   return (
@@ -41,6 +46,13 @@ export function JobsFeed() {
       />
 
       <NearMe />
+
+      <FilterBar
+        value={filter}
+        onChange={setFilter}
+        hasCoords={!!state.coords}
+        results={isGigs ? gigs.length : formalJobs.length}
+      />
 
       <CategoryBar value={cat} onChange={setCategory} />
 
@@ -93,7 +105,7 @@ export function JobsFeed() {
     }
     return (
       <>
-        <div className="grid sm:grid-cols-2 gap-x-3">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
         <p className="text-center text-small text-dim leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
       </>
     );
@@ -114,8 +126,8 @@ export function JobsFeed() {
             <b>You're {cv.tier.name} {cv.tier.icon}.</b> {unlocked.length} formal job{unlocked.length !== 1 ? 's' : ''} open to you now{locked.length ? ` · ${locked.length} more unlock as you rise` : ''}.
           </div>
         </Card>
-        {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid sm:grid-cols-2 gap-x-3">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
+        {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
+        {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
         <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
       </>
     );

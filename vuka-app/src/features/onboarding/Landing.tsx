@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from '../../components/Icon';
+import { SunMark } from '../../components/SunMark';
 import { TIERS } from '../../data/catalog';
 import { HEADLINE_STATS, SOURCES, YOUTH_UNEMPLOYMENT_SENTENCE } from '../../data/stats';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
@@ -36,7 +37,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
               started" stacked as "Get / started" reads as broken long before
               anything actually overflows. */}
           <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead whitespace-nowrap min-w-0">
-            <span className="w-3 h-3 rounded-full bg-brand-solid shrink-0" aria-hidden="true" />
+            <SunMark size={26} className="text-brand-solid" />
             <span className="sr-only">Vuka Uzenzele</span>
             <span aria-hidden="true" className="sm:hidden">Vuka</span>
             <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>

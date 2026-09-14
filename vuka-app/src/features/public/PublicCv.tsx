@@ -4,6 +4,7 @@ import { catById, roleTitleFor } from '../../data/catalog';
 import { ratingLabel, isUnrated } from '../../lib/format';
 import { Card } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { SunMark } from '../../components/SunMark';
 
 /**
  * Public, read-only CV page — resolves the "Copy share link" URL (/cv/:id).
@@ -41,7 +42,7 @@ function TopBar({ showCta = true }: { showCta?: boolean }) {
     <header className="sticky top-0 z-10 bg-surface-veil backdrop-blur border-b border-line pt-[env(safe-area-inset-top)]">
       <div className="max-w-[760px] mx-auto px-4 sm:px-6 min-h-14 flex items-center justify-between gap-2">
         <a href="/" className="flex items-center gap-2 font-extrabold text-ink tracking-tight">
-          <span className="w-2.5 h-2.5 rounded-full bg-brand-solid" />Vuka Uzenzele
+          <SunMark size={24} className="text-brand-solid" /><span className="whitespace-nowrap">Vuka Uzenzele</span>
         </a>
         {showCta && <a href="/" className="rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 py-2 hover:bg-brand-hover transition active:scale-95">Create your free CV</a>}
       </div>

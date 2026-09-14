@@ -8,7 +8,7 @@ import { DetailHeader, Hero, KV, PayBox, PerkList, StickyCta } from '../../compo
 import { Icon } from '../../components/Icon';
 
 export function FormalDetail({ id }: { id: string }) {
-  const { state, toast, navigate, setFeed, applyFormal } = useApp();
+  const { state, toast, navigate, goBack, setFeed, applyFormal } = useApp();
   const job = state.formalJobs.find((f) => f.id === id);
   const applied = state.appliedFormalIds.includes(id);
   const [applying, setApplying] = useState(false);
@@ -28,7 +28,7 @@ export function FormalDetail({ id }: { id: string }) {
   if (!job) {
     return (
       <>
-        <DetailHeader title="Formal job" onBack={() => navigate('jobs')} />
+        <DetailHeader title="Formal job" onBack={() => goBack('jobs')} />
         <EmptyState icon="🔍" title="Job not found" hint="This role may have been removed. Browse the formal jobs board for other opportunities." action={<Button onClick={() => { setFeed('formal'); navigate('jobs'); }}>Back to formal jobs</Button>} />
       </>
     );
@@ -41,7 +41,7 @@ export function FormalDetail({ id }: { id: string }) {
 
   return (
     <>
-      <DetailHeader title="Formal job" onBack={() => navigate('jobs')} />
+      <DetailHeader title="Formal job" onBack={() => goBack('jobs')} />
       <Hero
         eyebrow={`🏢 ${job.employer} · ${job.type}`}
         title={job.title}

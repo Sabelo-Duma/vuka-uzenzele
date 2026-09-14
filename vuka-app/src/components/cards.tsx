@@ -53,7 +53,7 @@ export function TalentCardSkeleton() {
 /** A responsive grid of N card skeletons. */
 export function CardSkeletonGrid({ count = 4, talent = false }: { count?: number; talent?: boolean }) {
   return (
-    <div className="grid sm:grid-cols-2 gap-x-3" aria-hidden="true">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0" aria-hidden="true">
       {Array.from({ length: count }, (_, i) => (talent ? <TalentCardSkeleton key={i} /> : <GigCardSkeleton key={i} />))}
     </div>
   );
@@ -62,7 +62,7 @@ export function CardSkeletonGrid({ count = 4, talent = false }: { count?: number
 export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick: () => void }) {
   const t = TIERS[worker.tier];
   return (
-    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+    <button onClick={onClick} className="w-full text-left min-w-0 mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 flex gap-3.5 items-center transition-shadow duration-200 hover:shadow-e2">
         <Avatar initials={worker.initials} verified={worker.idVerified} />
         <div className="flex-1 min-w-0">
@@ -93,7 +93,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
   const total = gig.hours * gig.payPerHour;
   const fair = gig.payPerHour >= minWagePerHour();
   return (
-    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+    <button onClick={onClick} className="w-full text-left min-w-0 mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
       <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
         <div className="flex gap-3 items-start">
           <Tile emoji={c.icon} />
@@ -141,7 +141,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
 
   if (unlocked) {
     return (
-      <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
+      <button onClick={onClick} className="w-full text-left min-w-0 mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
         <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
           {head}
           <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
@@ -157,7 +157,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
   const span = reqTier.minJobs - cv.tier.minJobs;
   const prog = span > 0 ? Math.min(100, Math.round(((cv.jobsDone - cv.tier.minJobs) / span) * 100)) : 0;
   return (
-    <button onClick={onClick} className="w-full text-left mb-3 active:scale-[.99] transition">
+    <button onClick={onClick} className="w-full text-left min-w-0 mb-3 active:scale-[.99] transition">
       <Card className="p-4 pb-0 overflow-hidden">
         <div className="grayscale-[.55] opacity-60">{head}</div>
         <div className="flex items-center gap-2.5 bg-ink text-canvas -mx-4 mt-2.5 px-4 py-3 rounded-b-card">

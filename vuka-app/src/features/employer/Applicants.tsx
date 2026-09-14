@@ -17,7 +17,7 @@ import { DetailHeader } from '../../components/bits';
 import { Icon } from '../../components/Icon';
 
 export function Applicants({ id }: { id: string }) {
-  const { navigate, toast, loadApplicants, hireWorker, confirmWork } = useApp();
+  const { navigate, goBack, toast, loadApplicants, hireWorker, confirmWork } = useApp();
   const [gig, setGig] = useState<Gig | null>(null);
   const [applicants, setApplicants] = useState<Applicant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export function Applicants({ id }: { id: string }) {
   if (error) {
     return (
       <>
-        <DetailHeader title="Applicants" onBack={() => navigate('hires')} />
+        <DetailHeader title="Applicants" onBack={() => goBack('hires')} />
         <EmptyState icon="⚠️" title="Couldn't load applicants" hint={error} action={<Button onClick={load}>Try again</Button>} />
       </>
     );
@@ -81,7 +81,7 @@ export function Applicants({ id }: { id: string }) {
 
   return (
     <>
-      <DetailHeader title="Applicants" onBack={() => navigate('hires')} />
+      <DetailHeader title="Applicants" onBack={() => goBack('hires')} />
 
       {gig && (
         <Card className="p-4 mb-4">

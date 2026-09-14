@@ -9,14 +9,14 @@ import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 
 export function WorkerDetail({ id }: { id: string }) {
-  const { state, navigate } = useApp();
+  const { state, navigate, goBack } = useApp();
   const [showInvite, setShowInvite] = useState(false);
   const w = state.talent.find((x) => x.id === id);
 
   if (!w) {
     return (
       <>
-        <DetailHeader title="Worker profile" onBack={() => navigate('talent')} />
+        <DetailHeader title="Worker profile" onBack={() => goBack('talent')} />
         <EmptyState icon="🔍" title="Worker not found" hint="They may no longer be available. Browse other verified workers nearby." action={<Button onClick={() => navigate('talent')}>Back to talent</Button>} />
       </>
     );
@@ -26,7 +26,7 @@ export function WorkerDetail({ id }: { id: string }) {
 
   return (
     <>
-      <DetailHeader title="Worker profile" onBack={() => navigate('talent')} />
+      <DetailHeader title="Worker profile" onBack={() => goBack('talent')} />
       <Hero
         eyebrow={`${t.icon} ${t.name}`}
         title={w.name}
