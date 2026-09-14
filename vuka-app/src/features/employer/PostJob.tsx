@@ -125,7 +125,7 @@ export function PostJob() {
             {pin ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">📍 Pinned to this spot</span>
-                <button type="button" onClick={() => setPin(null)} className="text-dim font-semibold underline underline-offset-2 hover:text-ink transition">Remove pin</button>
+                <button type="button" onClick={() => setPin(null)} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">Remove pin</button>
               </>
             ) : (
               <>
@@ -133,7 +133,7 @@ export function PostJob() {
                   type="button"
                   onClick={pinHere}
                   disabled={pinning}
-                  className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
                 >
                   📍 {pinning ? 'Getting location…' : 'Pin my exact location'}
                 </button>

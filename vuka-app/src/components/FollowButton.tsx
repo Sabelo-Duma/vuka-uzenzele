@@ -75,7 +75,7 @@ export function FollowingCard() {
       <div className="flex items-center justify-between mb-3">
         <div className="text-small font-bold text-ink">Following{list ? ` · ${list.length.toLocaleString()}` : ''}</div>
         {list && list.length > 0 && (
-          <button onClick={() => setExpanded((v) => !v)} className="text-small font-bold text-brand">{expanded ? 'Show less' : 'See all'}</button>
+          <button onClick={() => setExpanded((v) => !v)} className="inline-flex items-center min-h-[44px] px-2 -mx-2 rounded-chip text-small font-bold text-brand hover:bg-surface-2 transition">{expanded ? 'Show less' : 'See all'}</button>
         )}
       </div>
 
@@ -95,7 +95,7 @@ export function FollowingCard() {
           ))}
         </div>
       ) : (
-        <button onClick={() => setExpanded(true)} className="flex items-center gap-3 w-full text-left" aria-label={`See all ${list.length} you follow`}>
+        <button onClick={() => setExpanded(true)} className="flex items-center gap-3 w-full text-left min-h-[44px]" aria-label={`See all ${list.length} you follow`}>
           <div className="flex -space-x-2.5">
             {list.slice(0, STACK).map((u) => (
               <span key={u.id} title={u.name} className="grid place-items-center w-9 h-9 rounded-full bg-surface-3 text-ink text-small font-bold border-2 border-surface shadow-e1">{u.initials}</span>

@@ -4,7 +4,7 @@ import { computeCv } from '../../lib/engine';
 import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Invitation, MyJob } from '../../lib/api';
-import { Avatar, Button, Card, ProgressBar, SectionTitle, Tile } from '../../components/ui';
+import { Avatar, Button, Card, ProgressBar, SectionTitle, Tile, TextAction } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { GigCard, FormalCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
@@ -90,7 +90,7 @@ export function WorkerHome() {
         ))}
       </div>
 
-      <SectionTitle action={<button className="text-small text-ink font-bold" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</button>}>Gigs near you</SectionTitle>
+      <SectionTitle action={<TextAction tone="ink" onClick={() => { setCategory(null); setFeed('gigs'); navigate('jobs'); }}>See all →</TextAction>}>Gigs near you</SectionTitle>
       {state.dataLoading && state.gigs.length === 0
         ? <CardSkeletonGrid count={2} />
         : featured.length > 0
@@ -99,7 +99,7 @@ export function WorkerHome() {
 
       {teaser && (
         <>
-          <SectionTitle action={<button className="text-small text-ink font-bold" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</button>}>Formal jobs</SectionTitle>
+          <SectionTitle action={<TextAction tone="ink" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</TextAction>}>Formal jobs</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
         </>
       )}

@@ -98,7 +98,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
         <div className="flex gap-3 items-start">
           <Tile emoji={c.icon} />
           <div className="flex-1 min-w-0">
-            <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h3>
+            <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight break-words">{gig.title}</h3>
             <div className="text-small text-dim flex items-center gap-1.5 mt-0.5">
               <Icon name="pin" size={13} /> {gig.location}{distanceLabel(gig.distanceKm, gig.distanceSource) ? ` · ${distanceLabel(gig.distanceKm, gig.distanceSource)}` : ''}
             </div>
@@ -128,7 +128,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
     <div className="flex gap-3 items-start">
       <Tile emoji={c.icon} />
       <div className="flex-1 min-w-0">
-        <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight">{job.title}</h3>
+        <h3 className="font-display m-0 text-body font-extrabold text-ink leading-tight tracking-tight break-words">{job.title}</h3>
         <div className="text-micro text-info font-bold mt-0.5">{job.employer} · {job.type}</div>
         <div className="text-small text-dim flex items-center gap-1.5 mt-0.5"><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</div>
       </div>

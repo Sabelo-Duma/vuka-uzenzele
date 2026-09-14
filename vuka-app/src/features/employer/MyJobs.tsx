@@ -8,7 +8,7 @@ import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Applicant, Hire } from '../../lib/api';
 import type { Gig } from '../../types';
-import { Button, Card, Chip, EmptyState, LiveDot, SectionTitle, Skeleton, Tile } from '../../components/ui';
+import { Button, Card, Chip, EmptyState, LiveDot, SectionTitle, Skeleton, Tile, TextAction } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 
 interface PostedJob { gig: Gig; applicants: Applicant[] }
@@ -56,7 +56,7 @@ export function MyJobs() {
               <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-brand mb-2">
                 <Icon name="bolt" size={13} /> Marked done — needs your confirmation
               </div>
-              <b className="text-body font-extrabold text-ink block tracking-tight">{h.gig.title}</b>
+              <b className="text-body font-extrabold text-ink block tracking-tight break-words">{h.gig.title}</b>
               <div className="text-small text-dim mt-0.5">
                 {h.worker.name} finished this job · <b className="text-ink font-mono tnum">{money(h.gig.hours * h.gig.payPerHour)}</b>
               </div>
@@ -77,7 +77,7 @@ export function MyJobs() {
         </>
       )}
 
-      <SectionTitle action={<button className="text-small text-brand font-bold" onClick={() => navigate('post')}>Post a job →</button>}>Open jobs</SectionTitle>
+      <SectionTitle action={<TextAction onClick={() => navigate('post')}>Post a job →</TextAction>}>Open jobs</SectionTitle>
       {posted === null ? (
         <div className="flex flex-col gap-2.5">
           <Skeleton className="h-[86px] w-full rounded-card" />
@@ -99,7 +99,7 @@ export function MyJobs() {
               <Card className="p-4 flex gap-3.5 items-center hover:bg-surface-2 hover:border-faint transition">
                 <Tile emoji={c.icon} />
                 <div className="flex-1 min-w-0">
-                  <b className="text-body font-extrabold text-ink block leading-tight tracking-tight">{gig.title}</b>
+                  <b className="text-body font-extrabold text-ink block leading-tight tracking-tight break-words">{gig.title}</b>
                   <div className="text-small text-dim mt-0.5">{gig.location} · {gig.when}</div>
                   <div className="mt-1.5">
                     {waiting > 0

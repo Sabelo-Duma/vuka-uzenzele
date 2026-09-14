@@ -1,5 +1,5 @@
 import { useApp } from '../../store/appStore';
-import { Avatar, Button, Card, EmptyState, SectionTitle } from '../../components/ui';
+import { Avatar, Button, Card, EmptyState, SectionTitle, TextAction } from '../../components/ui';
 import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { TrustStrip } from '../../components/bits';
@@ -48,7 +48,7 @@ export function EmployerHome() {
         <Button block variant="ghost" className="mt-2" onClick={() => navigate('hires')}>See my jobs & applicants</Button>
       </Card>
 
-      <SectionTitle action={<button className="text-small text-brand font-bold" onClick={() => navigate('talent')}>Browse all →</button>}>Top-rated near you</SectionTitle>
+      <SectionTitle action={<TextAction onClick={() => navigate('talent')}>Browse all →</TextAction>}>Top-rated near you</SectionTitle>
       {state.dataLoading && top.length === 0
         ? <CardSkeletonGrid count={2} talent />
         : top.length > 0

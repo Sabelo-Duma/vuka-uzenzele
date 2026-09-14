@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from '../../components/Icon';
 import { TIERS } from '../../data/catalog';
-import { HEADLINE_STATS, STATS_SOURCE, YOUTH_UNEMPLOYMENT_SENTENCE } from '../../data/stats';
+import { HEADLINE_STATS, SOURCES, YOUTH_UNEMPLOYMENT_SENTENCE } from '../../data/stats';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
 /** Illustrative figures for the reputation preview. Labelled as a preview so
@@ -35,11 +35,11 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             <span className="w-3 h-3 rounded-full bg-brand-solid" />Vuka Uzenzele
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-10 h-10 rounded-xl border border-line text-ink hover:bg-surface-2 transition active:scale-95">
+            <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface-2 transition active:scale-95">
               <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
             </button>
-            <button onClick={onLogin} className="text-small font-bold text-ink px-3 py-2 rounded-pill hover:bg-surface-2 transition">Log in</button>
-            <button onClick={onGetStarted} className="rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 sm:px-5 py-2.5 hover:bg-brand-hover transition active:scale-95">Get started</button>
+            <button onClick={onLogin} className="inline-flex items-center min-h-[44px] text-small font-bold text-ink px-3 rounded-pill hover:bg-surface-2 transition">Log in</button>
+            <button onClick={onGetStarted} className="inline-flex items-center min-h-[44px] rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 sm:px-5 hover:bg-brand-hover transition active:scale-95">Get started</button>
           </div>
         </div>
       </header>
@@ -113,19 +113,32 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         </div>
       </section>
 
-      {/* Mission band */}
-      <section className="bg-surface-2 border-y border-line">
-        <div className="max-w-[1080px] mx-auto px-4 sm:px-6 pt-10 pb-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {HEADLINE_STATS.map((s) => (
-            <div key={s.label}>
-              <div className="font-display text-[clamp(1.6rem,4vw,2.4rem)] font-extrabold text-brand font-mono tnum leading-none">{s.value}</div>
-              <div className="text-small text-dim mt-2 leading-snug">{s.label}</div>
-            </div>
-          ))}
+      {/* Mission band — one card, divided into cells. The rules between them
+          are the card's own background showing through a 1px gap, which is why
+          they stay perfectly even as the columns wrap. */}
+      <section className="bg-canvas border-y border-line">
+        <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line rounded-card overflow-hidden border border-line">
+            {HEADLINE_STATS.map((s) => (
+              <div key={s.label} className="bg-surface px-5 py-5">
+                <div className="font-display text-head sm:text-display font-extrabold text-brand font-mono tnum leading-none">{s.value}</div>
+                <p className="text-small text-dim mt-2 leading-snug text-balance">
+                  {s.label}
+                  {s.ref && <sup className="ml-1 font-mono text-micro text-brand font-bold">{s.ref}</sup>}
+                </p>
+              </div>
+            ))}
+          </div>
+          {/* Every figure traces to one of these, so anyone can check them and
+              so it is obvious when they have gone stale. */}
+          <ol className="mt-4 space-y-1">
+            {SOURCES.map((src, i) => (
+              <li key={src} className="text-micro text-faint leading-snug">
+                <sup className="font-mono font-bold mr-1">{i + 1}</sup>{src}
+              </li>
+            ))}
+          </ol>
         </div>
-        {/* The figures above carry their source, so anyone can check them and
-            so it is obvious when they have gone stale. */}
-        <p className="max-w-[1080px] mx-auto px-4 sm:px-6 pb-8 text-center text-micro text-faint">Source: {STATS_SOURCE}</p>
       </section>
 
       {/* How it works */}
@@ -155,7 +168,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
       {/* Two-sided */}
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 pb-16 grid md:grid-cols-2 gap-5">
         <div className="rounded-[24px] p-7 text-on-feature relative overflow-hidden shadow-e2 feature-band">
-          <span className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
+          <span aria-hidden="true" className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
           <div className="relative">
             <div className="text-head">🙋</div>
             <h3 className="font-display text-title font-extrabold mt-2">Looking for work?</h3>
@@ -196,8 +209,8 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           <b className="text-ink">Gijima Innovation Engine · 2026</b><br />
           {YOUTH_UNEMPLOYMENT_SENTENCE}
           <div className="flex items-center justify-center gap-4 mt-3">
-            <button onClick={() => setLegal('privacy')} className="font-semibold underline underline-offset-2 hover:text-ink transition">Privacy &amp; your data</button>
-            <button onClick={() => setLegal('terms')} className="font-semibold underline underline-offset-2 hover:text-ink transition">Terms of use</button>
+            <button onClick={() => setLegal('privacy')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">Privacy &amp; your data</button>
+            <button onClick={() => setLegal('terms')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">Terms of use</button>
           </div>
         </div>
       </footer>

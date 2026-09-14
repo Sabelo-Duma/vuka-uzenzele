@@ -417,7 +417,7 @@ export function ChatThread({ id }: { id: string }) {
     <div className="max-w-[720px] mx-auto flex flex-col" style={{ minHeight: 'min(72vh, 640px)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 pb-3 border-b border-line mb-3">
-        <button onClick={() => navigate('messages')} aria-label="Back to chats" className="grid place-items-center w-10 h-10 rounded-xl border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95 shrink-0">
+        <button onClick={() => navigate('messages')} aria-label="Back to chats" className="grid place-items-center w-11 h-11 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95 shrink-0">
           <Icon name="back" size={20} />
         </button>
         {other ? (

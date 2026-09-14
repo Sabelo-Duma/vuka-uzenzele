@@ -64,7 +64,7 @@ export function JobsFeed() {
             <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
               📍 Sorted by real distance
             </span>
-            <button onClick={clearMyLocation} className="text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
+            <button onClick={clearMyLocation} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
               Turn off
             </button>
           </>
@@ -73,7 +73,7 @@ export function JobsFeed() {
             <button
               onClick={useMyLocation}
               disabled={state.locating}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-3 py-1.5 hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
             >
               📍 {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
             </button>
@@ -125,7 +125,7 @@ export function JobsFeed() {
 /** Horizontal, scrollable category filter. "All" clears the filter. */
 function CategoryBar({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
   const pill = (active: boolean) =>
-    `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-small font-bold transition active:scale-95 ${
+    `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-4 min-h-[44px] text-small font-bold transition active:scale-95 ${
       active ? 'bg-ink text-canvas border-ink' : 'bg-surface text-dim border-line hover:border-faint hover:text-ink'
     }`;
   return (
