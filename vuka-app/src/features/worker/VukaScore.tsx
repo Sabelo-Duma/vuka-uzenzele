@@ -69,7 +69,13 @@ export function scoreParts(cv: CvSnapshot): Part[] {
   ];
 }
 
-/** The score itself — tappable, because the explanation is the point. */
+/**
+ * The score itself — tappable, because the explanation is the point.
+ *
+ * The label sits UNDER the ring, not inside it. Inside, the number and the
+ * caption together are taller than the clear space the stroke leaves, so the
+ * caption crossed the ring at every size. A dial holds one number.
+ */
 export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; size?: number; stroke?: number }) {
   const [open, setOpen] = useState(false);
   const animated = useCountUp(cv.rep);
@@ -79,15 +85,20 @@ export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; siz
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full transition active:scale-95"
+        className="inline-flex flex-col items-center gap-2 rounded-card px-2 py-1 transition active:scale-95 hover:bg-surface-2"
         aria-label={`Vuka Score ${Math.round(cv.rep)} out of 100. See how it is worked out.`}
       >
         <Ring pct={animated} size={size} stroke={stroke}>
-          <b className="font-display text-display font-extrabold text-ink leading-none font-mono tnum">{Math.round(animated)}</b>
-          <small className="text-micro text-dim font-bold uppercase tracking-wide mt-1 flex items-center gap-1">
-            Vuka Score <Icon name="chev" size={11} />
-          </small>
+          <b
+            className="font-display font-extrabold text-ink leading-none font-mono tnum"
+            style={{ fontSize: Math.round(size * 0.3) }}
+          >
+            {Math.round(animated)}
+          </b>
         </Ring>
+        <span className="inline-flex items-center gap-1 text-micro text-dim font-bold uppercase tracking-wide">
+          Vuka Score <Icon name="chev" size={11} />
+        </span>
       </button>
       {open && <ScoreSheet cv={cv} onClose={() => setOpen(false)} />}
     </>

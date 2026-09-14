@@ -31,7 +31,7 @@ export function CvLadder() {
         <div className="flex justify-center">
           <ScoreDial cv={cv} />
         </div>
-        <div className="flex justify-center gap-7 mt-2">
+        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line-soft">
           <Stat value={String(cv.jobsDone)} label="Jobs done" />
           <Stat value={`${cv.avg.toFixed(1)}★`} label="Rating" />
           <Stat value={money(cv.totalEarned)} label="Earned" />

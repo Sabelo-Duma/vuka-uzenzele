@@ -16,7 +16,7 @@ export function ReputationPanel() {
         <div className="flex justify-center">
           <ScoreDial cv={cv} size={116} stroke={9} />
         </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line-soft">
           <Stat value={String(cv.jobsDone)} label="Jobs" />
           <Stat value={`${cv.avg.toFixed(1)}★`} label="Rating" />
           <Stat value={money(cv.totalEarned)} label="Earned" />
