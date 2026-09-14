@@ -1057,6 +1057,34 @@ async function run() {
     const afterDelete = (await api('GET', `/messages/thread/${A.id}`, { token: B.tok })).json.messages.find((m) => m.id === voiceMsg.json.id);
     ok(afterDelete?.deleted === true && afterDelete?.attachment === null, 'the withdrawn message keeps its place and loses its clip');
 
+    /* Uploads nobody ever claimed.
+
+       A recording is uploaded before the message that refers to it, so a send
+       that fails permanently — or an app closed between the two requests —
+       leaves bytes with nothing pointing at them. On a deployment whose only
+       durable storage is one small database, that leak is the storage budget. */
+    {
+      const { sweepOrphanAttachments } = await import('./server.mjs');
+
+      const orphan = await upload(A.tok, clip, 'audio/webm', { kind: 'voice', durationMs: 3000 });
+      const kept = await upload(A.tok, clip, 'audio/webm', { kind: 'voice', durationMs: 3000 });
+      const keptMsg = await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, attachmentId: kept.json.id, clientId: 'kept-1' } });
+      ok(keptMsg.status === 201, 'one clip is claimed by a message and one is not');
+
+      const open = (id, token) => fetch(`${BASE}/attachments/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.status);
+
+      // Nothing is old enough yet, so a sweep now must not touch either.
+      ok((await sweepOrphanAttachments(new Date())) === 0, 'a fresh upload is not swept out from under a send in progress');
+      ok((await open(orphan.json.id, A.tok)) === 200, 'and it is still there');
+
+      // An hour later, the unclaimed one has definitively been abandoned.
+      const later = new Date(Date.now() + 2 * 3600_000);
+      ok((await sweepOrphanAttachments(later)) >= 1, 'an upload no message ever claimed is swept');
+      ok((await open(orphan.json.id, A.tok)) === 404, 'its bytes are gone');
+      ok((await open(kept.json.id, A.tok)) === 200, 'a clip that was actually sent is left alone');
+    }
+
+
     // --- typing, which is only ever a signal ---
     ok((await api('POST', '/messages/typing', { token: A.tok, body: { toUserId: B.id } })).json?.ok === true, 'a typing ping is accepted');
     ok((await api('POST', '/messages/typing', { token: A.tok, body: { toUserId: A.id } })).json?.ok === true, 'typing at yourself is harmless');

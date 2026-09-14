@@ -1811,6 +1811,33 @@ app.get('/api/attachments/:id', requireAuth, asyncH(async (req, res) => {
   res.end(bytes);
 }));
 
+/* ---- sweeping up abandoned uploads ----
+
+   Attachments are uploaded before the message that refers to them, which is
+   what keeps a send small enough to retry safely. The cost of that order is
+   that some uploads are never claimed: the send failed permanently and the
+   sender pressed Discard, or the app was closed between the two requests.
+
+   Nothing points at those rows and nothing ever will, but on this deployment
+   the bytes are in the only durable storage the platform has, so "a few
+   hundred kilobytes that leak every time a recording is abandoned" is not a
+   rounding error — it is the storage budget, slowly.
+
+   An hour's grace, because the gap between the two requests is measured in
+   seconds and anything older than that has definitively been abandoned. */
+const ATTACHMENT_GRACE_HOURS = Number(process.env.VUKA_ATTACH_GRACE_HOURS || 1);
+
+export async function sweepOrphanAttachments(now = new Date()) {
+  const cutoff = new Date(now.getTime() - ATTACHMENT_GRACE_HOURS * 3_600_000).toISOString();
+  const doomed = await all(
+    'SELECT id FROM attachments WHERE message_id IS NULL AND created_at < ?',
+    [cutoff],
+  );
+  if (doomed.length === 0) return 0;
+  await run('DELETE FROM attachments WHERE message_id IS NULL AND created_at < ?', [cutoff]);
+  return doomed.length;
+}
+
 /** What a thread preview says when the message isn't words. */
 const previewOf = (m) => {
   if (m.deleted_at) return 'Message deleted';
@@ -2384,6 +2411,23 @@ const server = app.listen(PORT, () => console.log(`Vuka API listening on http://
    the employer so an auto-confirmation is never something that quietly happened
    to them. The employer's own rating is untouched — they didn't do anything
    wrong, they just didn't answer. */
+/* Abandoned uploads, on their own quarter-hour. Separate from the auto-release
+   sweep only so that one failing cannot stop the other. */
+const stopAttachmentSweep = (() => {
+  const tick = async () => {
+    try {
+      const gone = await sweepOrphanAttachments();
+      if (gone) console.log(`attachments: swept ${gone} upload(s) no message ever claimed`);
+    } catch (e) {
+      captureError(e, 'attachments:sweep');
+    }
+  };
+  void tick();
+  const timer = setInterval(tick, 15 * 60_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
+})();
+
 const stopAutoRelease = startAutoRelease({
   onError: (e) => captureError(e, 'autoRelease:sweep'),
   onRelease: async (job) => {
@@ -2421,6 +2465,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`${signal} received — shutting down gracefully…`);
   stopAutoRelease();
+  stopAttachmentSweep();
   /* An SSE stream never finishes on its own, so server.close() would be waiting
      for something that is never going to happen and the failsafe below would be
      what actually ended the process — taking in-flight requests with it. Drop
