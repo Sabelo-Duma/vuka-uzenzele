@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // Root base for proper service-worker scope on static hosts (Netlify/Vercel/
 // Cloudflare Pages). For a GitHub Pages sub-path, set base to '/<repo>/'.
+/** Bump when public/icon.svg changes. Keep in step with index.html. */
+const ICON_VERSION = '2';
+
 export default defineConfig({
   base: '/',
   // Dev: proxy API calls to the local backend so the client can use relative
@@ -34,10 +37,17 @@ export default defineConfig({
         theme_color: '#0B1220',
         lang: 'en-ZA',
         categories: ['business', 'productivity', 'social'],
+        /* ?v= is a cache-buster, not a path. Browsers cache icons far more
+           aggressively than pages, so a changed mark can otherwise sit behind
+           a stale copy indefinitely. Bump it whenever the artwork changes —
+           and note that an ALREADY-INSTALLED app keeps the icon it was
+           installed with whatever we do here; only a reinstall refreshes it.
+           workbox.ignoreURLParametersMatching below keeps these served from
+           the precache despite the query string. */
         icons: [
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: `pwa-192x192.png?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
+          { src: `pwa-512x512.png?v=${ICON_VERSION}`, sizes: '512x512', type: 'image/png' },
+          { src: `maskable-512x512.png?v=${ICON_VERSION}`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
@@ -50,6 +60,10 @@ export default defineConfig({
            on glyph ranges this app will never render. They stay on the server
            and are still fetched on demand in the rare case one is needed. */
         globIgnores: ['**/*-{latin-ext,vietnamese}-*.woff2'],
+        /* So `icon.png?v=2` still matches the precached `icon.png` instead of
+           falling through to the network. The two defaults are kept because
+           setting this replaces them. */
+        ignoreURLParametersMatching: [/^v$/, /^utm_/, /^fbclid$/],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // Notification handling lives in public/push-sw.js and is pulled into
