@@ -10,7 +10,8 @@
  *   2. nothing sticks out past the right edge
  *   3. the bottom tab bar and its + button are fully on screen
  *   4. every tappable control clears 44px
- *   5. a sheet can actually be closed
+ *   5. no short label breaks across two lines
+ *   6. a sheet can actually be closed
  *
  * Run:  node scripts/check-responsive.mjs [baseUrl]
  * Needs a dev or preview server running (default http://localhost:5173).
@@ -42,7 +43,21 @@ async function measure(page) {
   return page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
-    const out = { vw, vh, scrollWidth: document.documentElement.scrollWidth, overflow: [], small: [], nav: null };
+    const out = { vw, vh, scrollWidth: document.documentElement.scrollWidth, overflow: [], small: [], wrapped: [], nav: null };
+
+    /* How many lines a label actually occupies. Measuring height against
+       line-height lies as soon as an element has a min-height, which every
+       44px control now does, so count the rectangles the text really paints. */
+    const lineCount = (el) => {
+      const tops = new Set();
+      for (const n of el.childNodes) {
+        if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        for (const rc of range.getClientRects()) tops.add(Math.round(rc.top));
+      }
+      return tops.size || 1;
+    };
 
     const describe = (el) => {
       const label = (el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
@@ -72,6 +87,19 @@ async function measure(page) {
       const tappable = el.matches('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="tab"]');
       if (tappable && (r.width < 44 || r.height < 44)) {
         out.small.push({ el: describe(el), w: Math.round(r.width), h: Math.round(r.height) });
+      }
+
+      /* A short button label broken across two lines. "Get started" stacked as
+         "Get / started" is the tell that a row has run out of room, and it
+         looks broken long before anything actually overflows.
+
+         Only simple controls: a heading is meant to wrap, and so is a card
+         whose whole body is inside a button, so anything containing block
+         content is left alone. */
+      const text = (el.textContent ?? '').trim();
+      const simpleControl = el.matches('button, [role="button"]') && !el.querySelector('h1, h2, h3, h4, p, div, article, section');
+      if (simpleControl && text.length > 0 && text.length <= 24 && lineCount(el) > 1) {
+        out.wrapped.push({ el: describe(el), text: text.slice(0, 34) });
       }
     }
 
@@ -105,6 +133,9 @@ async function check(page, viewport, screen) {
   for (const s of m.small) {
     if (SMALL_TARGET_ALLOWANCE.some((re) => re.test(s.el.replace(/^<\w+> /, '')))) continue;
     note(viewport, screen, `touch target ${s.w}x${s.h} — ${s.el}`);
+  }
+  for (const w of m.wrapped) {
+    note(viewport, screen, `label wraps across lines — “${w.text}”`);
   }
   if (m.nav?.visible) {
     if (m.nav.bottom > m.vh + 1) note(viewport, screen, `tab bar is ${m.nav.bottom - m.vh}px below the fold`);
