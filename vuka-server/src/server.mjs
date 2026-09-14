@@ -250,6 +250,20 @@ function byDistance(a, b) {
   return 0;                                    // Array#sort is stable in Node
 }
 
+/**
+ * A star rating, or null when none was given.
+ *
+ * Both rating routes used to read `Number(body.rating) || 5` and clamp it, so a
+ * missing value — or a literal 0, which is what an untouched picker now sends —
+ * was stored as five stars. Ratings are the reputation this platform trades on,
+ * and silently rounding "no opinion" up to the top of the scale devalues every
+ * genuine five on it. Callers reject null rather than guessing.
+ */
+function parseRating(v) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+}
+
 async function cvFor(userId) {
   const [profile, history, user] = await Promise.all([
     profileOf(userId), historyOf(userId), userById(userId),
@@ -907,7 +921,10 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
   if (app_.status === 'worker_done') return res.status(409).json({ error: `You've already marked this done — ${g.employer_name} still needs to confirm it.` });
   if (app_.status !== 'hired') return res.status(409).json({ error: 'This job is already finished.' });
 
-  const rating = Math.max(1, Math.min(5, Math.round(Number(req.body?.rating) || 5)));
+  const rating = parseRating(req.body?.rating);
+  if (rating === null) {
+    return res.status(400).json({ error: 'Choose a star rating for this employer before marking the job done.', field: 'rating' });
+  }
   const safetyFlag = req.body?.safetyFlag ? 1 : 0;
   const now = new Date().toISOString();
 
@@ -974,7 +991,10 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
   if (app_.status === 'completed') return res.status(409).json({ error: 'You have already confirmed this job.' });
   if (app_.status !== 'worker_done') return res.status(409).json({ error: "You can confirm this once the worker has marked it done." });
 
-  const rating = Math.max(1, Math.min(5, Math.round(Number(req.body?.rating) || 5)));
+  const rating = parseRating(req.body?.rating);
+  if (rating === null) {
+    return res.status(400).json({ error: 'Choose a star rating before confirming — it goes onto their CV as a verified reference.', field: 'rating' });
+  }
   const review = String(req.body?.review ?? '').trim().slice(0, 600) || autoReview(rating);
   const now = new Date().toISOString();
 

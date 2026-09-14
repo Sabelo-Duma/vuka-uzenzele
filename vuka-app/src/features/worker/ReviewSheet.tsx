@@ -15,7 +15,12 @@ import { Icon } from '../../components/Icon';
 export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void }) {
   const { completeGig, navigate, toast } = useApp();
   const [phase, setPhase] = useState<'review' | 'sent'>('review');
-  const [rating, setRating] = useState(5);
+  /* Starts unset, not at five.
+     Both dialogs opened on 5★ and the fastest way out was to accept it, so
+     every rating nobody thought about became the highest one. Ratings are
+     what this platform sells; a default that flatters them makes the whole
+     scale mean less. 0 means "not chosen yet" and the button waits. */
+  const [rating, setRating] = useState(0);
   const [flag, setFlag] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +47,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
           <input type="checkbox" checked={flag} onChange={(e) => setFlag(e.target.checked)} className="w-5 h-5 mt-0.5 shrink-0 accent-[var(--gj-danger)]" />
           <span className="text-small text-[#9a3412] dark:text-warning leading-snug"><b>I felt unsafe or something went wrong.</b> Flagging opens a report with our Safety team and is kept confidential. Your safety comes first.</span>
         </label>
-        <Button block disabled={busy} onClick={submit}>{busy ? 'Sending…' : 'Mark done & rate employer'}</Button>
+        <Button block disabled={busy || rating === 0} onClick={submit}>{busy ? 'Sending…' : rating === 0 ? 'Choose a rating first' : `Mark done & rate ${rating}★`}</Button>
         <p className="text-center text-small text-muted mt-3">
           {gig.employer.split(' ')[0]} then confirms the work — that's what writes the verified reference onto your CV.
         </p>

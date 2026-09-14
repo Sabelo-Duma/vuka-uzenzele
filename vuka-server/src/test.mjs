@@ -170,6 +170,14 @@ async function run() {
   const myJobs = await api('GET', '/me/jobs', { token: wTok });
   ok(myJobs.json?.some((j) => j.gig.id === 'j1' && j.status === 'hired'), 'the hired worker can still see the job');
 
+  /* A rating nobody chose must not become the best one. Both routes used to read
+     `Number(body.rating) || 5`, so a missing value — or the literal 0 an
+     untouched picker now sends — was stored as five stars. */
+  const noStars = await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 0 } });
+  ok(noStars.status === 400 && noStars.json?.field === 'rating', 'an unchosen rating is refused, not rounded up to five');
+  ok((await api('POST', '/gigs/j1/complete', { token: wTok, body: {} })).status === 400, 'and a missing rating is refused too');
+  ok((await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 9 } })).status === 400, 'as is a rating off the scale');
+
   const done = await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 5 } });
   ok(done.json?.status === 'worker_done', 'worker marks the work done and rates the employer');
   ok((await api('POST', '/gigs/j1/complete', { token: wTok, body: { rating: 5 } })).status === 409, 'cannot mark done twice');
