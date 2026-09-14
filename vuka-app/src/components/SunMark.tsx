@@ -20,9 +20,12 @@ export function SunMark({ size = 28, variant = 'bare', className = '' }: {
   className?: string;
 }) {
   const tile = variant === 'tile';
-  // Two tiles on one page would otherwise share a gradient id, and the second
-  // would paint with the first one's fill.
-  const gradId = `vuka-sky-${useId()}`;
+  /* Two tiles on one page would otherwise share a gradient id, and the second
+     would paint with the first one's fill. The colons React puts in useId are
+     stripped: they are legal in an XML id but they are not legal in a CSS
+     selector, and a `url(#...)` that some engine declines to resolve is an
+     invisible background rather than an error. */
+  const gradId = `vuka-sky-${useId().replace(/:/g, '')}`;
   return (
     <svg
       viewBox="0 0 512 512"

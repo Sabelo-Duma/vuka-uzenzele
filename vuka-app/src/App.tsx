@@ -1,5 +1,6 @@
 import { useApp } from './store/appStore';
 import { AppShell } from './components/AppShell';
+import { SunMark } from './components/SunMark';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toast } from './components/Toast';
 import { Onboarding } from './features/onboarding/Onboarding';
@@ -31,7 +32,7 @@ function BootScreen() {
   return (
     <div className="min-h-screen grid place-items-center bg-surface-2 text-center px-6">
       <div>
-        <div className="w-16 h-16 mx-auto rounded-[20px] grid place-items-center text-on-feature text-display animate-pop feature-band" aria-hidden="true">V</div>
+        <SunMark size={64} variant="tile" className="mx-auto animate-pop" />
         <p className="mt-4 text-dim text-small font-semibold">Loading Vuka Uzenzele…</p>
       </div>
     </div>

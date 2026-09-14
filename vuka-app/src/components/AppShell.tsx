@@ -170,11 +170,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* The status bar overlays the page in an installed PWA (the manifest
             asks for a translucent one), so without this inset the top row sits
             underneath it and the theme toggle cannot be tapped at all. */}
-        <header className="lg:hidden flex items-center justify-between gap-3 min-h-14 border-b border-line bg-surface shrink-0
-          pt-[env(safe-area-inset-top)]
-          pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
-          <BrandMark />
-          <ThemeToggle />
+        <header className="lg:hidden border-b border-line bg-surface shrink-0 pt-[env(safe-area-inset-top)]">
+          <div className="flex items-center justify-between gap-3 h-14
+            pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
+            <BrandMark />
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">
