@@ -17,9 +17,9 @@
    how long it's kept, and how to complain.
    ============================================================ */
 import { Sheet } from '../../components/ui';
-import { legalReady, OPERATOR, REGULATOR } from '../../data/legal';
+import { INDEPENDENCE, legalReady, OPERATOR, REGULATOR } from '../../data/legal';
 
-const responsibleParty = OPERATOR.legalName || `${OPERATOR.tradingName} (registered name to be confirmed)`;
+const responsibleParty = OPERATOR.legalName || `The operator of ${OPERATOR.product} (registered name to be confirmed)`;
 const privacyContact = OPERATOR.privacyEmail || 'the contact address published in the app';
 
 function H({ children }: { children: React.ReactNode }) {
@@ -69,6 +69,7 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
         {OPERATOR.informationOfficer ? ` Our Information Officer is ${OPERATOR.informationOfficer}.` : ' An Information Officer is being appointed.'}
         {' '}Reach us at {privacyContact}.
       </P>
+      <P>{INDEPENDENCE}</P>
 
       <H>What we collect, and why</H>
       <L items={[
@@ -194,6 +195,20 @@ export function TermsSheet({ onClose }: { onClose: () => void }) {
         not a labour broker, and not a party to the arrangement you make with the other side. We
         don't set your hours, supervise the work, or guarantee that a job exists, that it pays, or
         that anyone turns up.
+      </P>
+
+      <H>Who owns Vuka, and who runs it</H>
+      <P>{INDEPENDENCE}</P>
+      <P>
+        The name {OPERATOR.product}, this app, its design, its wording and its underlying code
+        belong to the operator, and nothing here transfers any of that to anyone else. Using the
+        app does not give you a licence to copy it, rebrand it or resell it.
+      </P>
+      <P>
+        <b>What you write stays yours.</b> Your work record, the references employers write about
+        you and anything you send through the app remain your information — we hold them to run the
+        service and to show the record you have earned. You can share your CV as a public link and
+        you can take it with you; closing your account does not mean your history was ours.
       </P>
 
       <H>Who can use it</H>

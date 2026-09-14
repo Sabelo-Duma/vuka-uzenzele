@@ -1151,6 +1151,52 @@ async function run() {
     ok((await api('GET', '/health')).json?.live?.connections === 0, 'a closed connection is let go of');
   }
 
+  /* 12b) Eighteen, enforced.
+
+     The terms have always said 18 and over. Nothing checked it, and the client
+     quietly substituted 18 whenever the field was blank — so the app's own
+     terms said one thing and its database said another.
+
+     POPIA s34 prohibits processing a child's personal information outright
+     unless a competent person consents, and Vuka has no way to obtain that
+     consent. So this is not a policy preference; it is the difference between
+     a lawful row and an unlawful one. */
+  {
+    const tryRegister = async (phone, extra) => {
+      const proof = await verifyPhone(phone);
+      return api('POST', '/auth/register', {
+        body: { role: 'worker', name: 'Age Check', phone, password: 'agecheck123', verifyToken: proof, location: 'Soweto', skills: ['garden'], ...extra },
+      });
+    };
+
+    const young = await tryRegister('0829992001', { age: 16 });
+    ok(young.status === 400, 'a worker under 18 cannot register');
+    ok(young.json?.reason === 'under_age', 'and the refusal says why in a form the app can act on');
+    ok(young.json?.field === 'age', 'and points at the field that has to change');
+    ok(/18 or older/.test(young.json?.error ?? ''), 'and says it in plain words');
+
+    ok((await tryRegister('0829992002', { age: 17 })).status === 400, '17 is still under 18');
+
+    /* The one that actually bit: no age at all. The client used to turn this
+       into 18 before it ever left the phone, so the account was created with
+       an age nobody had given. */
+    ok((await tryRegister('0829992003', {})).status === 400, 'a worker with no age given cannot register');
+    ok((await tryRegister('0829992004', { age: 'twenty' })).status === 400, 'an age that is not a number is refused');
+    ok((await tryRegister('0829992005', { age: 150 })).status === 400, 'an impossible age is refused');
+
+    const ok18 = await tryRegister('0829992006', { age: 18 });
+    ok(ok18.status === 201, 'exactly 18 is allowed');
+    const cv = await api('GET', '/me/cv', { token: ok18.json.token });
+    ok(cv.json?.profile?.age === 18, 'and the age stored is the age given');
+
+    /* An employer is not a worker profile and has no age field at all, so the
+       check must not stand in their way. */
+    ok((await api('POST', '/auth/register', {
+      body: { role: 'employer', name: 'Hiring Co', phone: '0829992007', password: 'agecheck123', verifyToken: await verifyPhone('0829992007') },
+    })).status === 201, 'an employer registers without an age');
+  }
+
+
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.
   let saw429 = false;

@@ -80,7 +80,7 @@ export async function seed() {
 
   // Demo worker (Thandeka) — fixed id so her public CV / share link is stable across deploys
   await run(INS_USER, [DEMO_WORKER_ID, 'worker', '0710000000', hashPassword('demo1234'), 'Thandeka Mokoena', NOW]);
-  await run(INS_PROFILE, [DEMO_WORKER_ID, 21, 'Soweto, Gauteng', 'Grade 11 · No matric', 'Hard-working and reliable. I learn fast and show up on time.', JSON.stringify(['cleaning', 'garden', 'errands']), 1, '#0E355A', 'March 2026', 'Reliable and eager to build my name.']);
+  await run(INS_PROFILE, [DEMO_WORKER_ID, 21, 'Soweto, Gauteng', 'Grade 11 · No matric', 'Hard-working and reliable. I learn fast and show up on time.', JSON.stringify(['cleaning', 'garden', 'errands']), 1, '#121A2E', 'March 2026', 'Reliable and eager to build my name.']);
   await run(SET_VERIFIED, [DEMO_WORKER_ID]);
   await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Deep clean 2-bedroom flat', 'cleaning', 'Mrs. Naidoo', 'PN', null, '12 Jun 2026', 4, 220, 5, 'Thandeka was fantastic — thorough, polite and finished ahead of time. Would book again in a heartbeat.', 0, NOW]);
   await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Weekly garden tidy-up', 'garden', 'Mr. van der Merwe', 'JV', null, '28 Jun 2026', 3, 150, 4, 'Good work and friendly. Garden looked great. A little late but messaged me to let me know.', 0, NOW]);

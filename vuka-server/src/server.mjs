@@ -83,6 +83,19 @@ app.use('/api', (req, res, next) => (req.path === '/health' ? next() : apiLimite
 app.use(['/api/auth/login', '/api/auth/register', '/api/auth/otp', '/api/auth/otp/verify',
   '/api/auth/password/request', '/api/auth/password/confirm'], authLimiter);
 
+/* The lowest age Vuka will register a worker at. Eighteen because the terms say
+   so and because POPIA s34 makes anything under it unlawful to process here. */
+const MIN_AGE = 18;
+
+/* The fallback colour on a profile that has never picked one.
+
+   It used to be #0E355A — an employer's brand navy, left over from the first
+   prototype, still being written onto every new profile row and handed out by
+   the API long after the app itself stopped using those colours. It was dead
+   pixels and a live claim at the same time. This is Vuka's own deep indigo,
+   from the 2.0 palette. */
+const DEFAULT_AVATAR_COLOR = '#121A2E';
+
 const initialsOf = (name) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -593,6 +606,35 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
   if (!password || password.length < 8) return res.status(400).json({ error: 'Please choose a password of at least 8 characters.' });
   if (password.length > 200) return res.status(400).json({ error: 'That password is too long.' });
   if (role !== 'worker' && role !== 'employer') return res.status(400).json({ error: 'Please choose whether you want to work or hire.' });
+  /* Eighteen, enforced.
+
+     The terms have always said Vuka is for people 18 and over. Nothing checked
+     it: age arrived from the client, `Number(age) || 18` turned anything
+     unparseable into a compliant-looking 18, and a stated 16 was written
+     straight into the profile. So the app's own terms said one thing and its
+     database said another.
+
+     This is not a tidiness point. POPIA s34 prohibits processing a child's
+     personal information outright — a child being anyone under 18 — unless a
+     competent person has consented, and Vuka has no way to obtain or verify
+     that consent. Registering a sixteen-year-old is therefore not a policy
+     choice the product is free to make; it is a breach the moment the row is
+     written.
+
+     Refused rather than silently corrected: a person who mistyped their age
+     needs to know, and one who is genuinely 16 needs a straight answer instead
+     of an account that quietly contradicts the terms they accepted. */
+  if (role === 'worker') {
+    const stated = Number(req.body?.age);
+    if (!Number.isFinite(stated) || stated < MIN_AGE) {
+      return res.status(400).json({
+        error: `You need to be ${MIN_AGE} or older to work through Vuka. Please enter your age.`,
+        field: 'age',
+        reason: 'under_age',
+      });
+    }
+    if (stated > 120) return res.status(400).json({ error: 'Please enter a valid age.', field: 'age' });
+  }
   if (await userByPhone(phone)) return res.status(409).json({ error: 'That mobile number is already registered. Try signing in instead.' });
 
   const id = uuid();
@@ -605,10 +647,10 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
     // id_verified is deliberately NOT taken from the client. It is granted only
     // by a reviewed KYC submission (POST /api/me/id-verification).
     await run('INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [id, Number(age) || 18, cap(location, 120) || 'South Africa', cap(education, 120) || 'New member',
+      [id, Number(age), cap(location, 120) || 'South Africa', cap(education, 120) || 'New member',
         cap(bio, 600) || 'New to Vuka and ready to work. Building my reputation one job at a time.',
         JSON.stringify(Array.isArray(skills) && skills.length ? skills : ['cleaning']),
-        0, '#0E355A', 'July 2026', 'New member, ready to work.']);
+        0, DEFAULT_AVATAR_COLOR, 'July 2026', 'New member, ready to work.']);
   }
 
   const user = await userById(id);
@@ -937,7 +979,7 @@ app.get('/api/gigs/:id/applicants', requireAuth, requireRole('employer'), asyncH
       applicationId: r.app_id, status: r.app_status, appliedAt: r.applied_at, workerDoneAt: r.worker_done_at,
       worker: {
         id: r.user_id, name: r.name, initials: initialsOf(r.name),
-        age: r.age, location: r.location, tagline: r.tagline, color: r.color || '#0E355A',
+        age: r.age, location: r.location, tagline: r.tagline, color: r.color || DEFAULT_AVATAR_COLOR,
         skills: JSON.parse(r.skills || '[]'), idVerified: !!r.verified,
         rating: cv.avg, jobsDone: cv.jobsDone, tier: cv.tier, badges: cv.earnedBadges,
       },
@@ -1681,7 +1723,7 @@ function chatNow() {
 
 const chatUser = async (u) => {
   const prof = await get('SELECT color FROM worker_profiles WHERE user_id = ?', [u.id]);
-  return { id: u.id, name: u.name, role: u.role, initials: initialsOf(u.name), color: prof?.color || '#0E355A' };
+  return { id: u.id, name: u.name, role: u.role, initials: initialsOf(u.name), color: prof?.color || DEFAULT_AVATAR_COLOR };
 };
 
 /* ---- attachments ----

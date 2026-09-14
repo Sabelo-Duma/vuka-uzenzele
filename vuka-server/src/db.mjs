@@ -96,7 +96,9 @@ export async function initDb() {
       bio TEXT,
       skills TEXT NOT NULL DEFAULT '[]',
       id_verified INTEGER NOT NULL DEFAULT 0,
-      color TEXT NOT NULL DEFAULT '#0E355A',
+      /* Vuka's own deep indigo. Was an employer's brand navy, carried over
+         from the first prototype and written onto every profile since. */
+      color TEXT NOT NULL DEFAULT '#121A2E',
       joined TEXT,
       tagline TEXT
     );

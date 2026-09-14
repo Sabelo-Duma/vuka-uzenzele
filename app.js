@@ -7,7 +7,7 @@
      →  your reputation rises  →  you climb the opportunity ladder
      →  better + FORMAL jobs (cashier, security, call-centre) unlock.
 
-   Brand: Gijima (navy #0E355A / red #F20023).
+   An independent product, created and owned by Sabelo Duma.
    ============================================================ */
 
 const app = document.getElementById('app');
@@ -423,7 +423,7 @@ function renderView(cv) {
    ============================================================ */
 function pitchRail(cv) {
   return `<div class="pitch">
-    <span class="eyebrow">Gijima Innovation Engine · Concept prototype</span>
+    <span class="eyebrow">Concept prototype</span>
     <h1>Vuka Uzenzele<span class="dot">.</span><span class="zulu">“Rise up &amp; do it for yourself”</span></h1>
     <p class="lead">A free, mobile-first platform that turns everyday informal work into a verified track record — and a real pathway into formal employment for South Africa's youth.</p>
     <p class="tag">“Start with no CV. Let your work write it for you — then let it open real doors.”</p>
@@ -435,7 +435,7 @@ function pitchRail(cv) {
       <li><span class="dotmark">⚖️</span><div><b>Fair pay built in.</b> Every gig checked against SA minimum wage (R28.79/hr).</div></li>
     </ul>
     <p class="credits">
-      <span class="gijmark"><span class="gd"></span>Gijima</span> · Prototype for Sabelo Duma · 2026<br>
+      Vuka Uzenzele · created and owned by Sabelo Duma · 2026<br>
       Demo tip: complete one gig and watch Thandeka climb from <b>${cv.tier.name}</b> — unlocking formal jobs.
     </p>
   </div>`;

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 /**
  * ThemeProvider — light/dark/system with persistence and no-flash support.
- * Pattern adapted from the Gijima IntelliSource design system.
+ * The standard no-flash pattern: the choice is read and applied before paint.
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';

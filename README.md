@@ -8,9 +8,12 @@ A free, mobile-first platform that connects South Africa's unemployed youth to e
 informal work **and** turns their verified track record into a **pathway to formal
 employment**. No CV, matric or qualification needed to start.
 
-Built for the **Gijima Innovation Engine** (brief from Sabelo Duma), and styled in the
-official **Gijima brand** — navy `#0E355A`, red `#F20023`, the signature red-dot accent,
-sourced from the Gijima IntelliSource design system in this repo.
+An independent product, created and owned by **Sabelo Duma**. It is not a product of,
+commissioned by, or affiliated with any employer or client.
+
+The look is Vuka's own: the 2.0 design system in `vuka-app/DESIGN.md` — amber for the one
+action that matters, teal for what a third party has verified, vermilion for what is
+happening now. The earlier prototype at the repository root predates it.
 
 ---
 
@@ -112,7 +115,7 @@ call-centre roles.
 - **📶 Low-data ethos** — no external requests; the shell is cached, so browsing and
   applying use very little data and work offline. (Actual *zero-rating* would need a
   signed arrangement with the mobile networks — the copy deliberately does not claim it.)
-- **🎨 Gijima brand + youth energy** — navy/red brand, red-dot accents, pill buttons,
+- **🎨 A design system of its own** — amber/teal/indigo tokens, pill buttons,
   plus bright tier colours, gamification and big-tap cards that stay catchy for youth.
 
 ---
@@ -122,12 +125,11 @@ call-centre roles.
 | File | Purpose |
 |---|---|
 | `index.html` | Entry point — open this |
-| `styles.css` | All styling (Gijima brand tokens, mobile-first) |
+| `styles.css` | All styling for the early prototype (mobile-first) |
 | `app.js` | The app: SPA router, all screens, tier engine, review→CV→tier loop |
 | `data.js` | Mock seed data (worker, gigs, formal jobs, tiers, badges) |
 
-Brand + design guidance drawn from `IntelliSource/_input/gijima-styles.css` and
-`IntelliSource/design-system/` (Gijima's own design system) in this repo.
+Design guidance lives in `vuka-app/DESIGN.md`.
 
 *Prototype only — data lives in memory and resets on refresh. No real accounts, payments
 or personal data. Formal-employer names are fictional (a prototype must not fabricate real
@@ -135,4 +137,4 @@ companies' listings).*
 
 ---
 
-*Prototype for **Sabelo Duma** · Gijima Innovation Engine · 2026*
+*Vuka Uzenzele · created and owned by **Sabelo Duma** · 2026*
