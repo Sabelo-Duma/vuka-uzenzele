@@ -18,6 +18,35 @@ import { chromium } from 'playwright';
 
 const BASE = process.argv[2] ?? 'http://localhost:5173';
 
+/* This suite SENDS things. It posts messages and uploads voice notes as the two
+   demo accounts, and every one of them stays in that conversation afterwards —
+   there is no hard delete, so a withdrawn message leaves a tombstone rather
+   than disappearing.
+
+   Which is fine against a throwaway local database and not fine against the
+   live one, where that thread is what gets shown to people. Run against
+   anything but localhost it stops and asks, because "verify the deploy" is a
+   reasonable thing to want and pasting a production URL by reflex is a
+   reasonable thing to do. */
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ""; } };
+const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostOf(BASE));
+if (!isLocal && process.argv[3] !== '--i-know-this-writes') {
+  console.error(`
+  Refusing to run against ${BASE}.
+
+  This suite posts messages and voice notes as the demo accounts, and they stay
+  in that conversation — messages are withdrawn, never erased.
+
+  Against a local server that costs nothing. Against production it leaves test
+  chatter in the thread people are shown.
+
+  If you really do want to verify a deploy this way:
+      npm run check:chat -- ${BASE} --i-know-this-writes
+  and expect to tidy the demo thread afterwards.
+`);
+  process.exit(2);
+}
+
 let failures = 0;
 const ok = (cond, msg) => {
   if (cond) console.log(`  ok    ${msg}`);
