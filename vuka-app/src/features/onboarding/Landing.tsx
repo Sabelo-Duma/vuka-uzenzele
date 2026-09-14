@@ -31,15 +31,22 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
       {/* Top nav */}
       <header className="sticky top-0 z-30 bg-surface-veil backdrop-blur border-b border-line pt-[env(safe-area-inset-top)]">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 min-h-16 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead">
-            <span className="w-3 h-3 rounded-full bg-brand-solid" />Vuka Uzenzele
+          {/* Four things in a 320px row is one too many, so the wordmark gives
+              way first. Nothing here is allowed to break mid-label: "Get
+              started" stacked as "Get / started" reads as broken long before
+              anything actually overflows. */}
+          <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead whitespace-nowrap min-w-0">
+            <span className="w-3 h-3 rounded-full bg-brand-solid shrink-0" aria-hidden="true" />
+            <span className="sr-only">Vuka Uzenzele</span>
+            <span aria-hidden="true" className="sm:hidden">Vuka</span>
+            <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface-2 transition active:scale-95">
               <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
             </button>
-            <button onClick={onLogin} className="inline-flex items-center min-h-[44px] text-small font-bold text-ink px-3 rounded-pill hover:bg-surface-2 transition">Log in</button>
-            <button onClick={onGetStarted} className="inline-flex items-center min-h-[44px] rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 sm:px-5 hover:bg-brand-hover transition active:scale-95">Get started</button>
+            <button onClick={onLogin} className="inline-flex items-center whitespace-nowrap min-h-[44px] text-small font-bold text-ink px-2 sm:px-3 rounded-pill hover:bg-surface-2 transition">Log in</button>
+            <button onClick={onGetStarted} className="inline-flex items-center whitespace-nowrap min-h-[44px] rounded-pill bg-brand-solid text-brand-on text-small font-bold px-3.5 sm:px-5 hover:bg-brand-hover transition active:scale-95">Get started</button>
           </div>
         </div>
       </header>
