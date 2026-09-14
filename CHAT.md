@@ -124,6 +124,30 @@ only when it is actually in front of someone (`document.hidden` is checked).
 
 ---
 
+## The thread header, and the keyboard
+
+The header is a name and a status — Online, Offline, or *typing…* — and nothing
+else. There is no back arrow: leaving a conversation is a left-edge swipe on a
+phone, the Chats tab in the bar, or Chats in the sidebar on a laptop. Three ways
+out already existed; a fourth, boxed, sitting where the person's name should be,
+was one too many.
+
+Offline is stated out loud. It used to fall back to the person's role, so "not
+here right now" and "is an employer" shared one line and neither read as the
+other's absence.
+
+**The tab bar stands down while the keyboard is up.** Since Chrome 108 both
+Android and iOS resize only the *visual* viewport for a keyboard and leave the
+layout viewport alone — so `100dvh` does not shrink, `position: fixed` does not
+move, and a bar pinned to the bottom of the shell stays exactly where it was,
+wedged between the message box and the keys. `useKeyboardOpen()` watches the gap
+between the two viewports, with a 120px threshold that sits above the browser's
+own chrome (a hiding URL bar moves it 50–90px) and below any keyboard.
+
+Measuring the gap rather than watching focus is deliberate: on iOS the
+keyboard's own *Done* button dismisses it **without blurring the field**, so a
+focus-based check would hide the bar and never bring it back.
+
 ## Voice notes
 
 The single most useful thing chat can offer this audience: saying "I'm at the
@@ -289,7 +313,7 @@ cd vuka-server && npm test          # 385 assertions, chat is section 12
 cd vuka-app    && npm run check:chat # two real browsers, a real microphone
 ```
 
-`check:chat` drives two signed-in users at once in Chromium with a synthetic
+`check:chat` (33 assertions) drives two signed-in users at once in Chromium with a synthetic
 capture device, and covers what an API test structurally cannot: that a
 microphone opens, that whatever this engine records is a format the server
 accepts and hands back, that a message reaches the other screen without that
@@ -297,6 +321,13 @@ screen asking, that the ticks change when it does, that everything still works
 with the event stream blocked outright, and that a message written with the
 network cut is on screen immediately, written to disk, and delivered exactly
 once when the signal returns.
+
+The keyboard assertions are the exception to "real browser": a test cannot open
+a soft keyboard, so they drive a controllable `visualViewport` at phone width.
+The browser's half of that contract is documented by Chrome and WebKit; the
+assertions cover ours. An earlier version of them passed while watching the
+desktop sidebar, which shares an accessible name with the tab bar and never
+moves — they target `nav.tabbar` now.
 
 It needs both servers running (`npm run dev` and the API on `:3001`).
 
