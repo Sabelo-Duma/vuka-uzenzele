@@ -80,18 +80,59 @@ export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiP
 export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; followers?: number; }
 export interface Invitation { id: string; message: string | null; gig: Gig; }
 export interface ChatUser { id: string; name: string; role: Role; initials: string; color: string; }
+/** What kind of thing a message is. */
+export type MessageKind = 'text' | 'voice' | 'image';
 /** The message a reply is quoting — a snippet, not the whole thing. */
-export interface QuotedMessage { id: string; senderId: string; body: string; deleted: boolean; }
+export interface QuotedMessage { id: string; senderId: string; body: string; kind: MessageKind; deleted: boolean; }
+/** A voice note or a photo. Never carries the bytes — those are fetched by id. */
+export interface Attachment {
+  id: string;
+  kind: 'voice' | 'image';
+  mime: string;
+  size: number;
+  /** Voice only. */
+  durationMs: number | null;
+  /** Voice only: one digit 0-9 per bar, measured by the sender as they spoke. */
+  waveform: string | null;
+  /** Image only. */
+  width: number | null;
+  height: number | null;
+}
 export interface Message {
-  id: string; senderId: string; recipientId: string; body: string; createdAt: string; read: boolean;
+  id: string;
+  /** The sender's own id for this message, minted before it was first sent. */
+  clientId: string | null;
+  senderId: string; recipientId: string;
+  kind: MessageKind;
+  body: string; createdAt: string;
+  /** It reached a device they are signed in on. */
+  delivered: boolean;
+  /** They opened the conversation with it on screen. */
+  read: boolean;
   /** Set once the sender has changed it; the UI must say so. */
   editedAt: string | null;
   /** Withdrawn by the sender. `body` is empty — render a tombstone, not a blank. */
   deleted: boolean;
+  attachment: Attachment | null;
   replyTo: QuotedMessage | null;
 }
-export interface Conversation { user: ChatUser; lastMessage: string; lastAt: string; lastFromMe: boolean; unread: number; }
-export interface Thread { other: ChatUser; messages: Message[]; editWindowMinutes: number; }
+export interface Conversation {
+  user: ChatUser; lastMessage: string; lastKind: MessageKind; lastAt: string;
+  lastFromMe: boolean; lastRead: boolean; lastDelivered: boolean;
+  unread: number; online: boolean;
+}
+export interface Thread {
+  other: ChatUser;
+  online: boolean;
+  messages: Message[];
+  /** There is older history above this page. */
+  hasMore: boolean;
+  editWindowMinutes: number;
+  voiceMaxMs: number;
+  attachMaxBytes: number;
+}
+/** What one round of catching up returned. */
+export interface SyncResult { now: string; unread: number; messages: Message[] }
 export interface Social { followers: number; following: number; isFollowing: boolean; }
 export interface ServerTalent {
   id: string; name: string; initials: string; age: number; location: string;
@@ -211,6 +252,116 @@ export function toTalentWorker(t: ServerTalent): TalentWorker {
   };
 }
 
+/* ============================================================
+   Attachments — the one part of the API that isn't JSON.
+
+   Bytes go up on their own, before any message refers to them. Two round trips
+   instead of one, and worth it: a voice note is a hundred times the size of the
+   message that carries it, so the send itself stays small enough to retry, and
+   a recording that dies halfway leaves nothing but an unreferenced row.
+   ============================================================ */
+
+export interface UploadOptions {
+  kind: 'voice' | 'image';
+  durationMs?: number;
+  waveform?: string;
+  width?: number;
+  height?: number;
+  /** 0-1, called as the bytes go. */
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Send the bytes.
+ *
+ * XMLHttpRequest rather than fetch, for one reason: upload progress. fetch
+ * still cannot report it in any browser this app runs on, and a voice note on a
+ * slow connection with no sign of movement is indistinguishable from a broken
+ * one — which is when people press send again.
+ */
+export function uploadAttachment(blob: Blob, opts: UploadOptions): Promise<Attachment> {
+  const q = new URLSearchParams({ kind: opts.kind });
+  if (opts.durationMs != null) q.set('durationMs', String(Math.round(opts.durationMs)));
+  if (opts.waveform) q.set('waveform', opts.waveform);
+  if (opts.width != null) q.set('w', String(Math.round(opts.width)));
+  if (opts.height != null) q.set('h', String(Math.round(opts.height)));
+
+  return new Promise<Attachment>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE}/attachments?${q}`);
+    xhr.responseType = 'json';
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    // The blob's own type carries the container and codec the browser chose.
+    xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) opts.onProgress?.(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      const data = xhr.response as { error?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        opts.onProgress?.(1);
+        resolve(xhr.response as Attachment);
+      } else if (xhr.status === 413) {
+        reject(new ApiError('That recording is too long to send. Try a shorter one.', 413));
+      } else {
+        reject(new ApiError(data?.error ?? 'That upload failed. Please try again.', xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError("Can't reach Vuka right now. Check your connection and try again.", 0));
+    xhr.onabort = () => reject(new ApiError('Upload cancelled.', 0));
+    opts.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(blob);
+  });
+}
+
+/**
+ * Bring an attachment back as a blob URL.
+ *
+ * Never pointed at directly with <audio src="/api/attachments/…">. A media
+ * element cannot send an Authorization header, and Safari expects a server it
+ * streams from to answer byte-range requests — a blob URL sidesteps both, and
+ * makes the clip play instantly the second time.
+ *
+ * Cached for the life of the page, keyed by id. The bytes behind an id never
+ * change, so the only cost of keeping one is the memory, and the cost of not
+ * keeping it is re-downloading a voice note every time the thread scrolls.
+ */
+const blobUrls = new Map<string, Promise<string>>();
+
+export function attachmentUrl(id: string): Promise<string> {
+  const cached = blobUrls.get(id);
+  if (cached) return cached;
+
+  const pending = (async () => {
+    const res = await fetch(`${BASE}/attachments/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let msg = 'That file is no longer available.';
+      try { msg = ((await res.json()) as { error?: string }).error ?? msg; } catch { /* no body */ }
+      throw new ApiError(msg, res.status);
+    }
+    return URL.createObjectURL(await res.blob());
+  })();
+
+  // A failure must not be cached, or a clip that failed once never loads again.
+  pending.catch(() => blobUrls.delete(id));
+  blobUrls.set(id, pending);
+  return pending;
+}
+
+/** Let go of a clip's bytes — used when a message is withdrawn. */
+export function forgetAttachment(id: string) {
+  const held = blobUrls.get(id);
+  blobUrls.delete(id);
+  held?.then((url) => URL.revokeObjectURL(url)).catch(() => { /* never resolved */ });
+}
+
+/** The live channel's address, once a ticket has been bought. */
+export const eventStreamUrl = (ticket: string) => `${BASE}/events?ticket=${encodeURIComponent(ticket)}`;
+
 export const api = {
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
   /** One field, either credential. The server tells a phone from an email. */
@@ -254,9 +405,40 @@ export const api = {
   respondInvitation: (id: string, accept: boolean) => request<{ ok: boolean; accepted: boolean; gigId: string }>('POST', `/invitations/${id}/respond`, { accept }),
   unreadCount: () => request<{ count: number }>('GET', '/messages/unread-count'),
   listConversations: () => request<Conversation[]>('GET', '/messages/conversations'),
-  getThread: (userId: string) => request<Thread>('GET', `/messages/thread/${userId}`),
-  sendMessage: (toUserId: string, body: string, replyToId?: string | null) =>
-    request<Message>('POST', '/messages', { toUserId, body, replyToId: replyToId ?? null }),
+  /**
+   * One conversation, in one of three shapes.
+   *   {}              the newest page — opening a chat
+   *   { before }      the page above that — scrolling up
+   *   { since }       only what changed — staying current
+   * `since` is inclusive, so the caller must deduplicate by id. That is
+   * deliberate on the server's side: a cursor that overlaps can never skip a
+   * message, and a duplicate costs nothing to throw away.
+   */
+  getThread: (userId: string, opts: { since?: string; before?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.since) q.set('since', opts.since);
+    if (opts.before) q.set('before', opts.before);
+    if (opts.limit) q.set('limit', String(opts.limit));
+    const qs = q.toString();
+    return request<Thread>('GET', `/messages/thread/${userId}${qs ? `?${qs}` : ''}`);
+  },
+  /** Everything new across every conversation — one request, not one per thread. */
+  syncMessages: (since: string) => request<SyncResult>('GET', `/messages/sync?since=${encodeURIComponent(since)}`),
+  /** Say the messages were actually put in front of someone. */
+  markRead: (userId: string, upTo?: string) =>
+    request<{ ok: boolean; marked: number; unread: number }>('POST', '/messages/read', { userId, upTo: upTo ?? null }),
+  /** A signal, not a record. Fire and forget. */
+  sendTyping: (toUserId: string) => request<{ ok: boolean }>('POST', '/messages/typing', { toUserId }),
+  /** A sixty-second pass for the live channel, since EventSource cannot send headers. */
+  eventTicket: () => request<{ ticket: string; expiresIn: number }>('POST', '/events/ticket'),
+  sendMessage: (toUserId: string, body: string, opts: { replyToId?: string | null; clientId?: string; attachmentId?: string | null } = {}) =>
+    request<Message>('POST', '/messages', {
+      toUserId,
+      body,
+      replyToId: opts.replyToId ?? null,
+      clientId: opts.clientId ?? null,
+      attachmentId: opts.attachmentId ?? null,
+    }),
   editMessage: (id: string, body: string) => request<Message>('PATCH', `/messages/${id}`, { body }),
   deleteMessage: (id: string) => request<Message>('DELETE', `/messages/${id}`),
   getSocial: (userId: string) => request<Social>('GET', `/users/${userId}/social`),

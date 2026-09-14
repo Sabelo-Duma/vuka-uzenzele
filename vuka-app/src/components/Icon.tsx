@@ -4,7 +4,8 @@ export type IconName =
   | 'home' | 'jobs' | 'ladder' | 'user' | 'talent' | 'plus' | 'back' | 'chev'
   | 'pin' | 'shield' | 'bolt' | 'lock' | 'check' | 'sun' | 'moon' | 'briefcase'
   | 'x' | 'bell' | 'camera' | 'globe' | 'card' | 'wallet' | 'star' | 'chat' | 'send' | 'clock'
-  | 'reply' | 'edit' | 'trash' | 'copy' | 'search' | 'filter';
+  | 'reply' | 'edit' | 'trash' | 'copy' | 'search' | 'filter'
+  | 'mic' | 'play' | 'pause' | 'stop' | 'image' | 'download' | 'more' | 'alert' | 'retry';
 
 const P = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>,
@@ -39,6 +40,15 @@ const P = {
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3.5 2" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5 21 21" /></>,
   filter: <><path d="M3 5h18M7 12h10M11 19h2" /></>,
+  mic: <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3M9 21h6" /></>,
+  play: <><path d="M8 5.5v13l11-6.5z" /></>,
+  pause: <><path d="M9 4v16M15 4v16" /></>,
+  stop: <><rect x="6" y="6" width="12" height="12" rx="2.5" /></>,
+  image: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="8.5" cy="9.5" r="1.8" /><path d="m3 16.5 5-4.5 4.5 4 3-2.5L21 18" /></>,
+  download: <><path d="M12 3v12" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M4 20h16" /></>,
+  more: <><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></>,
+  alert: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><circle cx="12" cy="16.5" r="1" /></>,
+  retry: <><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>,
 } as const satisfies Record<IconName, React.ReactNode>;
 
 interface IconProps extends SVGProps<SVGSVGElement> {
@@ -47,7 +57,10 @@ interface IconProps extends SVGProps<SVGSVGElement> {
 }
 
 export function Icon({ name, size = 24, ...rest }: IconProps) {
-  const filled = name === 'bolt' || name === 'star';
+  /* Filled rather than outlined. A play triangle or a stop square drawn as a
+     2px outline at 16px is a grey smudge, and these two in particular are
+     silhouettes everywhere else a person has ever seen them. */
+  const filled = name === 'bolt' || name === 'star' || name === 'play' || name === 'stop' || name === 'more';
   return (
     <svg
       viewBox="0 0 24 24"

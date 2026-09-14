@@ -13,6 +13,10 @@ for (const suffix of ['', '-wal', '-shm']) { const f = TEST_DB + suffix; if (exi
 
 process.env.VUKA_DB = TEST_DB;
 process.env.PORT = '3999';
+/* The whole suite runs from one address in well under a minute, which is
+   exactly the shape the per-IP limiter exists to stop. Lifted here only; the
+   limiter itself is still exercised, by the auth-specific one at the end. */
+process.env.VUKA_RATE_MAX = '100000';
 // A throwaway VAPID keypair so the push routes are switched on for the run.
 // Generated here with node:crypto rather than via push.mjs, because that module
 // reads its keys at import time — importing it first would freeze them as empty.
@@ -38,6 +42,18 @@ async function api(method, path, { token, body } = {}) {
     method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
+  });
+  let json = null; try { json = await res.json(); } catch { /* no body */ }
+  return { status: res.status, json };
+}
+
+/** POST raw bytes (an attachment) — the JSON helper cannot carry them. */
+async function upload(token, bytes, contentType, query = {}) {
+  const qs = new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString();
+  const res = await fetch(BASE + '/attachments?' + qs, {
+    method: 'POST',
+    headers: { 'Content-Type': contentType, Authorization: 'Bearer ' + token },
+    body: bytes,
   });
   let json = null; try { json = await res.json(); } catch { /* no body */ }
   return { status: res.status, json };
@@ -252,6 +268,11 @@ async function run() {
   const thread = await api('GET', `/messages/thread/${eId}`, { token: wTok });
   // The employer's own hire message for `postedId` is in this thread too.
   ok(thread.json?.messages?.length >= 1 && thread.json?.other?.id === eId, 'worker reads the thread');
+  /* Loading a thread no longer clears unread — it marks the messages
+     delivered. Saying you have read them is a separate, explicit statement,
+     because the app also syncs threads nobody is looking at. */
+  ok((await api('GET', '/messages/unread-count', { token: wTok })).json?.count === unreadBefore + 1, 'loading a thread does not claim it was read');
+  ok((await api('POST', '/messages/read', { token: wTok, body: { userId: eId } })).json?.ok === true, 'the worker marks the conversation read');
   ok((await api('GET', '/messages/unread-count', { token: wTok })).json?.count === unreadBefore, 'reading a thread clears only that thread\'s unread');
   await api('POST', '/messages', { token: wTok, body: { toUserId: eId, body: 'Yes, morning works.' } });
   const convos = await api('GET', '/messages/conversations', { token: eTok });
@@ -899,6 +920,207 @@ async function run() {
     ok(hire?.status === 'completed', 'the employer sees it as completed');
     ok((await api('POST', `/applications/${hire.applicationId}/confirm`, { token: arEmp, body: { rating: 5 } })).status === 409,
       'an employer cannot retro-rate a job that was already auto-released');
+  }
+
+  /* 12) chat, properly.
+
+     Everything a conversation has to get right that a happy-path send does not
+     exercise: that a retry cannot post twice, that history pages, that only
+     the two people in a thread can open what was sent in it, that a receipt
+     means what it says, and that the live channel actually delivers. */
+  {
+    const mk = async (phone, name, role) => {
+      const r = await api('POST', '/auth/register', {
+        body: { role, name, phone, password: 'chatpass123', age: 25, location: 'Soweto', skills: ['garden'], verifyToken: await verifyPhone(phone) },
+      });
+      if (r.status !== 201) throw new Error(`could not register ${name}: ${r.status} ${JSON.stringify(r.json)}`);
+      return { id: r.json.user.id, tok: r.json.token };
+    };
+    const A = await mk('0829991001', 'Chat Alpha', 'employer');
+    const B = await mk('0829991002', 'Chat Beta', 'worker');
+    const C = await mk('0829991003', 'Chat Gamma', 'worker');
+
+    // --- idempotency: the same clientId can be sent as often as you like ---
+    const cid = 'client-' + Math.random().toString(36).slice(2);
+    const first = await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'Same message', clientId: cid } });
+    ok(first.status === 201, 'a new message is created');
+    ok(first.json?.clientId === cid, 'the message carries the sender\'s own id back');
+    const retry = await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'Same message', clientId: cid } });
+    ok(retry.status === 200, 'a retry of the same message is not a creation');
+    ok(retry.json?.id === first.json.id, 'a retry returns the message that already exists');
+    const threadAB = await api('GET', `/messages/thread/${B.id}`, { token: A.tok });
+    ok(threadAB.json.messages.filter((m) => m.clientId === cid).length === 1, 'a retried message appears exactly once in the thread');
+
+    // A different clientId is a different message, even with identical text.
+    const twin = await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'Same message', clientId: cid + '-2' } });
+    ok(twin.status === 201 && twin.json.id !== first.json.id, 'the same words sent twice on purpose are two messages');
+
+    // --- receipts: sent → delivered → read, and never backwards ---
+    ok(first.json.delivered === false && first.json.read === false, 'a message starts out neither delivered nor read');
+    await api('GET', `/messages/thread/${A.id}`, { token: B.tok });
+    const afterOpen = await api('GET', `/messages/thread/${B.id}`, { token: A.tok });
+    const seen = afterOpen.json.messages.find((m) => m.id === first.json.id);
+    ok(seen?.delivered === true, 'opening the thread marks what was waiting as delivered');
+    ok(seen?.read === false, 'opening a thread is not the same as reading it');
+    ok((await api('GET', '/messages/unread-count', { token: B.tok })).json.count >= 2, 'unread survives a thread being loaded');
+
+    const readRes = await api('POST', '/messages/read', { token: B.tok, body: { userId: A.id } });
+    ok(readRes.json?.ok === true && readRes.json.marked >= 2, 'reading the conversation marks the messages read');
+    ok(readRes.json.unread === 0, 'the read receipt returns the new unread total');
+    const afterRead = await api('GET', `/messages/thread/${B.id}`, { token: A.tok });
+    ok(afterRead.json.messages.find((m) => m.id === first.json.id)?.read === true, 'the sender sees it was read');
+    ok((await api('POST', '/messages/read', { token: B.tok, body: {} })).status === 400, 'a read receipt has to name a conversation');
+
+    // --- delta sync: ask for what changed, get only what changed ---
+    const cursor = afterRead.json.messages[afterRead.json.messages.length - 1].createdAt;
+    const quiet = await api('GET', `/messages/thread/${B.id}?since=${encodeURIComponent(cursor)}`, { token: A.tok });
+    ok(quiet.json.messages.length === 1, 'a delta with nothing new returns only the message on the cursor');
+    await api('POST', '/messages', { token: B.tok, body: { toUserId: A.id, body: 'Yes, Saturday works', clientId: 'b-1' } });
+    const delta = await api('GET', `/messages/thread/${B.id}?since=${encodeURIComponent(cursor)}`, { token: A.tok });
+    ok(delta.json.messages.some((m) => m.body === 'Yes, Saturday works'), 'a delta carries what arrived after the cursor');
+    ok(delta.json.messages.length === 2, 'a delta carries nothing that was already in hand');
+
+    const sync = await api('GET', `/messages/sync?since=${encodeURIComponent(cursor)}`, { token: A.tok });
+    ok(Array.isArray(sync.json?.messages) && typeof sync.json.unread === 'number', 'the cross-thread sync returns messages and an unread total');
+    ok((await api('GET', '/messages/sync', { token: A.tok })).json.messages.length === 0, 'a sync with no cursor asks for nothing');
+
+    // --- history pages, newest first, without gaps ---
+    for (let i = 0; i < 12; i++) {
+      await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: `line ${i}`, clientId: `bulk-${i}` } });
+    }
+    const page1 = await api('GET', `/messages/thread/${B.id}?limit=5`, { token: A.tok });
+    ok(page1.json.messages.length === 5, 'a page is the size that was asked for');
+    ok(page1.json.hasMore === true, 'a page that is not the whole thread says so');
+    ok(page1.json.messages[4].body === 'line 11', 'the first page is the newest messages');
+    const page2 = await api('GET', `/messages/thread/${B.id}?limit=5&before=${encodeURIComponent(page1.json.messages[0].createdAt)}`, { token: A.tok });
+    ok(page2.json.messages.length === 5, 'the page above loads');
+    ok(page2.json.messages.every((m) => m.createdAt < page1.json.messages[0].createdAt), 'the page above is strictly older');
+    ok(!page2.json.messages.some((m) => page1.json.messages.some((n) => n.id === m.id)), 'consecutive pages do not overlap');
+
+    /* Two messages written in the same millisecond must still have an order,
+       or paging through history would drop one at every page boundary. */
+    const stamps = page1.json.messages.map((m) => m.createdAt);
+    ok(new Set(stamps).size === stamps.length, 'no two messages share a timestamp');
+
+    // --- attachments: a voice note, end to end ---
+    const clip = Buffer.from('ID3-not-really-audio-but-bytes'.repeat(20));
+    const up = await upload(A.tok, clip, 'audio/webm;codecs=opus', { kind: 'voice', durationMs: 4200, waveform: '1357986421' });
+    ok(up.status === 201 && up.json?.id, 'a voice note uploads');
+    ok(up.json.mime === 'audio/webm', 'the codec parameter is stripped from the stored type');
+    ok(up.json.durationMs === 4200 && up.json.waveform === '1357986421', 'the clip keeps its length and its waveform');
+    ok(up.json.size === clip.length, 'the stored size is the size that arrived');
+
+    const voiceMsg = await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, attachmentId: up.json.id, clientId: 'voice-1' } });
+    ok(voiceMsg.status === 201, 'a voice note can be sent with no text at all');
+    ok(voiceMsg.json.kind === 'voice' && voiceMsg.json.attachment?.durationMs === 4200, 'the message carries the clip');
+    ok((await api('POST', '/messages', { token: A.tok, body: { toUserId: C.id, attachmentId: up.json.id, clientId: 'voice-2' } })).status === 409,
+      'a clip that has already been sent cannot be sent again');
+    ok((await api('POST', '/messages', { token: B.tok, body: { toUserId: A.id, attachmentId: up.json.id, clientId: 'voice-3' } })).status === 404,
+      "you cannot send somebody else's recording as your own");
+    ok((await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, clientId: 'empty-1' } })).status === 400,
+      'a message with neither words nor a clip is refused');
+
+    // Only the two people in the conversation can open the bytes.
+    const fetchClip = async (token) => (await fetch(`${BASE}/attachments/${up.json.id}`, { headers: { Authorization: `Bearer ${token}` } }));
+    const asSender = await fetchClip(A.tok);
+    ok(asSender.status === 200, 'the sender can play back their own clip');
+    ok(asSender.headers.get('content-type') === 'audio/webm', 'the clip comes back as the type it was stored under');
+    ok(Buffer.from(await asSender.arrayBuffer()).equals(clip), 'the bytes that come back are the bytes that went in');
+    ok((await fetchClip(B.tok)).status === 200, 'the person it was sent to can play it');
+    ok((await fetchClip(C.tok)).status === 403, 'a stranger cannot open a clip from a conversation they are not in');
+    ok((await fetch(`${BASE}/attachments/${up.json.id}`)).status === 401, 'a clip is not public');
+
+    ok((await upload(A.tok, clip, 'audio/webm', { kind: 'voice', durationMs: 50 })).status === 400, 'a recording too short to be speech is refused');
+    ok((await upload(A.tok, clip, 'application/pdf', { kind: 'voice', durationMs: 3000 })).status === 415, 'a file that is not audio is refused as a voice note');
+    ok((await upload(A.tok, Buffer.alloc(0), 'audio/webm', { kind: 'voice', durationMs: 3000 })).status === 400, 'an empty upload is refused');
+    /* Over the ceiling. body-parser rejects this before any handler runs, so
+       without explicit handling it surfaced as a 500 — "something went wrong
+       on our side" for a problem the sender can actually fix. */
+    const huge = await upload(A.tok, Buffer.alloc(3 * 1024 * 1024, 1), 'audio/webm', { kind: 'voice', durationMs: 30_000 });
+    ok(huge.status === 413, `a file over the size ceiling is refused as too large (got ${huge.status})`);
+    ok(/too large/i.test(huge.json?.error ?? ''), 'and says so in words the sender can act on');
+    const capped = await upload(A.tok, clip, 'audio/mp4', { kind: 'voice', durationMs: 999_999 });
+    ok(capped.json.durationMs === 60_000, 'a clip claiming to be longer than the cap is trimmed to it');
+    ok((await upload(A.tok, clip, 'image/jpeg', { kind: 'image', w: 1200, h: 900 })).json?.width === 1200, 'a photo keeps its dimensions');
+
+    // The inbox says what a wordless message actually is.
+    const inbox = (await api('GET', '/messages/conversations', { token: B.tok })).json;
+    const fromA = inbox.find((c) => c.user.id === A.id);
+    ok(fromA?.lastMessage === '🎤 Voice note', 'the inbox describes a voice note rather than showing an empty line');
+    ok(fromA?.lastKind === 'voice', 'the inbox says what kind the last message was');
+
+    // Withdrawing a voice note has to take the audio with it.
+    ok((await api('PATCH', `/messages/${voiceMsg.json.id}`, { token: A.tok, body: { body: 'changed my mind' } })).status === 409,
+      'a voice note cannot be silently rewritten as text');
+    ok((await api('DELETE', `/messages/${voiceMsg.json.id}`, { token: A.tok })).json?.deleted === true, 'a voice note can be withdrawn');
+    ok((await fetchClip(A.tok)).status === 404, 'withdrawing a voice note deletes the recording, not just the link to it');
+    const afterDelete = (await api('GET', `/messages/thread/${A.id}`, { token: B.tok })).json.messages.find((m) => m.id === voiceMsg.json.id);
+    ok(afterDelete?.deleted === true && afterDelete?.attachment === null, 'the withdrawn message keeps its place and loses its clip');
+
+    // --- typing, which is only ever a signal ---
+    ok((await api('POST', '/messages/typing', { token: A.tok, body: { toUserId: B.id } })).json?.ok === true, 'a typing ping is accepted');
+    ok((await api('POST', '/messages/typing', { token: A.tok, body: { toUserId: A.id } })).json?.ok === true, 'typing at yourself is harmless');
+
+    // --- the live channel ---
+    const ticketRes = await api('POST', '/events/ticket', { token: B.tok });
+    ok(typeof ticketRes.json?.ticket === 'string', 'a signed-in user can get a connection ticket');
+    ok((await fetch(`${BASE}/events?ticket=not-a-real-ticket`)).status === 401, 'the live channel refuses an invalid ticket');
+
+    const stream = await fetch(`${BASE}/events?ticket=${encodeURIComponent(ticketRes.json.ticket)}`);
+    ok(stream.status === 200, 'the live channel opens');
+    ok((stream.headers.get('content-type') || '').startsWith('text/event-stream'), 'the live channel is an event stream');
+
+    const events = [];
+    const reader = stream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = '';
+    const pump = (async () => {
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          buffered += decoder.decode(value, { stream: true });
+          let cut;
+          while ((cut = buffered.indexOf('\n\n')) !== -1) {
+            const block = buffered.slice(0, cut);
+            buffered = buffered.slice(cut + 2);
+            const name = /^event: (.+)$/m.exec(block)?.[1];
+            const data = /^data: (.+)$/m.exec(block)?.[1];
+            if (name) events.push({ name, data: data ? JSON.parse(data) : null });
+          }
+        }
+      } catch { /* the stream was cancelled below */ }
+    })();
+
+    const waitFor = async (name, ms = 3000) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        const hit = events.find((e) => e.name === name);
+        if (hit) return hit;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      return null;
+    };
+
+    ok(await waitFor('ready'), 'the live channel says hello when it opens');
+    ok((await api('GET', '/health')).json?.live?.connections >= 1, 'health reports the open connection');
+
+    await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'Live one', clientId: 'live-1' } });
+    const pushed = await waitFor('message');
+    ok(pushed?.data?.body === 'Live one', 'a message arrives on the live channel without being asked for');
+
+    await api('POST', '/messages/typing', { token: A.tok, body: { toUserId: B.id } });
+    ok((await waitFor('typing'))?.data?.from === A.id, 'a typing signal arrives on the live channel');
+
+    /* Delivered without anybody opening anything: the message reached a device
+       that was listening, which is the whole point of the receipt. */
+    const liveRow = (await api('GET', `/messages/thread/${B.id}`, { token: A.tok })).json.messages.find((m) => m.clientId === 'live-1');
+    ok(liveRow?.delivered === true, 'a message pushed to an open app is delivered without a fetch');
+
+    await reader.cancel().catch(() => {});
+    await pump;
+    await new Promise((r) => setTimeout(r, 120));
+    ok((await api('GET', '/health')).json?.live?.connections === 0, 'a closed connection is let go of');
   }
 
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
