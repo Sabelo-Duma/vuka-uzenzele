@@ -211,7 +211,9 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
   a: Applicant; gigTitle: string; busy: boolean; onClose: () => void;
   onConfirm: (rating: number, review: string) => void;
 }) {
-  const [rating, setRating] = useState(5);
+  // Unset, not five — see the note in ReviewSheet. A pre-filled top score is
+  // the one people accept without deciding.
+  const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const first = a.worker.name.split(' ')[0];
   return (
@@ -234,8 +236,8 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
         aria-label="Your review"
       />
       <p className="text-micro text-muted mt-1.5">Leave it blank and we'll write a short note from your star rating.</p>
-      <Button block className="mt-4" disabled={busy} onClick={() => onConfirm(rating, review.trim())}>
-        {busy ? 'Confirming…' : `Confirm & rate ${rating}★`}
+      <Button block className="mt-4" disabled={busy || rating === 0} onClick={() => onConfirm(rating, review.trim())}>
+        {busy ? 'Confirming…' : rating === 0 ? 'Choose a rating first' : `Confirm & rate ${rating}★`}
       </Button>
     </Sheet>
   );
