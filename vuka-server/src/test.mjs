@@ -471,6 +471,25 @@ async function run() {
   ok(decideRes.status === 200, 'ops approves the submission');
   ok((await api('GET', '/me/cv', { token: wTok })).json?.profile?.idVerified === true, 'approval grants the verified badge');
   ok((await fetch(BASE + `/admin/id-verifications/${pending[0].id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': 'wrong-length-tok' }, body: '{}' })).status === 401, 'a wrong admin token is refused');
+  /* An employer has no worker_profiles row. Verification used to be granted with
+     UPDATE worker_profiles, so approving an employer matched nothing and left
+     them unverified — after their ID number had already been taken, encrypted
+     and stored. Identity now lives on users, which both roles have. */
+  {
+    const empTok = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Naledi Khumalo', phone: '0829990012', password: 'test1234', verifyToken: await verifyPhone('0829990012') } })).json.token;
+    ok((await api('GET', '/me/id-verification', { token: empTok })).json?.status === 'none', 'an employer starts unverified');
+    ok((await api('POST', '/me/id-verification', { token: empTok, body: { fullName: 'Naledi Khumalo', idNumber: '0001015009085' } })).status === 201,
+      'an employer can submit an ID for verification');
+
+    const queue = await fetch(BASE + '/admin/id-verifications', { headers: { 'x-admin-token': 'test-admin-token' } }).then((r) => r.json());
+    const mine = queue.find((q) => q.name === 'Naledi Khumalo');
+    ok(!!mine, "the employer's submission reaches the ops queue");
+    await fetch(BASE + `/admin/id-verifications/${mine.id}/decide`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': 'test-admin-token' }, body: JSON.stringify({ approve: true }),
+    });
+    ok((await api('GET', '/me/id-verification', { token: empTok })).json?.status === 'verified',
+      'and approving it actually verifies them — this silently did nothing before');
+  }
   delete process.env.VUKA_ADMIN_TOKEN;
 
   // 9n) distance is measured, not typed in

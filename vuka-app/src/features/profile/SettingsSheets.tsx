@@ -263,7 +263,10 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
       <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Safety centre<span className="text-red">.</span></h3>
       <p className="text-small text-muted mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
       <ul className="space-y-2 text-small text-navy mb-4">
-        <li className="flex gap-2 items-start"><span>🪪</span> Only ID-verified users can be hired or hire</li>
+        {/* This used to read "Only ID-verified users can be hired or hire".
+            Nothing enforced it — nothing ever has — and a safety claim the
+            product does not keep is worse than no claim at all. */}
+        <li className="flex gap-2 items-start"><span>🪪</span> Workers and employers can both verify their identity against their SA ID. Verified accounts carry a badge, so you can see who you are dealing with</li>
         <li className="flex gap-2 items-start"><span>⭐</span> Two-way ratings after every job keep everyone accountable</li>
         <li className="flex gap-2 items-start"><span>⚖️</span> Fair-pay checks flag any gig below minimum wage</li>
         <li className="flex gap-2 items-start"><span>📍</span> Meet in public, tell someone where you'll be</li>
