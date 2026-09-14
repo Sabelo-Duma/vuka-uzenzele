@@ -47,7 +47,7 @@ export function Talent() {
       {state.dataLoading && state.talent.length === 0
         ? <CardSkeletonGrid count={4} talent />
         : workers.length > 0
-        ? <div className="grid sm:grid-cols-2 gap-x-3">{workers.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
+        ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{workers.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : cat
         ? <EmptyState icon="🔍" title={`No ${catLabel} workers yet`} hint="No verified workers list this skill right now. Try another category or view everyone." action={<Button size="sm" variant="ghost" onClick={() => setCat(null)}>Show all talent</Button>} />
         : <EmptyState icon="👥" title="No workers yet" hint="Verified youth near you will show up here as they join and complete jobs." />}

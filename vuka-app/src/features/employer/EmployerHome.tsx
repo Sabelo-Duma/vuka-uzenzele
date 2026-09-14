@@ -52,7 +52,7 @@ export function EmployerHome() {
       {state.dataLoading && top.length === 0
         ? <CardSkeletonGrid count={2} talent />
         : top.length > 0
-        ? <div className="grid sm:grid-cols-2 gap-x-3">{top.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
+        ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{top.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : <EmptyState icon="👥" title="Finding workers near you…" hint="Verified youth in your area will appear here. Post a job to start receiving applications." />}
     </Dashboard>
   );

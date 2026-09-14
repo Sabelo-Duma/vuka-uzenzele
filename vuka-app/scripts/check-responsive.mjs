@@ -7,7 +7,7 @@
  * walks every primary screen and asserts four things:
  *
  *   1. the page never scrolls sideways
- *   2. nothing sticks out past the right edge
+ *   2. nothing sticks out past the right edge, and nothing is wider than the screen
  *   3. the bottom tab bar and its + button are fully on screen
  *   4. every tappable control clears 44px
  *   5. no short label breaks across two lines
@@ -43,7 +43,7 @@ async function measure(page) {
   return page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
-    const out = { vw, vh, scrollWidth: document.documentElement.scrollWidth, overflow: [], small: [], wrapped: [], nav: null };
+    const out = { vw, vh, scrollWidth: document.documentElement.scrollWidth, overflow: [], small: [], wrapped: [], tooWide: [], nav: null };
 
     /* How many lines a label actually occupies. Measuring height against
        line-height lies as soon as an element has a min-height, which every
@@ -90,6 +90,17 @@ async function measure(page) {
       // noise nobody can act on.
       if (tappable && (r.width < 43.5 || r.height < 43.5)) {
         out.small.push({ el: describe(el), w: Math.round(r.width), h: Math.round(r.height) });
+      }
+
+      /* Wider than the screen. The right-edge check above forgives anything
+         a scrolling ancestor clips, which is right for a chip rail and wrong
+         for a card: a talent card was rendering 455px wide inside a 320px
+         phone, with its rating column off the edge, and nothing flagged it.
+         A grid item's default min-width is auto, so the column could not
+         shrink below the card's min-content width. */
+      if (r.width > vw + 1 && el.matches('main *') && !el.closest('[aria-hidden="true"]')) {
+        const scrolls = style.overflowX === 'auto' || style.overflowX === 'scroll';
+        if (!scrolls) out.tooWide.push({ el: describe(el), w: Math.round(r.width) });
       }
 
       /* A short button label broken across two lines. "Get started" stacked as
@@ -139,6 +150,9 @@ async function check(page, viewport, screen) {
   }
   for (const w of m.wrapped) {
     note(viewport, screen, `label wraps across lines — “${w.text}”`);
+  }
+  for (const t of m.tooWide.slice(0, 3)) {
+    note(viewport, screen, `${t.w}px wide in a ${m.vw}px screen — ${t.el}`);
   }
   if (m.nav?.visible) {
     if (m.nav.bottom > m.vh + 1) note(viewport, screen, `tab bar is ${m.nav.bottom - m.vh}px below the fold`);
@@ -195,6 +209,17 @@ async function checkSheetCloses(page, viewport) {
 
   const closer = dialog.getByRole('button', { name: /^close/i }).first();
   if (!(await closer.count())) { note(viewport, 'Privacy', 'the sheet has no close button'); return; }
+
+  /* The close row is sticky and opaque, so anything sharing space with it is
+     hidden. Pulling the content up under it with a negative margin sliced the
+     top off the first heading of every sheet in the app. */
+  const clipped = await dialog.evaluate((d) => {
+    const head = d.querySelector('.sticky');
+    const heading = d.querySelector('h1, h2, h3, h4');
+    if (!head || !heading) return 0;
+    return Math.round(head.getBoundingClientRect().bottom - heading.getBoundingClientRect().top);
+  });
+  if (clipped > 0) note(viewport, 'Privacy', `the sheet header covers the first heading by ${clipped}px`);
 
   const box = await closer.boundingBox();
   if (!box) { note(viewport, 'Privacy', 'the close button is not visible'); return; }

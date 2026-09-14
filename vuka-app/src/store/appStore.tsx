@@ -50,6 +50,11 @@ export interface AppState {
   feed: 'gigs' | 'formal';
   categoryFilter: string | null; // active category filter on the jobs feed (null = All)
   nav: Nav;
+  /* Where you came from, most recent last. Navigation used to be a single
+     screen with no memory, so every back button had to name a fixed
+     destination — which is how reviewing applicants and tapping a worker left
+     you on Browse talent instead of back in your queue. */
+  history: Nav[];
   toast: { msg: string; n: number } | null;
   error: string | null;
 }
@@ -99,6 +104,7 @@ type Action =
   | { type: 'REMOVE_GIG'; id: string }
   | { type: 'LOGOUT' }
   | { type: 'NAVIGATE'; nav: Nav }
+  | { type: 'BACK' }
   | { type: 'SET_FEED'; feed: 'gigs' | 'formal' }
   | { type: 'SET_CATEGORY'; category: string | null }
   | { type: 'TOAST'; msg: string }
@@ -112,7 +118,7 @@ function init(): AppState {
     // returning user gets real distances without being asked again.
     coords: cachedCoords(), locating: false, vapidKey: '',
     talent: [], invitations: [], unread: 0, pendingConfirmations: 0, minWage: minWagePerHour(),
-    feed: 'gigs', categoryFilter: null, nav: { screen: 'home' }, toast: null, error: null,
+    feed: 'gigs', categoryFilter: null, nav: { screen: 'home' }, history: [], toast: null, error: null,
   };
 }
 
@@ -120,7 +126,7 @@ function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'STATUS': return { ...state, status: action.status };
     case 'DATA_LOADING': return { ...state, dataLoading: action.loading };
-    case 'SESSION': return { ...state, user: action.user, role: action.user.role, worker: action.worker, status: 'authed', dataLoading: true, nav: { screen: 'home' }, error: null };
+    case 'SESSION': return { ...state, user: action.user, role: action.user.role, worker: action.worker, status: 'authed', dataLoading: true, nav: { screen: 'home' }, history: [], error: null };
     case 'WORKER': return { ...state, worker: action.worker };
     case 'GIGS': return { ...state, gigs: action.gigs };
     case 'FORMAL': return { ...state, formalJobs: action.formalJobs };
@@ -142,7 +148,19 @@ function reducer(state: AppState, action: Action): AppState {
     // Signing out on a shared phone must not leave the next person with this
     // one's position. The server config is kept — it isn't personal.
     case 'LOGOUT': return { ...init(), status: 'anon', coords: null, vapidKey: state.vapidKey };
-    case 'NAVIGATE': return { ...state, nav: action.nav };
+    case 'NAVIGATE': {
+      const same = state.nav.screen === action.nav.screen && state.nav.id === action.nav.id;
+      if (same) return state;
+      /* Capped: a long session should not accumulate an unbounded stack, and
+         nobody presses back twenty times. */
+      const history = [...state.history, state.nav].slice(-20);
+      return { ...state, nav: action.nav, history };
+    }
+    case 'BACK': {
+      if (state.history.length === 0) return state;
+      const history = state.history.slice(0, -1);
+      return { ...state, nav: state.history[state.history.length - 1], history };
+    }
     case 'SET_FEED': return { ...state, feed: action.feed };
     case 'SET_CATEGORY': return { ...state, categoryFilter: action.category };
     case 'TOAST': return { ...state, toast: { msg: action.msg, n: (state.toast?.n ?? 0) + 1 } };
@@ -154,6 +172,10 @@ function reducer(state: AppState, action: Action): AppState {
 interface Store {
   state: AppState;
   navigate: (screen: Screen, id?: string) => void;
+  /** Return to wherever you actually came from. Falls back to the given
+   *  screen the first time, when there is no history yet. */
+  goBack: (fallback?: Screen) => void;
+  canGoBack: boolean;
   setFeed: (feed: 'gigs' | 'formal') => void;
   setCategory: (category: string | null) => void;
   toast: (msg: string) => void;
@@ -495,6 +517,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(() => ({
     state,
     navigate: (screen, id) => dispatch({ type: 'NAVIGATE', nav: { screen, id } }),
+    goBack: (fallback) => {
+      if (stateRef.current.history.length > 0) dispatch({ type: 'BACK' });
+      else if (fallback) dispatch({ type: 'NAVIGATE', nav: { screen: fallback } });
+    },
+    canGoBack: state.history.length > 0,
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),

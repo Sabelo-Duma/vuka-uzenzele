@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useApp, type Screen } from '../store/appStore';
+import { useEdgeSwipeBack } from '../lib/useEdgeSwipeBack';
 import { useTheme } from '../providers/ThemeProvider';
 import { Icon, type IconName } from './Icon';
 import { InstallButton } from './InstallButton';
+import { SunMark } from './SunMark';
 
 interface NavItem { screen: Screen; label: string; icon: IconName; }
 
@@ -65,9 +67,9 @@ function UnreadBadge({ count, onDark }: { count: number; onDark?: boolean }) {
 
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2 font-bold text-ink">
-      <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-solid" />
-      {!compact && <span className="text-lead">Vuka Uzenzele</span>}
+    <div className="flex items-center gap-2.5 font-bold text-ink min-w-0">
+      <SunMark size={26} className="text-brand-solid" />
+      {!compact && <span className="text-lead whitespace-nowrap">Vuka Uzenzele</span>}
     </div>
   );
 }
@@ -98,7 +100,13 @@ function AccountBar() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { state, navigate } = useApp();
+  const { state, navigate, goBack, canGoBack } = useApp();
+
+  /* Swiping in from the left edge goes back, the way it does everywhere else
+     on a phone. Only armed when there is somewhere to go: on a top-level tab
+     the gesture should do nothing rather than something surprising. */
+  const back = useCallback(() => goBack(), [goBack]);
+  useEdgeSwipeBack(back, canGoBack);
   const nav = state.role === 'worker' ? WORKER_NAV : EMPLOYER_NAV;
   const current = activeTab(state.nav.screen);
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';

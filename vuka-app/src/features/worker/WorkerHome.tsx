@@ -94,13 +94,13 @@ export function WorkerHome() {
       {state.dataLoading && state.gigs.length === 0
         ? <CardSkeletonGrid count={2} />
         : featured.length > 0
-        ? <div className="grid sm:grid-cols-2 gap-x-3">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
+        ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{featured.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
         : <Card className="p-6 text-center text-dim text-small">No open gigs right now — check back soon, or explore the formal jobs you've unlocked.</Card>}
 
       {teaser && (
         <>
           <SectionTitle action={<TextAction tone="ink" onClick={() => { setCategory(null); setFeed('formal'); navigate('jobs'); }}>See all →</TextAction>}>Formal jobs</SectionTitle>
-          <div className="grid sm:grid-cols-2 gap-x-3"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0"><FormalCard job={teaser} cv={cv} onClick={() => navigate('formalDetail', teaser.id)} /></div>
         </>
       )}
 

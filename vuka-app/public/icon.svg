@@ -1,5 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#0E355A"/>
-  <path d="M150 150 L256 360 L362 150" fill="none" stroke="#FFFFFF" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="388" cy="150" r="34" fill="#F20023"/>
+<!--
+  Vuka Uzenzele — the mark.
+
+  Vuka means wake up, and the 2.0 palette is the hour before a shift starts:
+  indigo dark, first light on the horizon. So the mark is that hour — a sun
+  coming up over two lines of light.
+
+  It is drawn as three solid shapes and nothing else, because it has to survive
+  being 16 pixels wide in a browser tab. No letterform: a "V" at that size is
+  a grey smudge shared with every other V, and the old mark also carried two
+  colours the design system has since retired.
+
+  The lower rule is shorter and thinner than the one above it, not dimmer — a
+  faded bar reads as light going out, and at icon sizes it just looks muddy.
+  Shorter and thinner reads as further away, which is what gives the silhouette
+  its direction: rising, not setting. It also echoes the rungs of the ladder
+  the whole product is built around.
+
+  Everything sits inside the maskable safe zone (a circle of 80% diameter), so
+  Android can crop this to any shape without cutting the mark.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Vuka Uzenzele">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#172134"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC152"/>
+      <stop offset="1" stop-color="#F5A200"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+
+  <!-- The sun, cut flat where the horizon takes it. -->
+  <path d="M156 254a100 100 0 0 1 200 0z" fill="url(#light)"/>
+
+  <!-- First light, then a second line beneath it: shorter, thinner, further. -->
+  <rect x="120" y="288" width="272" height="30" rx="15" fill="url(#light)"/>
+  <rect x="186" y="346" width="140" height="24" rx="12" fill="#F5A200"/>
 </svg>
