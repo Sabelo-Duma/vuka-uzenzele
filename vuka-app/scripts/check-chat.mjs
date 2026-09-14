@@ -40,7 +40,10 @@ async function openFirstChat(page) {
   await page.getByRole('heading', { name: /^chats/i }).waitFor({ timeout: 10_000 });
   const first = page.locator('button:has(article), button:has(> div)').filter({ hasText: /employer|worker/i }).first();
   await first.click();
-  await page.getByRole('button', { name: /back to chats/i }).waitFor({ timeout: 10_000 });
+  /* The composer is the sign that a thread is open. It used to be the back
+     arrow, which is no longer there — the header is a name and a status now,
+     and going back is the swipe, the tab bar or the sidebar. */
+  await page.getByRole('textbox', { name: /^message$/i }).waitFor({ timeout: 10_000 });
 }
 
 async function run() {
@@ -168,6 +171,86 @@ async function run() {
       .getByLabel(/^read$/i).first()
       .waitFor({ timeout: 20_000 }).then(() => true).catch(() => false);
     ok(read, 'the sender is told it was read');
+
+    console.log('\nthe thread header');
+    {
+      const header = worker.page.getByRole('button', { name: /back to chats/i });
+      ok((await header.count()) === 0, 'there is no back arrow sitting where the name should be');
+
+      const name = await worker.page.locator('.sticky b').first().textContent();
+      ok(!!name && name.trim().length > 0, `the header leads with who you are talking to (${name?.trim()})`);
+
+      /* Online or Offline, never the person's role. The role used to be the
+         fallback, so "not here right now" and "is an employer" shared one line
+         and neither read as the other's absence. */
+      const status = await worker.page.locator('.sticky').first().getByText(/^(Online|Offline|typing…)$/).first()
+        .textContent().catch(() => null);
+      ok(status !== null, `and says whether they are there (${status})`);
+
+      // The employer has this thread open, so they really are online.
+      ok(status === 'Online', 'someone with the conversation open reads as Online');
+    }
+
+    console.log('\nthe keyboard');
+    /* A real soft keyboard cannot be opened from a test. What can be tested is
+       the wiring: every current browser signals the keyboard by shrinking the
+       visual viewport and leaving the layout viewport alone (Chrome 108+ on
+       Android, and iOS Safari before it), so this stands a controllable
+       visualViewport in for the real one and drives it the same way. The
+       browser's half of the contract is documented; this is our half. */
+    {
+      /* At a phone width, deliberately. The tab bar only exists below lg —
+         above it the navigation is the sidebar, which has the same accessible
+         name and never goes anywhere, so a desktop-sized run would have been
+         watching the wrong element and passing regardless. */
+      const kbCtx = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+        deviceScaleFactor: 2,
+      });
+      const kb = { ctx: kbCtx, page: await kbCtx.newPage() };
+      await kb.ctx.addInitScript(() => {
+        const bus = new EventTarget();
+        let inset = 0;
+        Object.defineProperty(window, 'visualViewport', {
+          configurable: true,
+          get: () => ({
+            get height() { return document.documentElement.clientHeight - inset; },
+            addEventListener: bus.addEventListener.bind(bus),
+            removeEventListener: bus.removeEventListener.bind(bus),
+          }),
+        });
+        Object.defineProperty(window, '__keyboard', {
+          configurable: true,
+          value: (px) => { inset = px; bus.dispatchEvent(new Event('resize')); },
+        });
+      });
+      await signIn(kb.page, 'worker');
+
+      const tabs = kb.page.locator('nav.tabbar');
+      ok(await tabs.isVisible(), 'the tab bar is there with no keyboard up');
+
+      await kb.page.evaluate(() => window.__keyboard(320));
+      const hidden = await tabs.waitFor({ state: 'detached', timeout: 5_000 })
+        .then(() => true).catch(() => false);
+      ok(hidden, 'it stands down when the keyboard comes up');
+
+      await kb.page.evaluate(() => window.__keyboard(0));
+      const restored = await tabs.waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true).catch(() => false);
+      ok(restored, 'and comes back when the keyboard goes away');
+
+      /* The browser's own chrome moves the visual viewport by 50-90px when the
+         URL bar hides. That must not read as a keyboard, or the tab bar would
+         flicker away every time somebody scrolls. */
+      await kb.page.evaluate(() => window.__keyboard(90));
+      await kb.page.waitForTimeout(400);
+      ok(await tabs.isVisible(), 'a hiding URL bar is not mistaken for a keyboard');
+
+      await kb.ctx.close();
+    }
+
 
     console.log('\nwith no live stream at all');
     /* Some networks and proxies will not carry an event stream. The app is not

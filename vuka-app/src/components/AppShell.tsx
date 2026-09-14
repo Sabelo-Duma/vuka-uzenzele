@@ -1,6 +1,7 @@
 import { useCallback, type ReactNode } from 'react';
 import { useApp, type Screen } from '../store/appStore';
 import { useEdgeSwipeBack } from '../lib/useEdgeSwipeBack';
+import { useKeyboardOpen } from '../lib/useKeyboardOpen';
 import { useTheme } from '../providers/ThemeProvider';
 import { Icon, type IconName } from './Icon';
 import { InstallButton } from './InstallButton';
@@ -107,6 +108,12 @@ export function AppShell({ children }: { children: ReactNode }) {
      the gesture should do nothing rather than something surprising. */
   const back = useCallback(() => goBack(), [goBack]);
   useEdgeSwipeBack(back, canGoBack);
+  /* While the keyboard is up, the tab bar is in the way and nothing else.
+     Neither viewport unit shrinks for a keyboard on any current browser, so
+     without this the bar sits between the message box and the keys — which on
+     a phone is most of the room you had left to read the conversation you are
+     replying to. */
+  const keyboardOpen = useKeyboardOpen();
   const nav = state.role === 'worker' ? WORKER_NAV : EMPLOYER_NAV;
   const current = activeTab(state.nav.screen);
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
@@ -183,7 +190,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
 
         {/* Mobile bottom nav */}
-        {/* Pinned: it is a sibling of the scrolling <main>, not part of it. */}
+        {/* Pinned: it is a sibling of the scrolling <main>, not part of it.
+            Taken out of the tree rather than hidden with a class, because
+            `display: flex` beats the browser's own rule for [hidden] and the
+            bar would simply stay. */}
+        {!keyboardOpen && (
         <nav
           className="tabbar lg:hidden flex items-stretch border-t border-line bg-surface shrink-0
             pt-1.5 pb-[max(6px,env(safe-area-inset-bottom))]
@@ -206,6 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
           ))}
         </nav>
+        )}
       </div>
       </div>
     </div>

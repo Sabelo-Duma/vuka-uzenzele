@@ -70,10 +70,13 @@ export function FormalDetail({ id }: { id: string }) {
             <span className="grid place-items-center w-11 h-11 rounded-[13px] bg-white/15 text-title"><Icon name="lock" size={20} /></span>
             <div><small className="text-on-feature-dim text-micro uppercase tracking-wide">Locked</small><h3 className="font-display m-0 text-lead font-bold">Reach {reqTier.name} {reqTier.icon}</h3></div>
           </div>
+          {/* Same shape as the ladder's own chips, and for the same reason:
+              a rating over a threshold reads as a fraction out of that
+              threshold, and ratings are out of five. See CvLadder. */}
           <div className="flex gap-2 mt-3">
-            <Req ok={cv.jobsDone >= reqTier.minJobs} label="Jobs done" value={`${cv.jobsDone}/${reqTier.minJobs}`} />
-            <Req ok={cv.avg >= reqTier.minRating} label="Rating" value={`${cv.avg.toFixed(1)}/${reqTier.minRating.toFixed(1)}`} />
-            <Req ok={cv.flags <= reqTier.maxFlags} label="Flags" value={`${cv.flags}`} />
+            <Req ok={cv.jobsDone >= reqTier.minJobs} label={`Jobs ${reqTier.minJobs}+`} value={String(cv.jobsDone)} />
+            <Req ok={cv.avg >= reqTier.minRating} label={`Rating ${reqTier.minRating.toFixed(1)}+`} value={cv.avg === 0 ? '—' : `${cv.avg.toFixed(1)}★`} />
+            <Req ok={cv.flags <= reqTier.maxFlags} label="Flags" value={String(cv.flags)} />
           </div>
           <p className="text-small text-on-feature-dim leading-snug mt-3 mb-0">
             {jobsNeeded > 0

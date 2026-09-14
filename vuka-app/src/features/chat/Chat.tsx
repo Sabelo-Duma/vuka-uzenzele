@@ -420,7 +420,7 @@ const TYPING_TTL_MS = 4000;
 const TYPING_PING_MS = 3000;
 
 export function ChatThread({ id }: { id: string }) {
-  const { state, goBack, toast, refreshUnread } = useApp();
+  const { state, toast, refreshUnread } = useApp();
   const me = state.user?.id;
 
   const [other, setOther] = useState<ChatUser | null>(null);
@@ -725,23 +725,36 @@ export function ChatThread({ id }: { id: string }) {
 
   return (
     <div className="max-w-[720px] mx-auto flex flex-col" style={{ minHeight: 'min(72vh, 640px)' }}>
-      {/* Header. Sticky, because it holds the only way out of a long thread and
-          you were otherwise scrolling to the top of the conversation to find
-          it. Swiping from the left edge works too — see useEdgeSwipeBack. */}
+      {/* Header: who you are talking to, and whether they are there.
+
+          No back arrow. Going back is a left-edge swipe on a phone, the Chats
+          tab in the bar below it, and the Chats item in the sidebar on a
+          laptop — three ways out that already existed, against one bordered
+          box sitting where a person's name should be. This row is now the one
+          thing it should have been all along: a name and a status.
+
+          Sticky, so both stay visible however far down the thread you are. */}
       <div className="sticky top-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-3 bg-canvas">
-        <button onClick={() => goBack('messages')} aria-label="Back to chats" className="grid place-items-center w-11 h-11 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95 shrink-0">
-          <Icon name="back" size={20} />
-        </button>
         {other ? (
           <>
             <div className="relative shrink-0">
               <Avatar initials={other.initials} size="sm" />
-              {online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-verified border-2 border-canvas" aria-hidden="true" />}
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-canvas ${online ? 'bg-verified' : 'bg-faint'}`}
+                aria-hidden="true"
+              />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <b className="block text-body font-extrabold text-ink truncate tracking-tight">{other.name}</b>
-              <span className="text-micro text-dim font-semibold uppercase tracking-wide" aria-live="polite">
-                {typingNow ? 'typing…' : online ? 'Online' : roleLabel(other.role)}
+              {/* Offline is said out loud rather than left blank. It used to
+                  fall back to the person's role, so "not here right now" and
+                  "is an employer" occupied the same line and neither was
+                  legible as the other's absence. */}
+              <span
+                className={`block text-micro font-semibold truncate ${typingNow ? 'text-brand' : online ? 'text-verified' : 'text-faint'}`}
+                aria-live="polite"
+              >
+                {typingNow ? 'typing…' : online ? 'Online' : 'Offline'}
               </span>
             </div>
           </>

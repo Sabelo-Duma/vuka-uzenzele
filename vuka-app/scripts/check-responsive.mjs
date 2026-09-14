@@ -210,8 +210,8 @@ async function checkThread(page, viewport) {
   if (!(await row.count())) return;
   await row.click().catch(() => {});
 
-  const back = page.getByRole('button', { name: /back to chats/i }).first();
-  const opened = await back.waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+  const composer = page.getByRole('textbox', { name: /^message$/i }).first();
+  const opened = await composer.waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
   if (!opened) return;
   await page.waitForTimeout(400);
   await check(page, viewport, 'Chat thread');
@@ -229,7 +229,9 @@ async function checkThread(page, viewport) {
     }
   }
 
-  await back.click().catch(() => {});
+  /* Out of the thread the way a person actually leaves one now: the Chats tab.
+     There is no back arrow in the header any more. */
+  await page.getByRole('button', { name: /^chats$/i }).first().click().catch(() => {});
   await page.waitForTimeout(400);
 }
 
