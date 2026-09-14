@@ -151,7 +151,7 @@ function MyWorkCard({ job }: { job: MyJob }) {
           <div className="text-small text-dim mt-0.5">{job.gig.employer} · {job.gig.when} · <b className="text-ink font-mono tnum">{money(total)}</b></div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2.5 mt-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 mt-3 [&>*]:flex-1">
         <Button size="sm" variant={waiting ? 'ghost' : 'primary'} onClick={() => navigate('gigDetail', job.gig.id)}>
           {waiting ? 'View job' : "I've finished"}
         </Button>
@@ -188,7 +188,7 @@ function InviteCard({ inv }: { inv: Invitation }) {
         </div>
       </div>
       {inv.message && <p className="text-small text-ink italic bg-surface-2 rounded-xl px-3 py-2 mt-2.5 leading-snug">“{inv.message}”</p>}
-      <div className="grid grid-cols-2 gap-2.5 mt-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 mt-3 [&>*]:flex-1">
         <Button size="sm" disabled={busy} onClick={() => respond(true)}>{busy ? '…' : 'Accept'}</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => respond(false)}>Decline</Button>
       </div>
