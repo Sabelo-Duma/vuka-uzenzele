@@ -4,8 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { existsSync } from 'node:fs';
-import { basename, dirname, join, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, join, sep } from 'node:path';
 import { all, get, run, initDb, closeDb, driver, toBytes } from './db.mjs';
 import { seedIfEmpty } from './seed.mjs';
 import {
@@ -21,6 +20,7 @@ import { captureError, installProcessHandlers, recentErrors, errorSummary, monit
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { subscribe, emit, isOnline, connectionStats, closeAll } from './realtime.mjs';
+import { cspDirectives, cspCoversInlineScripts, STATIC_DIR } from './csp.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
 await initDb();
@@ -32,11 +32,28 @@ const app = express();
 // detected correctly.
 app.set('trust proxy', 1);
 
-// Security headers. CSP and COEP are disabled because this same service also
-// serves the SPA + PWA (service worker, inline styles) — a strict CSP here
-// would break the front-end. The rest of helmet's protections still apply
-// (HSTS, X-Content-Type-Options, frameguard, referrer policy, etc.).
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+/* Security headers.
+
+   CSP used to be off entirely, on the grounds that a strict one would break the
+   SPA. It would have — which is why the policy is built from what the app
+   actually loads, including a hash of the one inline script in index.html, so
+   it is strict without being wrong. See csp.mjs.
+
+   COEP stays off: it would require every resource to opt in via CORP, and
+   nothing here needs the cross-origin isolation it buys.
+
+   The rest of helmet's protections are unchanged (HSTS, nosniff, frameguard,
+   referrer policy). */
+app.use(helmet({
+  contentSecurityPolicy: { useDefaults: false, directives: cspDirectives() },
+  crossOriginEmbedderPolicy: false,
+}));
+if (!cspCoversInlineScripts()) {
+  /* No build to read means no hash, which means the theme bootstrap would be
+     blocked the moment a build appeared behind this process. Worth saying out
+     loud rather than discovering as a white screen. */
+  console.warn('CSP: no built index.html found — inline script hashes not computed. Build the front-end, then restart.');
+}
 
 /* Request logging (concise in prod, readable in dev).
 
@@ -2395,8 +2412,8 @@ app.get('/api/public/cv/:id', noIndex, asyncH(async (req, res) => {
 app.use('/api', (_req, res) => res.status(404).json({ error: 'That endpoint does not exist.' }));
 
 // ---- serve the built front-end (single-service deploy) ----
-const here = dirname(fileURLToPath(import.meta.url));
-const STATIC_DIR = process.env.VUKA_STATIC || join(here, '..', '..', 'vuka-app', 'dist');
+// STATIC_DIR is resolved in csp.mjs, which has to read index.html at boot to
+// hash its inline script — one definition, used by both.
 /**
  * Cache policy — this is what makes an installed PWA update predictably.
  *
