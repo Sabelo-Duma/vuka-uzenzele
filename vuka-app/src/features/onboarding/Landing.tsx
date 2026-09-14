@@ -126,16 +126,35 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           they stay perfectly even as the columns wrap. */}
       <section className="bg-canvas border-y border-line">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line rounded-card overflow-hidden border border-line">
-            {HEADLINE_STATS.map((s) => (
-              <div key={s.label} className="bg-surface px-5 py-5">
-                <div className="font-display text-head sm:text-display font-extrabold text-brand font-mono tnum leading-none">{s.value}</div>
-                <p className="text-small text-dim mt-2 leading-snug text-balance">
-                  {s.label}
-                  {s.ref && <sup className="ml-1 font-mono text-micro text-brand font-bold">{s.ref}</sup>}
-                </p>
-              </div>
-            ))}
+          {/* auto-fit rather than fixed breakpoints, as the 2.0 build has it:
+              the row lays out as many 150px cells as will fit and reflows on
+              its own, instead of jumping 1 → 2 → 4 at arbitrary widths. */}
+          <div
+            className="grid gap-px bg-line rounded-[12px] overflow-hidden border border-line"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
+          >
+            {HEADLINE_STATS.map((s) => {
+              /* The reference has to stay with the last word. Left loose it
+                 wrapped onto a line of its own, a numeral hanging under the
+                 label with nothing to refer to. */
+              const words = s.label.split(' ');
+              const last = words.pop() ?? '';
+              return (
+                <div key={s.label} className="bg-surface px-4 py-3.5">
+                  {/* Bricolage, not the figures face. These are headline numbers, not a
+                      column to be read down — 2.0 sets them in the display face and
+                      the mono digits were making "R1 000" look like a serial number. */}
+                  <div className="font-display text-head font-extrabold text-brand leading-none tracking-[-0.03em]">{s.value}</div>
+                  <p className="text-micro text-dim mt-1 leading-[1.35]">
+                    {words.join(' ')}{words.length > 0 ? ' ' : ''}
+                    <span className="whitespace-nowrap">
+                      {last}
+                      {s.ref && <sup className="ml-0.5 font-mono text-[9.5px] text-brand font-bold align-super">{s.ref}</sup>}
+                    </span>
+                  </p>
+                </div>
+              );
+            })}
           </div>
           {/* Every figure traces to one of these, so anyone can check them and
               so it is obvious when they have gone stale. */}
