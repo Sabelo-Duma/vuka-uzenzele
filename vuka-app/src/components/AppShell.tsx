@@ -6,10 +6,13 @@ import { InstallButton } from './InstallButton';
 
 interface NavItem { screen: Screen; label: string; icon: IconName; }
 
+/* One label per destination, used by both navs.
+   The sidebar used to say "Jobs" and "Messages" where the tab bar said "Find
+   work" and "Chats" — the same two screens under four names, in one app. */
 const WORKER_NAV: NavItem[] = [
   { screen: 'home', label: 'Home', icon: 'home' },
-  { screen: 'jobs', label: 'Jobs', icon: 'jobs' },
-  { screen: 'cv', label: 'My record', icon: 'ladder' },
+  { screen: 'jobs', label: 'Find work', icon: 'jobs' },
+  { screen: 'cv', label: 'My Record', icon: 'ladder' },
   { screen: 'me', label: 'Me', icon: 'user' },
 ];
 const EMPLOYER_NAV: NavItem[] = [
@@ -30,7 +33,7 @@ const MOBILE_TABS: Record<'worker' | 'employer', NavItem[]> = {
   worker: [
     { screen: 'home', label: 'Home', icon: 'home' },
     CHAT_TAB,
-    { screen: 'cv', label: 'My record', icon: 'ladder' },
+    { screen: 'cv', label: 'My Record', icon: 'ladder' },
     { screen: 'me', label: 'Me', icon: 'user' },
   ],
   employer: [
@@ -54,7 +57,7 @@ function activeTab(screen: Screen): Screen {
 function UnreadBadge({ count, onDark }: { count: number; onDark?: boolean }) {
   if (count <= 0) return null;
   return (
-    <span className={`grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full text-micro font-bold tnum ${onDark ? 'bg-white text-red' : 'bg-red text-white'}`}>
+    <span className={`grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full text-micro font-bold tnum ${onDark ? 'bg-brand-on text-brand' : 'bg-brand-solid text-brand-on'}`}>
       {count > 99 ? '99+' : count}
     </span>
   );
@@ -62,9 +65,9 @@ function UnreadBadge({ count, onDark }: { count: number; onDark?: boolean }) {
 
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2 font-bold text-navy">
-      <span className="inline-block w-2.5 h-2.5 rounded-full bg-red" />
-      {!compact && <span className="text-lg">Vuka Uzenzele</span>}
+    <div className="flex items-center gap-2 font-bold text-ink">
+      <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-solid" />
+      {!compact && <span className="text-lead">Vuka Uzenzele</span>}
     </div>
   );
 }
@@ -75,7 +78,7 @@ function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
-      className="grid place-items-center w-10 h-10 rounded-xl border border-line-strong bg-surface text-navy hover:bg-surface-2 transition active:scale-95"
+      className="grid place-items-center w-10 h-10 rounded-xl border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95"
     >
       <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
     </button>
@@ -86,10 +89,10 @@ function AccountBar() {
   const { state, logout } = useApp();
   return (
     <div className="rounded-2xl border border-line bg-surface-2 p-3">
-      <div className="text-micro text-subtle uppercase tracking-wide font-bold">Signed in</div>
-      <div className="text-sm font-bold text-navy truncate">{state.user?.name ?? 'You'}</div>
-      <div className="text-micro text-muted mb-2 capitalize">{state.role} account</div>
-      <button onClick={logout} className="w-full rounded-pill border border-line-strong text-navy text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
+      <div className="text-micro text-faint uppercase tracking-wide font-bold">Signed in</div>
+      <div className="text-small font-bold text-ink truncate">{state.user?.name ?? 'You'}</div>
+      <div className="text-micro text-dim mb-2 capitalize">{state.role} account</div>
+      <button onClick={logout} className="w-full rounded-pill border border-line text-ink text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
     </div>
   );
 }
@@ -105,12 +108,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     screen === 'messages' ? state.unread : screen === 'hires' ? state.pendingConfirmations : 0;
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-surface-2 text-ink">
+    <div className="app-shell overflow-hidden bg-canvas text-ink">
       {/* Center the whole app (sidebar + content) on large screens so the
           sidebar sits next to the content instead of being stranded far-left.
           On desktop the shell is pinned to the viewport height so the sidebar
           stays put and only the content column scrolls. */}
-      <div className="mx-auto flex min-h-screen lg:h-full lg:min-h-0 w-full max-w-[1440px] xl:border-x xl:border-line">
+      <div className="mx-auto flex h-full w-full max-w-[1440px] xl:border-x xl:border-line">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-line bg-surface p-5 overflow-y-auto">
         <div className="mb-8"><BrandMark /></div>
@@ -122,8 +125,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.screen}
                 onClick={() => navigate(item.screen)}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-bold transition
-                  ${active ? 'bg-red text-white' : 'text-muted hover:bg-surface-2 hover:text-navy'}`}
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-small font-bold transition
+                  ${active ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
               >
                 <Icon name={item.icon} size={20} />
                 <span>{item.label}</span>
@@ -131,21 +134,21 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             );
           })}
-          {/* Messages — available to both roles */}
+          {/* Chats — available to both roles */}
           <button
             onClick={() => navigate('messages')}
             aria-current={current === 'messages' ? 'page' : undefined}
-            className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-bold transition
-              ${current === 'messages' ? 'bg-red text-white' : 'text-muted hover:bg-surface-2 hover:text-navy'}`}
+            className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-small font-bold transition
+              ${current === 'messages' ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
           >
             <Icon name="chat" size={20} />
-            <span>Messages</span>
+            <span>{CHAT_TAB.label}</span>
             <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
           </button>
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-subtle font-semibold">Appearance</span>
+            <span className="text-micro text-faint font-semibold">Appearance</span>
             <ThemeToggle />
           </div>
           <InstallButton className="w-full" />
@@ -166,6 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
 
         {/* Mobile bottom nav */}
+        {/* Pinned: it is a sibling of the scrolling <main>, not part of it. */}
         <nav className="lg:hidden flex items-stretch border-t border-line bg-surface px-1.5 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 shrink-0" aria-label="Primary">
           {mobileTabs.slice(0, 2).map((item) => (
             <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
@@ -175,7 +179,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label={state.role === 'worker' ? 'Find work' : 'Post a job'}
             className="flex-1 flex justify-center"
           >
-            <span className="grid place-items-center w-[50px] h-[50px] -mt-6 rounded-2xl bg-red text-white shadow-e2">
+            <span className="grid place-items-center w-[50px] h-[50px] -mt-6 rounded-2xl bg-brand-solid text-brand-on shadow-e2">
               <Icon name="plus" size={26} />
             </span>
           </button>
@@ -195,12 +199,12 @@ function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-micro font-bold transition whitespace-nowrap
-        ${active ? 'text-red' : 'text-subtle'}`}
+        ${active ? 'text-brand' : 'text-faint'}`}
     >
       <span className="relative">
         <Icon name={item.icon} size={23} />
         {badge > 0 && (
-          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-micro font-bold tnum">
+          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-brand-solid text-brand-on text-micro font-bold font-mono tnum">
             {badge > 99 ? '99+' : badge}
           </span>
         )}

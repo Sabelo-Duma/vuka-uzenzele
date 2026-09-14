@@ -3,7 +3,7 @@ import { BADGES, catById, TIERS } from '../../data/catalog';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import type { Gig } from '../../types';
-import { Avatar, Button, Card, EmptyState, Sheet } from '../../components/ui';
+import { Avatar, Button, Card, EmptyState, Sheet, Tile } from '../../components/ui';
 import { DetailHeader, Hero, PayBox, StickyCta } from '../../components/bits';
 import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
@@ -31,7 +31,6 @@ export function WorkerDetail({ id }: { id: string }) {
         eyebrow={`${t.icon} ${t.name}`}
         title={w.name}
         sub={<><Icon name="pin" size={13} /> {w.location} · Age {w.age}</>}
-        gradient={`linear-gradient(150deg,${w.color},${w.color}cc)`}
       >
         <PayBox cells={[
           { label: 'Tier', value: `${t.icon} ${t.name}` },
@@ -41,32 +40,32 @@ export function WorkerDetail({ id }: { id: string }) {
       </Hero>
 
       <div className="pt-4"><FollowButton userId={w.id} /></div>
-      <div className="py-4"><p className="text-ink leading-relaxed text-sm m-0">{w.tagline}</p></div>
+      <div className="py-4"><p className="text-ink leading-relaxed text-small m-0">{w.tagline}</p></div>
 
       <Card className="p-4 mb-4">
-        <b className="text-small text-navy">Skills</b>
+        <b className="text-small text-ink">Skills</b>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {w.skills.map((s) => <span key={s} className="bg-[#eaf3fb] dark:bg-info/15 text-info text-small font-bold px-3 py-1 rounded-full">{catById(s).icon} {catById(s).label}</span>)}
+          {w.skills.map((s) => <span key={s} className="bg-info-soft text-info text-small font-bold px-3 py-1 rounded-full">{catById(s).icon} {catById(s).label}</span>)}
         </div>
-        <b className="text-small text-navy block mt-4">Badges earned</b>
+        <b className="text-small text-ink block mt-4">Badges earned</b>
         <div className="grid grid-cols-3 gap-2.5 mt-2">
           {BADGES.filter((b) => w.badges.includes(b.id)).map((b) => (
-            <div key={b.id} className="border border-line rounded-[15px] p-3 text-center bg-surface"><div className="text-display" aria-hidden="true">{b.icon}</div><b className="block text-micro mt-1 text-navy">{b.label}</b></div>
+            <div key={b.id} className="border border-line rounded-[15px] p-3 text-center bg-surface"><div className="text-display" aria-hidden="true">{b.icon}</div><b className="block text-micro mt-1 text-ink">{b.label}</b></div>
           ))}
         </div>
       </Card>
 
       {/* proof of identity */}
       <Card className="p-4 mb-4 flex gap-3 items-center">
-        <Avatar initials={w.initials} color={w.color} size="sm" verified={w.idVerified} />
-        <div className="text-small text-muted leading-snug">
-          {w.idVerified ? <><b className="text-navy">ID-verified.</b> Identity confirmed via SA ID — safe to invite into your home or business.</> : <><b className="text-navy">Not yet ID-verified.</b> Still building their reputation.</>}
+        <Avatar initials={w.initials} size="sm" verified={w.idVerified} />
+        <div className="text-small text-dim leading-snug">
+          {w.idVerified ? <><b className="text-ink">ID-verified.</b> Identity confirmed via SA ID — safe to invite into your home or business.</> : <><b className="text-ink">Not yet ID-verified.</b> Still building their reputation.</>}
         </div>
       </Card>
 
       <StickyCta>
         <div className="grid grid-cols-[1fr_auto] gap-2.5">
-          <Button variant="navy" icon="briefcase" onClick={() => setShowInvite(true)}>Invite {w.name.split(' ')[0]} to a job</Button>
+          <Button variant="primary" icon="briefcase" onClick={() => setShowInvite(true)}>Invite {w.name.split(' ')[0]} to a job</Button>
           <Button variant="ghost" icon="chat" onClick={() => navigate('chat', w.id)}>Message</Button>
         </div>
       </StickyCta>
@@ -100,14 +99,14 @@ function InviteSheet({ workerId, workerName, onClose }: { workerId: string; work
 
   return (
     <Sheet title={`Invite ${first}`} onClose={onClose}>
-      <h3 className="font-display text-xl font-extrabold text-ink m-0 mb-1 tracking-tight">Invite to a job</h3>
-      <p className="text-muted text-small leading-relaxed mb-4">Pick one of your open jobs. {first} will see the invitation and can accept it.</p>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">Invite to a job</h3>
+      <p className="text-dim text-small leading-relaxed mb-4">Pick one of your open jobs. {first} will see the invitation and can accept it.</p>
       {gigs === null ? (
         <div className="flex flex-col gap-2.5">{[0, 1].map((i) => <div key={i} className="skeleton h-[68px] rounded-2xl" />)}</div>
       ) : gigs.length === 0 ? (
         <div className="text-center py-2">
-          <div className="text-4xl mb-2" aria-hidden="true">📋</div>
-          <p className="text-muted text-small leading-relaxed mb-4">You have no open jobs yet. Post one first, then invite workers to it.</p>
+          <div className="text-hero mb-2" aria-hidden="true">📋</div>
+          <p className="text-dim text-small leading-relaxed mb-4">You have no open jobs yet. Post one first, then invite workers to it.</p>
           <Button block onClick={() => { onClose(); navigate('post'); }}>Post a job</Button>
         </div>
       ) : (
@@ -116,10 +115,10 @@ function InviteSheet({ workerId, workerName, onClose }: { workerId: string; work
             const c = catById(g.category);
             return (
               <button key={g.id} disabled={busyId !== null} onClick={() => invite(g)}
-                className="text-left border border-line-strong rounded-2xl p-3.5 bg-surface flex gap-3 items-center hover:border-red transition active:scale-[.99] disabled:opacity-50">
-                <span className="grid place-items-center w-10 h-10 rounded-xl text-xl shrink-0" style={{ background: `${c.color}22`, color: c.color }} aria-hidden="true">{c.icon}</span>
-                <div className="flex-1 min-w-0"><b className="text-sm text-navy block truncate">{g.title}</b><span className="text-small text-muted tnum">{money(g.hours * g.payPerHour)} · {g.when}</span></div>
-                <span className="text-red font-bold text-small shrink-0">{busyId === g.id ? '…' : 'Invite'}</span>
+                className="text-left border border-line rounded-2xl p-3.5 bg-surface flex gap-3 items-center hover:border-brand transition active:scale-[.99] disabled:opacity-50">
+                <Tile emoji={c.icon} size="sm" />
+                <div className="flex-1 min-w-0"><b className="text-small text-ink block truncate">{g.title}</b><span className="text-small text-dim font-mono tnum">{money(g.hours * g.payPerHour)} · {g.when}</span></div>
+                <span className="text-brand font-bold text-small shrink-0">{busyId === g.id ? '…' : 'Invite'}</span>
               </button>
             );
           })}

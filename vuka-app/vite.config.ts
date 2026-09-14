@@ -27,8 +27,11 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0D182B',
-        theme_color: '#0E355A',
+        // The 2.0 ground and the splash behind it. These are the installed
+        // app's chrome, so they have to match --v-canvas / --v-feature in
+        // src/index.css or the launch screen flashes the old brand navy.
+        background_color: '#0B1220',
+        theme_color: '#0B1220',
         lang: 'en-ZA',
         categories: ['business', 'productivity', 'social'],
         icons: [

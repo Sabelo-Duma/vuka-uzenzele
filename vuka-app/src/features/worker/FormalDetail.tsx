@@ -46,7 +46,6 @@ export function FormalDetail({ id }: { id: string }) {
         eyebrow={`🏢 ${job.employer} · ${job.type}`}
         title={job.title}
         sub={<><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</>}
-        gradient="linear-gradient(150deg,#0D182B,#123e69)"
       >
         <PayBox cells={[{ label: 'Pay', value: job.salary }, { label: 'Type', value: job.type }]} />
       </Hero>
@@ -55,28 +54,28 @@ export function FormalDetail({ id }: { id: string }) {
         <KV k="Education">🎓 {job.education}</KV>
         <KV k="Access">
           {unlocked
-            ? <span className="text-success flex items-center gap-1.5"><Icon name="check" size={15} /> Open to you ({cv.tier.name})</span>
-            : <span className="flex items-center gap-1.5" style={{ color: 'var(--gj-warning)' }}><Icon name="lock" size={15} /> {reqTier.name} tier {reqTier.icon} required</span>}
+            ? <span className="text-verified flex items-center gap-1.5"><Icon name="check" size={15} /> Open to you ({cv.tier.name})</span>
+            : <span className="flex items-center gap-1.5" style={{ color: 'var(--v-brand)' }}><Icon name="lock" size={15} /> {reqTier.name} tier {reqTier.icon} required</span>}
         </KV>
       </Card>
 
       <div className="pb-2">
-        <p className="text-ink leading-relaxed text-sm m-0">{job.description}</p>
+        <p className="text-ink leading-relaxed text-small m-0">{job.description}</p>
         <PerkList perks={job.perks} />
       </div>
 
       {!unlocked && (
-        <Card className="p-4 my-4 text-white" style={{ background: 'linear-gradient(160deg,#0E355A,#123e69)' }}>
+        <Card className="p-4 my-4 text-on-feature feature-band">
           <div className="flex items-center gap-3">
-            <span className="grid place-items-center w-11 h-11 rounded-[13px] bg-white/15 text-xl"><Icon name="lock" size={20} /></span>
-            <div><small className="text-white/70 text-micro uppercase tracking-wide">Locked</small><h3 className="font-display m-0 text-lg font-bold">Reach {reqTier.name} {reqTier.icon}</h3></div>
+            <span className="grid place-items-center w-11 h-11 rounded-[13px] bg-white/15 text-title"><Icon name="lock" size={20} /></span>
+            <div><small className="text-on-feature-dim text-micro uppercase tracking-wide">Locked</small><h3 className="font-display m-0 text-lead font-bold">Reach {reqTier.name} {reqTier.icon}</h3></div>
           </div>
           <div className="flex gap-2 mt-3">
             <Req ok={cv.jobsDone >= reqTier.minJobs} label="Jobs done" value={`${cv.jobsDone}/${reqTier.minJobs}`} />
             <Req ok={cv.avg >= reqTier.minRating} label="Rating" value={`${cv.avg.toFixed(1)}/${reqTier.minRating.toFixed(1)}`} />
             <Req ok={cv.flags <= reqTier.maxFlags} label="Flags" value={`${cv.flags}`} />
           </div>
-          <p className="text-small text-white/85 leading-snug mt-3 mb-0">
+          <p className="text-small text-on-feature-dim leading-snug mt-3 mb-0">
             {jobsNeeded > 0
               ? <>Complete <b>{jobsNeeded} more good job{jobsNeeded > 1 ? 's' : ''}</b> and keep your rating up — this role is then yours to apply for.</>
               : <>Lift your average rating to <b>{reqTier.minRating.toFixed(1)}★</b> to unlock.</>}
@@ -87,10 +86,10 @@ export function FormalDetail({ id }: { id: string }) {
       <StickyCta>
         {unlocked ? (
           <>
-            <Button block variant="navy" disabled={applied || applying} onClick={apply}>
+            <Button block variant="primary" disabled={applied || applying} onClick={apply}>
               {applied ? '✓ Applied' : applying ? 'Sending your CV…' : 'Apply with my verified CV'}
             </Button>
-            <p className="text-center text-small text-muted mt-2">
+            <p className="text-center text-small text-dim mt-2">
               {applied
                 ? <>Your verified CV is saved for this role. We'll notify you when {job.employer} shortlists.</>
                 : <>Your Vuka CV, references and tier are sent as your application — no paperwork.</>}
@@ -106,9 +105,9 @@ export function FormalDetail({ id }: { id: string }) {
 
 function Req({ ok, label, value }: { ok: boolean; label: string; value: string }) {
   return (
-    <div className={`flex-1 rounded-xl p-2 text-center ${ok ? 'bg-[rgba(24,206,15,.22)]' : 'bg-white/10'}`}>
-      <small className="block text-micro text-white/70 uppercase tracking-wide">{label}</small>
-      <b className="text-sm">{value}</b>
+    <div className="flex-1 rounded-chip p-2 text-center bg-white/10">
+      <small className="block text-micro text-on-feature-dim uppercase tracking-wide">{label}</small>
+      <b className={`text-small font-mono tnum ${ok ? 'text-on-feature-ok' : 'text-on-feature'}`}>{value}</b>
     </div>
   );
 }

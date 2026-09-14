@@ -1,114 +1,167 @@
 /* ============================================================
-   Vuka Uzenzele — global styles & Gijima design tokens
-   Token values sourced verbatim from the Gijima IntelliSource
-   design system (colors/typography/spacing/shadows/borders).
-   Every token has a dark override via [data-theme='dark'].
+   Vuka Uzenzele — design tokens (2.0)
+
+   Vuka means wake up. The palette is the hour before a shift starts:
+   indigo dark, first light on the horizon.
+
+   Three rules hold the whole system together, and breaking any one of
+   them is what made version 1 read as noisy:
+
+     1. AMBER is the brand and every primary action. One per screen.
+     2. TEAL appears only where a third party has verified something.
+        It is never decorative and never means "good".
+     3. VERMILION means happening right now, and nothing else.
+
+   Money is deliberately not a colour. A rand amount earns its place by
+   being set in figures — monospace, tabular, heavy — so it reads as an
+   amount at a glance without competing with the one action on screen.
+
+   Every foreground/background pair below is checked against WCAG AA by
+   `npm run check:contrast`, in both themes. Do not add a colour here
+   without adding it to that test.
    ============================================================ */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Brand.
-     Red is now reserved for the single primary action on a screen. It used to
-     be brand, action AND error at once, which made a "See all →" link look as
-     urgent as a failed payment. Slightly deepened so it also passes contrast
-     as text. */
-  --gj-red: #D81E2C;
-  --gj-red-hover: #B8121F;
-  --gj-navy: #0E355A;
-  --gj-navy-2: #1A3B68;
-  --gj-navy-deep: #0D182B;
+/* ---- Figures ----
+   Roboto Mono, subset to digits and the marks that sit between them
+   (see scripts/subset-mono.py). 33 KB of Latin becomes 5.9 KB.
 
-  /* Text.
-     Body copy was set in --gj-navy, the brand colour. With headings, links and
-     ordinary sentences all rendering in the same saturated navy, nothing on a
-     screen receded and so nothing stood out — which is most of why the app read
-     as "too much going on". Ink is a near-black carrying a slight blue bias, so
-     it still sits in the brand family while letting navy mean something again. */
-  --gj-text: #101826;
-  --gj-text-muted: #5D6B7E;
-  --gj-text-subtle: #8593A6;
-  --gj-link: #0E355A;
-
-  /* Money has its own colour and nothing else may use it. A rand amount is the
-     reason a card is being read, so it should never be mistaken for a success
-     tick or a status pill. */
-  --gj-money: #067A4E;
-
-  /* Surfaces */
-  --gj-bg: #FFFFFF;
-  --gj-bg-light: #F7F7F7;
-  --gj-bg-hover: #EFEFEF;
-  --gj-border: rgba(0, 0, 0, 0.10);
-  --gj-border-strong: rgba(0, 0, 0, 0.20);
-
-  /* Semantic (AA on light bg) */
-  --gj-success: #0E8A09;
-  --gj-info: #1273B8;
-  --gj-warning: #8A5A00;
-  --gj-danger: #C41230;
-
-  /* Tier accents */
-  --t-starter: #0E8A09;
-  --t-trusted: #B45309;
-  --t-pro: #0E355A;
-  --t-elite: #D97706;
-
-  /* Elevation — layered, navy-tinted for a premium feel */
-  --gj-shadow-1: 0 1px 2px rgba(14, 53, 90, 0.06), 0 3px 10px rgba(14, 53, 90, 0.06);
-  --gj-shadow-2: 0 2px 6px rgba(14, 53, 90, 0.08), 0 10px 24px rgba(14, 53, 90, 0.10);
-  --gj-shadow-3: 0 4px 12px rgba(14, 53, 90, 0.10), 0 24px 50px rgba(14, 53, 90, 0.16);
-
-  /* App canvas (the dark stage behind the phone on desktop) */
-  --gj-stage: radial-gradient(1100px 640px at 12% -8%, #12365b 0%, transparent 55%),
-    radial-gradient(900px 560px at 112% 8%, #1c2c48 0%, transparent 52%),
-    linear-gradient(165deg, #0D182B 0%, #0E243f 62%, #0b1526 100%);
-
-  --gj-focus: #0E355A;
-  --gj-shimmer: rgba(255, 255, 255, 0.55);
+   The unicode-range is what makes that saving safe: a letter inside a
+   monospace element is rendered in the body face rather than as tofu,
+   so nothing breaks if a word ever lands in a figures span. Keep this
+   range in step with CHARS in the subsetting script. */
+@font-face {
+  font-family: 'Vuka Figures';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('./fonts/roboto-mono-figures.woff2') format('woff2');
+  unicode-range: U+0020, U+0025, U+0028-0029, U+002B-002F, U+0030-0039,
+    U+003A, U+0052, U+00B0, U+00B7, U+00D7, U+2013-2014, U+2248, U+2605-2606;
 }
 
+/* ============================================================
+   LIGHT — the default. Daylight, on a phone held outdoors.
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  /* Ground. `canvas` is the page; `surface` is anything raised onto it. */
+  --v-canvas: #F2F5FB;
+  --v-surface: #FFFFFF;
+  --v-surface-2: #F5F7FC;
+  --v-surface-3: #E7ECF6;
+  --v-line: #CBD4E6;
+  --v-line-soft: #E9EEF7;
+
+  /* Text. Three steps, no more: what you read, what supports it, and
+     what only labels it. All three clear 4.5:1 on canvas and surface. */
+  --v-text: #0A1020;
+  --v-text-dim: #4E5B75;
+  --v-text-faint: #636F88;
+
+  /* Brand + every primary action. */
+  --v-brand: #9C5C00;          /* amber has to darken on light to carry text */
+  --v-brand-solid: #F5A200;    /* the fill of a primary button */
+  --v-brand-hover: #D98F00;
+  --v-brand-soft: #FFF1D4;     /* tinted background */
+  --v-on-brand: #1A1204;       /* text on --v-brand-solid */
+
+  /* Verified by someone other than us. Never decorative. */
+  --v-verified: #0A6E5C;
+  --v-verified-soft: #D6F5EE;
+
+  /* Happening right now. Never anything else. */
+  --v-live: #B52D1B;
+  --v-live-solid: #DC3B27;
+  --v-live-soft: #FDE3DF;
+
+  /* Something went wrong, or is about to. */
+  --v-danger: #B3261E;
+  --v-danger-soft: #FDE7E5;
+
+  /* Neutral information — a note, not a state. */
+  --v-info: #1C5FA8;
+  --v-info-soft: #E4EEFA;
+
+  /* Feature panel — the one deep band a screen is allowed, behind a hero or a
+     CV header. Named rather than written inline as a gradient, because the
+     hero was previously painted in the brand navy and so competed with every
+     heading set in the same colour. */
+  --v-feature: #121A2E;
+  --v-feature-2: #223354;
+  --v-on-feature: #F0F4FC;
+  --v-on-feature-dim: #AEBBD4;
+  --v-on-feature-accent: #FFC152;
+  --v-on-feature-ok: #4FE3C5;
+
+  /* Elevation. Indigo-tinted so shadows sit in the palette. */
+  --v-shadow-1: 0 1px 2px rgba(10, 16, 32, .05), 0 2px 8px rgba(10, 16, 32, .05);
+  --v-shadow-2: 0 2px 6px rgba(10, 16, 32, .07), 0 10px 24px rgba(10, 16, 32, .09);
+  --v-shadow-3: 0 6px 16px rgba(10, 16, 32, .10), 0 26px 54px rgba(10, 16, 32, .16);
+
+  --v-focus: #1C5FA8;
+  /* Frosted sticky headers. A real value, because `bg-surface/85` on a
+     var() colour resolves to nothing and the header goes clear. */
+  --v-surface-veil: rgba(255, 255, 255, .85);
+  --v-shimmer: rgba(255, 255, 255, .62);
+  --v-scrim: rgba(10, 16, 32, .52);
+}
+
+/* ============================================================
+   DARK — the hour before a shift starts.
+   ============================================================ */
 [data-theme='dark'] {
-  --gj-red: #F20023;
-  --gj-red-hover: #FF1A3C;
-  --gj-navy: #3E6FA3;
-  --gj-navy-2: #4b7cb0;
-  --gj-navy-deep: #0D182B;
+  color-scheme: dark;
 
-  --gj-text: #E8EDF4;
-  --gj-text-muted: #A8B4C4;
-  --gj-text-subtle: #7A8699;
-  --gj-link: #7FB0E6;
+  --v-canvas: #0B1220;
+  --v-surface: #141E31;
+  --v-surface-2: #1A2538;
+  --v-surface-3: #23304A;
+  --v-line: #2C3A57;
+  --v-line-soft: #1C2740;
 
-  /* Money, lifted for a dark ground while staying unmistakably green. */
-  --gj-money: #3FBF87;
+  --v-text: #F0F4FC;
+  --v-text-dim: #A9B6CE;
+  --v-text-faint: #8E9BB5;
 
-  --gj-bg: #0D182B;
-  --gj-bg-light: #152238;
-  --gj-bg-hover: #1D2C47;
-  --gj-border: rgba(255, 255, 255, 0.12);
-  --gj-border-strong: rgba(255, 255, 255, 0.24);
+  --v-brand: #FFC152;
+  --v-brand-solid: #FFB01F;
+  --v-brand-hover: #FFC152;
+  --v-brand-soft: #3A2A08;
+  --v-on-brand: #1A1204;
 
-  --gj-success: #4ADE80;
-  --gj-info: #60A5FA;
-  --gj-warning: #FBBF24;
-  --gj-danger: #F87181;
+  --v-verified: #4FE3C5;
+  --v-verified-soft: #07322B;
 
-  --t-starter: #4ADE80;
-  --t-trusted: #F59E0B;
-  --t-pro: #60A5FA;
-  --t-elite: #FBBF24;
+  --v-live: #FF8A78;
+  --v-live-solid: #FF5A45;
+  --v-live-soft: #3A1310;
 
-  --gj-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.45);
-  --gj-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --gj-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --v-danger: #FF9086;
+  --v-danger-soft: #3A1512;
 
-  --gj-stage: linear-gradient(165deg, #060c16 0%, #0a1424 100%);
+  --v-info: #86BAF5;
+  --v-info-soft: #132743;
 
-  --gj-focus: #FF4D66;
-  --gj-shimmer: rgba(255, 255, 255, 0.07);
+  --v-feature: #172134;
+  --v-feature-2: #26365A;
+  --v-on-feature: #F0F4FC;
+  --v-on-feature-dim: #A9B6CE;
+  --v-on-feature-accent: #FFC152;
+  --v-on-feature-ok: #4FE3C5;
+
+  --v-shadow-1: 0 1px 3px rgba(0, 0, 0, .5);
+  --v-shadow-2: 0 4px 14px rgba(0, 0, 0, .5);
+  --v-shadow-3: 0 14px 38px rgba(0, 0, 0, .55);
+
+  --v-focus: #FFC152;
+  --v-surface-veil: rgba(20, 30, 49, .85);
+  --v-shimmer: rgba(255, 255, 255, .06);
+  --v-scrim: rgba(3, 7, 16, .66);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -117,24 +170,49 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  font-family: 'Figtree Variable', 'Figtree', 'proxima-nova', system-ui, Arial, sans-serif;
-  color: var(--gj-text);
-  background: var(--gj-bg);
+  font-family: 'Vuka Figures', 'Public Sans Variable', 'Public Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--v-text);
+  background: var(--v-canvas);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Bold & youthful headings: tighter tracking + balanced wrapping. */
+/* Headings carry the display face and tighter tracking. Bricolage is a
+   wide, confident grotesque — it says the thing once, loudly, so a
+   heading does not also need to be a different colour to read as one. */
 h1, h2, h3, h4 {
+  font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Public Sans Variable', system-ui, sans-serif;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  line-height: 1.1;
   text-wrap: balance;
+  margin: 0;
 }
-/* Numbers that line up in columns (stats, money, ratings) stay even. */
+
+/* The feature band. One gradient, defined once — screens used to write their
+   own, each a slightly different navy, and all of them in the same colour as
+   the headings sitting next to them. */
+.feature-band {
+  background: linear-gradient(150deg, var(--v-feature), var(--v-feature-2));
+  color: var(--v-on-feature);
+}
+
+/* The app shell owns the viewport, so only the content column scrolls and the
+   tab bar stays under the thumb. `100vh` on a phone means "the viewport with
+   the address bar hidden", which is taller than what you can actually see — so
+   the last row of a long screen, and the tab bar with it, sat below the fold.
+   `dvh` is the visible height; the vh line is the fallback for browsers that
+   do not know it. */
+.app-shell { height: 100vh; height: 100dvh; }
+
+/* Figures that line up in a column: money, ratings, distances, counts. */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Visible, brand-coloured focus ring everywhere (a11y). */
+/* Visible focus ring everywhere. */
 :focus-visible {
-  outline: 3px solid var(--gj-focus);
+  outline: 3px solid var(--v-focus);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -142,7 +220,7 @@ h1, h2, h3, h4 {
 /* Thin, unobtrusive scrollbars */
 .scroll-area { scrollbar-width: thin; }
 .scroll-area::-webkit-scrollbar { width: 6px; height: 6px; }
-.scroll-area::-webkit-scrollbar-thumb { background: var(--gj-border-strong); border-radius: 999px; }
+.scroll-area::-webkit-scrollbar-thumb { background: var(--v-line); border-radius: 999px; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
@@ -158,15 +236,23 @@ h1, h2, h3, h4 {
 @keyframes fall { to { transform: translateY(760px) rotate(560deg); opacity: 0.9; } }
 
 /* Skeleton shimmer for loading states */
-.skeleton { position: relative; overflow: hidden; background: var(--gj-bg-hover); }
+.skeleton { position: relative; overflow: hidden; background: var(--v-surface-3); }
 .skeleton::after {
   content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, var(--gj-shimmer), transparent);
+  background: linear-gradient(90deg, transparent, var(--v-shimmer), transparent);
   animation: shimmer 1.5s infinite;
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 
-/* Entrance + ambient motion (used on onboarding & celebratory moments) */
+/* A dot that marks something happening right now. Vermilion, and only here. */
+.pulse-dot { position: relative; display: inline-block; width: 7px; height: 7px; border-radius: 999px; background: var(--v-live-solid); }
+.pulse-dot::after {
+  content: ''; position: absolute; inset: 0; border-radius: 999px;
+  background: var(--v-live-solid); animation: pulse 1.8s ease-out infinite;
+}
+@keyframes pulse { to { transform: scale(2.6); opacity: 0; } }
+
+/* Entrance + ambient motion (onboarding & celebratory moments) */
 @keyframes obRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 .ob-rise { animation: obRise .55s cubic-bezier(.2,.75,.3,1) both; }
@@ -185,8 +271,8 @@ h1, h2, h3, h4 {
 
    This is enforced at each field's own class (`text-base`, never `text-sm`)
    rather than by a blanket `input { font-size: 16px !important }` here — that
-   would also shrink the deliberately large 26px OTP digit boxes, since CSS has
-   no way to say "minimum font-size". If you add a new text field, size it
+   would also shrink the deliberately large OTP digit boxes, since CSS has no
+   way to say "minimum font-size". If you add a new text field, size it
    `text-base` or larger.
 
    The other common fix, `maximum-scale=1` on the viewport, stops the zoom by

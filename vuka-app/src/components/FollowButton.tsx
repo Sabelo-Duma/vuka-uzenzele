@@ -43,12 +43,12 @@ export function FollowButton({ userId, showFollowers = true, className = '' }: {
         disabled={!state || busy}
         aria-pressed={following}
         className={`inline-flex items-center justify-center gap-1.5 rounded-pill font-bold text-small px-4 py-2 transition active:scale-95 disabled:opacity-60
-          ${following ? 'bg-surface-2 text-navy border border-line-strong' : 'bg-navy text-white dark:text-navy-deep hover:bg-navy-2'}`}
+          ${following ? 'bg-surface-2 text-ink border border-line' : 'bg-ink text-canvas hover:opacity-90'}`}
       >
         {following ? <><Icon name="check" size={15} /> Following</> : <><Icon name="plus" size={15} /> Follow</>}
       </button>
       {showFollowers && state && (
-        <span className="text-small text-muted"><b className="text-navy tnum">{state.followers.toLocaleString()}</b> follower{state.followers === 1 ? '' : 's'}</span>
+        <span className="text-small text-dim"><b className="text-ink font-mono tnum">{state.followers.toLocaleString()}</b> follower{state.followers === 1 ? '' : 's'}</span>
       )}
     </div>
   );
@@ -73,9 +73,9 @@ export function FollowingCard() {
   return (
     <Card className="p-4 mb-2.5">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-small font-bold text-navy">Following{list ? ` · ${list.length.toLocaleString()}` : ''}</div>
+        <div className="text-small font-bold text-ink">Following{list ? ` · ${list.length.toLocaleString()}` : ''}</div>
         {list && list.length > 0 && (
-          <button onClick={() => setExpanded((v) => !v)} className="text-small font-bold text-red">{expanded ? 'Show less' : 'See all'}</button>
+          <button onClick={() => setExpanded((v) => !v)} className="text-small font-bold text-brand">{expanded ? 'Show less' : 'See all'}</button>
         )}
       </div>
 
@@ -85,12 +85,12 @@ export function FollowingCard() {
         <div className="flex flex-col gap-1 max-h-72 overflow-y-auto scroll-area -mx-1 px-1">
           {list.map((u) => (
             <button key={u.id} onClick={() => navigate('chat', u.id)} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-surface-2 transition text-left">
-              <Avatar initials={u.initials} color={u.color} size="sm" />
+              <Avatar initials={u.initials} size="sm" />
               <div className="flex-1 min-w-0">
-                <b className="text-sm text-navy block truncate">{u.name}</b>
-                <span className="text-micro text-muted font-semibold uppercase tracking-wide">{u.role}</span>
+                <b className="text-small text-ink block truncate">{u.name}</b>
+                <span className="text-micro text-dim font-semibold uppercase tracking-wide">{u.role}</span>
               </div>
-              <span className="text-subtle"><Icon name="chat" size={16} /></span>
+              <span className="text-faint"><Icon name="chat" size={16} /></span>
             </button>
           ))}
         </div>
@@ -98,13 +98,13 @@ export function FollowingCard() {
         <button onClick={() => setExpanded(true)} className="flex items-center gap-3 w-full text-left" aria-label={`See all ${list.length} you follow`}>
           <div className="flex -space-x-2.5">
             {list.slice(0, STACK).map((u) => (
-              <span key={u.id} title={u.name} className="grid place-items-center w-9 h-9 rounded-full text-white text-small font-bold border-2 border-surface shadow-e1" style={{ background: u.color }}>{u.initials}</span>
+              <span key={u.id} title={u.name} className="grid place-items-center w-9 h-9 rounded-full bg-surface-3 text-ink text-small font-bold border-2 border-surface shadow-e1">{u.initials}</span>
             ))}
             {list.length > STACK && (
-              <span className="grid place-items-center min-w-[2.25rem] h-9 px-1.5 rounded-full bg-surface-2 text-navy text-micro font-extrabold border-2 border-surface tnum">+{(list.length - STACK).toLocaleString()}</span>
+              <span className="grid place-items-center min-w-[2.25rem] h-9 px-1.5 rounded-full bg-surface-2 text-ink text-micro font-extrabold border-2 border-surface font-mono tnum">+{(list.length - STACK).toLocaleString()}</span>
             )}
           </div>
-          {list.length <= 3 && <span className="text-small text-muted truncate">{list.map((u) => u.name.split(' ')[0]).join(', ')}</span>}
+          {list.length <= 3 && <span className="text-small text-dim truncate">{list.map((u) => u.name.split(' ')[0]).join(', ')}</span>}
         </button>
       )}
     </Card>

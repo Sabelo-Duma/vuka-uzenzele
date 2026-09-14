@@ -29,7 +29,7 @@ export function Toast() {
     <div
       aria-live="polite"
       role="status"
-      className={`fixed left-1/2 -translate-x-1/2 z-[70] rounded-2xl sm:rounded-pill bg-navy text-white
+      className={`fixed left-1/2 -translate-x-1/2 z-[70] rounded-2xl sm:rounded-pill bg-ink text-canvas
         top-[max(12px,env(safe-area-inset-top))] sm:top-auto sm:bottom-8
         max-w-[calc(100vw-24px)] sm:max-w-[min(420px,calc(100vw-32px))]
         px-4.5 py-3 text-small font-bold text-center shadow-e3 transition-all duration-300
