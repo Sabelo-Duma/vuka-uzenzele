@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Vuka Uzenzele — a mobile-first + desktop platform connecting South African youth to work. Gijima brand.",
+  "description": "Vuka Uzenzele — a mobile-first + desktop platform connecting South African youth to work. An independent product, created and owned by Sabelo Duma.",
   "scripts": {
     "build": "npm run check:contrast && tsc --noEmit && vite build && npm run check:classes",
     "check:classes": "node scripts/check-classes.mjs",

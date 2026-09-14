@@ -4,8 +4,8 @@
 > Connect South Africa's youth to work. **Start with no CV. Let your work write it for you — then let it open real doors.**
 
 This is the **real application** (not the earlier static prototype in the parent folder):
-a production-grade, responsive **desktop + mobile** web app built on the
-**Gijima BMAD Enterprise SDLC** stack and the **Gijima IntelliSource design system**.
+a production-grade, responsive **desktop + mobile** web app built on Vuka's own
+2.0 design system (see `DESIGN.md`).
 
 ---
 
@@ -98,11 +98,11 @@ zero-rated, works-anywhere goal.
 
 - **React 18 + TypeScript (strict)** — `noUnusedLocals`, `noUnusedParameters` on.
 - **Vite 5** — fast dev server + optimized production build.
-- **Tailwind CSS 3** — Gijima brand tokens mapped to CSS custom properties.
+- **Tailwind CSS 3** — Vuka's design tokens mapped to CSS custom properties.
 - **No runtime dependencies beyond React** — bundle is **~71 KB gzipped**
   (well under the BMAD 200 KB initial-load budget). No CDNs, works offline once loaded.
 
-## 🎨 Design system (Gijima)
+## 🎨 Design system
 
 Brand tokens are ported verbatim from `../IntelliSource/design-system`:
 navy `#0E355A`, red `#F20023`, Proxima Nova, pill buttons, the red-dot accent, and the
@@ -160,5 +160,4 @@ providers are **mocked and clearly labelled**: SMS OTP, ID verification, and pay
 Data persists in the browser (localStorage) and resets when cleared. Formal-employer names
 are fictional — a prototype must not fabricate real companies' job listings.
 
-*Built with the Gijima BMAD Enterprise SDLC + IntelliSource design system · Prototype for
-Sabelo Duma · Gijima Innovation Engine · 2026*
+*Vuka Uzenzele · created and owned by Sabelo Duma · 2026*

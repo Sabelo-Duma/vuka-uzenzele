@@ -233,7 +233,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
 
       <footer className="border-t border-line">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-8 text-center text-small text-dim leading-relaxed">
-          <b className="text-ink">Gijima Innovation Engine · 2026</b><br />
+          <b className="text-ink">Vuka Uzenzele · 2026</b><br />
           {YOUTH_UNEMPLOYMENT_SENTENCE}
           <div className="flex items-center justify-center gap-4 mt-3">
             <button onClick={() => setLegal('privacy')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">Privacy &amp; your data</button>

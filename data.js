@@ -2,7 +2,7 @@
    Vuka Uzenzele — seed data
    Mock data powering the prototype. No backend, no network.
    "Vuka Uzenzele" (isiZulu): Rise up and do it for yourself.
-   Brand: Gijima (navy #0E355A / red #F20023).
+   An independent product, created and owned by Sabelo Duma.
    ============================================================ */
 
 // ---- Gig categories (wider than cleaning-only rivals) ----

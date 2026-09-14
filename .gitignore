@@ -17,3 +17,10 @@ dist/
 .DS_Store
 Thumbs.db
 /Vuka Uzenzele - Cost Model.html
+
+# Gijima IntelliSource — the employer project, not this one.
+# It was committed here and this repository is public, which published a
+# business case, a PRD, an architecture and a procurement planning review that
+# were never ours to publish. Untracked (files kept on disk) so it stops being
+# part of this project, in both senses.
+IntelliSource/

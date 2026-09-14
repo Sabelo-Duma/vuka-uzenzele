@@ -1,12 +1,12 @@
 /* ============================================================
-   Vuka Uzenzele — styles  ·  Gijima brand + youth energy
+   Vuka Uzenzele — styles (early prototype)
    Mobile-first. Works offline (no web fonts / CDNs).
-   Brand tokens sourced from Gijima IntelliSource design system:
+   Brand tokens:
      navy #0E355A · red #F20023 · Proxima Nova (Arial fallback).
    ============================================================ */
 
 :root {
-  /* ---- Gijima brand ---- */
+  /* ---- brand ---- */
   --gj-red:#F20023; --gj-red-hover:#D40020;
   --gj-navy:#0E355A; --gj-navy-2:#1A3B68; --gj-navy-deep:#0D182B;
   --gj-info:#1273B8; --gj-success:#0E8A09; --gj-success-fill:#18CE0F;
@@ -189,7 +189,7 @@ body {
 .rung .pillnow { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; background:var(--gj-red); color:#fff; padding:2px 8px; border-radius:999px; }
 .rung.locked .r-body h4 { color:var(--subtle); }
 
-/* ---------- Buttons (Gijima pill) ---------- */
+/* ---------- Buttons (pill) ---------- */
 .btn { border:0; cursor:pointer; font-family:var(--font); font-weight:700; border-radius:var(--pill); font-size:14px;
   letter-spacing:.02em; padding:15px 20px; width:100%; transition:transform .1s ease, background-color .2s ease;
   display:flex; align-items:center; justify-content:center; gap:8px; }

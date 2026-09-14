@@ -154,4 +154,4 @@ Still needs a provider or a person:
 
 Employer names in the seed are fictional.
 
-*Built for the Gijima Innovation Engine · 2026*
+*Vuka Uzenzele · created and owned by Sabelo Duma · 2026*

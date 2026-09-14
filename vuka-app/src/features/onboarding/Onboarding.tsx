@@ -58,7 +58,11 @@ export function Onboarding() {
       await register({
         role, name: data.name, phone: data.phone, password: data.password,
         verifyToken: data.verifyToken,
-        age: Number(data.age) || (role === 'worker' ? 18 : 30),
+        /* Sent as typed. This used to fall back to 18 when the field was
+           blank or unparseable, which meant the app asserted an age on
+           somebody's behalf — and would have walked straight through the
+           server's new minimum-age check while doing it. */
+        age: Number(data.age),
         location: data.location, skills: data.skills,
       });
     } catch (e) { toast((e as Error).message); setBusy(false); }
@@ -93,7 +97,7 @@ export function Onboarding() {
       {view === 'reset' && <ResetView onBack={() => setView('login')} />}
       {view === 'reg' && key !== 'done' && (
         <RegStep
-          stepKey={key} steps={steps} step={step} data={data} setData={setData}
+          stepKey={key} steps={steps} step={step} role={role} data={data} setData={setData}
           onBack={back}
           onNext={next}
           // The phone and OTP steps advance themselves once the server agrees.
@@ -141,7 +145,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative text-on-feature-dim text-micro leading-relaxed">
-          <span className="text-on-feature-dim font-semibold">Gijima Innovation Engine · 2026</span><br />
+          <span className="text-on-feature-dim font-semibold">Vuka Uzenzele · 2026</span><br />
           Built to help close South Africa's youth unemployment gap — nearly 60% for ages 15–24.
         </div>
       </aside>
@@ -365,13 +369,36 @@ function ResetView({ onBack }: { onBack: () => void }) {
 }
 
 /* ---------------- Registration step ---------------- */
-function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerified, onSignIn }: {
+/** Vuka's minimum age, matching the terms and the server. */
+export const MIN_AGE = 18;
+
+/**
+ * Why this step cannot continue yet, in words meant for the person on it.
+ *
+ * Age is the one that matters: a 17-year-old who gets all the way to the end
+ * and is then refused has given us their name, their number and an SMS code
+ * for nothing. Better to say it on the step where it is asked.
+ */
+function blockedReason(stepKey: string, data: OBData, role: Role): string | null {
+  if (stepKey !== 'about') return null;
+  if (!data.name.trim()) return 'Please enter your name.';
+  if (role !== 'worker') return null;
+  const age = Number(data.age);
+  if (!data.age.trim() || !Number.isFinite(age)) return 'Please enter your age.';
+  if (age < MIN_AGE) return `You need to be ${MIN_AGE} or older to work through Vuka.`;
+  if (age > 99) return 'Please enter a valid age.';
+  return null;
+}
+
+function RegStep({ stepKey, steps, step, role, data, setData, onBack, onNext, onVerified, onSignIn }: {
+  role: Role;
   stepKey: string; steps: string[]; step: number; data: OBData;
   setData: React.Dispatch<React.SetStateAction<OBData>>;
   onBack: () => void; onNext: () => void; onVerified: (verifyToken: string) => void;
   /** Offered when the number turns out to already have an account. */
   onSignIn: () => void;
 }) {
+  const blocked = blockedReason(stepKey, data, role);
   const total = steps.length - 1;
   const progress = (
     <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-brand-solid' : 'bg-line'}`} />)}</div>
@@ -395,7 +422,8 @@ function RegStep({ stepKey, steps, step, data, setData, onBack, onNext, onVerifi
       {stepKey === 'password' && <PasswordStep data={data} setData={setData} />}
       {stepKey === 'id' && <IdStep />}
       {stepKey === 'org' && <OrgStep data={data} setData={setData} />}
-      <Button block className="mt-7" onClick={onNext}>{stepKey === 'id' ? 'Continue' : 'Continue'}</Button>
+      {blocked && <p className="text-small font-semibold text-danger leading-snug mt-4 mb-0" role="alert">{blocked}</p>}
+      <Button block className="mt-7" disabled={!!blocked} onClick={onNext}>Continue</Button>
     </div>
   );
 }
@@ -538,7 +566,11 @@ function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<Re
   return (<><Head h="Tell us about you<span class='text-brand'>.</span>" sub="This starts your profile. Keep it simple and honest." />
     <div className="mb-3.5"><Label>Full name</Label><input className={inputCls} placeholder="e.g. Thandeka Mokoena" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label="Full name" /></div>
     <div className="flex gap-2.5">
-      <div className="flex-1"><Label>Age</Label><input className={inputCls} type="number" min={16} max={35} placeholder="21" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })} aria-label="Age" /></div>
+      {/* min was 16. The terms have always said 18 and over, and POPIA s34
+          makes a child's personal information unlawful to process here at all,
+          so the field was inviting exactly the sign-ups the product must
+          refuse — and the refusal only came later, if at all. */}
+      <div className="flex-1"><Label>Age</Label><input className={inputCls} type="number" min={MIN_AGE} max={99} placeholder="21" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })} aria-label="Age" inputMode="numeric" /></div>
       <div className="flex-[2]"><Label>Where you live</Label><input className={inputCls} placeholder="Suburb, City" value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label="Location" /></div>
     </div></>);
 }
