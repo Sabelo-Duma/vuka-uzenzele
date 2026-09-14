@@ -81,6 +81,9 @@ export interface Gig {
   employerId?: string;
   employerInitials: string;
   /** Average worker→employer rating; null until real workers have rated them. */
+  /** Whether the employer has verified their identity. Not a guarantee of
+   *  safety, but the worker is the one travelling to a stranger's address. */
+  employerVerified?: boolean;
   employerRating: number | null;
   employerRatingCount: number;
   location: string;

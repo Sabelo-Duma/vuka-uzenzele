@@ -314,6 +314,13 @@ export async function initDb() {
      which records what the app should display, not what the person speaks —
      only the second belongs on a CV. */
   await addColumn('worker_profiles', 'languages', 'TEXT');
+  /* Identity verification belongs to the person, not to one of their roles.
+     It lived on worker_profiles, where an employer has no row at all — so
+     approving an employer's ID updated zero rows and silently did nothing,
+     after we had already taken and encrypted their ID number. Moving it to
+     users makes the same flow work for both sides, and lets a worker see
+     whether the stranger whose address they are going to is verified. */
+  await addColumn('users', 'id_verified', 'INTEGER');
   // Unix seconds; tokens issued before this stop working (password reset).
   await addColumn('users', 'sessions_valid_from', 'INTEGER');
   // Two-sided completion: applied → hired → worker_done → completed.
@@ -346,6 +353,15 @@ export async function initDb() {
   await addColumn('gigs', 'lng', 'REAL');
   await addColumn('formal_jobs', 'lat', 'REAL');
   await addColumn('formal_jobs', 'lng', 'REAL');
+
+  /* Carry across every verification already granted, once. Guarded by the NULL
+     check so it cannot re-run and cannot clobber a later decision. */
+  await exec(`
+    UPDATE users SET id_verified = 1
+     WHERE id_verified IS NULL
+       AND id IN (SELECT user_id FROM worker_profiles WHERE id_verified = 1);
+  `);
+  await exec(`UPDATE users SET id_verified = 0 WHERE id_verified IS NULL;`);
 
   /* One account per email, but only where one was given. A partial index is the
      point: a plain UNIQUE would treat every NULL as distinct on Postgres and as

@@ -62,7 +62,15 @@ export function GigDetail({ id }: { id: string }) {
             ? <span className="text-muted">New employer — no reviews yet</span>
             : <><span style={{ color: '#F59E0B' }}>{stars(gig.employerRating)}</span> {gig.employerRating.toFixed(1)} <span className="text-muted">({gig.employerRatingCount})</span></>}
         </KV>
-        <KV k="Safety"><span className="text-info flex items-center gap-1.5"><Icon name="shield" size={14} /> ID-verified employer</span></KV>
+        {/* This said "ID-verified employer" on every gig, whether or not the
+            employer had verified anything. A safety badge that is always shown
+            tells a worker nothing and is worse than showing none, because they
+            act on it when deciding whose address to go to. */}
+        <KV k="Safety">
+          {gig.employerVerified
+            ? <span className="text-success flex items-center gap-1.5"><Icon name="shield" size={14} /> Identity verified against SA ID</span>
+            : <span className="text-muted flex items-center gap-1.5"><Icon name="shield" size={14} /> Identity not verified — meet somewhere public the first time</span>}
+        </KV>
         {gig.employerId && (
           <div className="mt-3.5 flex flex-col gap-2.5">
             <FollowButton userId={gig.employerId} />

@@ -38,6 +38,7 @@ const TALENT = [
 ];
 
 const INS_USER = 'INSERT INTO users (id, role, phone, password_hash, name, created_at) VALUES (?,?,?,?,?,?)';
+const SET_VERIFIED = 'UPDATE users SET id_verified = 1 WHERE id = ?';
 const INS_PROFILE = 'INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)';
 const INS_GIG = 'INSERT INTO gigs (id, employer_id, title, category, employer_name, employer_initials, location, distance_km, lat, lng, hours, pay_per_hour, when_text, description, urgent, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 const INS_FORMAL = 'INSERT INTO formal_jobs (id, title, category, employer, employer_initials, min_tier, type, location, distance_km, lat, lng, salary, education, description, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
@@ -80,6 +81,7 @@ export async function seed() {
   // Demo worker (Thandeka) — fixed id so her public CV / share link is stable across deploys
   await run(INS_USER, [DEMO_WORKER_ID, 'worker', '0710000000', hashPassword('demo1234'), 'Thandeka Mokoena', NOW]);
   await run(INS_PROFILE, [DEMO_WORKER_ID, 21, 'Soweto, Gauteng', 'Grade 11 · No matric', 'Hard-working and reliable. I learn fast and show up on time.', JSON.stringify(['cleaning', 'garden', 'errands']), 1, '#0E355A', 'March 2026', 'Reliable and eager to build my name.']);
+  await run(SET_VERIFIED, [DEMO_WORKER_ID]);
   await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Deep clean 2-bedroom flat', 'cleaning', 'Mrs. Naidoo', 'PN', null, '12 Jun 2026', 4, 220, 5, 'Thandeka was fantastic — thorough, polite and finished ahead of time. Would book again in a heartbeat.', 0, NOW]);
   await run(INS_HIST, [uuid(), DEMO_WORKER_ID, 'Weekly garden tidy-up', 'garden', 'Mr. van der Merwe', 'JV', null, '28 Jun 2026', 3, 150, 4, 'Good work and friendly. Garden looked great. A little late but messaged me to let me know.', 0, NOW]);
 
@@ -108,6 +110,7 @@ export async function seed() {
     talentIds.push(id);
     await run(INS_USER, [id, 'worker', t.phone, hashPassword('demo1234'), t.name, NOW]);
     await run(INS_PROFILE, [id, t.age, t.location, 'No matric', t.tagline, JSON.stringify(t.skills), t.verified, t.color, 'Feb 2026', t.tagline]);
+    if (t.verified) await run(SET_VERIFIED, [id]);
     await genHistory(id, t.jobs, t.fours, t.skills);
   }
 

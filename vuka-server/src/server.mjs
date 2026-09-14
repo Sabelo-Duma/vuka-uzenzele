@@ -78,11 +78,11 @@ const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).c
 
 // ---- serializers ----
 const userOut = (u) => ({ id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null });
-function profileOut(p) {
+function profileOut(p, verified) {
   if (!p) return null;
   return {
     age: p.age, location: p.location, education: p.education, bio: p.bio,
-    skills: JSON.parse(p.skills || '[]'), idVerified: !!p.id_verified,
+    skills: JSON.parse(p.skills || '[]'), idVerified: !!verified,
     color: p.color, joined: p.joined, tagline: p.tagline,
     languages: JSON.parse(p.languages || '[]'),
   };
@@ -107,6 +107,10 @@ function gigOut(g, rating) {
   return {
     id: g.id, title: g.title, category: g.category, employer: g.employer_name,
     employerId: g.employer_id, employerInitials: g.employer_initials,
+    // The worker is the one going to somebody's house. Whether that somebody
+    // has verified their identity is the safety fact that matters most here,
+    // and until now only the employer could see verification, about workers.
+    employerVerified: !!g.employer_verified,
     employerRating: rating?.avg ?? null, employerRatingCount: rating?.count ?? 0,
     location: g.location, distanceKm: g.distance_km, hours: g.hours, payPerHour: g.pay_per_hour,
     when: g.when_text, description: g.description, urgent: !!g.urgent, status: g.status,
@@ -247,10 +251,12 @@ function byDistance(a, b) {
 }
 
 async function cvFor(userId) {
-  const profile = await profileOf(userId);
-  const history = await historyOf(userId);
-  const cv = computeCv(history.map((h) => ({ rating: h.rating, safety_flag: h.safety_flag, category: h.category, pay: h.pay })), !!profile?.id_verified);
-  return { cv, history: history.map(historyOut), profile: profileOut(profile) };
+  const [profile, history, user] = await Promise.all([
+    profileOf(userId), historyOf(userId), userById(userId),
+  ]);
+  const verified = !!user?.id_verified;
+  const cv = computeCv(history.map((h) => ({ rating: h.rating, safety_flag: h.safety_flag, category: h.category, pay: h.pay })), verified);
+  return { cv, history: history.map(historyOut), profile: profileOut(profile, verified) };
 }
 
 /* ============================================================
@@ -702,7 +708,7 @@ app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
 // ---- gigs ----
 app.get('/api/gigs', asyncH(async (req, res) => {
   const from = viewerCoords(req);
-  const rows = await all("SELECT * FROM gigs WHERE status = 'open' ORDER BY created_at DESC LIMIT 500");
+  const rows = await all("SELECT g.*, u.id_verified AS employer_verified FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.status = 'open' ORDER BY g.created_at DESC LIMIT 500");
   const out = await gigsOut(rows, from);
   // "Work near me" is the whole point, so when we know where the viewer is,
   // the closest gig leads. Without a position we keep newest-first.
@@ -711,7 +717,7 @@ app.get('/api/gigs', asyncH(async (req, res) => {
 }));
 
 app.get('/api/gigs/:id', asyncH(async (req, res) => {
-  const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  const g = await get('SELECT g.*, u.id_verified AS employer_verified FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.id = ?', [req.params.id]);
   if (!g) return res.status(404).json({ error: 'This gig is no longer available. Browse other gigs near you.' });
   res.json((await gigsOut([g], viewerCoords(req)))[0]);
 }));
@@ -830,7 +836,7 @@ app.get('/api/gigs/:id/applicants', requireAuth, requireRole('employer'), asyncH
 
   const rows = await all(
     `SELECT a.id AS app_id, a.status AS app_status, a.created_at AS applied_at, a.worker_done_at, a.worker_rating,
-            u.id AS user_id, u.name, p.*
+            u.id AS user_id, u.name, p.*, u.id_verified AS verified
      FROM applications a
      JOIN users u ON u.id = a.worker_id
      LEFT JOIN worker_profiles p ON p.user_id = u.id
@@ -844,7 +850,7 @@ app.get('/api/gigs/:id/applicants', requireAuth, requireRole('employer'), asyncH
       worker: {
         id: r.user_id, name: r.name, initials: initialsOf(r.name),
         age: r.age, location: r.location, tagline: r.tagline, color: r.color || '#0E355A',
-        skills: JSON.parse(r.skills || '[]'), idVerified: !!r.id_verified,
+        skills: JSON.parse(r.skills || '[]'), idVerified: !!r.verified,
         rating: cv.avg, jobsDone: cv.jobsDone, tier: cv.tier, badges: cv.earnedBadges,
       },
     };
@@ -1222,7 +1228,10 @@ app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (r
   const reason = String(req.body?.reason ?? '').slice(0, 300) || null;
   await run('UPDATE id_verifications SET status = ?, reason = ?, reviewed_at = ? WHERE id = ?',
     [approve ? 'verified' : 'rejected', reason, new Date().toISOString(), row.id]);
-  if (approve) await run('UPDATE worker_profiles SET id_verified = 1 WHERE user_id = ?', [row.user_id]);
+  /* On users, not worker_profiles: an employer has no profile row, so the old
+     statement matched nothing and an approved employer stayed unverified —
+     after we had already taken and encrypted their ID number. */
+  if (approve) await run('UPDATE users SET id_verified = 1 WHERE id = ?', [row.user_id]);
   res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
 }));
 
@@ -1421,12 +1430,12 @@ app.get('/api/me/employer-rating', requireAuth, requireRole('employer'), asyncH(
 
 // ---- talent (employer) ----
 app.get('/api/talent', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
-  const workers = await all("SELECT u.id, u.name, p.* FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ? LIMIT 500", [req.user.id]);
+  const workers = await all("SELECT u.id, u.name, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ? LIMIT 500", [req.user.id]);
   const list = await Promise.all(workers.map(async (w) => {
     const { cv } = await cvFor(w.id);
     return {
       id: w.id, name: w.name, initials: initialsOf(w.name), age: w.age, location: w.location,
-      skills: JSON.parse(w.skills || '[]'), idVerified: !!w.id_verified, color: w.color,
+      skills: JSON.parse(w.skills || '[]'), idVerified: !!w.verified, color: w.color,
       tagline: w.tagline, rating: cv.avg, jobsDone: cv.jobsDone, tier: cv.tier, badges: cv.earnedBadges,
     };
   }));
@@ -1435,12 +1444,12 @@ app.get('/api/talent', requireAuth, requireRole('employer'), asyncH(async (req, 
 }));
 
 app.get('/api/talent/:id', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
-  const w = await get("SELECT u.id, u.name, p.* FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'", [req.params.id]);
+  const w = await get("SELECT u.id, u.name, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'", [req.params.id]);
   if (!w) return res.status(404).json({ error: 'This worker is no longer available. Browse other verified workers.' });
   const { cv } = await cvFor(w.id);
   res.json({
     id: w.id, name: w.name, initials: initialsOf(w.name), age: w.age, location: w.location,
-    skills: JSON.parse(w.skills || '[]'), idVerified: !!w.id_verified, color: w.color,
+    skills: JSON.parse(w.skills || '[]'), idVerified: !!w.verified, color: w.color,
     tagline: w.tagline, rating: cv.avg, jobsDone: cv.jobsDone, tier: cv.tier, badges: cv.earnedBadges,
   });
 }));
