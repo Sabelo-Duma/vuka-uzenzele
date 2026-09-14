@@ -215,6 +215,9 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
       <p className="text-small text-dim mb-6">Sign in to pick up where you left off.</p>
       <div className="mb-3.5">
         <Label htmlFor="signin-identifier">Mobile number or email</Label>
+        {/* The field takes either, so the example shows both — a lone phone
+            number reads as an instruction. Kept short enough to survive a
+            320px screen without the browser truncating it. */}
         <input
           id="signin-identifier"
           className={error ? inputErrCls : inputCls}
@@ -223,7 +226,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder="072 000 0000"
+          placeholder="072 000 0000 / you@mail.com"
           value={identifier}
           onChange={(e) => edit(setIdentifier)(e.target.value)}
           aria-invalid={error ? true : undefined}
