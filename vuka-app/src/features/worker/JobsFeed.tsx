@@ -58,10 +58,10 @@ export function JobsFeed() {
   function NearMe() {
     if (!locationSupported()) return null;
     return (
-      <div className="flex items-center gap-2 mt-2.5 text-small">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2.5 text-small">
         {state.coords ? (
           <>
-            <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
               📍 Sorted by real distance
             </span>
             <button onClick={clearMyLocation} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
@@ -73,7 +73,7 @@ export function JobsFeed() {
             <button
               onClick={useMyLocation}
               disabled={state.locating}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
             >
               📍 {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
             </button>

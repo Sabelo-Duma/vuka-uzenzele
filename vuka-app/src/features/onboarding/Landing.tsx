@@ -29,8 +29,8 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
   return (
     <div className="min-h-screen bg-surface text-ink overflow-x-hidden">
       {/* Top nav */}
-      <header className="sticky top-0 z-30 bg-surface-veil backdrop-blur border-b border-line">
-        <div className="max-w-[1080px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-surface-veil backdrop-blur border-b border-line pt-[env(safe-area-inset-top)]">
+        <div className="max-w-[1080px] mx-auto px-4 sm:px-6 min-h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead">
             <span className="w-3 h-3 rounded-full bg-brand-solid" />Vuka Uzenzele
           </div>

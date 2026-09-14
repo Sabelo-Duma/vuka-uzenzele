@@ -10,6 +10,7 @@
  *   2. nothing sticks out past the right edge
  *   3. the bottom tab bar and its + button are fully on screen
  *   4. every tappable control clears 44px
+ *   5. a sheet can actually be closed
  *
  * Run:  node scripts/check-responsive.mjs [baseUrl]
  * Needs a dev or preview server running (default http://localhost:5173).
@@ -135,6 +136,38 @@ async function walk(page, viewport, screens) {
   }
 }
 
+/**
+ * A sheet you cannot close is a trap. The privacy notice had no close button
+ * at all — only Escape, which a phone has no key for, and a backdrop that is
+ * an 8% strip above a full-height panel.
+ */
+async function checkSheetCloses(page, viewport) {
+  const opener = page.getByRole('button', { name: /privacy & your data/i }).first();
+  if (!(await opener.count())) return;
+  await opener.click();
+  await page.waitForTimeout(400);
+
+  const dialog = page.getByRole('dialog').first();
+  if (!(await dialog.count())) { note(viewport, 'Privacy', 'the sheet never opened'); return; }
+
+  const closer = dialog.getByRole('button', { name: /^close/i }).first();
+  if (!(await closer.count())) { note(viewport, 'Privacy', 'the sheet has no close button'); return; }
+
+  const box = await closer.boundingBox();
+  if (!box) { note(viewport, 'Privacy', 'the close button is not visible'); return; }
+  if (box.width < 44 || box.height < 44) {
+    note(viewport, 'Privacy', `close button is ${Math.round(box.width)}x${Math.round(box.height)}`);
+  }
+  if (box.y < 0 || box.y + box.height > viewport.height) {
+    note(viewport, 'Privacy', 'the close button is off screen');
+  }
+
+  await closer.click();
+  await page.waitForTimeout(400);
+  if (await page.getByRole('dialog').count()) note(viewport, 'Privacy', 'the sheet did not close when asked');
+}
+
+
 const browser = await chromium.launch();
 console.log(`\nLayout check against ${BASE}\n`);
 
@@ -150,6 +183,7 @@ for (const v of VIEWPORTS) {
 
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await check(page, v, 'Landing');
+  await checkSheetCloses(page, v);
 
   await signIn(page, 'worker');
   await walk(page, v, WORKER_SCREENS);

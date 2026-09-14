@@ -39,7 +39,11 @@
   font-weight: 100 700;
   font-display: swap;
   src: url('./fonts/roboto-mono-figures.woff2') format('woff2');
-  unicode-range: U+0020, U+0025, U+0028-0029, U+002B-002F, U+0030-0039,
+  /* Note what is NOT here: U+0020. This face sits in front of the body font
+     for the whole app, so covering the space character made every space in
+     every sentence a monospace space - 9.02px instead of 3.66px, two and a
+     half times too wide, on every screen. Spaces belong to the body face. */
+  unicode-range: U+0025, U+0028-0029, U+002B-002F, U+0030-0039,
     U+003A, U+0052, U+00B0, U+00B7, U+00D7, U+2013-2014, U+2248, U+2605-2606;
 }
 

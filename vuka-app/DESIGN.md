@@ -69,6 +69,12 @@ Three faces, each with one job.
 | **Public Sans** | Body, labels, buttons | default |
 | **Roboto Mono** (subset) | Money, ratings, distances, counts, identifiers | `font-mono` |
 
+> **Never add `U+0020` to the figures subset.** That face sits in front of the
+> body font for the whole app, so covering the space character makes every space
+> in every sentence a monospace space — 9.02px instead of 3.66px, two and a half
+> times too wide, on every screen. It is the kind of bug that looks like "the
+> font is a bit loose" rather than a font bug. Spaces belong to the body face.
+
 The figures face is a 5.9 KB subset of Roboto Mono covering only digits and the
 marks between them — 33 KB of Latin was being paid for out of a prepaid data
 bundle to draw `R30,23`. It is declared with a matching `unicode-range`, so a

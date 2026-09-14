@@ -88,15 +88,17 @@ export function CvLadder() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-2.5 mt-4">
-        <Button variant="primary" onClick={() => window.print()}>📄 Download PDF</Button>
-        <Button variant="ghost" onClick={() => {
+      {/* Side by side once there is room; stacked on a 320px handset, where two
+          columns leave 146px and "Copy share link" breaks across two lines. */}
+      <div className="flex flex-col sm:flex-row gap-2.5 mt-4">
+        <Button className="flex-1" variant="primary" onClick={() => window.print()}>📄 Download PDF</Button>
+        <Button className="flex-1" variant="ghost" onClick={() => {
           const id = state.user?.id;
           if (!id) { toast('Sign in to get a shareable link'); return; }
           const link = `${window.location.origin}/cv/${id}`;
           if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied — anyone can view your CV 📋')).catch(() => toast('Share link: ' + link));
           else toast('Share link: ' + link);
-        }}>🔗 Copy share link</Button>
+        }} icon="copy">Copy link</Button>
       </div>
       <p className="text-center text-small text-dim leading-relaxed px-4 py-3">A proper CV — your contact details, profile, skills, dated work experience and references — built from jobs you actually completed. No writing required. Tap <b>Download PDF</b>, then choose “Save as PDF”.</p>
 
