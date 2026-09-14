@@ -245,7 +245,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           onKeyDown={(e) => { if (e.key === 'Enter') onLogin(identifier, password); }}
         />
       </div>
-      <div className="text-right mb-5"><button type="button" onClick={onForgot} className="text-small font-bold text-ink hover:text-brand transition">Forgot password?</button></div>
+      <div className="flex justify-end mb-4"><button type="button" onClick={onForgot} className="inline-flex items-center min-h-[44px] px-2 -mr-2 rounded-chip text-small font-bold text-ink hover:bg-surface-2 hover:text-brand transition">Forgot password?</button></div>
 
       {error && (
         <div role="alert" id="signin-error" className="mb-4 rounded-2xl border border-danger bg-danger-soft px-4 py-3">
