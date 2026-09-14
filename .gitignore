@@ -9,6 +9,11 @@ dist/
 !*/.env.example
 *.log
 *.docx
+# Working documents that live beside the code but are not part of it:
+# the cost model and the project tracker. Both are edited in Word/Excel,
+# so tracking them would put an opaque binary blob in the history on every
+# status change without ever producing a readable diff.
+*.xlsx
 .DS_Store
 Thumbs.db
 /Vuka Uzenzele - Cost Model.html
