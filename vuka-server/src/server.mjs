@@ -794,6 +794,55 @@ app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, r
   res.status(201).json((await gigsOut([row]))[0]);
 }));
 
+/* Take down your own listing.
+   An employer who posts a mistake, a duplicate, or a job that is no longer
+   needed had no way to remove it — the admin route added alongside this is for
+   support, not for the person who wrote the thing.
+
+   Same rule as the admin route, for the same reason: once someone has been
+   hired this is their pay and their reference, so it refuses and says to
+   cancel instead. Applications cascade, so withdrawing an unfilled listing
+   also clears the queue behind it — and everyone who applied is told, because
+   silence is how a worker ends up waiting on a job that no longer exists. */
+app.delete('/api/gigs/:id', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const gig = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  if (!gig) return res.status(404).json({ error: 'That job does not exist.' });
+  if (gig.employer_id !== req.user.id) {
+    return res.status(403).json({ error: 'You can only remove a job you posted.' });
+  }
+
+  const engaged = await get(
+    "SELECT status FROM applications WHERE gig_id = ? AND status IN ('hired','worker_done','completed')",
+    [gig.id],
+  );
+  if (engaged) {
+    return res.status(409).json({
+      error: 'Someone is already hired for this job, so it cannot be removed. Message them instead.',
+      status: engaged.status,
+    });
+  }
+
+  const waiting = await all(
+    "SELECT worker_id FROM applications WHERE gig_id = ? AND status = 'applied'",
+    [gig.id],
+  );
+
+  await run('DELETE FROM gigs WHERE id = ?', [gig.id]);
+
+  /* Tell the people who applied. They cannot see the listing any more, so
+     without this the application simply vanishes and they keep waiting. */
+  for (const a of waiting) {
+    const worker = await userById(a.worker_id);
+    reach(
+      worker,
+      { type: 'gig-withdrawn', title: 'A job you applied for was withdrawn', body: gig.title },
+      `The job "${gig.title}" was withdrawn by ${gig.employer_name}. Your other applications are unaffected.`,
+    );
+  }
+
+  res.json({ ok: true, deleted: gig.id, applicantsNotified: waiting.length });
+}));
+
 app.get('/api/me/applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const rows = await all('SELECT gig_id, status FROM applications WHERE worker_id = ?', [req.user.id]);
   res.json(rows.map((r) => ({ gigId: r.gig_id, status: r.status })));

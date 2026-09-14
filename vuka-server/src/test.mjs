@@ -745,6 +745,30 @@ async function run() {
     const errs = await admin('GET', '/admin/errors');
     ok(errs.status === 200 && errs.json?.target === 'log' && Array.isArray(errs.json?.errors), 'recent errors are readable without a paid monitoring plan');
 
+    /* An employer taking down their own listing — the ordinary case, as
+       opposed to support removing one. */
+    const mine = await api('POST', '/gigs', {
+      token: eTok,
+      body: { title: 'Withdraw me', category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
+    });
+    ok(mine.status === 201, 'an employer posts a job of their own');
+    ok((await api('DELETE', `/gigs/${mine.json.id}`, { token: wTok })).status === 403, 'a worker cannot remove a listing');
+    ok((await api('DELETE', `/gigs/${mine.json.id}`, { token: owner1 })).status === 403, 'another employer cannot remove it either');
+    await api('POST', `/gigs/${mine.json.id}/apply`, { token: wTok });
+    const withdrawn = await api('DELETE', `/gigs/${mine.json.id}`, { token: eTok });
+    ok(withdrawn.status === 200 && withdrawn.json?.applicantsNotified === 1, 'the owner withdraws it and the applicant is told');
+    ok(!(await api('GET', '/gigs')).json.some((g) => g.id === mine.json.id), 'the withdrawn listing leaves the feed');
+    ok(!(await api('GET', '/me/applications', { token: wTok })).json.some((a) => a.gigId === mine.json.id), "and leaves the worker's applications");
+    ok((await api('DELETE', `/gigs/${mine.json.id}`, { token: eTok })).status === 404, 'withdrawing it twice 404s');
+
+    const held = await api('POST', '/gigs', {
+      token: eTok,
+      body: { title: 'Hired, so it stays', category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
+    });
+    await api('POST', `/gigs/${held.json.id}/apply`, { token: wTok });
+    await api('POST', `/gigs/${held.json.id}/hire`, { token: eTok, body: { workerId: wId } });
+    ok((await api('DELETE', `/gigs/${held.json.id}`, { token: eTok })).status === 409, 'an owner cannot remove a job someone is hired for');
+
     /* Taking a listing down. Until now nothing could: a QA probe titled with an
        HTML tag sat at the top of the live demo feed for weeks because no route
        existed that could remove it. */

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { catById, TIERS, autoReleaseHours } from '../../data/catalog';
 import { money, timeToAutoConfirm } from '../../lib/format';
 import { useApp } from '../../store/appStore';
-import type { Applicant } from '../../lib/api';
+import { api, type Applicant } from '../../lib/api';
 import type { Gig } from '../../types';
 import { Avatar, Button, Card, Chip, EmptyState, Sheet, StarRating, Stars, TierBadge, Tile } from '../../components/ui';
 import { CardSkeletonGrid } from '../../components/cards';
@@ -22,6 +22,7 @@ export function Applicants({ id }: { id: string }) {
   const [applicants, setApplicants] = useState<Applicant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [confirming, setConfirming] = useState<Applicant | null>(null);
 
   const load = useCallback(async () => {
@@ -87,11 +88,27 @@ export function Applicants({ id }: { id: string }) {
           <div className="flex gap-3 items-start">
             {c && <Tile emoji={c.icon} />}
             <div className="flex-1 min-w-0">
-              <h3 className="font-display m-0 text-lead font-extrabold text-ink leading-tight tracking-tight">{gig.title}</h3>
+              <h3 className="font-display m-0 text-lead font-extrabold text-ink leading-tight tracking-tight break-words">{gig.title}</h3>
               <div className="text-small text-dim mt-0.5">{gig.location} · {gig.when} · <b className="text-ink font-mono tnum">{money(gig.hours * gig.payPerHour)}</b></div>
             </div>
           </div>
+          {/* Withdrawing is only offered while it is still possible — once
+              someone is hired this is their pay, and the server refuses. */}
+          {!hired && (
+            <div className="flex justify-end mt-3 pt-3 border-t border-line-soft">
+              <Button size="sm" variant="danger" icon="trash" onClick={() => setWithdrawing(true)}>Withdraw this job</Button>
+            </div>
+          )}
         </Card>
+      )}
+
+      {withdrawing && gig && (
+        <WithdrawSheet
+          gig={gig}
+          waiting={waiting.length}
+          onClose={() => setWithdrawing(false)}
+          onDone={() => { setWithdrawing(false); navigate('hires'); }}
+        />
       )}
 
       {applicants === null ? (
@@ -212,6 +229,53 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
 }
 
 /** Employer's half of finishing a job: confirm it happened and rate the worker. */
+/**
+ * Confirming a withdrawal.
+ *
+ * Deliberately a step rather than a single tap: it removes a listing from
+ * under everyone who applied, and there is no undo. It says how many people
+ * that is, because "3 people applied" is the fact that should change your
+ * mind, not a generic "are you sure?".
+ */
+function WithdrawSheet({ gig, waiting, onClose, onDone }: {
+  gig: Gig;
+  waiting: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast, listMyGigs } = useApp();
+  const [busy, setBusy] = useState(false);
+
+  const withdraw = async () => {
+    setBusy(true);
+    try {
+      const res = await api.deleteGig(gig.id);
+      await listMyGigs().catch(() => { /* the list refreshes on its own next time */ });
+      toast(res.applicantsNotified > 0
+        ? `Job withdrawn — ${res.applicantsNotified} applicant${res.applicantsNotified === 1 ? ' was' : 's were'} told`
+        : 'Job withdrawn');
+      onDone();
+    } catch (e) {
+      toast((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="Withdraw this job" onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">Withdraw this job?</h3>
+      <p className="text-small text-dim leading-relaxed mb-4">
+        <b className="text-ink">“{gig.title}”</b> will be removed from the feed. This cannot be undone
+        {waiting > 0 && <>, and <b className="text-ink font-mono tnum">{waiting}</b> {waiting === 1 ? 'person who applied' : 'people who applied'} will be told</>}.
+      </p>
+      <Button block variant="danger" disabled={busy} onClick={withdraw}>
+        {busy ? 'Withdrawing…' : 'Yes, withdraw it'}
+      </Button>
+      <Button block variant="ghost" className="mt-2" disabled={busy} onClick={onClose}>Keep it posted</Button>
+    </Sheet>
+  );
+}
+
 function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
   a: Applicant; gigTitle: string; busy: boolean; onClose: () => void;
   onConfirm: (rating: number, review: string) => void;

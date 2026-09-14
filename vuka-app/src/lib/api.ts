@@ -228,6 +228,8 @@ export const api = {
   listGigs: (near?: Near) => request<Gig[]>('GET', `/gigs${nearQuery(near)}`),
   getGig: (id: string, near?: Near) => request<Gig>('GET', `/gigs/${id}${nearQuery(near)}`),
   createGig: (input: CreateGigInput) => request<Gig>('POST', '/gigs', input),
+  /** Withdraw your own listing. Refuses once someone is hired for it. */
+  deleteGig: (id: string) => request<{ ok: boolean; applicantsNotified: number }>('DELETE', `/gigs/${id}`),
   applyGig: (id: string) => request<{ ok: boolean }>('POST', `/gigs/${id}/apply`),
   /** Worker marks the work done and rates the employer. The CV moves only on the employer's confirmation. */
   completeGig: (id: string, rating: number, safetyFlag: boolean) =>
