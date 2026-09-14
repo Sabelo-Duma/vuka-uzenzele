@@ -1355,6 +1355,37 @@ app.get('/api/admin/errors', requireAdmin, (_req, res) => {
   res.json({ ...errorSummary(), errors: recentErrors() });
 });
 
+/* Remove a listing. There is no other way to take one down: an employer who
+   posts a mistake, a filled job or something abusive currently cannot, and
+   neither can support. A QA probe titled with an HTML tag has been sitting at
+   the top of the live demo feed since the September audit for exactly this
+   reason.
+
+   Applications cascade (see the schema), so this also clears the queue behind
+   the listing. It deliberately refuses once anyone has been hired: a confirmed
+   job is somebody's pay and somebody's verified reference, and neither should
+   disappear because a listing was tidied up. Those are cancelled, not deleted,
+   and that flow does not exist yet. */
+app.delete('/api/admin/gigs/:id', requireAdmin, asyncH(async (req, res) => {
+  const gig = await get('SELECT id, title FROM gigs WHERE id = ?', [req.params.id]);
+  if (!gig) return res.status(404).json({ error: 'That gig does not exist.' });
+
+  const engaged = await get(
+    "SELECT status FROM applications WHERE gig_id = ? AND status IN ('hired','worker_done','completed')",
+    [gig.id],
+  );
+  if (engaged) {
+    return res.status(409).json({
+      error: 'Someone has been hired for this job, so it cannot be deleted. Cancel it instead.',
+      status: engaged.status,
+    });
+  }
+
+  const { count: applicants = 0 } = (await get('SELECT COUNT(*) AS count FROM applications WHERE gig_id = ?', [gig.id])) ?? {};
+  await run('DELETE FROM gigs WHERE id = ?', [gig.id]);
+  res.json({ ok: true, deleted: gig.id, title: gig.title, applicationsRemoved: Number(applicants) });
+}));
+
 // ---- preferences ----
 // Only preferences the SERVER must know about live here (job alerts drive
 // push/SMS). Device-level choices — data saver, language — stay on the device.

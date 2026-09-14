@@ -744,7 +744,35 @@ async function run() {
 
     const errs = await admin('GET', '/admin/errors');
     ok(errs.status === 200 && errs.json?.target === 'log' && Array.isArray(errs.json?.errors), 'recent errors are readable without a paid monitoring plan');
+
+    /* Taking a listing down. Until now nothing could: a QA probe titled with an
+       HTML tag sat at the top of the live demo feed for weeks because no route
+       existed that could remove it. */
+    const newGig = (title) => api('POST', '/gigs', {
+      token: eTok,
+      body: { title, category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
+    });
+
+    const junk = await newGig('Delete me - listing cleanup test');
+    ok(junk.status === 201 && junk.json?.id, 'a gig can be posted, ready to delete');
+    ok((await admin('DELETE', '/admin/gigs/does-not-exist')).status === 404, 'deleting an unknown gig 404s');
+    const gone = await admin('DELETE', `/admin/gigs/${junk.json.id}`);
+    ok(gone.status === 200 && gone.json?.deleted === junk.json.id, 'an admin can take a listing down');
+    ok(!(await api('GET', '/gigs')).json.some((g) => g.id === junk.json.id), 'the deleted listing leaves the feed');
+
+    /* But not once it is somebody's pay: a hired job is a worker's reference
+       and their earnings, and neither should vanish because a listing was
+       tidied up. Those get cancelled, and that flow does not exist yet. */
+    const taken = await newGig('Already hired - must survive deletion');
+    await api('POST', `/gigs/${taken.json.id}/apply`, { token: wTok });
+    ok((await api('POST', `/gigs/${taken.json.id}/hire`, { token: eTok, body: { workerId: wId } })).json?.ok, 'the worker is hired for it');
+    const refused = await admin('DELETE', `/admin/gigs/${taken.json.id}`);
+    ok(refused.status === 409, 'a gig someone was hired for cannot be deleted');
+    // Not via the feed: a hired gig has already left it. Ask for it directly.
+    ok((await api('GET', `/gigs/${taken.json.id}`, { token: wTok })).status === 200, 'and it is still there afterwards');
+
     delete process.env.VUKA_ADMIN_TOKEN;
+    ok((await fetch(BASE + `/admin/gigs/${taken.json.id}`, { method: 'DELETE' })).status === 404, 'gig deletion is off without VUKA_ADMIN_TOKEN');
   }
 
   // 9m) password reset by SMS code
