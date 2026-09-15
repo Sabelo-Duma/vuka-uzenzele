@@ -2,31 +2,34 @@ import { useCallback, type ReactNode } from 'react';
 import { useApp, type Screen } from '../store/appStore';
 import { useEdgeSwipeBack } from '../lib/useEdgeSwipeBack';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen';
+import { useT } from '../providers/LanguageProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { Icon, type IconName } from './Icon';
 import { InstallButton } from './InstallButton';
 import { SunMark } from './SunMark';
 
-interface NavItem { screen: Screen; label: string; icon: IconName; }
+interface NavItem { screen: Screen; labelKey: string; icon: IconName; }
 
 /* One label per destination, used by both navs.
    The sidebar used to say "Jobs" and "Messages" where the tab bar said "Find
-   work" and "Chats" — the same two screens under four names, in one app. */
+   work" and "Chats" — the same two screens under four names, in one app.
+   These are catalogue keys, not words: the label is resolved at render so it
+   follows the language the user chose. */
 const WORKER_NAV: NavItem[] = [
-  { screen: 'home', label: 'Home', icon: 'home' },
-  { screen: 'jobs', label: 'Find work', icon: 'jobs' },
-  { screen: 'cv', label: 'My Record', icon: 'ladder' },
-  { screen: 'me', label: 'Me', icon: 'user' },
+  { screen: 'home', labelKey: 'nav.home', icon: 'home' },
+  { screen: 'jobs', labelKey: 'nav.findWork', icon: 'jobs' },
+  { screen: 'cv', labelKey: 'nav.myRecord', icon: 'ladder' },
+  { screen: 'me', labelKey: 'nav.me', icon: 'user' },
 ];
 const EMPLOYER_NAV: NavItem[] = [
-  { screen: 'home', label: 'Home', icon: 'home' },
-  { screen: 'talent', label: 'Talent', icon: 'talent' },
-  { screen: 'post', label: 'Post', icon: 'briefcase' },
-  { screen: 'hires', label: 'My jobs', icon: 'jobs' },
-  { screen: 'me', label: 'Me', icon: 'user' },
+  { screen: 'home', labelKey: 'nav.home', icon: 'home' },
+  { screen: 'talent', labelKey: 'nav.talent', icon: 'talent' },
+  { screen: 'post', labelKey: 'nav.post', icon: 'briefcase' },
+  { screen: 'hires', labelKey: 'nav.myJobs', icon: 'jobs' },
+  { screen: 'me', labelKey: 'nav.me', icon: 'user' },
 ];
 
-const CHAT_TAB: NavItem = { screen: 'messages', label: 'Chats', icon: 'chat' };
+const CHAT_TAB: NavItem = { screen: 'messages', labelKey: 'nav.chats', icon: 'chat' };
 
 /**
  * Mobile keeps to four tabs plus the ＋ button, so each role drops the tab the
@@ -34,16 +37,16 @@ const CHAT_TAB: NavItem = { screen: 'messages', label: 'Chats', icon: 'chat' };
  */
 const MOBILE_TABS: Record<'worker' | 'employer', NavItem[]> = {
   worker: [
-    { screen: 'home', label: 'Home', icon: 'home' },
+    { screen: 'home', labelKey: 'nav.home', icon: 'home' },
     CHAT_TAB,
-    { screen: 'cv', label: 'My Record', icon: 'ladder' },
-    { screen: 'me', label: 'Me', icon: 'user' },
+    { screen: 'cv', labelKey: 'nav.myRecord', icon: 'ladder' },
+    { screen: 'me', labelKey: 'nav.me', icon: 'user' },
   ],
   employer: [
-    { screen: 'home', label: 'Home', icon: 'home' },
-    { screen: 'hires', label: 'My jobs', icon: 'jobs' },
+    { screen: 'home', labelKey: 'nav.home', icon: 'home' },
+    { screen: 'hires', labelKey: 'nav.myJobs', icon: 'jobs' },
     CHAT_TAB,
-    { screen: 'me', label: 'Me', icon: 'user' },
+    { screen: 'me', labelKey: 'nav.me', icon: 'user' },
   ],
 };
 
@@ -77,10 +80,11 @@ function BrandMark({ compact }: { compact?: boolean }) {
 
 function ThemeToggle() {
   const { resolved, toggle } = useTheme();
+  const t = useT();
   return (
     <button
       onClick={toggle}
-      aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} mode`}
+      aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')}
       className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95"
     >
       <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
@@ -90,18 +94,20 @@ function ThemeToggle() {
 
 function AccountBar() {
   const { state, logout } = useApp();
+  const t = useT();
   return (
     <div className="rounded-2xl border border-line bg-surface-2 p-3">
-      <div className="text-micro text-faint uppercase tracking-wide font-bold">Signed in</div>
-      <div className="text-small font-bold text-ink truncate">{state.user?.name ?? 'You'}</div>
-      <div className="text-micro text-dim mb-2 capitalize">{state.role} account</div>
-      <button onClick={logout} className="w-full min-h-[44px] rounded-pill border border-line text-ink text-small font-bold py-2 hover:bg-surface transition active:scale-95">Log out</button>
+      <div className="text-micro text-faint uppercase tracking-wide font-bold">{t('nav.signedIn')}</div>
+      <div className="text-small font-bold text-ink truncate">{state.user?.name ?? t('nav.you')}</div>
+      <div className="text-micro text-dim mb-2">{t(state.role === 'worker' ? 'nav.accountWorker' : 'nav.accountEmployer')}</div>
+      <button onClick={logout} className="w-full min-h-[44px] rounded-pill border border-line text-ink text-small font-bold py-2 hover:bg-surface transition active:scale-95">{t('nav.logOut')}</button>
     </div>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { state, navigate, goBack, canGoBack } = useApp();
+  const t = useT();
 
   /* Swiping in from the left edge goes back, the way it does everywhere else
      on a phone. Only armed when there is somewhere to go: on a top-level tab
@@ -132,7 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-line bg-surface p-5 overflow-y-auto">
         <div className="mb-8"><BrandMark /></div>
-        <nav className="flex flex-col gap-1" aria-label="Primary">
+        <nav className="flex flex-col gap-1" aria-label={t('nav.primary')}>
           {nav.map((item) => {
             const active = current === item.screen;
             return (
@@ -144,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ${active ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
               >
                 <Icon name={item.icon} size={20} />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
                 {badgeFor(item.screen) > 0 && <span className="ml-auto"><UnreadBadge count={badgeFor(item.screen)} onDark={active} /></span>}
               </button>
             );
@@ -157,7 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ${current === 'messages' ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
           >
             <Icon name="chat" size={20} />
-            <span>{CHAT_TAB.label}</span>
+            <span>{t(CHAT_TAB.labelKey)}</span>
             <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
           </button>
         </nav>
@@ -199,14 +205,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="tabbar lg:hidden flex items-stretch border-t border-line bg-surface shrink-0
             pt-1.5 pb-[max(6px,env(safe-area-inset-bottom))]
             pl-[max(6px,env(safe-area-inset-left))] pr-[max(6px,env(safe-area-inset-right))]"
-          aria-label="Primary"
+          aria-label={t('nav.primary')}
         >
           {mobileTabs.slice(0, 2).map((item) => (
             <TabButton key={item.screen} item={item} active={current === item.screen} badge={badgeFor(item.screen)} onClick={() => navigate(item.screen)} />
           ))}
           <button
             onClick={() => navigate(fabTarget)}
-            aria-label={state.role === 'worker' ? 'Find work' : 'Post a job'}
+            aria-label={t(state.role === 'worker' ? 'nav.findWork' : 'post.title')}
             className="flex-1 flex justify-center"
           >
             <span className="fab grid place-items-center w-[52px] h-[52px] -mt-5 rounded-2xl bg-brand-solid text-brand-on shadow-e2 border-4 border-surface">
@@ -225,6 +231,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active: boolean; onClick: () => void; badge?: number }) {
+  const t = useT();
   return (
     <button
       onClick={onClick}
@@ -235,12 +242,15 @@ function TabButton({ item, active, onClick, badge = 0 }: { item: NavItem; active
       <span className="relative">
         <Icon name={item.icon} size={23} />
         {badge > 0 && (
-          <span className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-brand-solid text-brand-on text-micro font-bold font-mono tnum">
+          <span
+            className="absolute -top-1.5 -right-2 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-brand-solid text-brand-on text-micro font-bold font-mono tnum"
+            aria-label={t('nav.unreadMessages', { count: badge })}
+          >
             {badge > 99 ? '99+' : badge}
           </span>
         )}
       </span>
-      {item.label}
+      {t(item.labelKey)}
     </button>
   );
 }

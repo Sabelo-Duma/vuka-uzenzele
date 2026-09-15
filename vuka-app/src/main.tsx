@@ -9,6 +9,7 @@ import './lib/pwaInstall'; // capture the PWA install prompt ASAP (before React 
 import './index.css';
 import { App } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LanguageProvider } from './providers/LanguageProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { AppProvider } from './store/appStore';
 
@@ -17,12 +18,14 @@ if (!rootEl) throw new Error('Root element #root not found');
 
 createRoot(rootEl).render(
   <StrictMode>
-    <ThemeProvider>
-      <AppProvider>
-        <ErrorBoundary onReset={() => window.location.reload()}>
-          <App />
-        </ErrorBoundary>
-      </AppProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <AppProvider>
+          <ErrorBoundary onReset={() => window.location.reload()}>
+            <App />
+          </ErrorBoundary>
+        </AppProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   </StrictMode>,
 );
