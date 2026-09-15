@@ -129,6 +129,32 @@ try {
   await cta.waitFor({ state: 'visible', timeout: 15_000 });
   await cta.click({ timeout: 5_000 });
   ok(true, 'a control on the page below the splash can be tapped');
+
+  /* ---- 3. A first visit does not reload itself ------------------------- */
+
+  /* The service worker claiming a page for the first time fires the same
+     event as an update replacing one. Treating both as "a new build arrived"
+     made every first visit reload: splash, app, splash, app, on the
+     connections least able to spare the round trip.
+
+     A fresh context is the only way to see it — a warm one already has a
+     controller, so the bug hides. */
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const freshPage = await fresh.newPage();
+  const navigations = [];
+  freshPage.on('framenavigated', (f) => {
+    if (f === freshPage.mainFrame()) navigations.push(Date.now());
+  });
+  await freshPage.goto(BASE, { waitUntil: 'networkidle' });
+  await freshPage.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 25_000 });
+  /* Long enough for the worker to install, activate and claim. */
+  await freshPage.waitForTimeout(9_000);
+  ok(
+    navigations.length === 1,
+    'a first visit loads once and does not reload itself',
+    `main-frame navigations: ${navigations.length}`,
+  );
+  await fresh.close();
 } finally {
   await browser.close();
 }

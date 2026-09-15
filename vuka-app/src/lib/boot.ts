@@ -47,23 +47,46 @@ async function checkForUpdate(): Promise<void> {
 }
 
 /**
- * Reload once when a new worker takes control, so the user lands on the new
- * build rather than the one already in memory.
+ * Reload when a NEW worker takes over, so the user lands on the new build
+ * rather than the one already in memory.
  *
- * The guard matters. `controllerchange` also fires the first time a worker
- * claims a page that had none, and reloading on that would reload every first
- * visit forever. sessionStorage scopes the flag to this tab's session, which is
- * exactly the lifetime of the risk.
+ * The word doing the work is "new". `controllerchange` fires for two quite
+ * different things:
+ *
+ *   · an update activating and replacing the worker that was running — the
+ *     case this exists for
+ *   · the very first worker claiming a page that had none, which happens on
+ *     every first visit
+ *
+ * Only the first is an update. Telling them apart is what
+ * `hadControllerAtLoad` is for: if there was no controller when this page
+ * loaded, the change is the initial claim and reloading for it is a wasted
+ * round trip the user sits and watches — splash, app, splash, app.
+ *
+ * An earlier version described this hazard in a comment and then did not
+ * actually prevent it: a sessionStorage flag stopped it RECURRING but let the
+ * first one through, so every first visit reloaded itself once. Measured in a
+ * fresh browser against production: two main-frame navigations for one visit.
  */
 export function reloadOnNewWorker(): void {
   if (!('serviceWorker' in navigator)) return;
+
+  /* Read now, before anything can claim the page. Reading it inside the
+     handler would always say true, which is the whole bug. */
+  const hadControllerAtLoad = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadControllerAtLoad) return;
+    if (reloading) return;
+    reloading = true;
+    /* A second stop, in case a pathological worker activates on every load:
+       one reload per tab session, whatever else happens. */
     try {
       if (sessionStorage.getItem(RELOAD_FLAG)) return;
       sessionStorage.setItem(RELOAD_FLAG, '1');
     } catch {
-      /* No sessionStorage: better to skip the reload than to risk a loop. */
-      return;
+      /* No storage. The in-memory guard above still holds for this page. */
     }
     window.location.reload();
   });
