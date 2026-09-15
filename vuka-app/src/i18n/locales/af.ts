@@ -226,12 +226,6 @@ export const af = {
     'Vuka word skerm vir skerm vertaal. Enigiets wat nog nie klaar is nie, bly in Engels, sodat niks leeg is nie.',
   'lang.legalNote':
     'Die Privaatheidskennisgewing en Gebruiksbepalings bly in Engels. Dit is regsdokumente en ’n vertaling daarvan kan jou mislei.',
-  'lang.reportTitle': 'Het jy ’n woord gekry wat verkeerd is?',
-  'lang.reportBody':
-    'Hierdie vertalings is nuut en is nie deur ’n eerstetaalspreker geskryf nie. Sê vir ons en ons maak dit reg.',
-  'lang.reportAction': 'Rapporteer ’n vertaling',
-  'lang.reportPlaceholder': 'Wat sê dit, en wat moet dit sê?',
-  'lang.reportSent': 'Dankie — dit gaan na die span toe.',
 
   'safety.title': 'Veiligheidsentrum',
   'safety.intro': 'Hoe Vuka jou veilig hou — en hoe om hulp te kry.',

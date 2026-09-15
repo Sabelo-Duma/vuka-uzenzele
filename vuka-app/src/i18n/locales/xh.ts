@@ -229,12 +229,6 @@ export const xh = {
     'I-Vuka iyaguqulelwa isikrini ngesikrini. Nantoni na engekagqitywa ihlala isesiNgesini, ukuze kungabikho ndawo ingenanto.',
   'lang.legalNote':
     'ISaziso sabucala neMigaqo yokuSebenzisa zihlala zisesiNgesini. Zingamaxwebhu asemthethweni, kwaye inguqulelo inokukulahlekisa.',
-  'lang.reportTitle': 'Ufumene igama elingalunganga?',
-  'lang.reportBody':
-    'Ezi nguqulelo zintsha kwaye azibhalwanga ngumntu othetha olu lwimi njengolwimi lwakhe lokuqala. Sixelele, siza kulungisa.',
-  'lang.reportAction': 'Xela inguqulelo',
-  'lang.reportPlaceholder': 'Ithini, kwaye kufuneka ithini?',
-  'lang.reportSent': 'Enkosi — oko kuya kwiqela.',
 
   'safety.title': 'Iziko lokhuseleko',
   'safety.intro': 'Indlela i-Vuka ekugcina ngayo ukhuselekile — nokuba ungalufumana njani uncedo.',

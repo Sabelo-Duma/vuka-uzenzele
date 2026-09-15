@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { useApp } from './store/appStore';
+import { Splash } from './components/Splash';
+import { dismissBootSplash, splashReady } from './lib/boot';
 import { AppShell } from './components/AppShell';
-import { SunMark } from './components/SunMark';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toast } from './components/Toast';
 import { Onboarding } from './features/onboarding/Onboarding';
@@ -28,15 +30,23 @@ function publicCvId(): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function BootScreen() {
-  return (
-    <div className="min-h-screen grid place-items-center bg-surface-2 text-center px-6">
-      <div>
-        <SunMark size={64} variant="tile" className="mx-auto animate-pop" />
-        <p className="mt-4 text-dim text-small font-semibold">Loading Vuka Uzenzele…</p>
-      </div>
-    </div>
-  );
+/**
+ * Holds the launch screen until it has earned its keep.
+ *
+ * Returns false while the splash should stay up. The HTML splash is torn down
+ * at the same moment React stops rendering its own copy, so there is exactly
+ * one handover and the user never sees a seam.
+ */
+function useSplash(): boolean {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let live = true;
+    splashReady().then(() => {
+      if (live) setDone(true);
+    });
+    return () => { live = false; };
+  }, []);
+  return done;
 }
 
 function ErrorBanner({ msg, onRetry, onDismiss }: { msg: string; onRetry: () => void; onDismiss: () => void }) {
@@ -52,11 +62,20 @@ function ErrorBanner({ msg, onRetry, onDismiss }: { msg: string; onRetry: () => 
 
 export function App() {
   const { state, navigate, reloadData, clearError } = useApp();
+  const splashDone = useSplash();
+  const booting = state.status === 'booting' || !splashDone;
+
+  /* Drop the HTML splash only once React is ready to show the app itself.
+     Removing it on mount instead would expose whatever is underneath for the
+     rest of the boot — which is the white flash this was built to end. */
+  useEffect(() => {
+    if (!booting) dismissBootSplash();
+  }, [booting]);
 
   const cvId = publicCvId();
   if (cvId) return <PublicCv id={cvId} />;
 
-  if (state.status === 'booting') return <BootScreen />;
+  if (booting) return <Splash />;
   if (state.status === 'anon') return <Onboarding />;
 
   const id = state.nav.id ?? '';
