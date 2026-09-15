@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 // same name — these handlers receive the synthetic one.
 import type { TouchEvent } from 'react';
 import { useApp } from '../../store/appStore';
+import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { api, forgetAttachment, uploadAttachment } from '../../lib/api';
 import type { Attachment, ChatUser, Conversation, Message } from '../../lib/api';
 import { noteSeen, onChatEvent } from '../../lib/chatTransport';
@@ -35,17 +36,19 @@ function clockOnly(iso: string): string {
   try { return new Date(iso).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
 }
 
-/** "Today", "Yesterday", or a date. What the separator between days says. */
-function dayLabel(iso: string): string {
+/** "Today", "Yesterday", or a date. What the separator between days says.
+    Takes the locale tag as well as `t`: a translated "Today" above an English
+    "15 September" is worse than leaving both alone. */
+function dayLabel(iso: string, t: (k: string) => string, tag: string): string {
   try {
     const d = new Date(iso);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return 'Today';
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    if (d.toDateString() === today.toDateString()) return t('chat.today');
+    if (d.toDateString() === yesterday.toDateString()) return t('chat.yesterday');
     const thisYear = d.getFullYear() === today.getFullYear();
-    return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', ...(thisYear ? {} : { year: 'numeric' }) });
+    return d.toLocaleDateString(tag, { day: 'numeric', month: 'long', ...(thisYear ? {} : { year: 'numeric' }) });
   } catch { return ''; }
 }
 
@@ -82,13 +85,14 @@ type Row =
  * "it didn't go", which is the one that actually needs to be noticed.
  */
 function Ticks({ state }: { state: 'queued' | 'failed' | 'sent' | 'delivered' | 'read' }) {
+  const t = useT();
   if (state === 'queued') {
-    return <span title="Sending" aria-label="Sending"><Icon name="clock" size={12} /></span>;
+    return <span title={t('chat.sending')} aria-label={t('chat.sending')}><Icon name="clock" size={12} /></span>;
   }
   if (state === 'failed') {
-    return <span className="text-danger" title="Not sent" aria-label="Not sent"><Icon name="alert" size={12} /></span>;
+    return <span className="text-danger" title={t('chat.failed')} aria-label={t('chat.failed')}><Icon name="alert" size={12} /></span>;
   }
-  const label = state === 'read' ? 'Read' : state === 'delivered' ? 'Delivered' : 'Sent';
+  const label = state === 'read' ? t('chat.read') : state === 'delivered' ? t('chat.delivered') : t('chat.sent');
   return (
     <span className={state === 'read' ? 'text-info' : 'text-faint'} title={label} aria-label={label}>
       {state === 'sent' ? '✓' : '✓✓'}
@@ -344,6 +348,7 @@ function PendingBubble({ p, onRetry, onDiscard }: {
 /* ---------------- Inbox ---------------- */
 export function Messages() {
   const { navigate, loadConversations } = useApp();
+  const t = useT();
   const [convos, setConvos] = useState<Conversation[] | null>(null);
 
   const load = useCallback(() => {
@@ -383,7 +388,7 @@ export function Messages() {
                   {/* A green dot only ever means "their app is open right now" —
                       it is the live connection, not a guess from a timestamp. */}
                   {c.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-verified border-2 border-surface" title="Online now" aria-label="Online now" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-verified border-2 border-surface" title={t('chat.online')} aria-label={t('chat.online')} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -422,6 +427,7 @@ const TYPING_PING_MS = 3000;
 
 export function ChatThread({ id }: { id: string }) {
   const { state, toast, refreshUnread } = useApp();
+  const t = useT();
   const me = state.user?.id;
 
   const [other, setOther] = useState<ChatUser | null>(null);
@@ -773,7 +779,7 @@ export function ChatThread({ id }: { id: string }) {
                 className={`block text-micro font-semibold truncate ${typingNow ? 'text-brand' : online ? 'text-verified' : 'text-faint'}`}
                 aria-live="polite"
               >
-                {blocked ? 'Blocked' : typingNow ? 'typing…' : online ? 'Online' : 'Offline'}
+                {blocked ? t('chat.blocked') : typingNow ? t('chat.typing') : online ? t('chat.online') : t('chat.offline')}
               </span>
             </div>
             {/* The way out of a conversation that has gone wrong. Reporting
@@ -1006,10 +1012,11 @@ export function ChatThread({ id }: { id: string }) {
 
 /** The date, once, between the last message of one day and the first of the next. */
 function DaySeparator({ at }: { at: string }) {
+  const { t, meta } = useLanguage();
   return (
     <div className="flex items-center gap-3 my-3 w-full self-stretch shrink-0">
       <span className="flex-1 h-px bg-line" aria-hidden="true" />
-      <span className="text-micro font-bold uppercase tracking-wide text-faint">{dayLabel(at)}</span>
+      <span className="text-micro font-bold uppercase tracking-wide text-faint">{dayLabel(at, t, meta.tag)}</span>
       <span className="flex-1 h-px bg-line" aria-hidden="true" />
     </div>
   );

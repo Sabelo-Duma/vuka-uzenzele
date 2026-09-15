@@ -4,6 +4,7 @@ import type { Recording } from '../../lib/voice';
 import { isSupportedImage, preparePhoto } from '../../lib/photo';
 import type { PreparedPhoto } from '../../lib/photo';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 /**
  * The box at the bottom of a conversation.
@@ -45,6 +46,7 @@ export function Composer({
   disabled, mode, draft, onDraftChange, voiceMaxMs,
   onSendText, onSendVoice, onSendPhoto, onTyping, onCancelCompose, inputRef,
 }: ComposerProps) {
+  const t = useT();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [notice, setNotice] = useState<string | null>(null);
   const session = useRef<VoiceSession | null>(null);
@@ -204,7 +206,7 @@ export function Composer({
         <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-xl bg-surface-2 border border-line">
           <span className="text-dim mt-0.5 shrink-0"><Icon name="alert" size={14} /></span>
           <p className="flex-1 text-small text-ink m-0 leading-snug">{notice}</p>
-          <button onClick={() => setNotice(null)} aria-label="Dismiss" className="shrink-0 text-dim hover:text-ink transition p-1">
+          <button onClick={() => setNotice(null)} aria-label={t('action.close')} className="shrink-0 text-dim hover:text-ink transition p-1">
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -228,7 +230,7 @@ export function Composer({
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={disabled || busy}
-              aria-label="Send a photo"
+              aria-label={t('chat.addPhoto')}
               className="grid place-items-center w-11 h-11 shrink-0 rounded-2xl border-[1.5px] border-line bg-surface text-dim hover:text-ink hover:bg-surface-2 transition active:scale-95 disabled:opacity-40"
             >
               <Icon name="image" size={19} />
@@ -248,7 +250,7 @@ export function Composer({
           }}
           rows={1}
           disabled={disabled}
-          placeholder={mode === 'edit' ? 'Edit your message…' : 'Message'}
+          placeholder={mode === 'edit' ? t('action.edit') : t('chat.placeholder')}
           aria-label={mode === 'edit' ? 'Edit message' : 'Message'}
           className="flex-1 min-w-0 resize-none max-h-28 border-[1.5px] border-line rounded-2xl px-4 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-faint transition disabled:opacity-60"
         />
@@ -258,7 +260,7 @@ export function Composer({
             type="button"
             onClick={startRecording}
             disabled={disabled || busy}
-            aria-label="Record a voice note"
+            aria-label={t('chat.recordVoice')}
             className="grid place-items-center w-11 h-11 shrink-0 rounded-2xl bg-brand-solid text-brand-on hover:bg-brand-hover transition active:scale-95 disabled:opacity-40"
           >
             {busy

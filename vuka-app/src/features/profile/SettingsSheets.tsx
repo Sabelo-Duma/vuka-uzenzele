@@ -4,6 +4,8 @@ import { api, ApiError, type BlockedUser, type IdVerification } from '../../lib/
 import { Avatar, Button, InlineError, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
+import { useLanguage } from '../../providers/LanguageProvider';
+import { LANGS, coverage, langMeta, translate, type Lang } from '../../i18n';
 
 // text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, and these sit inside a bottom sheet that then can't scroll
@@ -243,6 +245,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 /* ---------------- Safety centre ---------------- */
 export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; aboutUserId?: string; onClose: () => void }) {
   const { toast } = useApp();
+  const { t } = useLanguage();
   const [concern, setConcern] = useState('');
   const [busy, setBusy] = useState(false);
   const report = async () => {
@@ -259,66 +262,140 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
     }
   };
   return (
-    <Sheet title="Safety centre" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Safety centre<span className="text-brand">.</span></h3>
-      <p className="text-small text-dim mt-1 mb-3 leading-relaxed">How Vuka keeps you safe — and how to get help.</p>
+    <Sheet title={t('safety.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('safety.title')}<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-3 leading-relaxed">{t('safety.intro')}</p>
       <ul className="space-y-2 text-small text-ink mb-4">
         {/* This used to read "Only ID-verified users can be hired or hire".
             Nothing enforced it — nothing ever has — and a safety claim the
             product does not keep is worse than no claim at all. */}
-        <li className="flex gap-2 items-start"><span>🪪</span> Workers and employers can both verify their identity against their SA ID. Verified accounts carry a badge, so you can see who you are dealing with</li>
-        <li className="flex gap-2 items-start"><span>⭐</span> Two-way ratings after every job keep everyone accountable</li>
-        <li className="flex gap-2 items-start"><span>⚖️</span> Fair-pay checks flag any gig below minimum wage</li>
-        <li className="flex gap-2 items-start"><span>📍</span> Meet in public, tell someone where you'll be</li>
+        <li className="flex gap-2 items-start"><span>🪪</span> {t('safety.verify')}</li>
+        <li className="flex gap-2 items-start"><span>⭐</span> {t('safety.ratings')}</li>
+        <li className="flex gap-2 items-start"><span>⚖️</span> {t('safety.fairPay')}</li>
+        <li className="flex gap-2 items-start"><span>📍</span> {t('safety.meetPublic')}</li>
       </ul>
       <div className="bg-live-soft rounded-xl px-3.5 py-3 mb-4 text-small text-ink leading-snug">
-        <b>In an emergency, call 10111 (SAPS)</b> or 112 from any mobile.
+        <b>{t('safety.emergency')}</b>
       </div>
-      <Label>Report a concern</Label>
-      <textarea className={`${field} resize-none`} rows={3} value={concern} onChange={(e) => setConcern(e.target.value)} placeholder="Tell us what happened…" aria-label="Report a concern" />
-      <Button block className="mt-3" disabled={busy} onClick={report}>{busy ? 'Sending…' : 'Submit report'}</Button>
-      <p className="text-center text-micro text-dim mt-2.5">Reports go to Vuka's safety team and are kept confidential.</p>
+      <Label>{t('safety.reportConcern')}</Label>
+      <textarea className={`${field} resize-none`} rows={3} value={concern} onChange={(e) => setConcern(e.target.value)} placeholder={t('safety.reportPlaceholder')} aria-label={t('safety.reportConcern')} />
+      <Button block className="mt-3" disabled={busy} onClick={report}>{busy ? t('action.sending') : t('safety.reportSubmit')}</Button>
+      <p className="text-center text-micro text-dim mt-2.5">{t('safety.reportNote')}</p>
     </Sheet>
   );
 }
 
-/* ---------------- Language ---------------- */
-const LANGS = [
-  { id: 'en', label: 'English', ready: true },
-  { id: 'zu', label: 'isiZulu', ready: false },
-  { id: 'st', label: 'Sesotho', ready: false },
-  { id: 'af', label: 'Afrikaans', ready: false },
-  { id: 'xh', label: 'isiXhosa', ready: false },
-];
-function getLang(): string { try { return localStorage.getItem('vuka-lang') || 'en'; } catch { return 'en'; } }
+/* ---------------- Language ----------------
+   This used to save a preference and change nothing. Four of the five options
+   said "coming soon", which on a South African jobs app meant: we know who you
+   are, and we have not built for you.
 
+   Now the choice is applied. What is not yet translated falls back to English
+   rather than going blank, and the screen says how much of each language is
+   actually done — a number the check script computes, so it cannot drift into
+   a claim the catalogue does not support. */
 export function LanguageSheet({ onClose }: { onClose: () => void }) {
   const { toast } = useApp();
-  const [lang, setLang] = useState(getLang());
-  const pick = (id: string, ready: boolean) => {
+  const { lang, setLang, t } = useLanguage();
+  const [reporting, setReporting] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const pick = (id: Lang) => {
     setLang(id);
-    try { localStorage.setItem('vuka-lang', id); } catch { /* ignore */ }
-    const label = LANGS.find((l) => l.id === id)?.label;
-    toast(ready ? `Language set to ${label} 🌍` : `${label} is coming soon — saved as your preference 🌍`);
+    /* Read the new language's own name from its own catalogue, so the
+       confirmation is already in the language just chosen. */
+    toast(translate(id, 'lang.applied', { language: langMeta(id).label }));
   };
+
+  /* Translation complaints ride the safety-report queue rather than a new
+     endpoint and a new table: that queue is already staffed and already has an
+     admin screen, and a report nobody reads is worse than no report button.
+     The tag is what makes them filterable. */
+  const sendReport = async () => {
+    if (!note.trim()) return;
+    setBusy(true);
+    try {
+      await api.reportSafety(`[translation:${lang}] ${note.trim()}`);
+      setNote('');
+      setReporting(false);
+      toast(t('lang.reportSent'));
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <Sheet title="Language" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Language<span className="text-brand">.</span></h3>
-      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">Choose your preferred language. More are rolling out — your choice is saved for when they land.</p>
+    <Sheet title={t('lang.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">
+        {t('lang.title')}<span className="text-brand">.</span>
+      </h3>
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">{t('lang.intro')}</p>
+
       <div className="flex flex-col gap-2">
-        {LANGS.map((l) => (
-          <button
-            key={l.id}
-            onClick={() => pick(l.id, l.ready)}
-            aria-pressed={lang === l.id}
-            className={`flex items-center justify-between rounded-xl border-[1.5px] px-3.5 py-3 text-small font-bold transition ${lang === l.id ? 'border-brand-solid bg-brand-soft' : 'border-line hover:border-faint'}`}
-          >
-            <span className="text-ink">{l.label} {!l.ready && <span className="text-micro font-semibold text-dim">· coming soon</span>}</span>
-            {lang === l.id && <span className="text-ink"><Icon name="check" size={18} /></span>}
-          </button>
-        ))}
+        {LANGS.map((l) => {
+          const pct = coverage(l.id);
+          const selected = lang === l.id;
+          return (
+            <button
+              key={l.id}
+              onClick={() => pick(l.id)}
+              aria-pressed={selected}
+              lang={l.tag}
+              className={`flex items-center justify-between gap-3 rounded-xl border-[1.5px] px-3.5 py-3 text-left transition ${selected ? 'border-brand-solid bg-brand-soft' : 'border-line hover:border-faint'}`}
+            >
+              <span className="min-w-0">
+                <span className="block text-small font-bold text-ink truncate">{l.label}</span>
+                {/* The English name underneath is the way back: you have to be
+                    able to find your language, and then find your way out of
+                    one you picked by mistake. */}
+                <span className="block text-micro text-dim truncate" lang="en">
+                  {l.english}
+                  {pct < 100 && <> · {t('lang.partial', { percent: pct })}</>}
+                </span>
+              </span>
+              {selected && <span className="text-ink shrink-0"><Icon name="check" size={18} /></span>}
+            </button>
+          );
+        })}
       </div>
-      <Button block variant="ghost" className="mt-5" onClick={onClose}>Done</Button>
+
+      <p className="text-micro text-dim mt-3 leading-relaxed">{t('lang.partialHint')}</p>
+
+      <div className="bg-surface-2 rounded-xl px-3.5 py-3 mt-4 text-micro text-dim leading-relaxed">
+        {t('lang.legalNote')}
+      </div>
+
+      {/* Community correction. These translations were not written by
+          first-language speakers and the screen says so rather than letting a
+          user discover it from a wrong word. */}
+      <div className="mt-4 border-t border-line pt-4">
+        <p className="text-small font-bold text-ink m-0">{t('lang.reportTitle')}</p>
+        <p className="text-micro text-dim mt-1 leading-relaxed">{t('lang.reportBody')}</p>
+        {reporting ? (
+          <>
+            <textarea
+              className={`${field} resize-none mt-2.5`}
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t('lang.reportPlaceholder')}
+              aria-label={t('lang.reportAction')}
+            />
+            <Button block className="mt-2.5" disabled={busy || !note.trim()} onClick={sendReport}>
+              {busy ? t('action.sending') : t('action.send')}
+            </Button>
+          </>
+        ) : (
+          <Button block variant="ghost" className="mt-2.5" onClick={() => setReporting(true)}>
+            {t('lang.reportAction')}
+          </Button>
+        )}
+      </div>
+
+      <Button block variant="ghost" className="mt-5" onClick={onClose}>{t('action.done')}</Button>
     </Sheet>
   );
 }

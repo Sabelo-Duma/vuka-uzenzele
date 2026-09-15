@@ -1,10 +1,30 @@
 import { useState } from 'react';
+import { useT } from '../../providers/LanguageProvider';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from '../../components/Icon';
 import { SunMark } from '../../components/SunMark';
 import { TIERS } from '../../data/catalog';
 import { HEADLINE_STATS, SOURCES, YOUTH_UNEMPLOYMENT_SENTENCE } from '../../data/stats';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
+
+/**
+ * Bold one phrase inside a translated sentence.
+ *
+ * The alternative is splitting the sentence into three keys and concatenating
+ * them, which works in English and falls apart the moment word order moves —
+ * which is the first thing that changes in isiZulu, isiXhosa and Sesotho.
+ */
+function Emphasise({ text, phrase }: { text: string; phrase: string }) {
+  const at = phrase ? text.indexOf(phrase) : -1;
+  if (at === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <b className="text-ink">{phrase}</b>
+      {text.slice(at + phrase.length)}
+    </>
+  );
+}
 
 /** Illustrative figures for the reputation preview. Labelled as a preview so
  *  nobody mistakes them for live platform numbers. */
@@ -16,6 +36,7 @@ const PREVIEW = { score: 69, jobs: 5, rating: '4,5', earned: '370' };
  */
 export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; onLogin: () => void }) {
   const { resolved, toggle } = useTheme();
+  const t = useT();
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
 
   /* The reputation preview is drawn from the real ladder rather than from a
@@ -43,11 +64,11 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <button onClick={toggle} aria-label="Toggle theme" className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface-2 transition active:scale-95">
+            <button onClick={toggle} aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface-2 transition active:scale-95">
               <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
             </button>
-            <button onClick={onLogin} className="inline-flex items-center whitespace-nowrap min-h-[44px] text-small font-bold text-ink px-2 sm:px-3 rounded-pill hover:bg-surface-2 transition">Log in</button>
-            <button onClick={onGetStarted} className="inline-flex items-center whitespace-nowrap min-h-[44px] rounded-pill bg-brand-solid text-brand-on text-small font-bold px-3.5 sm:px-5 hover:bg-brand-hover transition active:scale-95">Get started</button>
+            <button onClick={onLogin} className="inline-flex items-center whitespace-nowrap min-h-[44px] text-small font-bold text-ink px-2 sm:px-3 rounded-pill hover:bg-surface-2 transition">{t('action.logIn')}</button>
+            <button onClick={onGetStarted} className="inline-flex items-center whitespace-nowrap min-h-[44px] rounded-pill bg-brand-solid text-brand-on text-small font-bold px-3.5 sm:px-5 hover:bg-brand-hover transition active:scale-95">{t('action.getStarted')}</button>
           </div>
         </div>
       </header>
@@ -57,24 +78,23 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-14 grid lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-8 items-center">
           <div>
             <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-surface-2 border border-line px-3 py-1.5 text-small font-bold text-ink mb-6">
-              <span className="w-2 h-2 rounded-full bg-brand-solid floaty" />Youth work, reimagined for South Africa
+              <span className="w-2 h-2 rounded-full bg-brand-solid floaty" />{t('landing.badge')}
             </span>
             <h1 className="font-display ob-rise text-[clamp(2.1rem,6vw,3.6rem)] font-extrabold text-ink leading-[1.04] tracking-[-0.02em]">
-              Your first job shouldn't need a CV<span className="text-brand">.</span>
+              {t('landing.headline')}<span className="text-brand">.</span>
             </h1>
             <p className="ob-rise-2 text-dim text-[clamp(1rem,2.2vw,1.2rem)] leading-relaxed mt-5 max-w-[46ch]">
-              Vuka Uzenzele turns real work — car washes, moving, tutoring, cleaning — into a
-              <b className="text-ink"> verified track record</b> that opens the door to formal jobs. No matric, no experience needed to start.
+              <Emphasise text={t('landing.sub')} phrase={t('landing.subStrong')} />
             </p>
             <div className="ob-rise-3 flex flex-wrap gap-3 mt-8">
               <button onClick={onGetStarted} className="inline-flex items-center gap-2 rounded-pill bg-brand-solid text-brand-on font-bold text-body px-6 py-3.5 hover:bg-brand-hover transition active:scale-95 shadow-e2">
-                Get started — it's free <Icon name="chev" size={18} />
+                {t('action.getStartedFree')} <Icon name="chev" size={18} />
               </button>
               <button onClick={onLogin} className="inline-flex items-center rounded-pill border border-line text-ink font-bold text-body px-6 py-3.5 hover:bg-surface-2 transition active:scale-95">
-                I have an account
+                {t('action.haveAccount')}
               </button>
             </div>
-            <p className="ob-rise-3 text-small text-faint mt-4">Free to join · built light on data, and it opens even with no signal.</p>
+            <p className="ob-rise-3 text-small text-faint mt-4">{t('landing.free')}</p>
           </div>
 
           {/* Hero visual — a preview built from the app's own cards */}
@@ -83,7 +103,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             <div className="relative rounded-[28px] p-6 pb-7 text-on-feature overflow-hidden shadow-e3 feature-band">
               <span className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
               <div className="relative">
-                <div className="text-micro font-bold uppercase tracking-widest text-on-feature-dim">Your Vuka Score</div>
+                <div className="text-micro font-bold uppercase tracking-widest text-on-feature-dim">{t('landing.yourScore')}</div>
                 <div className="flex items-center gap-4 mt-3">
                   <div className="grid place-items-center w-20 h-20 rounded-full shrink-0" style={{ background: `conic-gradient(var(--v-brand-solid) 0 ${PREVIEW.score}%, rgba(255,255,255,.16) ${PREVIEW.score}% 100%)` }}>
                     <div className="grid place-items-center w-[62px] h-[62px] rounded-full bg-feature text-title font-extrabold font-mono tnum">{PREVIEW.score}</div>
@@ -95,7 +115,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
                 </div>
                 <div className="mt-5">
                   <div className="flex justify-between text-micro text-on-feature-dim mb-1.5">
-                    <span>{toGo} more {toGo === 1 ? 'job' : 'jobs'} to {next.name}</span>
+                    <span>{t('landing.jobsToTier', { count: toGo, tier: next.name })}</span>
                     <span aria-hidden="true">{next.icon}</span>
                   </div>
                   <div className="h-2 rounded-pill bg-white/15 overflow-hidden"><div className="h-full rounded-pill bg-brand-solid" style={{ width: `${progress}%` }} /></div>
@@ -227,7 +247,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         <p className="text-dim text-body mt-4 max-w-[44ch] mx-auto">Join young South Africans turning everyday work into a career. It's free, and it starts now.</p>
         <div className="flex flex-wrap gap-3 justify-center mt-7">
           <button onClick={onGetStarted} className="rounded-pill bg-brand-solid text-brand-on font-bold text-body px-7 py-3.5 hover:bg-brand-hover transition active:scale-95 shadow-e2">Get started free</button>
-          <button onClick={onLogin} className="rounded-pill border border-line text-ink font-bold text-body px-7 py-3.5 hover:bg-surface-2 transition active:scale-95">Log in</button>
+          <button onClick={onLogin} className="rounded-pill border border-line text-ink font-bold text-body px-7 py-3.5 hover:bg-surface-2 transition active:scale-95">{t('action.logIn')}</button>
         </div>
       </section>
 
