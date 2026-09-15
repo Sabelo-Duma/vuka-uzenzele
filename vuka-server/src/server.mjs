@@ -563,10 +563,18 @@ app.get('/api/health', asyncH(async (_req, res) => {
     captureError(e, 'health:database');
   }
 
-  /* Measured separately, and its failure is not the database's failure.
+  /* Measured separately, because its failure is not the database's failure.
      pg_database_size needs a privilege the connection may not have on every
-     managed host — and folding that into `database.ok` would have reported a
-     healthy database as down every ten minutes, and emailed about it. */
+     managed host, and the attachments table may not exist yet mid-migration.
+
+     Worth being precise about what this does and does not buy, because the
+     first version of this comment claimed more than it should have. Sharing one
+     try block with the keep-alive would NOT have reported the database as down:
+     `database` is assigned before storageStats() is called, so a throw from the
+     measurement leaves it true. What sharing costs is the label — every storage
+     failure would have been captured as 'health:database', so the monitoring
+     would point at the wrong thing while the real database was fine. That is
+     the bug being avoided here: a misdirected alarm, not a false one. */
   if (database.ok) {
     try {
       storage = await storageStats();
