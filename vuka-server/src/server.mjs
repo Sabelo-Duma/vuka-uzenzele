@@ -488,21 +488,117 @@ const STARTED_AT = Date.now();
    it doesn't have. A commit SHA is public information — it is in the repo. */
 const COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || '').slice(0, 7) || 'unknown';
 
-app.get('/api/health', (_req, res) => res.json({
-  ok: true,
-  commit: COMMIT,
-  minWage: MIN_WAGE_PER_HOUR,
-  store: driver,
-  payoutsConfigured: hasEncryptionKey,
-  smsConfigured,
-  pushConfigured,
-  monitoring: monitoringTarget,
-  // How many devices are holding a live chat channel open right now. Worth
-  // watching: it is the one number that says whether people are getting
-  // messages pushed to them or quietly falling back to polling.
-  live: connectionStats(),
-  uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
+/* ---- how full is the database, and is it awake ----
+
+   Both questions matter for the same reason, and the reason is that this is a
+   free managed Postgres.
+
+   AWAKE. Supabase pauses a free project after roughly a week without database
+   activity, and a paused project is unreachable — every conversation, every
+   CV, every reference. Data survives a pause and is restored from their
+   dashboard, but a project left paused long enough is eventually deleted
+   outright, and free-tier data deleted that way does not come back.
+
+   The uptime workflow has pinged /api/health every ten minutes this whole
+   time. It kept Render's instance warm and did nothing at all for Supabase,
+   because this route answered from constants and never touched the database.
+   Supabase counts database activity, not HTTP requests to something in front
+   of it. One SELECT here turns an existing cron into a keep-alive: 144 trivial
+   queries a day, against a threshold of "a few".
+
+   FULL. The free plan is 500 MB, and voice notes and photos live in it. A
+   message is a couple of hundred bytes; a minute of speech is a hundred
+   kilobytes or more. Nothing measured that, so the first sign of trouble would
+   have been writes failing. */
+
+const DB_LIMIT_BYTES = Number(process.env.VUKA_DB_LIMIT_BYTES || 500 * 1024 * 1024);
+/* Recomputed at most this often. The keep-alive query runs on every ping and
+   has to stay trivial; measuring the whole database does not. Overridable so a
+   test can ask for the real number rather than one from fifteen minutes ago. */
+const STORAGE_TTL_MS = Number(process.env.VUKA_STORAGE_TTL_MS ?? 15 * 60_000);
+let storageCache = { at: 0, value: null };
+
+/** Total bytes on disk, however this engine likes to be asked. */
+async function databaseBytes() {
+  if (driver === 'pg') {
+    const r = await get('SELECT pg_database_size(current_database()) AS bytes');
+    return Number(r?.bytes ?? 0);
+  }
+  const [pages, size] = await Promise.all([get('PRAGMA page_count'), get('PRAGMA page_size')]);
+  return Number(pages?.page_count ?? 0) * Number(size?.page_size ?? 0);
+}
+
+async function storageStats() {
+  if (storageCache.value && Date.now() - storageCache.at < STORAGE_TTL_MS) return storageCache.value;
+  const [bytes, files] = await Promise.all([
+    databaseBytes(),
+    get('SELECT COUNT(*) AS n, COALESCE(SUM(size), 0) AS bytes FROM attachments'),
+  ]);
+  const attachmentBytes = Number(files?.bytes ?? 0);
+  const value = {
+    dbBytes: bytes,
+    limitBytes: DB_LIMIT_BYTES,
+    percentUsed: DB_LIMIT_BYTES > 0 ? Math.round((bytes / DB_LIMIT_BYTES) * 1000) / 10 : 0,
+    attachmentCount: Number(files?.n ?? 0),
+    attachmentBytes,
+    /* The number that actually decides when this becomes a problem. Everything
+       else in here grows in bytes; attachments grow in hundreds of kilobytes. */
+    attachmentShare: bytes > 0 ? Math.round((attachmentBytes / bytes) * 1000) / 10 : 0,
+  };
+  storageCache = { at: Date.now(), value };
+  return value;
+}
+
+app.get('/api/health', asyncH(async (_req, res) => {
+  /* The keep-alive. Deliberately the cheapest query there is, and deliberately
+     not wrapped in anything clever: if this stops running, the free project
+     goes quiet and starts counting down to a pause. */
+  const started = Date.now();
+  let database = { ok: false, latencyMs: null };
+  let storage = null;
+  try {
+    await get('SELECT 1 AS ok');
+    database = { ok: true, latencyMs: Date.now() - started };
+  } catch (e) {
+    captureError(e, 'health:database');
+  }
+
+  /* Measured separately, and its failure is not the database's failure.
+     pg_database_size needs a privilege the connection may not have on every
+     managed host — and folding that into `database.ok` would have reported a
+     healthy database as down every ten minutes, and emailed about it. */
+  if (database.ok) {
+    try {
+      storage = await storageStats();
+    } catch (e) {
+      captureError(e, 'health:storage');
+    }
+  }
+
+  /* Still 200 with the database down, on purpose. Render watches this path to
+     decide whether the instance is healthy, and answering 503 during a brief
+     database blip would take the whole service down and keep it down —
+     replacing a partial outage with a total one. The uptime workflow checks
+     `database.ok` and is what raises the alarm. */
+  res.json({
+    ok: true,
+    commit: COMMIT,
+    minWage: MIN_WAGE_PER_HOUR,
+    store: driver,
+    database,
+    storage,
+    payoutsConfigured: hasEncryptionKey,
+    smsConfigured,
+    pushConfigured,
+    monitoring: monitoringTarget,
+    // How many devices are holding a live chat channel open right now. Worth
+    // watching: it is the one number that says whether people are getting
+    // messages pushed to them or quietly falling back to polling.
+    live: connectionStats(),
+    uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
+  });
 }));
+
 
 // ---- engine config (single source of truth) ----
 // The client ships the same thresholds so it can animate tier-ups instantly,

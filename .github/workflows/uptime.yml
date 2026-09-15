@@ -58,6 +58,33 @@ jobs:
                 exit 1
               fi
 
+              # The database has to have actually answered. This route now runs
+              # a real query, which is also what keeps the free Supabase project
+              # from being paused for inactivity — a paused project is every
+              # conversation and every CV unreachable, and one left paused long
+              # enough is deleted. If this ever stops being true, the countdown
+              # starts and nothing else would say so.
+              case "$json" in
+                *'"database":{"ok":true'*) : ;;
+                *)
+                  echo "::error title=Database unreachable::/api/health answered, but its query to Postgres did not. Sign-in, chats and CVs are down — and the free project is no longer being kept awake."
+                  exit 1
+                  ;;
+              esac
+
+              # How full the free 500 MB is. Voice notes and photos live in
+              # there, so this moves in hundreds of kilobytes, not bytes.
+              used=$(printf '%s' "$json" | grep -o '"percentUsed":[0-9.]*' | cut -d: -f2)
+              if [ -n "${used:-}" ]; then
+                whole=${used%%.*}
+                if [ "${whole:-0}" -ge 80 ] 2>/dev/null; then
+                  echo "::error title=Database nearly full::${used}% of the free 500 MB is used. Move attachments to object storage before writes start failing — see CHAT.md."
+                  exit 1
+                elif [ "${whole:-0}" -ge 60 ] 2>/dev/null; then
+                  echo "::warning title=Database filling up::${used}% of the free 500 MB is used."
+                fi
+              fi
+
               # Warnings, not failures: these degrade features rather than
               # losing data, and each one needs a human decision to fix.
               case "$json" in
