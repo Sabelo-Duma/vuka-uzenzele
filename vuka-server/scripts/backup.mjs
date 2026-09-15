@@ -34,8 +34,35 @@ const TABLES = [
   'users', 'worker_profiles', 'gigs', 'formal_jobs', 'applications', 'history',
   'employer_ratings', 'formal_applications', 'user_preferences', 'safety_reports',
   'phone_verifications', 'password_resets', 'id_verifications', 'banking_details',
-  'invitations', 'messages', 'follows', 'push_subscriptions',
+  'invitations', 'messages', 'attachments', 'follows', 'blocks', 'push_subscriptions',
 ];
+
+/* Rows out, and back, without losing the bytes.
+
+   attachments.bytes is raw binary, and JSON has nowhere to put it. Left alone
+   it serialises as whatever the driver happened to hand over — a Buffer's
+   {"type":"Buffer","data":[…]} on Postgres, an object of numeric keys on
+   SQLite — both several times the size of the data and neither of which
+   restores as bytes. Every voice note and every photo in a snapshot would have
+   come back as an unreadable blob, silently, and only at the moment somebody
+   actually needed the restore.
+
+   Base64 in a tagged wrapper: unambiguous on the way back in, and portable
+   between the two engines, which is the point of this format existing. */
+const BYTES_TAG = '$bytes';
+
+const encodeRow = (row) => {
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[k] = ArrayBuffer.isView(v) || Buffer.isBuffer(v)
+      ? { [BYTES_TAG]: Buffer.from(v.buffer ?? v, v.byteOffset ?? 0, v.byteLength ?? v.length).toString('base64') }
+      : v;
+  }
+  return out;
+};
+
+const decodeValue = (v) =>
+  (v && typeof v === 'object' && typeof v[BYTES_TAG] === 'string' ? Buffer.from(v[BYTES_TAG], 'base64') : v);
 
 const tableExists = async (t) => {
   try { await get(`SELECT 1 FROM ${t} LIMIT 1`); return true; } catch { return false; }
@@ -47,7 +74,7 @@ async function backup(dest) {
   let rows = 0;
   for (const table of TABLES) {
     if (!(await tableExists(table))) { console.log(`  – ${table} (not in this database)`); continue; }
-    data[table] = await all(`SELECT * FROM ${table}`);
+    data[table] = (await all(`SELECT * FROM ${table}`)).map(encodeRow);
     rows += data[table].length;
     console.log(`  ✓ ${table}: ${data[table].length}`);
   }
@@ -82,7 +109,7 @@ async function restore(src) {
       const cols = Object.keys(row);
       await run(
         `INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-        cols.map((c) => row[c])
+        cols.map((c) => decodeValue(row[c]))
       );
     }
     rows += list.length;

@@ -252,7 +252,75 @@ would sit in the storage budget forever.
 Bytes come back only to the two people in the conversation. Withdrawing a voice
 note **deletes the row**, not just the link to it.
 
+### Will the history actually still be there?
+
+Messages are kept forever. There is no expiry, no trimming, and scrolling up
+pages backwards through the whole conversation. The question is whether the
+database they live in survives, and on a free plan that has two answers worth
+knowing.
+
+**The project gets paused if nobody talks to the database.** Supabase pauses a
+free project after about a week without database activity. A paused project is
+unreachable — every conversation, every CV, every reference — and while the data
+survives a pause and is restored from their dashboard, a project left paused
+long enough is eventually **deleted**, and free-tier data deleted that way does
+not come back.
+
+The uptime cron had been pinging `/api/health` every ten minutes for months and
+did nothing about this, because that route answered entirely from constants and
+never touched Postgres. Supabase counts *database* activity, not HTTP requests
+to something sitting in front of it. The health check now runs one `SELECT 1`,
+which turns an existing cron into a keep-alive: 144 trivial queries a day
+against a threshold of "a few". The uptime workflow fails loudly if that query
+ever stops answering, because that is the countdown starting.
+
+**The 500 MB fills with attachments, not messages.** They are not close to the
+same order of magnitude:
+
+| | size each | fills 500 MB after |
+|---|---|---|
+| a message | ~300 bytes | **1.7 million** |
+| a 60-second voice note | ~100 KB | **5,120** |
+| a photo | ~300 KB | **1,706** |
+
+One voice note costs what **341 messages** cost. So the conversations are
+effectively free and the media is the entire budget, which is why
+`/api/health` now reports `storage` — `dbBytes`, `percentUsed`,
+`attachmentCount`, `attachmentBytes` and the share of the database they
+occupy. The uptime workflow warns at 60% and fails at 80%, so this is noticed
+with room to act rather than when a write fails.
+
 ### When to move them
+
+The escape route is free and already paid for: **Supabase's 1 GB of file
+storage is a separate allowance from the 500 MB database**, on the same project
+with the same credentials. Moving attachments there roughly doubles the media
+runway (~10,000 voice notes) *and* hands the whole 500 MB back to messages,
+which at 300 bytes each is more than this platform will plausibly ever write.
+
+The ladder, cheapest first:
+
+1. **Do nothing** until `percentUsed` says otherwise. The uptime check is
+   watching.
+2. **Move the bytes to Supabase Storage.** The seam is `attachments.bytes` and
+   the two routes that touch it; nothing else in the system knows where a clip
+   lives. Needs the project URL and a service key in the environment.
+3. **Shorten the cap.** `VUKA_VOICE_MAX_MS` is already configurable — thirty
+   seconds halves the cost of every clip.
+4. **Expire media, never messages.** A voice note is usually about *today*; the
+   line that says what a job pays is the part somebody comes back for. Dropping
+   clip bytes after a year while keeping every message would cost almost nothing
+   in meaning.
+
+Whatever happens, **a nightly `pg_dump` runs in `.github/workflows/backup.yml`**
+and keeps the dump as a workflow artifact — off-site, versioned, and restorable
+with one command. `npm run backup` takes the same snapshot on demand, in a JSON
+format that moves between SQLite and Postgres. That one had a hole worth
+knowing about: it listed tables by hand and had never been told about
+`attachments` or `blocks`, so a restore would have come back with every voice
+note and every block silently missing. It also needed to learn that JSON cannot
+hold raw bytes — clips travel base64-encoded now, and the round trip is
+tested.
 
 If attachment volume ever approaches the database's headroom, the seam is
 `attachments.bytes` and the two routes that touch it. Supabase Storage is the

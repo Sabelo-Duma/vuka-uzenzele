@@ -17,6 +17,9 @@ process.env.PORT = '3999';
    exactly the shape the per-IP limiter exists to stop. Lifted here only; the
    limiter itself is still exercised, by the auth-specific one at the end. */
 process.env.VUKA_RATE_MAX = '100000';
+// Storage figures are cached for a quarter of an hour in production. A test
+// that asserts a count it just created needs the real one.
+process.env.VUKA_STORAGE_TTL_MS = '0';
 // A throwaway VAPID keypair so the push routes are switched on for the run.
 // Generated here with node:crypto rather than via push.mjs, because that module
 // reads its keys at import time — importing it first would freeze them as empty.
@@ -67,7 +70,20 @@ async function run() {
   await new Promise((r) => setTimeout(r, 400)); // let it bind
 
   // 1) health
-  ok((await api('GET', '/health')).json?.ok === true, 'health ok');
+  {
+    const h = (await api('GET', '/health')).json;
+    ok(h?.ok === true, 'health ok');
+    /* The health check runs a real query now. That is not decoration: the
+       uptime cron hits this route every ten minutes, and on a free managed
+       Postgres it is what stops the project being paused for inactivity —
+       which is every conversation and every CV unreachable, and eventually
+       deleted. It used to answer entirely from constants. */
+    ok(h?.database?.ok === true, 'health reports the database actually answered');
+    ok(typeof h?.database?.latencyMs === 'number', 'and how long it took');
+    ok(typeof h?.storage?.dbBytes === 'number' && h.storage.dbBytes > 0, 'health measures how big the database is');
+    ok(typeof h?.storage?.percentUsed === 'number', 'and how much of the free tier that is');
+    ok(h?.storage?.limitBytes === 500 * 1024 * 1024, 'against the free plan ceiling');
+  }
 
   /** Run the OTP dance and return the proof-of-phone token registration needs. */
   async function verifyPhone(phone) {
@@ -1132,6 +1148,12 @@ async function run() {
 
     ok(await waitFor('ready'), 'the live channel says hello when it opens');
     ok((await api('GET', '/health')).json?.live?.connections >= 1, 'health reports the open connection');
+    /* Attachments are what will actually fill the database — a message is a
+       couple of hundred bytes, a minute of speech is a hundred kilobytes. */
+    const st = (await api('GET', '/health')).json?.storage;
+    ok(st?.attachmentCount >= 1, 'health counts the attachments stored');
+    ok(st?.attachmentBytes >= 1, 'and how many bytes they take');
+    ok(typeof st?.attachmentShare === 'number', 'and what share of the database that is');
 
     await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'Live one', clientId: 'live-1' } });
     const pushed = await waitFor('message');
