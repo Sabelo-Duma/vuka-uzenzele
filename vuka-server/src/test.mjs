@@ -490,6 +490,34 @@ async function run() {
   ok(validateSaId('0001015009086').ok === false, 'a wrong check digit fails');
   ok(validateSaId('000101500908').ok === false, '12 digits fail');
   ok(validateSaId('0013015009085').ok === false, 'month 13 fails');
+
+  /* The eleventh digit is status: 0 citizen, 1 permanent resident, 2 refugee.
+     Only the first two are handled, and what matters here is how the third is
+     refused. A recognised refugee may seek employment under s27(f) of the
+     Refugees Act, so telling them their ID is invalid would be false as well as
+     insulting. The refusal has to name Vuka's limitation, not their document. */
+  {
+    const luhn = (d12) => {
+      let sum = 0, dbl = true;
+      for (let i = d12.length - 1; i >= 0; i--) {
+        let n = Number(d12[i]);
+        if (dbl) { n *= 2; if (n > 9) n -= 9; }
+        sum += n; dbl = !dbl;
+      }
+      return String((10 - (sum % 10)) % 10);
+    };
+    const withStatus = (digit) => { const b = '9001015009' + digit + '8'; return b + luhn(b); };
+
+    ok(validateSaId(withStatus('0')).ok === true, 'a citizen ID is accepted');
+    ok(validateSaId(withStatus('1')).ok === true, 'a permanent-resident ID is accepted');
+    ok(validateSaId(withStatus('0')).citizen === true, 'and citizenship is reported from the eleventh digit');
+    ok(validateSaId(withStatus('1')).citizen === false, 'a permanent resident is not reported as a citizen');
+
+    const refugee = validateSaId(withStatus('2'));
+    ok(refugee.ok === false, 'a refugee status digit is not verified yet');
+    ok(!/not a valid|invalid/i.test(refugee.reason), `and is not told their ID is invalid (got "${refugee.reason}")`);
+    ok(/Vuka can only verify/.test(refugee.reason), 'the refusal names our limitation rather than their document');
+  }
   ok(validateSaId('0001015009085').gender === 'male' && validateSaId('0001010009080').gender === 'female', 'gender digit read correctly');
   ok(validateSaId('0001015009085').dateOfBirth === '2000-01-01', 'date of birth is read from the ID');
 
