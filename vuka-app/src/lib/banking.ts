@@ -14,6 +14,11 @@ import { api, type BankingInput, type BankingSummary } from './api';
 
 export interface SaBank { id: string; name: string; branchCode: string }
 
+/* Every universal branch code below was checked against published sources on
+   15 September 2026. A wrong one does not fail loudly — it sends somebody's
+   wages to the wrong bank — so re-check rather than assume if this list is
+   ever extended. */
+
 /** Major SA banks with their universal branch codes. */
 export const SA_BANKS: SaBank[] = [
   { id: 'absa', name: 'Absa', branchCode: '632005' },
@@ -21,7 +26,10 @@ export const SA_BANKS: SaBank[] = [
   { id: 'standard', name: 'Standard Bank', branchCode: '051001' },
   { id: 'nedbank', name: 'Nedbank', branchCode: '198765' },
   { id: 'capitec', name: 'Capitec', branchCode: '470010' },
-  { id: 'tymebank', name: 'TymeBank', branchCode: '678910' },
+  /* Renamed in January 2026. The id stays 'tymebank' so accounts already saved
+     still resolve, and the old name is kept in the label so somebody looking
+     for the bank they opened recognises it. The branch code did not change. */
+  { id: 'tymebank', name: 'GoTyme Bank (formerly TymeBank)', branchCode: '678910' },
   { id: 'africanbank', name: 'African Bank', branchCode: '430000' },
   { id: 'discovery', name: 'Discovery Bank', branchCode: '679000' },
   { id: 'investec', name: 'Investec', branchCode: '580105' },
