@@ -96,6 +96,21 @@ export const INDEPENDENCE =
 export const REGULATOR = {
   name: 'Information Regulator (South Africa)',
   site: 'https://inforegulator.org.za',
+  /* Their own published complaints mailbox, separate from general enquiries.
+     Checked against inforegulator.org.za/contact-us on 15 September 2026. */
   email: 'POPIAComplaints@inforegulator.org.za',
-  address: 'JD House, 27 Stiemens Street, Braamfontein, Johannesburg 2001',
+  /* Woodmead, not Braamfontein.
+
+     This said "JD House, 27 Stiemens Street, Braamfontein" — the address on
+     the Regulator's 2020 PAIA forms, and still the one most third-party sites
+     repeat. The Regulator has since moved, and a privacy notice that sends
+     somebody's complaint to an office the regulator left is worse than one
+     that gives no address at all. Taken from their own contact page. */
+  address: 'Woodmead North Office Park, 54 Maxwell Drive, Woodmead, Johannesburg 2191',
+  /* Both numbers are published; the toll-free one matters most to the people
+     this app is for, who should not have to spend airtime to complain. */
+  phone: '010 023 5200',
+  tollFree: '0800 017 160',
+  /* Complaints can be lodged online, which is cheaper and faster than post. */
+  portal: 'https://eservices.inforegulator.org.za/isupport/default.aspx',
 } as const;

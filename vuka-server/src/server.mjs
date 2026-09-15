@@ -100,8 +100,19 @@ app.use('/api', (req, res, next) => (req.path === '/health' ? next() : apiLimite
 app.use(['/api/auth/login', '/api/auth/register', '/api/auth/otp', '/api/auth/otp/verify',
   '/api/auth/password/request', '/api/auth/password/confirm'], authLimiter);
 
-/* The lowest age Vuka will register a worker at. Eighteen because the terms say
-   so and because POPIA s34 makes anything under it unlawful to process here. */
+/* The lowest age Vuka will register a worker at.
+
+   Eighteen is a data-protection limit, not a labour one, and the difference
+   matters if this is ever revisited. Section 43 of the Basic Conditions of
+   Employment Act sets the floor for working at 15, so a 16 or 17 year old may
+   lawfully work — under restrictions, including no hazardous work, nothing
+   between 6pm and 6am, and no more than eight hours a day.
+
+   What stops Vuka is POPIA s34: anyone under 18 is a child, and their personal
+   information may not be processed without a competent person's consent. There
+   is no way to obtain or verify a guardian's consent here, so the limit is 18
+   until there is. Lowering it means building that consent step first, and the
+   job restrictions with it. */
 const MIN_AGE = 18;
 
 /* The fallback colour on a profile that has never picked one.

@@ -35,7 +35,7 @@ export const HEADLINE_STATS: Stat[] = [
   { value: '62,8%', label: 'Unemployment, ages 15–24', ref: 1 },
   { value: '3,8 m', label: 'Aged 15–24 not in work, education or training', ref: 1 },
   { value: 'R30,23', label: 'National minimum wage per hour', ref: 2 },
-  { value: 'R1 000', label: 'Monthly cost of a consistent job search', ref: 3 },
+  { value: 'R1 469', label: 'What a young person spends a month looking for work', ref: 3 },
 ];
 
 /**
@@ -48,7 +48,11 @@ export const HEADLINE_STATS: Stat[] = [
 export const SOURCES: string[] = [
   'Statistics South Africa, Quarterly Labour Force Survey Q2 2026, released 11 August 2026.',
   'Department of Employment and Labour, Government Gazette 54075 — national minimum wage R30,23 per hour from 1 March 2026.',
-  'DG Murray Trust, JobStarter — a consistent job search costs a young person about R1 000 a month.',
+  /* Was attributed to "DG Murray Trust, JobStarter" at R1 000. Both were wrong.
+     The research is Youth Capital's, run with JOBJACK across more than 10 000
+     young respondents, and R1 000 was the older, lower figure. Youth Capital is
+     supported by DGMT, which is probably how the attribution drifted. */
+  'Youth Capital with JOBJACK, February 2024 — young job-seekers spend an average of R1 469 a month looking for work: R700 transport, R441 data, R328 applications.',
 ];
 
 /** The same headline figure in a sentence, for the footer. */

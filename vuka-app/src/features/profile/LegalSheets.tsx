@@ -124,8 +124,12 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 
       <H>Where it's stored, and crossing borders</H>
       <P>
-        Our servers are in {OPERATOR.hostingRegion}, so your information leaves South Africa. POPIA
-        allows this where the destination has comparable protection — the EU's GDPR meets that bar.
+        Our servers are in {OPERATOR.hostingRegion}, so your information leaves South Africa.
+        Section 72 of POPIA allows that where the receiving country has a law giving effect to
+        principles substantially similar to POPIA's. We rely on the EU's General Data Protection
+        Regulation for that. South Africa publishes no list of approved countries and the
+        Information Regulator issues no adequacy decisions, so this is our assessment rather than
+        a ruling by anyone else, and the responsibility for it stays with us.
       </P>
 
       <H>How long we keep it</H>
@@ -153,9 +157,15 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 
       <H>If we get it wrong</H>
       <P>
-        Tell us first — but you have the right to complain directly to the {REGULATOR.name}:
-        {' '}{REGULATOR.email}, {REGULATOR.site}, {REGULATOR.address}.
+        Tell us first. You also have the right to complain directly to the {REGULATOR.name}, and
+        you do not need our permission or our help to do it.
       </P>
+      <L items={[
+        <>Toll-free <b>{REGULATOR.tollFree}</b>, or {REGULATOR.phone}.</>,
+        <>Email <b>{REGULATOR.email}</b>.</>,
+        <>Online at {REGULATOR.portal}.</>,
+        <>In person or by post: {REGULATOR.address}.</>,
+      ]} />
 
       <H>Keeping it safe</H>
       <L items={[
@@ -172,7 +182,11 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 
       <H>Under 18</H>
       <P>
-        Vuka is for people 18 and over. If we learn an account belongs to a child, we delete it.
+        Vuka is for people 18 and over, and if we learn an account belongs to someone younger we
+        delete it. That is not because you are too young to work: South African law lets you work
+        from 15, with limits on the hours and the kind of job. It is because POPIA treats anyone
+        under 18 as a child, and forbids us from holding a child's personal information without a
+        parent or guardian's consent — and we have no way to ask for that consent or check it yet.
       </P>
 
       <Updated />
@@ -212,7 +226,13 @@ export function TermsSheet({ onClose }: { onClose: () => void }) {
       </P>
 
       <H>Who can use it</H>
-      <P>You must be 18 or older and entitled to work in South Africa. One account per person, under your real name — the whole system rests on a record that belongs to a real, verifiable individual.</P>
+      <P>
+        You must be 18 or older and entitled to work in South Africa. One account per person, under
+        your real name — the whole system rests on a record that belongs to a real, verifiable
+        individual. The age limit is ours, not the labour law's: you may legally work in South
+        Africa from 15, but POPIA will not let us hold the information of anyone under 18 without a
+        guardian's consent, and we cannot yet obtain it. See the privacy notice.
+      </P>
 
       <H>Your account is yours to protect</H>
       <P>Keep your password to yourself. Anything done from your account is treated as done by you. If you lose control of your number or your phone, reset your password immediately — that ends every other session.</P>
@@ -253,8 +273,9 @@ export function TermsSheet({ onClose }: { onClose: () => void }) {
       <P>
         Meet in public where you can, tell someone where you're going, and trust your instincts.
         Report anything that felt wrong through the Safety centre — a report is read and acted on,
-        and a pattern across reports is what protects the next person. In an emergency call 10111,
-        or 112 from any mobile.
+        and a pattern across reports is what protects the next person. In an emergency call
+        <b>10111</b> for police, <b>10177</b> for an ambulance, or <b>112</b> from any mobile —
+        112 is free, works without airtime, and routes you to whichever service is nearest.
       </P>
 
       <H>Verification is a check, not a guarantee</H>
