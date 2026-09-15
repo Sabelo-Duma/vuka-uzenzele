@@ -154,23 +154,41 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
           >
             {HEADLINE_STATS.map((s) => {
-              /* The reference has to stay with the last word. Left loose it
-                 wrapped onto a line of its own, a numeral hanging under the
-                 label with nothing to refer to. */
-              const words = s.label.split(' ');
-              const last = words.pop() ?? '';
+              /* The numeral leads the label, matching the source list printed
+                 under this band: it numbers the line rather than trailing off
+                 the end of it.
+
+                 It still has to be glued to a word or it can wrap alone onto
+                 one line — the same orphan the trailing version had, mirrored.
+                 So the first word travels with it. */
+              const [first, ...rest] = s.label.split(' ');
               return (
                 <div key={s.label} className="bg-surface px-4 py-3.5">
                   {/* Bricolage, not the figures face. These are headline numbers, not a
                       column to be read down — 2.0 sets them in the display face and
-                      the mono digits were making "R1 000" look like a serial number. */}
+                      the mono digits were making "R1 469" look like a serial number. */}
                   <div className="font-display text-head font-extrabold text-brand leading-none tracking-[-0.03em]">{s.value}</div>
-                  <p className="text-micro text-dim mt-1 leading-[1.35]">
-                    {words.join(' ')}{words.length > 0 ? ' ' : ''}
+                  {/* Hanging indent. With the numeral leading, a label that wraps
+                      would otherwise start its second line hard against the left
+                      edge, under the numeral, and the whole card reads crooked.
+                      The padding holds every line to one margin and the negative
+                      indent pulls the numeral out into it. */}
+                  <p className="text-micro text-dim mt-1 leading-[1.35] pl-3 -indent-3">
                     <span className="whitespace-nowrap">
-                      {last}
-                      {s.ref && <sup className="ml-0.5 font-mono text-[9.5px] text-brand font-bold align-super">{s.ref}</sup>}
+                      {s.ref && (
+                        /* A shallower rise than align-super, which on a 9.5px
+                           numeral against 12px text floats it almost clear of
+                           the line it belongs to. */
+                        <sup
+                          className="mr-1 font-mono text-[9.5px] text-brand font-bold"
+                          style={{ verticalAlign: '0.32em' }}
+                        >
+                          {s.ref}
+                        </sup>
+                      )}
+                      {first}
                     </span>
+                    {rest.length > 0 ? ` ${rest.join(' ')}` : ''}
                   </p>
                 </div>
               );
