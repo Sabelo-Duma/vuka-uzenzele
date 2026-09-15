@@ -128,7 +128,11 @@ change it is both routes at once — changing one alone buys nothing.
 
 POPIA s34 prohibits processing a child's personal information without a
 competent person's consent, and Vuka has no way to obtain it. Anyone under 18 is
-refused at the form and at the API. See `LEGAL.md`.
+refused at the form and at the API.
+
+Note this is a **data-protection** limit rather than a labour one: the Basic
+Conditions of Employment Act permits work from 15, so the platform is stricter
+than the law on employment requires. See `LEGAL.md`.
 
 ### Dependencies
 

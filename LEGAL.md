@@ -159,6 +159,20 @@ The terms have always said **18 and over**. Nothing enforced it:
 under 18 — unless a competent person (a parent or guardian) has consented. Vuka
 has no way to obtain or verify that consent.
 
+**This is a data-protection limit, not a labour one**, and the distinction is
+worth keeping straight. [Section 43 of the Basic Conditions of Employment
+Act](https://www.saflii.org/za/legis/consol_act/bcoea1997309/) sets the minimum
+working age at **15**, so 16 and 17 year olds may lawfully work — with
+restrictions: no hazardous work, nothing between 6pm and 6am, no more than eight
+hours a day, and no more than 20 hours a week during school term. South Africans
+can also get a Smart ID from 16, so the identity check the platform relies on
+already works for them.
+
+So 18 excludes people the product was built for, and youth unemployment is
+measured from 15. Lowering it is possible but not free: it needs a guardian
+consent step before any of their information is stored, and rules on which jobs
+they can be shown. That is a decision for an attorney, not for this file.
+
 So this was not a policy preference the product was free to make. It was a
 breach the moment the row was written. It is now refused at the form, at the
 API, and in eleven tests.
