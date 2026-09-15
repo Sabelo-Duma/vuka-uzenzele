@@ -1297,6 +1297,60 @@ async function run() {
 
     ok((await api('POST', `/users/${emp.id}/block`)).status === 401, 'blocking requires a signed-in account');
   }
+  /* 12d) A failure to measure the database is not the database failing.
+
+     /api/health does two unrelated things: one trivial query that keeps a free
+     Supabase project from being paused, and a much heavier measurement of how
+     full it is getting. They live in separate try blocks.
+
+     A note on what this actually protects, because the first version of this
+     test asserted the wrong thing and passed either way. Sharing one try block
+     would NOT have made the service report the database as down — `database`
+     is assigned before the measurement runs, so a throw from it leaves the
+     flag true. What sharing costs is the LABEL: every storage failure would
+     have been captured as 'health:database', sending whoever is on call to
+     look at a database that was fine the whole time.
+
+     So the discriminating assertion is the one on `where`. The rest is worth
+     holding too — a measurement that cannot be taken must not take the health
+     check down with it — but only the label tells the two arrangements apart. */
+  {
+    const { exec } = await import('./db.mjs');
+    const errorsSeen = async () => (await fetch(`${BASE}/admin/errors`, { headers: { 'x-admin-token': 'test-admin-token' } })).json();
+
+    const before = (await api('GET', '/health')).json;
+    ok(before?.database?.ok === true && before?.storage !== null, 'health is healthy to begin with');
+
+    /* An earlier block deliberately clears the admin token to prove the ops
+       routes disappear without it. Borrow it back to read what was captured,
+       and hand it straight back. */
+    const hadToken = process.env.VUKA_ADMIN_TOKEN;
+    process.env.VUKA_ADMIN_TOKEN = 'test-admin-token';
+
+    // Take the attachments table away underneath it — storageStats reads it.
+    await exec('ALTER TABLE attachments RENAME TO attachments_hidden');
+    let captured;
+    try {
+      const during = (await api('GET', '/health')).json;
+      ok(during?.ok === true, 'the route still answers 200, so Render does not cycle the instance');
+      ok(during?.database?.ok === true, 'the database still reports as reachable when the measurement fails');
+      ok(typeof during?.database?.latencyMs === 'number', 'and still times its own query');
+      ok(during?.storage === null, 'and the figures it could not take come back as null rather than wrong');
+      captured = (await errorsSeen()).errors?.[0];
+    } finally {
+      // Always put both back, or every later assertion in this file is nonsense.
+      await exec('ALTER TABLE attachments_hidden RENAME TO attachments');
+      if (hadToken === undefined) delete process.env.VUKA_ADMIN_TOKEN;
+      else process.env.VUKA_ADMIN_TOKEN = hadToken;
+    }
+
+    ok(captured?.where === 'health:storage',
+      `the failure is filed against storage, not the database (got "${captured?.where}")`);
+
+    const after = (await api('GET', '/health')).json;
+    ok(after?.storage?.dbBytes > 0, 'and the figures come back once it can be measured again');
+    ok(after?.database?.ok === true, 'with the database still reachable throughout');
+  }
 
 
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
