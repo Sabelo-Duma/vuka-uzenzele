@@ -367,6 +367,34 @@ export function forgetAttachment(id: string) {
 export const eventStreamUrl = (ticket: string, hidden = false) =>
   `${BASE}/events?ticket=${encodeURIComponent(ticket)}${hidden ? '&hidden=1' : ''}`;
 
+/**
+ * Say we are leaving, from a page that is already unloading.
+ *
+ * Closing a tab is NOT reliably visible to the server. The browser's
+ * connection drops, but behind a proxy — Render's, here — the upstream
+ * connection to the app can stay open well after that, so `req.on('close')`
+ * does not fire when you would expect. Locally, with nothing in between, the
+ * socket close alone was enough and this looked unnecessary; against
+ * production the other side went on showing Online.
+ *
+ * An ordinary fetch is the wrong tool: requests issued while a page unloads
+ * are routinely cancelled, which is exactly the moment this matters.
+ * `keepalive` hands the request to the browser to finish on its own, the way
+ * sendBeacon does — but unlike sendBeacon it still carries headers, so the
+ * token stays in Authorization instead of moving into a request body.
+ */
+export function reportDeparture(): void {
+  try {
+    if (!token) return;
+    void fetch(`${BASE}/messages/presence`, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ visible: false }),
+    }).catch(() => { /* the page is going; there is nothing to retry into */ });
+  } catch { /* keepalive unsupported — the stream closing is the fallback */ }
+}
+
 export const api = {
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
   /** One field, either credential. The server tells a phone from an email. */

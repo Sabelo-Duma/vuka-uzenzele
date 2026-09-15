@@ -24,7 +24,7 @@
        everything", and a chat that silently loses a message is worse than one
        that is briefly slow.
    ============================================================ */
-import { api, eventStreamUrl, getToken } from './api';
+import { api, eventStreamUrl, getToken, reportDeparture } from './api';
 import type { Message } from './api';
 
 export type ChatEvent =
@@ -272,6 +272,10 @@ export function startChatTransport() {
  * routinely do not.
  */
 function onPageHide() {
+  /* Say it explicitly, then drop the stream. Either alone is not enough: the
+     request can be cancelled, and the close can be swallowed by a proxy that
+     holds its upstream connection open after the browser has gone. */
+  reportDeparture();
   source?.close();
   source = null;
   setLive(false);
