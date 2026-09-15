@@ -19,7 +19,8 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:language": "node scripts/check-language.mjs",
     "check:splash": "node scripts/check-splash.mjs",
-    "check:presence": "node scripts/check-presence.mjs"
+    "check:presence": "node scripts/check-presence.mjs",
+    "check:posting": "node scripts/check-posting.mjs"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
