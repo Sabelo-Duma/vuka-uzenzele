@@ -15,6 +15,7 @@
  * Needs the app and the API running (npm run dev + the server on :3001).
  */
 import { chromium } from 'playwright';
+import { open } from './lib/settle.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:5173';
 
@@ -55,7 +56,7 @@ const ok = (cond, msg) => {
 
 /** Sign in on the landing page as one of the two demo accounts. */
 async function signIn(page, role) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await open(page, BASE);
   const login = page.getByRole('button', { name: /^log in$/i }).first();
   if (await login.count()) await login.click();
   await page.getByRole('button', { name: new RegExp(`demo ${role}`, 'i') }).first().click();

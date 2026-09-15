@@ -14,7 +14,8 @@
  *     visible jump.
  *
  * Run:  node scripts/check-splash.mjs [baseUrl]
- * Needs a dev or preview server running (default http://localhost:5173).
+ * Needs the app served (dev, preview or a deployed URL). No API needed: this
+ * never signs in.
  */
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -91,6 +92,15 @@ try {
   });
   ok(ground.includes('rgb(23, 33, 52)'), 'the splash paints the indigo ground', `got: ${ground.slice(0, 80)}`);
 
+  /* The status bar has to come with it. Without the override a light-mode
+     phone puts a pale strip across the top of a dark splash — and an override
+     left behind keeps the whole app's status bar indigo for the session, which
+     is the more annoying half of the bug. */
+  const barDuring = await page.evaluate(
+    () => document.querySelector('meta[name="theme-color"]')?.content ?? '',
+  );
+  ok(barDuring === '#172134', 'the status bar matches the splash while it is up', `got: ${barDuring}`);
+
   /* It must go. 20s is far past the 5s cap in lib/boot.ts, so this fails only
      when something is genuinely stuck rather than merely slow. */
   await page.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 20_000 });
@@ -100,6 +110,13 @@ try {
   /* Removed, not hidden: a hidden one still swallows every tap. */
   const stillThere = await page.evaluate(() => Boolean(document.getElementById('boot')));
   ok(!stillThere, 'the splash element is gone rather than hidden');
+
+  const overrideGone = await page.evaluate(() => !document.getElementById('boot-theme'));
+  ok(overrideGone, 'the status-bar override is handed back to the theme');
+  const barAfter = await page.evaluate(
+    () => document.querySelector('meta[name="theme-color"]')?.content ?? '',
+  );
+  ok(barAfter !== '#172134', 'the status bar is no longer stuck on the splash colour', `got: ${barAfter}`);
 
   /* The minimum exists so the splash is a decision, not a flicker. Compared
      against 1000ms rather than the 1400ms constant because this clock starts

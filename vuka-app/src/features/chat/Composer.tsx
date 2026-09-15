@@ -206,7 +206,7 @@ export function Composer({
         <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-xl bg-surface-2 border border-line">
           <span className="text-dim mt-0.5 shrink-0"><Icon name="alert" size={14} /></span>
           <p className="flex-1 text-small text-ink m-0 leading-snug">{notice}</p>
-          <button onClick={() => setNotice(null)} aria-label={t('action.close')} className="shrink-0 text-dim hover:text-ink transition p-1">
+          <button onClick={() => setNotice(null)} aria-label={t('action.dismiss')} className="shrink-0 text-dim hover:text-ink transition p-1">
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -250,8 +250,8 @@ export function Composer({
           }}
           rows={1}
           disabled={disabled}
-          placeholder={mode === 'edit' ? t('action.edit') : t('chat.placeholder')}
-          aria-label={mode === 'edit' ? 'Edit message' : 'Message'}
+          placeholder={mode === 'edit' ? t('chat.editPlaceholder') : t('chat.placeholder')}
+          aria-label={mode === 'edit' ? t('chat.editLabel') : t('chat.placeholder')}
           className="flex-1 min-w-0 resize-none max-h-28 border-[1.5px] border-line rounded-2xl px-4 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-faint transition disabled:opacity-60"
         />
 
@@ -272,7 +272,7 @@ export function Composer({
             type="button"
             onClick={onSendText}
             disabled={disabled || busy || !hasText}
-            aria-label={mode === 'edit' ? 'Save edit' : 'Send message'}
+            aria-label={mode === 'edit' ? t('chat.saveEdit') : t('chat.sendMessage')}
             className="grid place-items-center w-11 h-11 shrink-0 rounded-2xl bg-brand-solid text-brand-on hover:bg-brand-hover transition active:scale-95 disabled:opacity-40"
           >
             <Icon name={mode === 'edit' ? 'check' : 'send'} size={18} />

@@ -12,9 +12,11 @@
  *   · the choice survives a reload, which is where localStorage bugs surface
  *
  * Run:  node scripts/check-language.mjs [baseUrl]
- * Needs a dev or preview server running (default http://localhost:5173).
+ * Needs the app served (dev, preview or a deployed URL). No API needed: every
+ * assertion is about the landing page.
  */
 import { chromium } from 'playwright';
+import { afterLaunch } from './lib/settle.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -55,6 +57,9 @@ function ok(condition, message, detail) {
  * exactly that reason, which is the worst way for a check to be wrong.
  */
 async function settled(page) {
+  await afterLaunch(page);
+  /* afterLaunch proves a screen has rendered; this page's assertions are all
+     about the hero text, so wait for that specifically before reading. */
   await page.locator('h1').first().waitFor({ state: 'visible', timeout: 30_000 });
   await page.waitForFunction(
     () => (document.querySelector('h1')?.textContent ?? '').trim().length > 0,

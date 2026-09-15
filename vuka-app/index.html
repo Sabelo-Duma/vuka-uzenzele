@@ -27,6 +27,21 @@
         else if (window.matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
       } catch (e) { /* default stays light */ }
       document.documentElement.setAttribute('data-theme', t);
+
+      /* The launch screen is indigo whatever the phone's theme is, so on a
+         light-mode handset the status bar above it would stay pale — a bright
+         strip across the top of a dark splash. Android and Chrome colour that
+         strip from the FIRST theme-color whose media matches, so an override
+         with no media attribute, inserted first, wins for as long as it is
+         there. dismissBootSplash() takes it out again and the two media-scoped
+         tags below resume. */
+      try {
+        var m = document.createElement('meta');
+        m.name = 'theme-color';
+        m.content = '#172134';
+        m.id = 'boot-theme';
+        document.head.insertBefore(m, document.head.firstChild);
+      } catch (e) { /* the splash simply keeps the normal status bar */ }
     })();
   </script>
 

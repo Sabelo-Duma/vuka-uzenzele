@@ -388,7 +388,7 @@ export function Messages() {
                   {/* A green dot only ever means "their app is open right now" —
                       it is the live connection, not a guess from a timestamp. */}
                   {c.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-verified border-2 border-surface" title={t('chat.online')} aria-label={t('chat.online')} />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-verified border-2 border-surface" title={t('chat.onlineNow')} aria-label={t('chat.onlineNow')} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -779,7 +779,7 @@ export function ChatThread({ id }: { id: string }) {
                 className={`block text-micro font-semibold truncate ${typingNow ? 'text-brand' : online ? 'text-verified' : 'text-faint'}`}
                 aria-live="polite"
               >
-                {blocked ? t('chat.blocked') : typingNow ? t('chat.typing') : online ? t('chat.online') : t('chat.offline')}
+                {blocked ? t('chat.blockedShort') : typingNow ? t('chat.typing') : online ? t('chat.online') : t('chat.offline')}
               </span>
             </div>
             {/* The way out of a conversation that has gone wrong. Reporting
