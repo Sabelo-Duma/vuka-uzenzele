@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 // for. The third face — figures — is a 5.9 KB subset declared in index.css.
 import '@fontsource-variable/public-sans';           // body, labels, buttons
 import '@fontsource-variable/bricolage-grotesque';   // headings, tiers, amounts
+import { reloadOnNewWorker } from './lib/boot';
 import './lib/pwaInstall'; // capture the PWA install prompt ASAP (before React mounts)
 import './index.css';
 import { App } from './App';
@@ -12,6 +13,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LanguageProvider } from './providers/LanguageProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { AppProvider } from './store/appStore';
+
+/* Armed before React mounts: a worker can take control at any moment, and
+   a controllerchange missed is a user left on the previous build. */
+reloadOnNewWorker();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');

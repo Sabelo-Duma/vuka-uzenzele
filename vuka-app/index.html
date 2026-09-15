@@ -29,8 +29,90 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+
+  <!-- Splash, painted by the HTML itself.
+       It has to be here rather than only in React: on a cold start over a slow
+       connection the bundle is seconds away, and until it arrives the screen is
+       whatever the browser painted last — white, in practice. A user who taps
+       the icon and gets a white rectangle has been told the app is broken.
+
+       This is the same mark, ground and wordmark the React splash renders, so
+       when the bundle does arrive the handover is invisible. Keep the two in
+       step: src/components/Splash.tsx. -->
+  <style>
+    #boot {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      /* The logo's own ground: indigo dark, the hour before a shift starts. */
+      background: linear-gradient(180deg, #172134 0%, #0B1220 100%);
+      /* Sits above the notch and the home indicator on a phone. */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      transition: opacity .28s ease;
+    }
+    #boot[data-leaving='true'] { opacity: 0; pointer-events: none; }
+    #boot .boot-inner { text-align: center; }
+    #boot svg { display: block; margin: 0 auto; width: 132px; height: 132px; }
+    #boot .boot-word {
+      margin-top: 22px;
+      font-family: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-weight: 800;
+      font-size: 27px;
+      letter-spacing: -.02em;
+      color: #FFFFFF;
+    }
+    #boot .boot-tag {
+      margin-top: 7px;
+      font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      color: rgba(255,255,255,.58);
+    }
+    /* An indeterminate bar rather than words: this paints before any
+       translation catalogue is loaded, and a progress bar needs no language. */
+    #boot .boot-bar {
+      margin: 26px auto 0;
+      width: 132px;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.14);
+      overflow: hidden;
+    }
+    #boot .boot-bar span {
+      display: block;
+      width: 40%;
+      height: 100%;
+      border-radius: 2px;
+      background: #F5A200;
+      animation: boot-slide 1.15s ease-in-out infinite;
+    }
+    @keyframes boot-slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(330%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #boot .boot-bar span { animation: none; width: 100%; }
+      #boot { transition: none; }
+    }
+  </style>
 </head>
 <body>
+  <div id="boot">
+    <div class="boot-inner">
+      <svg viewBox="0 0 512 512" role="img" aria-label="Vuka Uzenzele">
+        <g fill="#F5A200">
+          <path d="M156 254a100 100 0 0 1 200 0z" />
+          <rect x="120" y="288" width="272" height="30" rx="15" />
+          <rect x="186" y="346" width="140" height="24" rx="12" />
+        </g>
+      </svg>
+      <div class="boot-word">Vuka Uzenzele</div>
+      <div class="boot-tag">Rise up &amp; do it for yourself</div>
+      <div class="boot-bar" role="progressbar" aria-label="Loading"><span></span></div>
+    </div>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

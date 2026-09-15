@@ -246,12 +246,6 @@ export const en = {
     'Vuka is being translated screen by screen. Anything not done yet stays in English, so nothing goes blank.',
   'lang.legalNote':
     'The Privacy Notice and Terms of Use stay in English. They are legal documents and a translation of one could mislead you.',
-  'lang.reportTitle': 'Found a word that is wrong?',
-  'lang.reportBody':
-    'These translations are new and were not written by a first-language speaker. Tell us and we will fix it.',
-  'lang.reportAction': 'Report a translation',
-  'lang.reportPlaceholder': 'What does it say, and what should it say?',
-  'lang.reportSent': 'Thank you — that goes to the team.',
 
   /* ---------------- Safety ---------------- */
   'safety.title': 'Safety centre',

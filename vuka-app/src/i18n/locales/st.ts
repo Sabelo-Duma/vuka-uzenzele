@@ -229,12 +229,6 @@ export const st = {
     'Vuka e fetolelwa skrine ka skrine. Ntho e ngwe le e ngwe e e-song phethwe e sala e le Senyesemane, hore ho se be le sebaka se se nang letho.',
   'lang.legalNote':
     'Tsebiso ya Lekunutu le Melawana ya Tshebediso di dula di le Senyesemaneng. Ke ditokomane tsa molao, mme phetolelo e ka o thetsa.',
-  'lang.reportTitle': 'O fumane lentswe le fosahetseng?',
-  'lang.reportBody':
-    'Diphetolelo tsena ke tse ntjha mme ha di a ngolwa ke motho eo ena e leng puo ya hae ya pele. Re bolelle, re tla e lokisa.',
-  'lang.reportAction': 'Tlaleha phetolelo',
-  'lang.reportPlaceholder': 'E reng, mme e lokela ho reng?',
-  'lang.reportSent': 'Kea leboha — seo se ya sehlopheng.',
 
   'safety.title': 'Setsi sa polokeho',
   'safety.intro': 'Kamoo Vuka e o bolokang o sireletsehile — le kamoo o ka fumanang thuso.',

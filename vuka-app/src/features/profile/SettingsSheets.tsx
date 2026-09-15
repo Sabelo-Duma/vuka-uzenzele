@@ -297,34 +297,11 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
 export function LanguageSheet({ onClose }: { onClose: () => void }) {
   const { toast } = useApp();
   const { lang, setLang, t } = useLanguage();
-  const [reporting, setReporting] = useState(false);
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-
   const pick = (id: Lang) => {
     setLang(id);
     /* Read the new language's own name from its own catalogue, so the
        confirmation is already in the language just chosen. */
     toast(translate(id, 'lang.applied', { language: langMeta(id).label }));
-  };
-
-  /* Translation complaints ride the safety-report queue rather than a new
-     endpoint and a new table: that queue is already staffed and already has an
-     admin screen, and a report nobody reads is worse than no report button.
-     The tag is what makes them filterable. */
-  const sendReport = async () => {
-    if (!note.trim()) return;
-    setBusy(true);
-    try {
-      await api.reportSafety(`[translation:${lang}] ${note.trim()}`);
-      setNote('');
-      setReporting(false);
-      toast(t('lang.reportSent'));
-    } catch (e) {
-      toast((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -366,33 +343,6 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
 
       <div className="bg-surface-2 rounded-xl px-3.5 py-3 mt-4 text-micro text-dim leading-relaxed">
         {t('lang.legalNote')}
-      </div>
-
-      {/* Community correction. These translations were not written by
-          first-language speakers and the screen says so rather than letting a
-          user discover it from a wrong word. */}
-      <div className="mt-4 border-t border-line pt-4">
-        <p className="text-small font-bold text-ink m-0">{t('lang.reportTitle')}</p>
-        <p className="text-micro text-dim mt-1 leading-relaxed">{t('lang.reportBody')}</p>
-        {reporting ? (
-          <>
-            <textarea
-              className={`${field} resize-none mt-2.5`}
-              rows={3}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t('lang.reportPlaceholder')}
-              aria-label={t('lang.reportAction')}
-            />
-            <Button block className="mt-2.5" disabled={busy || !note.trim()} onClick={sendReport}>
-              {busy ? t('action.sending') : t('action.send')}
-            </Button>
-          </>
-        ) : (
-          <Button block variant="ghost" className="mt-2.5" onClick={() => setReporting(true)}>
-            {t('lang.reportAction')}
-          </Button>
-        )}
       </div>
 
       <Button block variant="ghost" className="mt-5" onClick={onClose}>{t('action.done')}</Button>

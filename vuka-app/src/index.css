@@ -282,6 +282,18 @@ h1, h2, h3, h4 {
 .ob-rise-3 { animation: obRise .55s cubic-bezier(.2,.75,.3,1) .16s both; }
 .floaty { animation: floaty 5.5s ease-in-out infinite; }
 
+/* Launch screen progress. Matches #boot .boot-bar span in index.html — the two
+   splashes hand over to each other and must animate identically.
+   The reduced-motion block below stops this along with everything else, which
+   is why the bar is also given a full width there: a 40%-wide frozen sliver
+   reads as a stalled download rather than a still picture. */
+@keyframes bootSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(330%); } }
+.splash-bar { animation: bootSlide 1.15s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-bar { width: 100% !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }

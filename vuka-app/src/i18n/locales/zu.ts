@@ -1,9 +1,8 @@
 /**
  * isiZulu.
  *
- * Not written by a first-language speaker. The Language screen says so, and
- * offers a way to report a bad string — see `lang.reportTitle`. Treat every
- * line here as reviewable, and prefer a speaker's correction over this file.
+ * Not written by a first-language speaker. Treat every line here as reviewable, and
+ * prefer a first-language speaker's correction over this file.
  */
 export const zu = {
   'nav.home': 'Ikhaya',
@@ -230,12 +229,6 @@ export const zu = {
     'I-Vuka ihunyushwa isikrini nesikrini. Noma yini engakenziwa ihlala isesiNgisini, ukuze kungabikho indawo engenalutho.',
   'lang.legalNote':
     'Isaziso Sobumfihlo neMigomo Yokusebenzisa kuhlala kusesiNgisini. Kuyimibhalo esemthethweni, futhi inguqulo yayo ingakudukisa.',
-  'lang.reportTitle': 'Uthole igama elingalungile?',
-  'lang.reportBody':
-    'Lezi zinguqulo zintsha futhi azibhalwanga umuntu okhuluma lolu limi njengolimi lwakhe lokuqala. Sitshele, sizolungisa.',
-  'lang.reportAction': 'Bika inguqulo',
-  'lang.reportPlaceholder': 'Ithini, futhi kufanele ithini?',
-  'lang.reportSent': 'Siyabonga — lokho kuya eqenjini.',
 
   'safety.title': 'Isikhungo sokuphepha',
   'safety.intro': 'Indlela i-Vuka ekugcina ngayo uphephile — nokuthi ungathola kanjani usizo.',
