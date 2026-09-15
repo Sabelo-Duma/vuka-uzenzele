@@ -274,7 +274,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
         </div>
       )}
 
-      <Button block disabled={busy} onClick={() => onLogin(identifier, password)}>{busy ? t('action.loading') : t('action.logIn')}</Button>
+      <Button block disabled={busy} onClick={() => onLogin(identifier, password)}>{busy ? t('auth.signingIn') : t('action.logIn')}</Button>
 
       <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
       <div className="grid grid-cols-2 gap-2.5">

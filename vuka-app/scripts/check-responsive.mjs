@@ -14,9 +14,14 @@
  *   6. a sheet can actually be closed
  *
  * Run:  node scripts/check-responsive.mjs [baseUrl]
- * Needs a dev or preview server running (default http://localhost:5173).
+ * Needs the app AND the API: `npm run dev` here plus `npm start` in
+ * vuka-server (default http://localhost:5173), or a deployed URL. A `vite
+ * preview` server alone is not enough — it serves the build but does not
+ * proxy /api, so signing in never completes and the failure names a missing
+ * button rather than a missing backend.
  */
 import { chromium, devices } from 'playwright';
+import { open } from './lib/settle.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:5173';
 
@@ -163,7 +168,7 @@ async function check(page, viewport, screen) {
 }
 
 async function signIn(page, viewport, role) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await open(page, BASE);
   const login = page.getByRole('button', { name: /^log in$/i }).first();
   if (await login.count()) await login.click();
 
@@ -297,7 +302,7 @@ for (const v of VIEWPORTS) {
   });
   const page = await context.newPage();
 
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await open(page, BASE);
   await check(page, v, 'Landing');
   await checkSheetCloses(page, v);
 

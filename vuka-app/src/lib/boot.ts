@@ -85,6 +85,11 @@ export function splashReady(): Promise<void> {
  * and one left in the tree swallows every tap on the app behind it.
  */
 export function dismissBootSplash(): void {
+  /* Hand the status bar back to the theme. index.html inserts this override so
+     a light-mode phone does not sit a pale strip above an indigo splash; left
+     in place it would keep the app's status bar indigo for the whole session. */
+  document.getElementById('boot-theme')?.remove();
+
   const el = document.getElementById('boot');
   if (!el) return;
   el.dataset.leaving = 'true';
