@@ -66,6 +66,15 @@ p{margin:0}
 .eyebrow{font-family:"Roboto Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-faint); font-weight:500}
 :focus-visible{outline:2px solid var(--amber); outline-offset:2px; border-radius:4px}
 sup.ref{font-family:"Roboto Mono",monospace; font-size:9.5px; color:var(--amber-text); font-weight:600; vertical-align:super; margin-left:2px; letter-spacing:0}
+/* In running prose the marker trails the sentence, which is the normal
+   footnote convention. On the stat cards it LEADS the label, because
+   there it numbers the line rather than ending it — the same way the
+   source list under the band reads. That needs the margin on the other
+   side, a shallower rise than align-super gives a 9.5px numeral, and a
+   hanging indent so a label that wraps keeps one left margin instead of
+   starting its second line under the numeral. */
+.statrow p.l{padding-left:12px; text-indent:-12px}
+.statrow sup.ref{margin-left:0; margin-right:3px; vertical-align:0.32em}
 
 /* ===== TOP BAR ===== */
 .topbar{position:sticky; top:0; z-index:40; background:color-mix(in srgb, var(--ink) 88%, transparent); backdrop-filter:blur(14px); border-bottom:1px solid var(--line-soft)}
@@ -303,10 +312,10 @@ footer .wrap{display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify
       <p class="lede">Vuka already turns car washes and cleaning into a CV. Version 2.0 makes that CV <strong>cryptographically verifiable</strong>, pays through PayShap in under ten seconds, and hands employers the youth-employment evidence they currently assemble by hand. Every feature in the live app is still here — plus the five that make it defensible.</p>
 
       <div class="statrow">
-        <div><p class="n">62,8%</p><p class="l">Unemployment, ages 15–24<sup class="ref">1</sup></p></div>
-        <div><p class="n">3,8 m</p><p class="l">Aged 15–24 not in work, education or training<sup class="ref">1</sup></p></div>
-        <div><p class="n">R30,23</p><p class="l">National minimum wage per hour<sup class="ref">2</sup></p></div>
-        <div><p class="n">R1 000</p><p class="l">Monthly cost of a consistent job search<sup class="ref">3</sup></p></div>
+        <div><p class="n">62,8%</p><p class="l"><sup class="ref">1</sup>Unemployment, ages 15–24</p></div>
+        <div><p class="n">3,8 m</p><p class="l"><sup class="ref">1</sup>Aged 15–24 not in work, education or training</p></div>
+        <div><p class="n">R30,23</p><p class="l"><sup class="ref">2</sup>National minimum wage per hour</p></div>
+        <div><p class="n">R1 469</p><p class="l"><sup class="ref">3</sup>What a young person spends a month looking for work</p></div>
       </div>
 
       <div class="controls">
@@ -543,7 +552,7 @@ footer .wrap{display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify
                 <p class="big" style="font-size:36px; margin-top:2px">R824<span class="faint" style="font-size:16px">,00</span></p>
                 <p class="muted" style="margin-top:4px">R60 held in escrow for today's gig</p>
                 <button class="btn" style="margin-top:12px">Send to my bank — PayShap, under 10 seconds</button>
-                <p class="faint" style="text-align:center; margin-top:8px">Your bank charges the fee, not Vuka. TymeBank R0 · Standard Bank R2.<sup class="ref">4</sup></p>
+                <p class="faint" style="text-align:center; margin-top:8px">Your bank charges the fee, not Vuka. GoTyme Bank R0 · Standard Bank R2.<sup class="ref">4</sup></p>
               </div>
 
               <div class="card">
@@ -1257,8 +1266,8 @@ footer .wrap{display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify
     <div class="srcs">
       <div><span class="n">1</span><span>Stats SA, <a href="https://www.statssa.gov.za/?p=19804">Quarterly Labour Force Survey Q2 2026</a>, released 11 Aug 2026 — youth 15–34 unemployment 47,4%; 15–24 unemployment 62,8%; NEET 15–24 36,4% (3,8 m of 10,4 m).</span></div>
       <div><span class="n">2</span><span>Dept. of Employment and Labour, <a href="https://www.gov.za/sites/default/files/gcis_document/202602/54075rg11941gon7083.pdf">Government Gazette 54075, Notice R.7083</a>, 3 Feb 2026 — national minimum wage R30,23/hour from 1 March 2026; EPWP R16,62.</span></div>
-      <div><span class="n">3</span><span>DG Murray Trust, <a href="https://dgmt.co.za/project/jobstarter/">JobStarter</a> — a consistent job search costs a young person about R1 000 a month.</span></div>
-      <div><span class="n">4</span><span>TechCentral, <a href="https://techcentral.co.za/standard-bank-slashes-payshap-fees/275120/">Standard Bank PayShap repricing</a>, flat R2 under R3 000 from 1 Jan 2026; TymeBank R0. PayShap settles in under 10 seconds, R50 000 scheme limit.</span></div>
+      <div><span class="n">3</span><span><a href="https://youthcapital.co.za/">Youth Capital</a> with JOBJACK, February 2024 — young job-seekers spend an average of R1 469 a month looking for work: R700 transport, R441 data, R328 applications. Previously attributed here to DG Murray Trust at R1 000; the research is Youth Capital’s, and DGMT supports them, which is how the attribution drifted.</span></div>
+      <div><span class="n">4</span><span>TechCentral, <a href="https://techcentral.co.za/standard-bank-slashes-payshap-fees/275120/">Standard Bank PayShap repricing</a>, flat R2 under R3 000 from 1 Jan 2026; GoTyme Bank (formerly TymeBank) R0. PayShap settles in under 10 seconds, R50 000 scheme limit.</span></div>
       <div><span class="n">5</span><span>SARB, <a href="https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/regulation-oversight/D1_2007(ThirdParty).pdf">Directive 1 of 2007, third-party payments</a>; third draft activity-based authorisation framework, comment closed 15 June 2026. Licensed SA providers: <a href="https://www.tradesafe.co.za/">TradeSafe</a> (PASA SP001191), <a href="https://www.truzo.com/">Truzo</a> (FSP 51539).</span></div>
       <div><span class="n">6</span><span><a href="https://www.yes4youth.co.za/hubfs/Useful%20links%20amendments/YouthEmploymentServiceInitiative-PracticeNote.pdf?hsLang=en">YES Practice Note, Gazette 41975</a> (12 Oct 2018) and <a href="https://cardinalratings.co.za/b-bbee-legislation/Youth-Employment-Service-Y.E.S-Gazette.pdf">Gazette 41866</a> (28 Aug 2018) — 12-month placement; one level at target + 2,5% absorption, two levels at double target + 5%. Minimum salary R5 241/month from 1 Mar 2026.</span></div>
       <div><span class="n">7</span><span><a href="https://www.treasury.gov.za/POPIA/POPI%20Act%204%20of%202013.pdf">Protection of Personal Information Act 4 of 2013</a>, ss. 1, 19, 22, 26, 55, 57 — biometrics are special personal information; ID numbers and location are personal information. <a href="https://inforegulator.org.za/popia/">Information Regulator</a>.</span></div>
