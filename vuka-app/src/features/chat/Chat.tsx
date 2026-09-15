@@ -360,7 +360,15 @@ export function Messages() {
   /* The inbox is a summary of everything, so anything arriving anywhere changes
      it. Reloading the list is cheaper and far less error-prone than trying to
      fold one message into the right row by hand. */
-  useEffect(() => onChatEvent((e) => { if (e.type === 'message' || e.type === 'message-changed') load(); }), [load]);
+  useEffect(() => onChatEvent((e) => {
+    if (e.type === 'message' || e.type === 'message-changed') { load(); return; }
+    /* A status dot is one boolean on one row. Reloading the whole inbox for it
+       would turn every arrival and departure into a round trip, which on a
+       metered bundle is the thing this transport exists to avoid. */
+    if (e.type === 'presence') {
+      setConvos((prev) => prev?.map((c) => (c.user.id === e.userId ? { ...c, online: e.online } : c)) ?? prev);
+    }
+  }), [load]);
 
   return (
     <div className="max-w-[720px] mx-auto">
@@ -520,6 +528,16 @@ export function ChatThread({ id }: { id: string }) {
         : m)));
     }
     if (e.type === 'typing' && e.from === id) setTypingUntil(Date.now() + TYPING_TTL_MS);
+    /* Presence used to be read once, when the thread opened, and never again —
+       so somebody who left while you were reading stayed Online until you
+       navigated away and back. Now the server pushes the change. */
+    if (e.type === 'presence' && e.userId === id) {
+      setOnline(e.online);
+      /* Someone who has gone is not still typing. Without this the header can
+         sit on "typing…" for the rest of the signal's life, about the person
+         who just closed the app. */
+      if (!e.online) setTypingUntil(0);
+    }
     if (e.type === 'status') { if (!e.live) setOnline(false); }
   }), [id, mergeMessages]);
 
