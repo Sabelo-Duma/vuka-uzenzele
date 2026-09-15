@@ -44,6 +44,26 @@ function ok(condition, message, detail) {
   if (detail) console.error(`        ${detail}`);
 }
 
+/**
+ * Wait until React has actually painted the hero.
+ *
+ * `waitUntil: 'networkidle'` only says the network went quiet — it says
+ * nothing about the bundle having executed and rendered. Against a warm local
+ * preview the two are indistinguishable; against a cold Render instance they
+ * are seconds apart, and reading page.content() in that gap returns the empty
+ * shell. This test passed locally and failed intermittently in production for
+ * exactly that reason, which is the worst way for a check to be wrong.
+ */
+async function settled(page) {
+  await page.locator('h1').first().waitFor({ state: 'visible', timeout: 30_000 });
+  await page.waitForFunction(
+    () => (document.querySelector('h1')?.textContent ?? '').trim().length > 0,
+    null,
+    { timeout: 30_000 },
+  );
+  return page.content();
+}
+
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -60,7 +80,7 @@ try {
   await page.goto(BASE, { waitUntil: 'networkidle' });
   const headlineEn = CATALOGS.en['landing.headline'];
   ok(
-    (await page.content()).includes(headlineEn),
+    (await settled(page)).includes(headlineEn),
     'the landing page renders the English headline from the catalogue',
     `looked for: ${headlineEn}`,
   );
@@ -73,7 +93,7 @@ try {
     await page.reload({ waitUntil: 'networkidle' });
 
     const want = CATALOGS[lang]['landing.headline'];
-    const html = await page.content();
+    const html = await settled(page);
     ok(html.includes(want), `${lang}: the headline is in ${lang} after a reload`, `looked for: ${want}`);
 
     const tag = await page.evaluate(() => document.documentElement.lang);
@@ -90,6 +110,7 @@ try {
      hero. "Get started" appearing under isiZulu means a key was missed. */
   await page.evaluate(() => localStorage.setItem('vuka-lang', 'zu'));
   await page.reload({ waitUntil: 'networkidle' });
+  await settled(page);
   const zuHero = await page.locator('h1').first().innerText();
   ok(
     !zuHero.includes('CV should') && zuHero !== CATALOGS.en['landing.headline'],
@@ -102,7 +123,7 @@ try {
   await page.evaluate(() => localStorage.setItem('vuka-lang', 'kl'));
   await page.reload({ waitUntil: 'networkidle' });
   ok(
-    (await page.content()).includes(CATALOGS.en['landing.headline']),
+    (await settled(page)).includes(CATALOGS.en['landing.headline']),
     'an unrecognised stored language falls back to English rather than blank',
   );
 
