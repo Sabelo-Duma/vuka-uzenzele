@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../store/appStore';
-import { api, ApiError, type IdVerification } from '../../lib/api';
-import { Button, InlineError, Sheet, Skeleton } from '../../components/ui';
+import { api, ApiError, type BlockedUser, type IdVerification } from '../../lib/api';
+import { Avatar, Button, InlineError, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
 
@@ -450,3 +450,81 @@ function SheetLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-micro font-extrabold uppercase tracking-wide text-dim mt-3.5 mb-1.5">{children}</label>;
 }
 const fieldCls = 'w-full border-[1.5px] border-line rounded-xl px-3.5 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-line transition';
+
+/**
+ * Who you have blocked, and how to undo it.
+ *
+ * Blocking happens inside a conversation, which is where it is needed — but
+ * undoing it should not require finding that conversation again. Someone who
+ * blocked an employer in a bad moment and now wants the work back should not
+ * have to scroll an inbox to get there.
+ */
+export function BlockedSheet({ onClose }: { onClose: () => void }) {
+  const { toast } = useApp();
+  const [people, setPeople] = useState<BlockedUser[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.listBlocks().then((r) => { if (!cancelled) setPeople(r); }).catch(() => { if (!cancelled) setPeople([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const unblock = async (u: BlockedUser) => {
+    setBusy(u.id);
+    try {
+      await api.unblockUser(u.id);
+      setPeople((prev) => (prev ?? []).filter((p) => p.id !== u.id));
+      toast(`${u.name.split(' ')[0]} is unblocked.`);
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Sheet title="Blocked people" onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Blocked people<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">
+        A blocked person can't message you and can't invite you to a job — and you can't message
+        them either, until you unblock. Nothing either of you said is deleted.
+      </p>
+
+      {people === null ? (
+        <div className="flex flex-col gap-2">{[0, 1].map((i) => <Skeleton key={i} className="h-14 rounded-2xl" />)}</div>
+      ) : people.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="text-hero mb-2" aria-hidden="true">🛡️</div>
+          <p className="text-dim text-small m-0">You haven't blocked anyone.</p>
+          <p className="text-faint text-small mt-1 mb-0">You can block someone from inside a conversation.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {people.map((u) => (
+            <div key={u.id} className="flex items-center gap-3 p-3 rounded-2xl border border-line bg-surface">
+              <Avatar initials={u.initials} size="sm" />
+              <div className="flex-1 min-w-0">
+                <b className="block text-small font-extrabold text-ink truncate">{u.name}</b>
+                <span className="text-micro text-faint">Blocked {shortDate(u.blockedAt)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => unblock(u)}
+                disabled={busy === u.id}
+                className="shrink-0 inline-flex items-center min-h-[44px] px-3.5 rounded-pill border border-line bg-surface text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95 disabled:opacity-50"
+              >
+                {busy === u.id ? 'Unblocking…' : 'Unblock'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+/** "12 Sep 2026" — enough to remember the occasion by. */
+function shortDate(iso: string): string {
+  try { return new Date(iso).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; }
+}

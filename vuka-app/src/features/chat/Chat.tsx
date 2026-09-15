@@ -13,6 +13,7 @@ import type { Pending } from '../../lib/outbox';
 import type { Recording } from '../../lib/voice';
 import type { PreparedPhoto } from '../../lib/photo';
 import { Avatar, Card, EmptyState, Skeleton } from '../../components/ui';
+import { SafetySheet } from '../profile/SettingsSheets';
 import { Icon } from '../../components/Icon';
 import { Composer } from './Composer';
 import { VoiceNote } from './VoiceNote';
@@ -439,6 +440,9 @@ export function ChatThread({ id }: { id: string }) {
   const [typingUntil, setTypingUntil] = useState(0);
   const [typingNow, setTypingNow] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
+  const [threadMenu, setThreadMenu] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [newBelow, setNewBelow] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
 
@@ -480,6 +484,7 @@ export function ChatThread({ id }: { id: string }) {
         setHasMore(t.hasMore);
         setEditWindow(t.editWindowMinutes ?? 15);
         setVoiceMaxMs(t.voiceMaxMs ?? 60_000);
+        setBlocked(t.blocked);
         setMessages(t.messages);
         for (const m of t.messages) noteSeen(m.createdAt);
       } catch {
@@ -707,6 +712,20 @@ export function ChatThread({ id }: { id: string }) {
     }
   }, [mergeMessages, toast]);
 
+  const toggleBlock = async () => {
+    setThreadMenu(false);
+    try {
+      const res = blocked ? await api.unblockUser(id) : await api.blockUser(id);
+      setBlocked(res.blocked);
+      toast(res.blocked
+        ? `${otherFirstName} is blocked. They can't message you, and you can't message them.`
+        : `${otherFirstName} is unblocked.`);
+      if (res.blocked) { setReplyingTo(null); setEditingId(null); setDraft(''); }
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
+
   const copyText = useCallback(async (m: Message) => {
     setMenuFor(null);
     try {
@@ -754,9 +773,20 @@ export function ChatThread({ id }: { id: string }) {
                 className={`block text-micro font-semibold truncate ${typingNow ? 'text-brand' : online ? 'text-verified' : 'text-faint'}`}
                 aria-live="polite"
               >
-                {typingNow ? 'typing…' : online ? 'Online' : 'Offline'}
+                {blocked ? 'Blocked' : typingNow ? 'typing…' : online ? 'Online' : 'Offline'}
               </span>
             </div>
+            {/* The way out of a conversation that has gone wrong. Reporting
+                alone was not enough: a report waits for a person to read it,
+                and in the meantime nothing stops the messages. */}
+            <button
+              type="button"
+              onClick={() => setThreadMenu(true)}
+              aria-label={`More options for ${other.name}`}
+              className="grid place-items-center w-11 h-11 -mr-2 shrink-0 rounded-chip text-dim hover:bg-surface-2 hover:text-ink transition active:scale-95"
+            >
+              <Icon name="more" size={20} />
+            </button>
           </>
         ) : <Skeleton className="h-6 w-40" />}
       </div>
@@ -885,6 +915,29 @@ export function ChatThread({ id }: { id: string }) {
         </div>
       )}
 
+      {blocked ? (
+        /* No composer at all. A disabled text box invites someone to type a
+           message that was never going to arrive; this says what happened and
+           offers the one thing that changes it. */
+        <div className="pt-3 border-t border-line">
+          <div className="flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-3.5 py-3">
+            <span className="text-dim mt-0.5 shrink-0"><Icon name="shield" size={16} /></span>
+            <div className="flex-1 min-w-0">
+              <b className="block text-small text-ink">You blocked {otherFirstName}.</b>
+              <span className="block text-micro text-dim leading-snug mt-0.5">
+                They can't message you, and you can't message them. Everything you both said is still here.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={toggleBlock}
+              className="shrink-0 inline-flex items-center min-h-[44px] px-3 rounded-pill border border-line bg-surface text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95"
+            >
+              Unblock
+            </button>
+          </div>
+        </div>
+      ) : (
       <Composer
         mode={editingId ? 'edit' : 'new'}
         draft={draft}
@@ -897,6 +950,7 @@ export function ChatThread({ id }: { id: string }) {
         onCancelCompose={cancelComposing}
         inputRef={inputRef}
       />
+      )}
 
       {menuFor && (
         <MessageActions
@@ -910,6 +964,40 @@ export function ChatThread({ id }: { id: string }) {
           onClose={() => setMenuFor(null)}
         />
       )}
+
+      {threadMenu && other && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={`Options for ${other.name}`}>
+          <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={() => setThreadMenu(false)} />
+          <div className="relative w-full sm:w-[340px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
+            <div className="px-4 pt-4 pb-2">
+              <b className="block text-body font-extrabold text-ink tracking-tight">{other.name}</b>
+              <span className="text-micro text-dim">{roleLabel(other.role)}</span>
+            </div>
+            <button
+              className="w-full text-left px-4 py-3 text-body font-semibold text-ink hover:bg-surface-2 transition flex items-center gap-3 border-t border-line"
+              onClick={() => { setThreadMenu(false); setReporting(true); }}
+            >
+              <Icon name="alert" size={16} /> Report a safety concern
+            </button>
+            <button
+              className={`w-full text-left px-4 py-3 text-body font-semibold hover:bg-surface-2 transition flex items-center gap-3 ${blocked ? 'text-ink' : 'text-danger'}`}
+              onClick={toggleBlock}
+            >
+              <Icon name="shield" size={16} /> {blocked ? `Unblock ${otherFirstName}` : `Block ${otherFirstName}`}
+            </button>
+            {!blocked && (
+              <p className="px-4 pb-3 pt-0 text-micro text-faint leading-snug m-0">
+                Blocking stops messages both ways straight away. Reporting sends it to us to look at — do both if you need to.
+              </p>
+            )}
+            <button className="w-full text-left px-4 py-3 text-body font-semibold text-dim hover:bg-surface-2 transition border-t border-line" onClick={() => setThreadMenu(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reporting && <SafetySheet aboutUserId={id} onClose={() => setReporting(false)} />}
 
       {lightbox && <PhotoLightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </div>

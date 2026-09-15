@@ -346,6 +346,53 @@ async function run() {
     }
 
 
+    console.log('\nblocking');
+    /* The whole point of blocking is that it works immediately and from where
+       the problem is — inside the conversation. Driven from both sides at once
+       because the two of them are told deliberately different things. */
+    {
+      await worker.page.getByRole('button', { name: /more options for/i }).click();
+      const blockBtn = worker.page.getByRole('button', { name: /^block /i }).first();
+      ok(await blockBtn.isVisible(), 'a conversation offers a way to block the other person');
+      ok(await worker.page.getByRole('button', { name: /report a safety concern/i }).isVisible(),
+        'and a way to report them, which are not the same thing');
+      await blockBtn.click();
+
+      const gone = await worker.page.getByText(/^You blocked /).first()
+        .waitFor({ timeout: 10_000 }).then(() => true).catch(() => false);
+      ok(gone, 'the composer is replaced by what happened, not a dead text box');
+      ok((await worker.page.getByRole('textbox', { name: /^message$/i }).count()) === 0,
+        'there is no message box to type into');
+      ok(await worker.page.getByRole('button', { name: /^unblock$/i }).isVisible(), 'and a way back');
+
+      // The history is exactly what somebody who has just been harassed needs.
+      ok(await worker.page.getByText(line, { exact: true }).isVisible(), 'the conversation is still readable');
+
+      /* The other side. It must not announce the block — but the message has
+         to visibly fail, because a worker who writes "running late" cannot be
+         left believing it arrived. */
+      const after = `After the block ${Date.now()}`;
+      await employer.page.getByRole('textbox', { name: /^message$/i }).fill(after);
+      await employer.page.getByRole('button', { name: /send message/i }).click();
+
+      const failed = await employer.page.getByText(/couldn't send|can't be delivered/i).first()
+        .waitFor({ timeout: 15_000 }).then(() => true).catch(() => false);
+      ok(failed, 'the blocked person is shown that the message did not go');
+
+      const employerScreen = await employer.page.locator('body').innerText();
+      ok(!/blocked/i.test(employerScreen), 'and is not told they were blocked');
+
+      ok(!(await worker.page.getByText(after, { exact: true }).isVisible().catch(() => false)),
+        'and nothing of theirs reaches the other screen');
+
+      // Undo, from the same place.
+      await worker.page.getByRole('button', { name: /^unblock$/i }).click();
+      const back = await worker.page.getByRole('textbox', { name: /^message$/i })
+        .waitFor({ timeout: 10_000 }).then(() => true).catch(() => false);
+      ok(back, 'unblocking brings the composer back');
+    }
+
+
     console.log('\nnothing broke along the way');
     ok(worker.errors.length === 0, `no uncaught errors for the worker${worker.errors.length ? `: ${worker.errors[0]}` : ''}`);
     ok(employer.errors.length === 0, `no uncaught errors for the employer${employer.errors.length ? `: ${employer.errors[0]}` : ''}`);

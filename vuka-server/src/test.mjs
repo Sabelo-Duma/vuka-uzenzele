@@ -1197,6 +1197,86 @@ async function run() {
   }
 
 
+  /* 12c) Blocking.
+
+     A safety report waits for a human. Blocking is what somebody being
+     harassed can do about it in the next second, without anyone's approval —
+     and it had to exist the moment a conversation could carry voice notes and
+     photographs. */
+  {
+    const mkUser = async (phone, name, role) => {
+      const r = await api('POST', '/auth/register', {
+        body: { role, name, phone, password: 'blockpass123', age: 28, location: 'Soweto', skills: ['garden'], verifyToken: await verifyPhone(phone) },
+      });
+      if (r.status !== 201) throw new Error(`could not register ${name}: ${r.status}`);
+      return { id: r.json.user.id, tok: r.json.token };
+    };
+    const emp = await mkUser('0829993001', 'Block Employer', 'employer');
+    const wrk = await mkUser('0829993002', 'Block Worker', 'worker');
+
+    // A normal conversation first, so there is history to preserve.
+    ok((await api('POST', '/messages', { token: emp.tok, body: { toUserId: wrk.id, body: 'Are you free Saturday?', clientId: 'blk-1' } })).status === 201,
+      'they can message each other before any block');
+    ok((await api('POST', '/messages', { token: wrk.tok, body: { toUserId: emp.id, body: 'Yes', clientId: 'blk-2' } })).status === 201,
+      'and in both directions');
+
+    ok((await api('POST', `/users/${emp.id}/block`, { token: wrk.tok })).json?.blocked === true, 'the worker blocks the employer');
+    ok((await api('POST', `/users/${wrk.id}/block`, { token: wrk.tok })).status === 400, 'nobody can block themselves');
+
+    // The blocked side is told the message did not go, and nothing more.
+    const refused = await api('POST', '/messages', { token: emp.tok, body: { toUserId: wrk.id, body: 'Hello?', clientId: 'blk-3' } });
+    ok(refused.status === 403, 'the blocked person can no longer send');
+    ok(refused.json?.reason === 'blocked', 'and gets a neutral reason');
+    ok(!/block/i.test(refused.json?.error ?? ''), `the refusal does not tell them they were blocked (got "${refused.json?.error}")`);
+
+    /* And the blocker is stopped too. A one-way block would let someone
+       silence the replies while still talking at the person. */
+    const ownRefusal = await api('POST', '/messages', { token: wrk.tok, body: { toUserId: emp.id, body: 'Still here', clientId: 'blk-4' } });
+    ok(ownRefusal.status === 403, 'the blocker cannot send either');
+    ok(ownRefusal.json?.reason === 'you_blocked', 'and is told it is their own doing');
+    ok(/unblock/i.test(ownRefusal.json?.error ?? ''), 'and how to undo it');
+
+    // The record survives. It is where a rate and a start time were agreed.
+    const thread = await api('GET', `/messages/thread/${emp.id}`, { token: wrk.tok });
+    ok(thread.json?.messages?.length >= 2, 'the conversation history is still there');
+    ok(thread.json?.blocked === true, 'and the blocker is told the thread is blocked');
+    const otherSide = await api('GET', `/messages/thread/${wrk.id}`, { token: emp.tok });
+    ok(otherSide.json?.blocked === false, 'while the blocked person is told nothing');
+    ok(otherSide.json?.online === false, 'and cannot see whether they are online');
+
+    // Typing must not leak through either.
+    ok((await api('POST', '/messages/typing', { token: emp.tok, body: { toUserId: wrk.id } })).json?.ok === true,
+      'a typing ping from a blocked person is accepted and goes nowhere');
+
+    // The other ways to reach somebody.
+    const postedGig = await api('POST', '/gigs', { token: emp.tok, body: { title: 'Sweep the yard', category: 'garden', location: 'Soweto', hours: 2, payPerHour: 60, when: 'Sat', description: 'Yard needs a tidy before the weekend.' } });
+    ok(postedGig.status === 201, 'the employer can still post work');
+    const invited = await api('POST', `/talent/${wrk.id}/invite`, { token: emp.tok, body: { gigId: postedGig.json.id } });
+    ok(invited.status === 403, 'a blocked employer cannot invite the worker to a job');
+    ok((await api('POST', `/users/${wrk.id}/follow`, { token: emp.tok })).status === 403, 'and cannot follow them');
+
+    // The blocker's own list, and undoing it.
+    const list = await api('GET', '/me/blocks', { token: wrk.tok });
+    ok(list.json?.length === 1 && list.json[0].id === emp.id, 'the blocker can see who they have blocked');
+    ok(list.json[0].name === 'Block Employer' && !!list.json[0].blockedAt, 'with a name and when');
+    ok((await api('GET', '/me/blocks', { token: emp.tok })).json?.length === 0, 'the blocked person sees nothing in theirs');
+
+    ok((await api('DELETE', `/users/${emp.id}/block`, { token: wrk.tok })).json?.blocked === false, 'the block can be undone');
+    ok((await api('POST', '/messages', { token: emp.tok, body: { toUserId: wrk.id, body: 'Thanks', clientId: 'blk-5' } })).status === 201,
+      'and messages flow again straight away');
+    ok((await api('GET', '/me/blocks', { token: wrk.tok })).json?.length === 0, 'and the list is empty again');
+
+    // Blocking twice is not an error, and does not create a second row.
+    await api('POST', `/users/${emp.id}/block`, { token: wrk.tok });
+    ok((await api('POST', `/users/${emp.id}/block`, { token: wrk.tok })).status === 200, 'blocking someone already blocked is harmless');
+    ok((await api('GET', '/me/blocks', { token: wrk.tok })).json?.length === 1, 'and does not duplicate them in the list');
+    await api('DELETE', `/users/${emp.id}/block`, { token: wrk.tok });
+    ok((await api('DELETE', `/users/${emp.id}/block`, { token: wrk.tok })).status === 200, 'unblocking someone who is not blocked is harmless');
+
+    ok((await api('POST', `/users/${emp.id}/block`)).status === 401, 'blocking requires a signed-in account');
+  }
+
+
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.
   let saw429 = false;

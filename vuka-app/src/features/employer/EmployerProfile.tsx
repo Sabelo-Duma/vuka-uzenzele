@@ -7,10 +7,10 @@ import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
-import { BankingSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
+import { BankingSheet, BlockedSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
-type SheetKey = 'banking' | 'identity' | 'safety' | 'privacy' | 'terms';
+type SheetKey = 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
 
 export function EmployerProfile() {
   const { state, toast, navigate } = useApp();
@@ -47,6 +47,7 @@ export function EmployerProfile() {
     },
     { ic: '⭐', title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)} ⭐ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
     { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
+    { ic: '🚫', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
     { ic: '🔒', title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
     { ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
   ];
@@ -84,6 +85,7 @@ export function EmployerProfile() {
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
       {sheet === 'identity' && <IdentitySheet verified={false} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
+      {sheet === 'blocked' && <BlockedSheet onClose={closeSheet} />}
       {sheet === 'privacy' && <PrivacySheet onClose={closeSheet} />}
       {sheet === 'terms' && <TermsSheet onClose={closeSheet} />}
     </>

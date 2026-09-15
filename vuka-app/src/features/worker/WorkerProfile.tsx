@@ -8,10 +8,10 @@ import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
-import { BankingSheet, EditProfileSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
+import { BankingSheet, BlockedSheet, EditProfileSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
-type SheetKey = 'editProfile' | 'banking' | 'identity' | 'safety' | 'language' | 'privacy' | 'terms';
+type SheetKey = 'editProfile' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
 
 export function WorkerProfile() {
   const { state, navigate, toast, setJobAlerts } = useApp();
@@ -64,6 +64,7 @@ export function WorkerProfile() {
     { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
     { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
     { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
+    { kind: 'link', ic: '🚫', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
     { kind: 'link', ic: '🌍', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
     { kind: 'link', ic: '🔒', title: 'Privacy & your data', sub: 'What we collect, and what you can make us delete', go: () => setSheet('privacy') },
     { kind: 'link', ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
@@ -109,6 +110,7 @@ export function WorkerProfile() {
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
       {sheet === 'identity' && <IdentitySheet verified={w.idVerified} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}
+      {sheet === 'blocked' && <BlockedSheet onClose={closeSheet} />}
       {sheet === 'language' && <LanguageSheet onClose={closeSheet} />}
       {sheet === 'privacy' && <PrivacySheet onClose={closeSheet} />}
       {sheet === 'terms' && <TermsSheet onClose={closeSheet} />}

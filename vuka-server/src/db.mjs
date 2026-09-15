@@ -217,6 +217,29 @@ export async function initDb() {
       created_at TEXT NOT NULL
     );
 
+    /* Blocking.
+
+       A safety report goes to a queue and waits for a person to read it. That
+       is the right way to get somebody removed from the platform, and it is
+       far too slow to be the only thing available to someone being harassed
+       right now — particularly since a conversation can now carry voice notes
+       and photographs, which is a harassment channel as much as a work one.
+
+       Blocking is the immediate half: it takes effect on the next request, it
+       needs nobody's approval, and it is the reporter's own decision rather
+       than a moderator's.
+
+       Deliberately one row per direction. Whether A blocking B should also
+       stop A messaging B is a product decision, not a storage one — see the
+       server's eitherBlocked() — and keeping the direction recorded means the
+       person who did the blocking can be shown their own list to undo. */
+    CREATE TABLE IF NOT EXISTS blocks (
+      blocker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      blocked_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (blocker_id, blocked_id)
+    );
+
     CREATE TABLE IF NOT EXISTS follows (
       follower_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       followee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -343,6 +366,9 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_msg_sender ON messages(sender_id);
     CREATE INDEX IF NOT EXISTS idx_msg_pair ON messages(sender_id, recipient_id);
     CREATE INDEX IF NOT EXISTS idx_follow_followee ON follows(followee_id);
+    /* Every message send checks both directions, so the reverse lookup needs
+       its own index — the primary key only covers (blocker, blocked). */
+    CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
     CREATE INDEX IF NOT EXISTS idx_formalapps_worker ON formal_applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_empratings_employer ON employer_ratings(employer_id);
     CREATE INDEX IF NOT EXISTS idx_safety_reporter ON safety_reports(reporter_id);
