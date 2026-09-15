@@ -1646,6 +1646,19 @@ app.get('/api/me/gigs', requireAuth, requireRole('employer'), asyncH(async (req,
 
 app.post('/api/talent/:id/invite', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
   const workerId = req.params.id;
+  /* An invitation is the other channel that lands on a person's screen, and it
+     carries a free-text message. Blocking the chat and leaving this open would
+     have moved the problem rather than solved it. */
+  const invBlock = await eitherBlocked(req.user.id, req.params.id);
+  if (invBlock.any) {
+    return res.status(403).json({
+      error: invBlock.iBlocked
+        ? 'You blocked this person. Unblock them to invite them to a job.'
+        : "You can't invite this person.",
+      reason: invBlock.iBlocked ? 'you_blocked' : 'blocked',
+    });
+  }
+
   const { gigId, message } = req.body || {};
   const worker = await get("SELECT * FROM users WHERE id = ? AND role = 'worker'", [workerId]);
   if (!worker) return res.status(404).json({ error: 'That worker is no longer available.' });
@@ -2064,9 +2077,15 @@ app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => 
   }
   const files = await attachmentsFor(rows);
 
+  const block = await eitherBlocked(req.user.id, u.id);
   res.json({
     other: await chatUser(u),
-    online: isOnline(u.id),
+    /* Their presence is not the blocked person's business, and not much use to
+       the blocker either — nobody is expecting a reply through a block. */
+    online: block.any ? false : isOnline(u.id),
+    /* Only the blocker is told. The other side gets "blocked: false" and a
+       refusal if they try to send, which is as much as they should learn. */
+    blocked: block.iBlocked,
     messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null, files.get(r.attachment_id) ?? null)),
     hasMore,
     editWindowMinutes: MESSAGE_EDIT_WINDOW_MIN,
@@ -2152,7 +2171,8 @@ app.post('/api/messages/read', requireAuth, asyncH(async (req, res) => {
  */
 app.post('/api/messages/typing', requireAuth, asyncH(async (req, res) => {
   const toUserId = String(req.body?.toUserId || '');
-  if (toUserId && toUserId !== req.user.id) {
+  // A blocked person must not still appear to be typing on the other screen.
+  if (toUserId && toUserId !== req.user.id && !(await eitherBlocked(req.user.id, toUserId)).any) {
     emit(toUserId, 'typing', { from: req.user.id, at: new Date().toISOString() });
   }
   res.json({ ok: true });
@@ -2175,6 +2195,9 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
   if (toUserId === req.user.id) return res.status(400).json({ error: "You can't message yourself." });
   const other = await get('SELECT id, name FROM users WHERE id = ?', [toUserId]);
   if (!other) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+
+  const refusal = await blockRefusal(req.user.id, toUserId);
+  if (refusal) return res.status(403).json(refusal);
 
   const cid = clientId ? String(clientId).slice(0, 64) : null;
   if (cid) {
@@ -2347,6 +2370,115 @@ app.get('/api/events', asyncH(async (req, res) => {
   subscribe(payload.sub, req, res);
 }));
 
+/* ---- blocking ----
+
+   A safety report goes to a queue and waits for a human. That is the right way
+   to get somebody removed, and far too slow to be the only thing available to
+   a person being harassed right now — especially now that a conversation can
+   carry voice notes and photographs.
+
+   Blocking is the immediate half. It needs nobody's approval and takes effect
+   on the next request.
+
+   Both directions are stopped. If A blocks B, B cannot reach A — obviously —
+   but neither can A reach B without first undoing it. That is not symmetry for
+   its own sake: a one-way block lets someone silence a person's replies while
+   continuing to talk at them, which is a worse position than not blocking at
+   all. Unblocking is one tap and the history is still there.
+
+   What a block does NOT do: delete the conversation, or hide it. These threads
+   are where a rate and a start time were agreed, and someone who has just been
+   harassed is exactly the person who may need that record. */
+
+const hasBlock = async (a, b) =>
+  !!(await get('SELECT 1 AS x FROM blocks WHERE blocker_id = ? AND blocked_id = ?', [a, b]));
+
+/** Is there a block in either direction between these two? */
+async function eitherBlocked(a, b) {
+  const row = await get(
+    `SELECT
+       MAX(CASE WHEN blocker_id = ? THEN 1 ELSE 0 END) AS i_blocked,
+       MAX(CASE WHEN blocker_id = ? THEN 1 ELSE 0 END) AS they_blocked
+     FROM blocks
+     WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)`,
+    [a, b, a, b, b, a],
+  );
+  return {
+    iBlocked: !!Number(row?.i_blocked ?? 0),
+    theyBlocked: !!Number(row?.they_blocked ?? 0),
+    any: !!Number(row?.i_blocked ?? 0) || !!Number(row?.they_blocked ?? 0),
+  };
+}
+
+/**
+ * Why a message cannot be sent, or null.
+ *
+ * The two sides are told different things on purpose. The person who did the
+ * blocking gets a plain statement and a way out, because it is their own
+ * decision and they may have forgotten. The person who was blocked is told the
+ * message did not go, and nothing about why — confirming a block to someone who
+ * has just been blocked is how a bad situation escalates.
+ *
+ * Silently accepting and dropping it, which is what some messengers do, is the
+ * wrong call for this product: a worker who writes "running 20 minutes late"
+ * has to know it did not arrive.
+ */
+async function blockRefusal(me, them) {
+  const { iBlocked, theyBlocked } = await eitherBlocked(me, them);
+  if (iBlocked) {
+    return { error: 'You blocked this person. Unblock them to send a message.', reason: 'you_blocked' };
+  }
+  if (theyBlocked) {
+    return { error: "This message can't be delivered.", reason: 'blocked' };
+  }
+  return null;
+}
+
+/** Block someone. */
+app.post('/api/users/:id/block', requireAuth, asyncH(async (req, res) => {
+  const target = req.params.id;
+  if (target === req.user.id) return res.status(400).json({ error: "You can't block yourself." });
+  const u = await userById(target);
+  if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+
+  if (!(await hasBlock(req.user.id, target))) {
+    await run('INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?,?,?)',
+      [req.user.id, target, new Date().toISOString()]);
+  }
+
+  /* A follow is a standing invitation to see what someone does. Blocking and
+     still following them would be an odd thing to leave behind, so both
+     directions go. */
+  await run('DELETE FROM follows WHERE (follower_id = ? AND followee_id = ?) OR (follower_id = ? AND followee_id = ?)',
+    [req.user.id, target, target, req.user.id]);
+
+  /* Any invitation this employer has outstanding to this worker stops being
+     something they have to look at. Declined rather than deleted: the employer
+     asked, and the record of that stands. */
+  await run("UPDATE invitations SET status = 'declined' WHERE status = 'pending' AND ((employer_id = ? AND worker_id = ?) OR (employer_id = ? AND worker_id = ?))",
+    [req.user.id, target, target, req.user.id]);
+
+  res.json({ ok: true, blocked: true });
+}));
+
+/** Undo it. */
+app.delete('/api/users/:id/block', requireAuth, asyncH(async (req, res) => {
+  await run('DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?', [req.user.id, req.params.id]);
+  res.json({ ok: true, blocked: false });
+}));
+
+/** Everyone this account has blocked, most recent first. */
+app.get('/api/me/blocks', requireAuth, asyncH(async (req, res) => {
+  const rows = await all(
+    `SELECT u.id, u.name, u.role, b.created_at
+       FROM blocks b JOIN users u ON u.id = b.blocked_id
+      WHERE b.blocker_id = ?
+      ORDER BY b.created_at DESC`,
+    [req.user.id],
+  );
+  res.json(await Promise.all(rows.map(async (u) => ({ ...(await chatUser(u)), blockedAt: u.created_at }))));
+}));
+
 // ---- follow / social graph ----
 const followerCount = async (id) => Number((await get('SELECT COUNT(*) AS c FROM follows WHERE followee_id = ?', [id])).c);
 const followingCount = async (id) => Number((await get('SELECT COUNT(*) AS c FROM follows WHERE follower_id = ?', [id])).c);
@@ -2372,6 +2504,9 @@ app.post('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
   if (target === req.user.id) return res.status(400).json({ error: "You can't follow yourself." });
   const u = await userById(target);
   if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  if ((await eitherBlocked(req.user.id, target)).any) {
+    return res.status(403).json({ error: "You can't follow this person.", reason: 'blocked' });
+  }
   if (!(await amFollowing(req.user.id, target))) {
     await run('INSERT INTO follows (follower_id, followee_id, created_at) VALUES (?,?,?)', [req.user.id, target, new Date().toISOString()]);
   }

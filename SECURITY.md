@@ -76,6 +76,34 @@ message ever claims are swept hourly.
   number
 - Shared CV pages are served `X-Robots-Tag: noindex, nofollow, noarchive`
 
+### Blocking
+
+A safety report goes to a queue and waits for a person to read it. That is the
+right way to get somebody removed from the platform, and far too slow to be the
+only thing available to someone being harassed right now — particularly since a
+conversation can carry voice notes and photographs, which is a harassment
+channel as much as a work one.
+
+Blocking is the immediate half: it takes effect on the next request, needs
+nobody's approval, and belongs to the person who wants it rather than to a
+moderator. It is offered from inside the conversation, next to reporting, and
+the two are described as the different things they are.
+
+**Both directions stop.** A one-way block would let someone silence a person's
+replies while continuing to talk at them, which is worse than not blocking. It
+also closes the other routes to a person's screen: invitations to a job, and
+following.
+
+The two sides are told deliberately different things. The blocker gets a plain
+statement and a way to undo it. The blocked person is told **the message was not
+delivered**, and nothing about why — confirming a block to somebody who has just
+been blocked is how a bad situation escalates. Silently accepting and dropping
+the message, which is what some messengers do, would be the wrong call here: a
+worker writing "running 20 minutes late" has to know it did not arrive.
+
+Nothing is deleted. These threads are where a rate and a start time were agreed,
+and the person who has just been harassed is exactly who may need that record.
+
 ### Account enumeration is possible, on purpose
 
 Worth stating plainly rather than leaving someone to discover it. Requesting a
@@ -139,7 +167,7 @@ costs an attacker real money per account but is not free of abuse.
 ## Running the checks
 
 ```bash
-cd vuka-server && npm test          # 396 assertions
+cd vuka-server && npm test          # 424 assertions
 cd vuka-app    && npm run build     # contrast, types, colour utilities
 
 # The browser gates need a server. CSP only exists on the single-service build:

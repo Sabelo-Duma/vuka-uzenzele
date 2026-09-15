@@ -121,9 +121,13 @@ export interface Conversation {
   lastFromMe: boolean; lastRead: boolean; lastDelivered: boolean;
   unread: number; online: boolean;
 }
+/** Someone this account has blocked. */
+export interface BlockedUser extends ChatUser { blockedAt: string }
 export interface Thread {
   other: ChatUser;
   online: boolean;
+  /** You blocked them. Never true for the person who was blocked. */
+  blocked: boolean;
   messages: Message[];
   /** There is older history above this page. */
   hasMore: boolean;
@@ -457,6 +461,11 @@ export const api = {
   savePreferences: (prefs: Preferences) => request<Preferences>('PUT', '/me/preferences', prefs),
   reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
     request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),
+  /* Blocking. A safety report waits for a person to read it; this takes effect
+     on the next request, which is what somebody being harassed actually needs. */
+  blockUser: (userId: string) => request<{ ok: boolean; blocked: boolean }>('POST', `/users/${userId}/block`),
+  unblockUser: (userId: string) => request<{ ok: boolean; blocked: boolean }>('DELETE', `/users/${userId}/block`),
+  listBlocks: () => request<BlockedUser[]>('GET', '/me/blocks'),
   subscribePush: (sub: PushSubscriptionInput) => request<{ ok: boolean }>('POST', '/push/subscribe', sub),
   unsubscribePush: (endpoint?: string) => request<{ ok: boolean }>('POST', '/push/unsubscribe', { endpoint }),
   /** Sends one notification to this account's devices, so the user can see it work. */
