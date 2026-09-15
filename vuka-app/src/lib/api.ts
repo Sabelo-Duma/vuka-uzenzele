@@ -364,7 +364,8 @@ export function forgetAttachment(id: string) {
 }
 
 /** The live channel's address, once a ticket has been bought. */
-export const eventStreamUrl = (ticket: string) => `${BASE}/events?ticket=${encodeURIComponent(ticket)}`;
+export const eventStreamUrl = (ticket: string, hidden = false) =>
+  `${BASE}/events?ticket=${encodeURIComponent(ticket)}${hidden ? '&hidden=1' : ''}`;
 
 export const api = {
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
@@ -433,6 +434,8 @@ export const api = {
     request<{ ok: boolean; marked: number; unread: number }>('POST', '/messages/read', { userId, upTo: upTo ?? null }),
   /** A signal, not a record. Fire and forget. */
   sendTyping: (toUserId: string) => request<{ ok: boolean }>('POST', '/messages/typing', { toUserId }),
+  setPresence: (visible: boolean) =>
+    request<{ ok: boolean; online: boolean }>('POST', '/messages/presence', { visible }),
   /** A sixty-second pass for the live channel, since EventSource cannot send headers. */
   eventTicket: () => request<{ ticket: string; expiresIn: number }>('POST', '/events/ticket'),
   sendMessage: (toUserId: string, body: string, opts: { replyToId?: string | null; clientId?: string; attachmentId?: string | null } = {}) =>

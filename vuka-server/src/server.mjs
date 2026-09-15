@@ -19,7 +19,9 @@ import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mj
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
-import { subscribe, emit, isOnline, connectionStats, closeAll } from './realtime.mjs';
+import {
+  subscribe, emit, isOnline, hasStream, connectionStats, closeAll, setVisibility, onPresenceChange,
+} from './realtime.mjs';
 import { cspDirectives, cspCoversInlineScripts, STATIC_DIR } from './csp.mjs';
 
 // Ensure schema + demo data exist before we accept traffic.
@@ -2294,6 +2296,22 @@ app.post('/api/messages/typing', requireAuth, asyncH(async (req, res) => {
 }));
 
 /**
+ * The app saying whether it is in front of someone.
+ *
+ * Sent when the tab is hidden or shown, and when the app is closing. Not
+ * stored: it is true for as long as the stream it describes, and the stream
+ * closing says the same thing more reliably.
+ *
+ * Without this, a backgrounded tab held its stream open and so went on
+ * counting as present — the other side kept seeing Online, and the send path
+ * skipped the push notification because the recipient was "already here".
+ */
+app.post('/api/messages/presence', requireAuth, asyncH(async (req, res) => {
+  setVisibility(req.user.id, req.body?.visible !== false);
+  res.json({ ok: true, online: isOnline(req.user.id) });
+}));
+
+/**
  * Send a message: a line of text, a voice note, or a photo.
  *
  * `clientId` is what makes this safe to retry. The app mints one before the
@@ -2374,13 +2392,18 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
   const saved = await get('SELECT * FROM messages WHERE id = ?', [id]);
   const out = msgOut(saved, parent, file);
 
-  /* Push it at the recipient if they are here, and at their phone if they are
-     not. Web push costs nothing, but a buzz about a line already on screen in
-     front of somebody is just noise — so the live connection decides. */
+  /* Deliver down every stream they have open, including backgrounded ones —
+     the message should be waiting when they come back.
+
+     But the NOTIFICATION decides on whether anyone is actually looking. This
+     used to test the socket count, so a tab left open in the background
+     suppressed the push and the message arrived to silence. A buzz about a
+     line already on screen is noise; a buzz about one nobody has seen is the
+     whole point. */
   const live = emit(toUserId, 'message', out);
-  if (live > 0) {
-    await markDelivered(toUserId, req.user.id);
-  } else {
+  // It reached a device, so it is delivered — whether or not anyone is looking.
+  if (live > 0) await markDelivered(toUserId, req.user.id);
+  if (!isOnline(toUserId)) {
     const me = await userById(req.user.id);
     void notifyUser(toUserId, {
       type: 'message',
@@ -2482,8 +2505,49 @@ app.get('/api/events', asyncH(async (req, res) => {
   if (row.sessions_valid_from && Number(payload.iat) < Number(row.sessions_valid_from)) {
     return res.status(401).json({ error: 'Your password was changed, so this session ended. Please sign in again.' });
   }
-  subscribe(payload.sub, req, res);
+  /* A stream can legitimately open while the app is in the background —
+     the client rebuilds it on waking — so the connection carries that
+     fact rather than the server assuming someone is watching. */
+  subscribe(payload.sub, req, res, req.query.hidden !== '1');
 }));
+
+/* ---- presence fan-out ----
+
+   Telling the people in a conversation with someone that they have arrived or
+   gone. Before this the app asked once, when a thread was opened, and then
+   never again — so a status that changed while you were reading stayed wrong
+   until you left the screen and came back. That is precisely how it was
+   reported: "I might move to another tab and come back to only then see
+   offline."
+
+   Only their existing chat partners are told, and only those with a stream
+   open right now. Presence is not public: nobody learns whether a stranger is
+   at their phone, and a block hides it in both directions, matching what
+   GET /api/messages/:id already returns.
+
+   One indexed query per transition. Transitions are a handful per person per
+   session — opening the app, backgrounding it, closing it — not per message.
+*/
+onPresenceChange((userId, online) => {
+  void (async () => {
+    const partners = await all(
+      `SELECT DISTINCT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other_id
+         FROM messages
+        WHERE sender_id = ? OR recipient_id = ?
+        LIMIT 200`,
+      [userId, userId, userId],
+    );
+    const at = new Date().toISOString();
+    for (const p of partners) {
+      const other = p.other_id;
+      if (!other || other === userId) continue;
+      // Nobody who cannot see the stream needs the event.
+      if (!hasStream(other)) continue;
+      if ((await eitherBlocked(userId, other)).any) continue;
+      emit(other, 'presence', { userId, online, at });
+    }
+  })().catch((e) => captureError(e, 'presence:fanout'));
+});
 
 /* ---- blocking ----
 

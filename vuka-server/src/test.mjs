@@ -1195,8 +1195,94 @@ async function run() {
     const liveRow = (await api('GET', `/messages/thread/${B.id}`, { token: A.tok })).json.messages.find((m) => m.clientId === 'live-1');
     ok(liveRow?.delivered === true, 'a message pushed to an open app is delivered without a fetch');
 
+    /* --- presence ---
+
+       B has a stream open and is in the foreground, so A should see them as
+       online, and a message to B should NOT raise a push: they are looking at
+       it. Both of those used to be decided by "is a socket open", which a
+       backgrounded tab satisfies indefinitely. */
+    ok((await api('GET', `/messages/thread/${B.id}`, { token: A.tok })).json?.online === true,
+      'someone with the app open and in front of them reads as online');
+    ok((await api('GET', '/health')).json?.live?.visible >= 1, 'health separates visible connections from open ones');
+
+    // B puts the app in the background. The stream stays open; B does not.
+    ok((await api('POST', '/messages/presence', { token: B.tok, body: { visible: false } })).json?.online === false,
+      'backgrounding the app reports the person as away');
+    ok((await api('GET', '/health')).json?.live?.connections >= 1,
+      'the stream is still open while the app is in the background');
+    ok((await api('GET', `/messages/thread/${B.id}`, { token: A.tok })).json?.online === false,
+      'and the other side is told they are away, not online');
+
+    /* The message still arrives down the open stream — it should be there when
+       they come back — but it is no longer treated as seen. */
+    events.length = 0;
+    await api('POST', '/messages', { token: A.tok, body: { toUserId: B.id, body: 'While away', clientId: 'away-1' } });
+    ok((await waitFor('message'))?.data?.body === 'While away',
+      'a message still reaches a backgrounded app over the open stream');
+
+    ok((await api('POST', '/messages/presence', { token: B.tok, body: { visible: true } })).json?.online === true,
+      'coming back to the app reports the person as online again');
+
+    /* A presence change is pushed to the people in a conversation with them,
+       rather than waited for. This is the actual bug: the app read presence
+       once when a thread opened and never again, so a status that changed
+       while you were reading stayed wrong until you navigated away and back. */
+    const aTicket = await api('POST', '/events/ticket', { token: A.tok });
+    const aStream = await fetch(`${BASE}/events?ticket=${encodeURIComponent(aTicket.json.ticket)}`);
+    const aEvents = [];
+    const aReader = aStream.body.getReader();
+    const aDecoder = new TextDecoder();
+    let aBuf = '';
+    const aPump = (async () => {
+      try {
+        for (;;) {
+          const { done, value } = await aReader.read();
+          if (done) return;
+          aBuf += aDecoder.decode(value, { stream: true });
+          let cut;
+          while ((cut = aBuf.indexOf('\n\n')) !== -1) {
+            const block = aBuf.slice(0, cut);
+            aBuf = aBuf.slice(cut + 2);
+            const name = /^event: (.+)$/m.exec(block)?.[1];
+            const data = /^data: (.+)$/m.exec(block)?.[1];
+            if (name) aEvents.push({ name, data: data ? JSON.parse(data) : null });
+          }
+        }
+      } catch { /* cancelled below */ }
+    })();
+    const waitForA = async (name, ms = 3000) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        const hit = aEvents.find((e) => e.name === name);
+        if (hit) return hit;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      return null;
+    };
+    ok(await waitForA('ready'), "A's own stream opens");
+
+    aEvents.length = 0;
+    await api('POST', '/messages/presence', { token: B.tok, body: { visible: false } });
+    const gone = await waitForA('presence');
+    ok(gone?.data?.userId === B.id && gone?.data?.online === false,
+      'A is told, without asking, that B went away');
+
+    aEvents.length = 0;
+    await api('POST', '/messages/presence', { token: B.tok, body: { visible: true } });
+    const back = await waitForA('presence');
+    ok(back?.data?.userId === B.id && back?.data?.online === true, 'and told when B comes back');
+
+    /* Closing the app is the case this was reported for. Dropping the stream
+       has to read as gone immediately, with no timer in between. */
+    aEvents.length = 0;
     await reader.cancel().catch(() => {});
     await pump;
+    const closed = await waitForA('presence');
+    ok(closed?.data?.userId === B.id && closed?.data?.online === false,
+      'closing the app tells the other side straight away');
+
+    await aReader.cancel().catch(() => {});
+    await aPump;
     await new Promise((r) => setTimeout(r, 120));
     ok((await api('GET', '/health')).json?.live?.connections === 0, 'a closed connection is let go of');
   }

@@ -44,6 +44,74 @@ const HEARTBEAT_MS = 25_000;
 let total = 0;
 let nextId = 1;
 
+/* ------------------------------------------------------------------
+   Presence.
+
+   Two things this had wrong, with one cause between them: an open socket was
+   being read as "this person is looking at their phone".
+
+   It is not. A backgrounded tab keeps its stream open indefinitely, so someone
+   who switched apps still counted as present — which meant the other side went
+   on seeing them as Online, and, worse, the send path skipped their push
+   notification because "they are already here". A message could arrive to
+   silence.
+
+   So presence is connection AND visibility, and it is pushed rather than
+   waited for. Connections carry a `visible` flag the client keeps up to date;
+   a user is online when at least one of them is visible.
+   ------------------------------------------------------------------ */
+const presenceListeners = new Set();
+
+/** Called with (userId, online) whenever that answer actually changes. */
+export function onPresenceChange(fn) {
+  presenceListeners.add(fn);
+  return () => presenceListeners.delete(fn);
+}
+
+function announce(userId, online) {
+  for (const fn of [...presenceListeners]) {
+    try { fn(userId, online); } catch { /* a listener must not break the socket */ }
+  }
+}
+
+/** Online = at least one stream open AND in the foreground. */
+function computeOnline(userId) {
+  const set = byUser.get(userId);
+  if (!set) return false;
+  for (const client of set) if (client.visible) return true;
+  return false;
+}
+
+/**
+ * Run `mutate`, and tell the listeners only if the answer flipped.
+ *
+ * Edge-triggered on purpose. Four devices going quiet one at a time is one
+ * "went offline", not four, and a peer that redraws a status dot four times
+ * for one event is how a live feature starts to look broken.
+ */
+function withPresence(userId, mutate) {
+  const before = computeOnline(userId);
+  const result = mutate();
+  const after = computeOnline(userId);
+  if (before !== after) announce(userId, after);
+  return result;
+}
+
+/**
+ * The app telling us whether it is actually in front of someone.
+ *
+ * Applies to every stream that user has open: the signal is about the person,
+ * and the request cannot say which socket it came from.
+ */
+export function setVisibility(userId, visible) {
+  return withPresence(userId, () => {
+    const set = byUser.get(userId);
+    if (!set) return false;
+    for (const client of set) client.visible = !!visible;
+    return true;
+  });
+}
+
 /** How long a client should wait before reconnecting, if the stream drops. */
 const RETRY_MS = 4000;
 
@@ -54,7 +122,7 @@ const frame = (event, data, id) =>
  * Attach a response as a live channel for one user.
  * @returns a function that closes and deregisters it
  */
-export function subscribe(userId, req, res) {
+export function subscribe(userId, req, res, visibleAtConnect = true) {
   if (total >= MAX_TOTAL) {
     res.status(503).json({ error: 'Too many live connections right now. The app will keep checking for messages.' });
     return null;
@@ -75,11 +143,17 @@ export function subscribe(userId, req, res) {
   res.socket?.setNoDelay?.(true);
   res.socket?.setKeepAlive?.(true);
 
-  const client = { id: nextId++, res };
+  /* A stream opened by a page nobody is looking at is possible — the app
+     reconnects on waking — so the client says which it is on the way in, and
+     corrects it later through setVisibility(). Default true: the overwhelming
+     case is someone opening the app. */
+  const client = { id: nextId++, res, visible: visibleAtConnect !== false };
   let set = byUser.get(userId);
   if (!set) { set = new Set(); byUser.set(userId, set); }
-  set.add(client);
-  total++;
+  withPresence(userId, () => {
+    set.add(client);
+    total++;
+  });
 
   if (set.size > MAX_PER_USER) {
     const oldest = set.values().next().value;
@@ -100,11 +174,13 @@ export function subscribe(userId, req, res) {
 }
 
 function close(userId, client) {
-  const set = byUser.get(userId);
-  if (set?.delete(client)) {
-    total--;
-    if (set.size === 0) byUser.delete(userId);
-  }
+  withPresence(userId, () => {
+    const set = byUser.get(userId);
+    if (set?.delete(client)) {
+      total--;
+      if (set.size === 0) byUser.delete(userId);
+    }
+  });
   clearInterval(client.beat);
   try { client.res.end(); } catch { /* already gone */ }
 }
@@ -131,12 +207,24 @@ export function emit(userId, event, data) {
  * looking at the thread does not need their phone to buzz about the line that
  * just appeared in front of them.
  */
-export const isOnline = (userId) => (byUser.get(userId)?.size ?? 0) > 0;
+export const isOnline = (userId) => computeOnline(userId);
+
+/** Any stream at all, foreground or not. What emit() would actually reach. */
+export const hasStream = (userId) => (byUser.get(userId)?.size ?? 0) > 0;
+
+/** Streams held open by an app in the background. Shown in /api/health, so the
+ *  difference between "connected" and "actually there" is visible. */
+export const connectedButAway = (userId) => hasStream(userId) && !computeOnline(userId);
 
 /** For /api/health and the admin view. */
-export const connectionStats = () => ({ users: byUser.size, connections: total });
+export const connectionStats = () => {
+  let visible = 0;
+  for (const set of byUser.values()) for (const c of set) if (c.visible) visible++;
+  return { users: byUser.size, connections: total, visible };
+};
 
 /** Drop every stream — used on shutdown so the process can exit. */
 export function closeAll() {
+  presenceListeners.clear();
   for (const [userId, set] of [...byUser]) for (const client of [...set]) close(userId, client);
 }

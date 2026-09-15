@@ -35,7 +35,9 @@ export type ChatEvent =
   /** The connection itself changed state — used to show "reconnecting". */
   | { type: 'status'; live: boolean }
   /** Authoritative unread total, from a catch-up sync. */
-  | { type: 'unread'; count: number };
+  | { type: 'unread'; count: number }
+  /** Someone in a conversation with you arrived or went away. */
+  | { type: 'presence'; userId: string; online: boolean };
 
 type Listener = (e: ChatEvent) => void;
 
@@ -151,7 +153,10 @@ async function connect() {
   }
   if (!started) return;
 
-  const es = new EventSource(eventStreamUrl(ticket));
+  /* Say on the way in whether anyone is looking. The app rebuilds this stream
+     when it wakes, and a reconnection from a background tab must not be read
+     as the person coming back. */
+  const es = new EventSource(eventStreamUrl(ticket, typeof document !== 'undefined' && document.hidden));
   source = es;
 
   es.addEventListener('ready', () => {
@@ -181,6 +186,12 @@ async function connect() {
     const r = parsed<{ state: 'delivered' | 'read'; by: string; at: string; ids: string[] }>(e as MessageEvent);
     if (r) emit({ type: 'receipt', ...r });
   });
+  es.addEventListener('presence', (e) => {
+    try {
+      const d = JSON.parse((e as MessageEvent).data);
+      emit({ type: 'presence', userId: String(d.userId), online: !!d.online });
+    } catch { /* a malformed frame must not take the stream down */ }
+  });
   es.addEventListener('typing', (e) => {
     const t = parsed<{ from: string }>(e as MessageEvent);
     if (t) emit({ type: 'typing', from: t.from });
@@ -198,8 +209,30 @@ async function connect() {
   };
 }
 
+/* The server cannot see a backgrounded tab: the stream stays open, so without
+   being told it goes on counting the person as present. That is what made the
+   other side keep showing Online long after someone had left, and it also
+   suppressed their push notification, because the send path read an open
+   socket as "they are already looking". */
+let reportedVisible: boolean | null = null;
+
+function reportVisibility(visible: boolean) {
+  /* Only on a change. visibilitychange can fire repeatedly for the same state
+     as a phone wakes and settles, and every one of those is a request on
+     somebody's data bundle to say what the server already knows. */
+  if (reportedVisible === visible) return;
+  reportedVisible = visible;
+  void api.setPresence(visible).catch(() => {
+    /* Let the next change through: this one never landed. */
+    if (reportedVisible === visible) reportedVisible = null;
+    /* Presence is not worth a retry queue. The next visibility change, the
+       next catch-up sync, or the stream closing will all correct it. */
+  });
+}
+
 function onVisibility() {
   scheduleSync();
+  reportVisibility(!document.hidden);
   if (!document.hidden) {
     /* Coming back to the app is the moment being out of date is most obvious,
        so catch up straight away rather than on the next tick — and if the
@@ -221,10 +254,30 @@ export function startChatTransport() {
   started = true;
   cursor = new Date().toISOString();
   attempt = 0;
+  reportedVisible = null;
   scheduleSync();
   void connect();
   window.addEventListener('online', onOnline);
   document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pagehide', onPageHide);
+}
+
+/**
+ * The app is closing, or being put away.
+ *
+ * Closing the stream sends the FIN immediately, and the server reads that as
+ * gone the moment it lands — which is both faster and more reliable than any
+ * request issued from a page that is already unloading. pagehide rather than
+ * beforeunload or unload: it is the one that fires on iOS, where the others
+ * routinely do not.
+ */
+function onPageHide() {
+  source?.close();
+  source = null;
+  setLive(false);
+  /* The next thing this page does, if it is resurrected from the back/forward
+     cache, is become visible again — and that has to be reported. */
+  reportedVisible = null;
 }
 
 /** Stop, and forget everything. Called on sign-out. */
@@ -239,4 +292,5 @@ export function stopChatTransport() {
   source = null;
   window.removeEventListener('online', onOnline);
   document.removeEventListener('visibilitychange', onVisibility);
+  window.removeEventListener('pagehide', onPageHide);
 }
