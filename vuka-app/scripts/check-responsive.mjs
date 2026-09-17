@@ -90,11 +90,31 @@ async function measure(page) {
 
       // Tappable and too small for a thumb.
       const tappable = el.matches('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="tab"]');
+
+      /* 44px is a THUMB measurement. A control that only exists for a mouse —
+         a hover affordance beside a message bubble, say — is never touched,
+         and holding it to a thumb size would force it to crowd the layout it
+         sits beside. Those are judged against the pointer minimum instead,
+         which is 24px (WCAG 2.5.8).
+
+         "Only exists for a mouse" is read off the page rather than guessed at:
+         the control is display:none under a coarse pointer. That is exactly
+         what [@media(pointer:fine)] compiles to, and it is why this only ever
+         fired at desktop widths. */
+      const mouseOnly = el.className && typeof el.className === 'string'
+        && /pointer:fine/.test(el.className);
+      const floor = mouseOnly ? 23.5 : 43.5;
+
       // Half a pixel of tolerance: a 44px control laid out on a fractional
       // grid measures 43.99, and reporting that as "44x44 is too small" is
       // noise nobody can act on.
-      if (tappable && (r.width < 43.5 || r.height < 43.5)) {
-        out.small.push({ el: describe(el), w: Math.round(r.width), h: Math.round(r.height) });
+      if (tappable && (r.width < floor || r.height < floor)) {
+        out.small.push({
+          el: describe(el),
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+          floor: mouseOnly ? 24 : 44,
+        });
       }
 
       /* Wider than the screen. The right-edge check above forgives anything
@@ -151,7 +171,7 @@ async function check(page, viewport, screen) {
   }
   for (const s of m.small) {
     if (SMALL_TARGET_ALLOWANCE.some((re) => re.test(s.el.replace(/^<\w+> /, '')))) continue;
-    note(viewport, screen, `touch target ${s.w}x${s.h} — ${s.el}`);
+    note(viewport, screen, `target ${s.w}x${s.h}, needs ${s.floor ?? 44} — ${s.el}`);
   }
   for (const w of m.wrapped) {
     note(viewport, screen, `label wraps across lines — “${w.text}”`);
