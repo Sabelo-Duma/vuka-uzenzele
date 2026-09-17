@@ -167,6 +167,33 @@ async function check(page, viewport, screen) {
   return m;
 }
 
+/**
+ * Any bar pinned to the top of the screen has to reserve the status bar.
+ *
+ * The app runs standalone with a black-translucent status bar, so the page
+ * starts at the very top of the display and the clock is drawn OVER it.
+ * A top bar without safe-area padding therefore sits underneath the clock,
+ * and a tap in that strip goes to the operating system rather than the app.
+ *
+ * env(safe-area-inset-top) is 0 in a desktop browser, so the notch cannot be
+ * simulated and the symptom cannot be reproduced here. What can be asserted
+ * is that the padding is DECLARED — which is the thing that was missing on the
+ * sign-in header while the landing header had it all along.
+ */
+async function checkTopBarClearsStatusBar(page, viewport) {
+  const declared = await page.evaluate(() => {
+    const bars = [...document.querySelectorAll('header, main > div')]
+      .filter((el) => Math.round(el.getBoundingClientRect().top) <= 1);
+    if (bars.length === 0) return null;
+    return bars.some((el) => /safe-area-inset-top/.test(el.className ?? '')
+      || /safe-area-inset-top/.test(el.style.cssText));
+  });
+  if (declared === null) return; // nothing pinned to the top on this screen
+  if (!declared) {
+    note(viewport, 'Sign in', 'the bar at the top of the screen does not reserve the status bar, so its top strip is untappable in the installed app');
+  }
+}
+
 async function signIn(page, viewport, role) {
   await open(page, BASE);
   const login = page.getByRole('button', { name: /^log in$/i }).first();
@@ -174,6 +201,7 @@ async function signIn(page, viewport, role) {
 
   // The sign-in form is a screen too, and the walk never reaches it.
   await check(page, viewport, 'Sign in');
+  await checkTopBarClearsStatusBar(page, viewport);
 
   await page.getByRole('button', { name: new RegExp(`demo ${role}`, 'i') }).first().click();
 
