@@ -8,6 +8,7 @@ import { ApiError } from '../../lib/api';
 import type { CategoryId, Role } from '../../types';
 import { Button, InlineError } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { SunMark } from '../../components/SunMark';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
 
@@ -124,7 +125,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
         <div aria-hidden="true" className="absolute -right-24 -top-24 w-[420px] h-[420px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
         <div aria-hidden="true" className="absolute -left-16 bottom-10 w-[280px] h-[280px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,255,255,.06), transparent 70%)' }} />
 
-        <div className="relative flex items-center gap-2.5 font-bold text-lead"><span className="w-3 h-3 rounded-full bg-brand-solid" />Vuka Uzenzele</div>
+        <div className="relative flex items-center gap-2.5 font-bold text-lead"><SunMark size={26} />Vuka Uzenzele</div>
 
         <div className="relative max-w-md">
           <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-on-feature-dim mb-6">
@@ -154,8 +155,28 @@ function AuthLayout({ children }: { children: ReactNode }) {
 
       {/* Flow panel */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center justify-between px-5 sm:px-8 h-16 shrink-0">
-          <div className="flex items-center gap-2 font-bold text-ink lg:invisible"><span className="w-2.5 h-2.5 rounded-full bg-brand-solid" />Vuka Uzenzele</div>
+        {/* Same header as the landing page, minus the two buttons that do not
+            belong on a screen you are already inside.
+
+            The safe-area padding is the part that matters. The app runs
+            standalone with a black-translucent status bar, which means the page
+            starts at the very top of the screen and the status bar is drawn
+            OVER it. Without reserving that strip, the top of this row sits
+            underneath the clock and the battery, and a tap there goes to the
+            operating system rather than to the app — the theme button was
+            reachable only by its bottom edge. The landing header always had
+            this; this one never did. */}
+        <div className="flex items-center justify-between h-16 shrink-0 pt-[env(safe-area-inset-top)] box-content
+          pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))]
+          sm:pl-[max(2rem,env(safe-area-inset-left))] sm:pr-[max(2rem,env(safe-area-inset-right))]">
+          {/* The mark itself, not a coloured dot standing in for it. The dot
+              was the only place in the app still doing that. */}
+          <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead whitespace-nowrap min-w-0 lg:invisible">
+            <SunMark size={26} className="text-brand-solid" />
+            <span className="sr-only">Vuka Uzenzele</span>
+            <span aria-hidden="true" className="sm:hidden">Vuka</span>
+            <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>
+          </div>
           <button onClick={toggle} aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface transition active:scale-95">
             <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
           </button>
