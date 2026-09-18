@@ -16,7 +16,13 @@ dist/
 *.xlsx
 .DS_Store
 Thumbs.db
+# The cost model, in every form it is rendered to. This repository is public
+# and the document carries commercial rates, margins and revenue projections.
+# The .html was already ignored; the PDF and the Word file are the same
+# document and the same exposure.
 /Vuka Uzenzele - Cost Model.html
+/Vuka Uzenzele - Cost Model.pdf
+/Vuka_Uzenzele_Project_Tracker*.xlsx
 
 # Gijima IntelliSource — the employer project, not this one.
 # It was committed here and this repository is public, which published a
