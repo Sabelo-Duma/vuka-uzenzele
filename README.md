@@ -1,6 +1,6 @@
 # 💚 Vuka Uzenzele — Interactive Prototype
 
-> **“Vuka Uzenzele”** (isiZulu) — *Rise up and do it for yourself.*
+> **“Vuka Uzenzele”** (isiZulu) — *Rise up & Do it Yourself.*
 >
 > **The pitch:** *Start with no CV. Let your work write it for you — then let it open real doors.*
 

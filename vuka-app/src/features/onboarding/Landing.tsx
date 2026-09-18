@@ -261,7 +261,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
 
       {/* Final CTA */}
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 py-16 text-center">
-        <h2 className="font-display text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-ink tracking-tight max-w-[18ch] mx-auto">Rise up &amp; do it for yourself<span className="text-brand">.</span></h2>
+        <h2 className="font-display text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-ink tracking-tight max-w-[18ch] mx-auto">Rise up &amp; Do it Yourself<span className="text-brand">.</span></h2>
         <p className="text-dim text-body mt-4 max-w-[44ch] mx-auto">Join young South Africans turning everyday work into a career. It's free, and it starts now.</p>
         <div className="flex flex-wrap gap-3 justify-center mt-7">
           <button onClick={onGetStarted} className="rounded-pill bg-brand-solid text-brand-on font-bold text-body px-7 py-3.5 hover:bg-brand-hover transition active:scale-95 shadow-e2">Get started free</button>

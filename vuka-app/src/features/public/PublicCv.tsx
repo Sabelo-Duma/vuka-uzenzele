@@ -199,5 +199,5 @@ function Notice({ title, body }: { title: string; body: string }) {
   );
 }
 function Footer() {
-  return <p className="text-center text-micro text-faint pb-8 px-4">Vuka Uzenzele · Rise up &amp; do it for yourself</p>;
+  return <p className="text-center text-micro text-faint pb-8 px-4">Vuka Uzenzele · Rise up &amp; Do it Yourself</p>;
 }

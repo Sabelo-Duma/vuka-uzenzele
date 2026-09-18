@@ -1,6 +1,6 @@
 # 💚 Vuka Uzenzele — Web App (React + TypeScript)
 
-> **“Vuka Uzenzele”** (isiZulu) — *Rise up and do it for yourself.*
+> **“Vuka Uzenzele”** (isiZulu) — *Rise up & Do it Yourself.*
 > Connect South Africa's youth to work. **Start with no CV. Let your work write it for you — then let it open real doors.**
 
 This is the **real application** (not the earlier static prototype in the parent folder):
