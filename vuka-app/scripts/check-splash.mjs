@@ -51,6 +51,7 @@ const SHARED = [
   ['the upper rule', 'x="120" y="288" width="272" height="30" rx="15"'],
   ['the lower rule', 'x="186" y="346" width="140" height="24" rx="12"'],
   ['the wordmark', 'Vuka Uzenzele'],
+  ['the tagline', 'Rise up &amp; Do it Yourself'],
 ];
 for (const [what, value] of SHARED) {
   ok(html.includes(value), `index.html carries ${what}`);

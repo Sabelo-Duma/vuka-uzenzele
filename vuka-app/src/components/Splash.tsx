@@ -44,7 +44,7 @@ export function Splash() {
         {/* The tagline is not translated, and should not be: it is the product's
             name-line, the way "Just do it" stays English on every store page. */}
         <div style={{ marginTop: 7, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.58)' }}>
-          Rise up &amp; do it for yourself
+          Rise up &amp; Do it Yourself
         </div>
 
         {/* Wordless on purpose — this can render before a catalogue is chosen,
