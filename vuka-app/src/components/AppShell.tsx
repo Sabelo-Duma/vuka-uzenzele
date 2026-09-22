@@ -166,6 +166,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>{t(CHAT_TAB.labelKey)}</span>
             <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
           </button>
+          {/* Msizi — also both roles. Sits last because it is the thing you
+              reach for when one of the others has not made sense. */}
+          <button
+            onClick={() => navigate('msizi')}
+            aria-current={current === 'msizi' ? 'page' : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-small font-bold transition
+              ${current === 'msizi' ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
+          >
+            <Icon name="assistant" size={20} />
+            <span>{t('msizi.open')}</span>
+          </button>
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -187,7 +198,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between gap-3 h-14
             pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
             <BrandMark />
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              {/* The mobile tab bar is four tabs plus the ＋ button, and every
+                  one of those is a place you go to do something. Msizi is a
+                  place you go when you are stuck, so it lives up here where it
+                  is reachable from every screen without displacing any of
+                  them. */}
+              <button
+                onClick={() => navigate('msizi')}
+                aria-label={t('msizi.open')}
+                aria-current={current === 'msizi' ? 'page' : undefined}
+                className={`grid place-items-center w-11 h-11 shrink-0 rounded-chip border transition active:scale-95
+                  ${current === 'msizi'
+                    ? 'border-brand bg-brand-solid text-brand-on'
+                    : 'border-line bg-surface text-ink hover:bg-surface-2'}`}
+              >
+                <Icon name="assistant" size={18} />
+              </button>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 

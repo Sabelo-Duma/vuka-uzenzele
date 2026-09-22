@@ -5,7 +5,8 @@ export type IconName =
   | 'pin' | 'shield' | 'bolt' | 'lock' | 'check' | 'sun' | 'moon' | 'briefcase'
   | 'x' | 'bell' | 'camera' | 'globe' | 'card' | 'wallet' | 'star' | 'chat' | 'send' | 'clock'
   | 'reply' | 'edit' | 'trash' | 'copy' | 'search' | 'filter'
-  | 'mic' | 'play' | 'pause' | 'stop' | 'image' | 'download' | 'more' | 'alert' | 'retry';
+  | 'mic' | 'play' | 'pause' | 'stop' | 'image' | 'download' | 'more' | 'alert' | 'retry'
+  | 'assistant';
 
 const P = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>,
@@ -49,6 +50,11 @@ const P = {
   more: <><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></>,
   alert: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><circle cx="12" cy="16.5" r="1" /></>,
   retry: <><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>,
+  /* A speech bubble with a spark in it: someone answering, not someone
+     chatting. Deliberately not the plain bubble that Chats already owns —
+     two identical marks in one tab bar is two destinations nobody can tell
+     apart. */
+  assistant: <><path d="M20.5 11.2a7.7 7.7 0 0 1-10.6 7.2L3.5 20.5l2-6A7.7 7.7 0 1 1 20.5 11.2Z" /><path d="m12 7.6 1.1 2.4 2.4 1.1-2.4 1.1L12 14.6l-1.1-2.4L8.5 11.1l2.4-1.1z" /></>,
 } as const satisfies Record<IconName, React.ReactNode>;
 
 interface IconProps extends SVGProps<SVGSVGElement> {

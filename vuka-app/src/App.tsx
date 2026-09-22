@@ -21,6 +21,7 @@ import { MyJobs } from './features/employer/MyJobs';
 import { Applicants } from './features/employer/Applicants';
 import { EmployerProfile } from './features/employer/EmployerProfile';
 import { Messages, ChatThread } from './features/chat/Chat';
+import { Msizi } from './features/msizi/Msizi';
 import { PublicCv } from './features/public/PublicCv';
 
 /** Public share route: /cv/:id renders a read-only CV without auth. */
@@ -82,7 +83,11 @@ export function App() {
   const screen = state.nav.screen;
 
   let content: React.ReactNode;
-  if (screen === 'messages') {
+  if (screen === 'msizi') {
+    /* Before the role switch: Msizi answers for both roles, and asking it a
+       question should never depend on which kind of account you have. */
+    content = <Msizi />;
+  } else if (screen === 'messages') {
     content = <Messages />;
   } else if (screen === 'chat') {
     content = <ChatThread id={id} />;

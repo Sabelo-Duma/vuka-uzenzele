@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Vuka Uzenzele — a mobile-first + desktop platform connecting South African youth to work. An independent product, created and owned by Sabelo Duma.",
   "scripts": {
-    "build": "npm run check:contrast && npm run check:i18n && tsc --noEmit && vite build && npm run check:classes",
+    "build": "npm run check:contrast && npm run check:i18n && npm run check:msizi && tsc --noEmit && vite build && npm run check:classes",
     "check:classes": "node scripts/check-classes.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:chat": "node scripts/check-chat.mjs",
@@ -17,6 +17,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:msizi": "node scripts/check-msizi.mjs",
+    "check:assistant": "node scripts/check-assistant.mjs",
     "check:language": "node scripts/check-language.mjs",
     "check:splash": "node scripts/check-splash.mjs",
     "check:presence": "node scripts/check-presence.mjs",
