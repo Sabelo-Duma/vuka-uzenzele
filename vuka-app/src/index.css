@@ -221,6 +221,18 @@ h1, h2, h3, h4 {
   height: 100vh;
   height: -webkit-fill-available;
   height: 100dvh;
+  /* And a fourth, measured rather than resolved.
+
+     On the launch of an INSTALLED app the window is still settling around the
+     system bars when first layout runs, so dvh gets computed against a
+     half-finished window and nothing asks the page to look again. The tab bar
+     comes up short of the bottom with a strip of canvas beneath it, and one
+     scroll — which forces the recalculation — drops it into place.
+
+     --app-height is that same layout-viewport height, measured in
+     lib/viewport.ts and re-measured whenever the window changes. dvh remains
+     the fallback, so if that script never runs this is exactly what it was. */
+  height: var(--app-height, 100dvh);
 }
 
 /* The + button is lifted above the tab bar, so it is the first thing to be
