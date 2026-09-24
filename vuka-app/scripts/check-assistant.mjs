@@ -190,6 +190,66 @@ try {
     'the posting answer mentions the pay reference', hiringText.slice(0, 200));
 
   await emp.close();
+
+  /* ---- Listening always stops ------------------------------------------
+     The reported bug, driven through the real screen: tap the microphone on a
+     phone whose recogniser accepts start() and then does nothing at all — no
+     result, no error, no onend, which is what Chrome on Android does when the
+     platform engine does not report an endpoint. The microphone stayed open
+     and the button pulsed until the app was closed.
+
+     check-speech.mjs proves the Listener's own contract against a fake engine.
+     This proves the screen is actually wired to it. */
+  const dead = await browser.newPage({ viewport: { width: 420, height: 880 } });
+  await dead.addInitScript(() => {
+    class DeadRecognition {
+      constructor() {
+        this.lang = ''; this.continuous = false; this.interimResults = false; this.maxAlternatives = 1;
+        this.onresult = null; this.onerror = null; this.onend = null;
+        this.onstart = null; this.onspeechstart = null; this.onaudioend = null;
+        window.__micOpen = false; window.__aborted = false;
+      }
+      start() { window.__micOpen = true; }          // ...and then nothing, ever.
+      stop() { /* ignored, exactly like the real one */ }
+      abort() { window.__micOpen = false; window.__aborted = true; }
+    }
+    Object.defineProperty(window, 'SpeechRecognition', { value: DeadRecognition, configurable: true });
+    Object.defineProperty(window, 'webkitSpeechRecognition', { value: DeadRecognition, configurable: true });
+  });
+
+  await signIn(dead, 'worker');
+  await openMsizi(dead);
+
+  const mic = dead.getByRole('button', { name: /ask by voice/i }).first();
+  ok(await mic.count() > 0, 'the microphone button is offered when a recogniser exists');
+  await mic.click();
+
+  await dead.getByText(/listening/i).first().waitFor({ timeout: 5_000 }).catch(() => {});
+  ok(await dead.getByText(/listening/i).count() > 0, 'tapping the microphone starts listening');
+  ok(await dead.evaluate(() => window.__micOpen === true), 'the recogniser was started');
+
+  /* Nothing is ever said and the engine never replies. It must give up anyway. */
+  await dead.waitForFunction(
+    () => !/listening/i.test(document.body.innerText),
+    null,
+    { timeout: 20_000 },
+  ).catch(() => {});
+
+  ok(await dead.getByText(/listening/i).count() === 0,
+    'listening stops on its own when the engine never ends',
+    await dead.getByText(/listening/i).count() > 0 ? 'still listening after 20s' : '');
+  ok(await dead.evaluate(() => window.__aborted === true),
+    'the microphone is force-released rather than left open');
+  ok(await dead.evaluate(() => window.__micOpen === false),
+    'the microphone is not still open');
+  ok(await dead.getByText(/did not hear|type your question/i).count() > 0,
+    'the user is told what happened rather than left guessing');
+
+  /* And the screen is usable again afterwards — not stuck mid-session. */
+  const after = await askText(dead, 'how do i get paid');
+  ok((await after.innerText()).length > 100, 'the screen still works after a failed voice attempt');
+
+  await dead.close();
 } finally {
   await browser.close();
 }

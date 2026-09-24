@@ -178,9 +178,13 @@ export function Msizi() {
     if (!canSpeak()) return;
     /* The title first, then the answer. Heard rather than seen, the heading is
        what tells you Msizi understood the question before the detail starts. */
+    /* The newlines are left in on purpose. speak() splits on them to find
+       sentence boundaries, and it is those boundaries that give the voice a
+       cadence instead of one flat run-on. Flattening them here — which the
+       first version did — is what made it sound recited. */
     const text = turn.reply.kind === 'miss'
-      ? `${t('msizi.missTitle')}. ${t('msizi.missBody')}`
-      : `${turn.reply.title}. ${turn.reply.body.split('\n').join(' ')}`;
+      ? `${t('msizi.missTitle')}.\n${t('msizi.missBody')}`
+      : `${turn.reply.title}.\n${turn.reply.body}`;
     setSpeakingTurn(turn.id);
     speak(text, lang, () => setSpeakingTurn((cur) => (cur === turn.id ? null : cur)));
   }, [lang, t]);

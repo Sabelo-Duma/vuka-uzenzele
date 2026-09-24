@@ -51,6 +51,8 @@ interface SpeechRecognitionLike {
   onerror: ((e: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onaudioend: (() => void) | null;
 }
 
 type RecognitionCtor = new () => SpeechRecognitionLike;
@@ -71,7 +73,9 @@ export function canSpeak(): boolean {
   return typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined';
 }
 
-/* ---------------- Which language the device can actually manage ---------- */
+/* ------------------------------------------------------------------
+   Choosing a voice.
+   ------------------------------------------------------------------ */
 
 /**
  * Languages to fall back through when the chosen one has no voice.
@@ -95,6 +99,63 @@ export interface VoicePick {
 }
 
 /**
+ * Names that mark a voice as one of the good ones, worst-to-best order.
+ *
+ * Android ships several engines side by side and the list is not sorted by
+ * quality, so taking the first match for a language is a coin toss between a
+ * modern neural voice and the flat, clipped one people describe as "the robot".
+ * The first Msizi shipped with did exactly that, and it sounded like it.
+ *
+ * Matching on names is crude and it is what the API gives us: there is no
+ * quality field on SpeechSynthesisVoice. Unknown voices score zero rather than
+ * negative, so a device whose voices are named nothing like these still gets
+ * its default rather than nothing.
+ */
+const QUALITY_HINTS = [
+  { match: /neural|natural|premium|enhanced|wavenet|studio/i, score: 5 },
+  { match: /\bgoogle\b/i, score: 3 },
+  { match: /siri/i, score: 3 },
+];
+
+/** Names that mark a voice as one to avoid unless it is all there is. */
+const POOR_HINTS = /compact|espeak|pico|fallback|low.?quality/i;
+
+/** How good a voice is for reading an answer out loud. Higher is better. */
+export function voiceScore(voice: SpeechSynthesisVoice): number {
+  let score = 0;
+  for (const hint of QUALITY_HINTS) if (hint.match.test(voice.name)) score += hint.score;
+  if (POOR_HINTS.test(voice.name)) score -= 6;
+  /* A voice the OS has marked default is the one the owner of the phone
+     already chose to hear everywhere else. Worth a nudge, not a veto. */
+  if (voice.default) score += 1;
+  /* Deliberately NOT preferring remote voices, even though they usually sound
+     better. Msizi reads a person's own record aloud — "you have earned two
+     thousand one hundred and fifty rand" — and a remote voice means that
+     sentence is sent to a vendor's servers to be spoken. The whole argument for
+     building Msizi the way it is built is that nothing about somebody's work
+     history leaves their phone. A nicer voice is not worth breaking that, so a
+     local voice wins ties. */
+  if (voice.localService) score += 2;
+  return score;
+}
+
+/** Every voice this device offers for a language tag, best first. */
+function rankedFor(voices: SpeechSynthesisVoice[], tag: string): SpeechSynthesisVoice[] {
+  const want = tag.toLowerCase();
+  const base = want.split('-')[0];
+  return voices
+    .filter((v) => {
+      const lang = v.lang.toLowerCase().replace('_', '-');
+      return lang === want || lang.split('-')[0] === base;
+    })
+    /* Exact region first — en-ZA over en-US for the same score — then quality. */
+    .sort((a, b) => {
+      const exact = (v: SpeechSynthesisVoice) => (v.lang.toLowerCase().replace('_', '-') === want ? 1 : 0);
+      return (exact(b) - exact(a)) || (voiceScore(b) - voiceScore(a));
+    });
+}
+
+/**
  * The best available voice for an app language.
  *
  * Matching is on the language subtag as well as the full tag: a device with
@@ -113,22 +174,16 @@ export function pickVoice(lang: Lang): VoicePick {
      a device that could not read anything aloud in any language. */
   if (voices.length === 0) return { voice: null, coverage: 'none' };
 
-  const want = langMeta(lang).tag.toLowerCase();
-  const base = want.split('-')[0];
-
-  const exact = voices.find((v) => v.lang.toLowerCase() === want);
-  if (exact) return { voice: exact, coverage: 'native' };
-
-  const sameLanguage = voices.find((v) => v.lang.toLowerCase().split('-')[0] === base);
-  if (sameLanguage) return { voice: sameLanguage, coverage: 'native' };
+  const own = rankedFor(voices, langMeta(lang).tag);
+  if (own.length > 0) return { voice: own[0], coverage: 'native' };
 
   for (const tag of VOICE_FALLBACKS) {
-    const hit = voices.find((v) => v.lang.toLowerCase() === tag.toLowerCase())
-      ?? voices.find((v) => v.lang.toLowerCase().split('-')[0] === tag.split('-')[0]);
-    if (hit) return { voice: hit, coverage: lang === 'en' ? 'native' : 'fallback' };
+    const hit = rankedFor(voices, tag);
+    if (hit.length > 0) return { voice: hit[0], coverage: lang === 'en' ? 'native' : 'fallback' };
   }
 
-  return { voice: voices[0] ?? null, coverage: lang === 'en' ? 'native' : 'fallback' };
+  const best = [...voices].sort((a, b) => voiceScore(b) - voiceScore(a))[0] ?? null;
+  return { voice: best, coverage: lang === 'en' ? 'native' : 'fallback' };
 }
 
 /**
@@ -171,8 +226,7 @@ export function voicesReady(): Promise<void> {
  * Necessary because `voicesReady` gives up after a short wait, and a browser
  * that publishes its voices *after* that — which Chromium does on a cold
  * start — would otherwise leave the screen reporting "this phone cannot read
- * answers out loud" on a phone that had just become able to. The capability
- * has to be re-read, not sampled once.
+ * answers out loud" on a phone that had just become able to.
  */
 export function onVoicesChanged(fn: () => void): () => void {
   if (!canSpeak()) return () => { /* nothing to unsubscribe */ };
@@ -186,24 +240,99 @@ export function onVoicesChanged(fn: () => void): () => void {
   }
 }
 
-/* ---------------- Speaking ---------------------------------------------- */
+/* ------------------------------------------------------------------
+   Turning an answer into something worth listening to.
+   ------------------------------------------------------------------ */
+
+/* Emoji and pictographs. The answers carry tier medals, category icons and the
+   odd tick; a synthesiser either names them out loud ("bronze medal") or stops
+   dead on them. Neither is what the sentence meant. */
+const PICTOGRAPHS =
+  /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{20E3}]/gu;
 
 /**
- * Chrome stops speaking after roughly fifteen seconds unless the queue is
- * nudged — a bug old enough to have outlived several major versions. An answer
- * about how payment protection works is comfortably longer than that, so the
- * utterance is kept alive by pausing and resuming on a timer until it ends.
+ * Rewrite an answer for the ear rather than the eye.
+ *
+ * Written text and spoken text are not the same text, and the gap is most of
+ * why the first version sounded wrong. "R30,23" is read by a synthesiser as
+ * "R thirty comma twenty three" — South African notation uses a comma where a
+ * reader expects a decimal point, and the R is a letter as far as the engine is
+ * concerned. A bullet is read as "bullet", or swallowed along with the pause it
+ * was standing in for.
+ *
+ * Exported so the tests can assert it. Every rule here is one an actual answer
+ * in data/msizi.ts runs into.
  */
-let keepAlive: number | null = null;
+export function toSpeech(text: string): string {
+  return text
+    /* Money first, before punctuation is touched: R30,23 -> 30 rand 23,
+       R1 469 -> 1469 rand. The space is the SA thousands separator and has to
+       come out or it is read as two numbers.
 
-function stopKeepAlive() {
-  if (keepAlive !== null) { window.clearInterval(keepAlive); keepAlive = null; }
+       The thousands groups are matched explicitly as `\d{3}` rather than with
+       a loose "digits and spaces" run. The loose version was lazy and stopped
+       at the first digit — "R1 469" came out as "1 rand 469" — and making it
+       greedy instead swallowed the space *after* the amount, gluing the number
+       to the next word. Groups of three match what the notation actually is. */
+    .replace(/R\s?(\d+(?:[  ]\d{3})*)(?:,(\d{1,2}))?/g,
+      (_m, whole: string, cents?: string) => {
+        const amount = whole.replace(/[\s ]/g, '');
+        return cents ? `${amount} rand ${cents}` : `${amount} rand`;
+      })
+    /* A percentage sign reads as "percent" on most engines but not all. */
+    .replace(/(\d)\s?%/g, '$1 percent')
+    .replace(PICTOGRAPHS, ' ')
+    /* Bullets become sentences of their own, so the voice pauses where the eye
+       would. The full stop is what buys the pause. */
+    .replace(/^[•·-]\s+/gm, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (/[.!?:]$/.test(line) ? line : `${line}.`))
+    .join(' ')
+    /* Ellipses and dashes read as pauses far better than as themselves. */
+    .replace(/\s*[—–]\s*/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
+
+/**
+ * Break an answer into utterance-sized pieces, on sentence boundaries.
+ *
+ * Two reasons, and the first is the one that fixes the robot.
+ *
+ * A synthesiser given one long block reads it with one flat contour, because
+ * it plans prosody over whatever it is handed. Fed a sentence at a time it
+ * places a real cadence on each — which is most of the difference between
+ * "spoken" and "recited".
+ *
+ * And it retires a hack. Chrome stops speaking after roughly fifteen seconds
+ * unless the queue is nudged, and the usual workaround is to pause() and
+ * resume() on a timer. That works and it is audible: a small catch in the voice
+ * every ten seconds. Sentences are short enough that the bug never triggers, so
+ * the nudging can go.
+ */
+export function toSentences(text: string): string[] {
+  return toSpeech(text)
+    .split(/(?<=[.!?:])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    /* Anything still enormous — a list read as one line — is split again on
+       clause boundaries so no single utterance approaches the cutoff. */
+    .flatMap((s) => (s.length <= 220 ? [s] : s.split(/(?<=,)\s+/).map((c) => c.trim()).filter(Boolean)));
+}
+
+/* ------------------------------------------------------------------
+   Speaking.
+   ------------------------------------------------------------------ */
 
 export interface SpeakHandle {
   /** Resolves when speech finishes, is cancelled, or fails. Never rejects. */
   done: Promise<void>;
 }
+
+/** Bumped by every stopSpeaking(), so a stale queue cannot report completion. */
+let speakGeneration = 0;
 
 /**
  * Read text aloud.
@@ -217,49 +346,60 @@ export function speak(text: string, lang: Lang, onEnd?: () => void): SpeakHandle
   if (!canSpeak() || !text.trim()) { onEnd?.(); return noop; }
 
   stopSpeaking();
+  const generation = speakGeneration;
 
   const { voice } = pickVoice(lang);
-  const u = new SpeechSynthesisUtterance(text);
-  if (voice) { u.voice = voice; u.lang = voice.lang; }
-  else u.lang = langMeta(lang).tag;
-  /* Slightly under the default. The audience includes people meeting the app's
-     vocabulary for the first time, in a second or third language. */
-  u.rate = 0.95;
-  u.pitch = 1;
+  const sentences = toSentences(text);
+  if (sentences.length === 0) { onEnd?.(); return noop; }
 
   const done = new Promise<void>((resolve) => {
-    const finish = () => { stopKeepAlive(); onEnd?.(); resolve(); };
-    u.onend = finish;
-    u.onerror = finish;
-  });
+    let finished = false;
+    const finish = () => {
+      if (finished || generation !== speakGeneration) return;
+      finished = true;
+      onEnd?.();
+      resolve();
+    };
 
-  try {
-    window.speechSynthesis.speak(u);
-    stopKeepAlive();
-    keepAlive = window.setInterval(() => {
-      try {
-        if (!window.speechSynthesis.speaking) { stopKeepAlive(); return; }
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      } catch { stopKeepAlive(); }
-    }, 10_000);
-  } catch {
-    stopKeepAlive();
-    onEnd?.();
-    return noop;
-  }
+    try {
+      sentences.forEach((sentence, i) => {
+        const u = new SpeechSynthesisUtterance(sentence);
+        if (voice) { u.voice = voice; u.lang = voice.lang; }
+        else u.lang = langMeta(lang).tag;
+        /* Just under the default. The audience includes people meeting the
+           app's vocabulary for the first time, in a second or third language —
+           and a shade slower reads as considered rather than sluggish. */
+        u.rate = 0.96;
+        u.pitch = 1;
+        u.volume = 1;
+        if (i === sentences.length - 1) {
+          u.onend = finish;
+          u.onerror = finish;
+        } else {
+          /* A failure partway through must not leave the caller waiting for an
+             onend that is never coming. */
+          u.onerror = finish;
+        }
+        window.speechSynthesis.speak(u);
+      });
+    } catch {
+      finish();
+    }
+  });
 
   return { done };
 }
 
 /** Silence immediately. Safe to call when nothing is speaking. */
 export function stopSpeaking(): void {
-  stopKeepAlive();
+  speakGeneration += 1;
   if (!canSpeak()) return;
   try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ }
 }
 
-/* ---------------- Listening --------------------------------------------- */
+/* ------------------------------------------------------------------
+   Listening.
+   ------------------------------------------------------------------ */
 
 /** Why listening stopped, in terms the UI can turn into a sentence. */
 export type ListenError =
@@ -275,8 +415,229 @@ export interface ListenEvents {
   /** The finished transcript. Fires at most once per session. */
   onFinal?: (text: string) => void;
   onError?: (err: ListenError) => void;
-  /** Always fires last, whatever the outcome — the UI's cue to stop pulsing. */
+  /** Always fires last, exactly once, whatever the outcome. */
   onEnd?: () => void;
+}
+
+/* ---- The clocks, and why every one of them is necessary ----------------
+
+   Chrome on Android IGNORES `continuous`. The platform recogniser underneath
+   it is one-shot and is supposed to stop at the first endpoint it detects —
+   but when it does not detect one, or when the engine does not support the
+   mode being asked for, `onend` is never fired at all and the microphone is
+   simply left open. That is not a theoretical edge: it is what a real handset
+   did, and the recording indicator stayed on until the tab was closed.
+
+   So nothing here trusts the engine to stop. Every path is on our own timer,
+   the same discipline VoiceSession in voice.ts already applies to recording a
+   voice note, where the comment reads "the cap on the server is what actually
+   protects anything".
+   ------------------------------------------------------------------------ */
+
+/** Absolute ceiling. Nothing keeps the microphone past this, ever. */
+const MAX_LISTEN_MS = 15_000;
+/** Stop this long after the last words were heard — the natural end of a question. */
+const SILENCE_AFTER_SPEECH_MS = 2_200;
+/** Give up if nothing at all has been said by now. */
+const SILENCE_BEFORE_SPEECH_MS = 7_000;
+/** If stop() does not produce an onend within this, force it. */
+const END_WATCHDOG_MS = 1_500;
+
+/** Exported for the tests, which assert these stay sane relative to each other. */
+export const LISTEN_TIMINGS = {
+  MAX_LISTEN_MS,
+  SILENCE_AFTER_SPEECH_MS,
+  SILENCE_BEFORE_SPEECH_MS,
+  END_WATCHDOG_MS,
+};
+
+/**
+ * One listening session.
+ *
+ * A class for the same reason VoiceSession in voice.ts is one: it holds a live
+ * microphone, and that has to be released down every path — answered,
+ * cancelled, navigated away from, timed out, or interrupted by a phone call.
+ *
+ * The contract it guarantees to the UI, which the previous version did not:
+ * **onEnd always fires, exactly once.** The screen drives its listening state
+ * from that, so an engine that goes quiet must not be able to leave a pulsing
+ * microphone on screen with nothing behind it.
+ */
+export class Listener {
+  private rec: SpeechRecognitionLike | null = null;
+  private settled = false;
+  private delivered = false;
+  private best = '';
+  /* The words currently on screen but not yet confirmed by the engine. Kept
+     because tapping stop mid-sentence should send what the user can see, not
+     discard it and report that nothing was heard. */
+  private lastInterim = '';
+  private heardSomething = false;
+  private timers: number[] = [];
+  private silence: number | null = null;
+
+  constructor(private lang: Lang, private events: ListenEvents = {}) {}
+
+  /** True if this device can construct a recogniser at all. */
+  static get available(): boolean { return canListen(); }
+
+  private clearSilence(): void {
+    if (this.silence !== null) { window.clearTimeout(this.silence); this.silence = null; }
+  }
+
+  private clearTimers(): void {
+    this.clearSilence();
+    for (const t of this.timers) window.clearTimeout(t);
+    this.timers = [];
+  }
+
+  /** Restart the quiet-for-long-enough clock. Called on every scrap of speech. */
+  private armSilence(): void {
+    this.clearSilence();
+    const wait = this.heardSomething ? SILENCE_AFTER_SPEECH_MS : SILENCE_BEFORE_SPEECH_MS;
+    this.silence = window.setTimeout(() => this.finish(), wait);
+  }
+
+  /**
+   * The single exit. Everything — a final result, a timeout, an error, the
+   * user tapping stop — comes through here, so onEnd fires once and the
+   * microphone is released once.
+   */
+  private settle(err?: ListenError): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.clearTimers();
+
+    const rec = this.rec;
+    this.rec = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      rec.onspeechstart = null;
+      rec.onaudioend = null;
+      /* abort(), not stop(): stop() asks for a last result and can hang waiting
+         for one, which is the whole problem this class exists to contain. */
+      try { rec.abort(); } catch { /* already gone */ }
+    }
+
+    /* Confirmed words if there are any, otherwise whatever was on screen. */
+    const heard = (this.best || this.lastInterim).trim();
+    if (err) this.events.onError?.(err);
+    else if (!this.delivered && heard) {
+      this.delivered = true;
+      this.events.onFinal?.(heard);
+    } else if (!this.delivered) {
+      this.events.onError?.('no-speech');
+    }
+    this.events.onEnd?.();
+  }
+
+  /**
+   * Wind up politely: ask the engine to stop so any last words still arrive,
+   * but do not wait on it indefinitely.
+   *
+   * Android commonly delivers a final result in the gap between stop() and
+   * onend, so that gap is worth leaving open — and it is also exactly where the
+   * engine sometimes never comes back, which is what the watchdog is for.
+   */
+  private finish(): void {
+    if (this.settled) return;
+    this.clearTimers();
+    const rec = this.rec;
+    if (!rec) { this.settle(); return; }
+    try { rec.stop(); } catch { this.settle(); return; }
+    this.timers.push(window.setTimeout(() => this.settle(), END_WATCHDOG_MS));
+  }
+
+  start(): boolean {
+    const Ctor = recognitionCtor();
+    if (!Ctor) { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
+
+    let rec: SpeechRecognitionLike;
+    try { rec = new Ctor(); } catch { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
+
+    rec.lang = langMeta(this.lang).tag;
+    /* One question at a time. Asking for continuous would keep the microphone
+       open between sentences — and on Android it is ignored anyway, which is
+       how a session ends up running with nobody managing it. */
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e) => {
+      if (this.settled) return;
+      let interim = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        const text = r[0]?.transcript ?? '';
+        if (r.isFinal) final += text; else interim += text;
+      }
+      if (final.trim() || interim.trim()) {
+        this.heardSomething = true;
+        this.armSilence();
+      }
+      if (final) {
+        this.best = `${this.best} ${final}`.trim();
+        this.events.onPartial?.(this.best);
+        /* A final result is the answer to the question asked. Waiting for the
+           engine to decide the same thing is how the microphone stays on. */
+        this.delivered = true;
+        this.events.onFinal?.(this.best);
+        this.settle();
+        return;
+      }
+      if (interim) {
+        this.lastInterim = `${this.best} ${interim}`.trim();
+        this.events.onPartial?.(this.lastInterim);
+      }
+    };
+
+    rec.onspeechstart = () => {
+      this.heardSomething = true;
+      this.armSilence();
+    };
+
+    rec.onerror = (e) => {
+      if (this.settled) return;
+      const err = classify(e.error);
+      /* A no-speech report after something was already heard is not a failure:
+         the recogniser is describing the silence that followed the answer. */
+      if (err === 'no-speech' && (this.best || this.lastInterim)) { this.finish(); return; }
+      this.settle(err);
+    };
+
+    rec.onend = () => {
+      /* The engine got there on its own. Good — settle through the same door
+         everything else uses. */
+      this.settle();
+    };
+
+    try { rec.start(); } catch { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
+    this.rec = rec;
+
+    /* The two clocks that make the guarantee. The cap is absolute; the silence
+       timer is the one that makes it feel like it is listening for an answer
+       rather than running a stopwatch. */
+    this.timers.push(window.setTimeout(() => this.finish(), MAX_LISTEN_MS));
+    this.armSilence();
+    return true;
+  }
+
+  /** Stop listening and deliver whatever was heard. */
+  stop(): void {
+    this.finish();
+  }
+
+  /** Stop listening and throw away whatever was heard. */
+  cancel(): void {
+    if (this.settled) return;
+    this.best = '';
+    this.lastInterim = '';
+    this.delivered = true; // nothing to deliver; suppresses the no-speech error
+    this.settle();
+  }
 }
 
 function classify(code: string): ListenError {
@@ -287,88 +648,5 @@ function classify(code: string): ListenError {
     case 'language-not-supported': return 'no-language';
     case 'network': return 'network';
     default: return 'failed';
-  }
-}
-
-/**
- * One listening session.
- *
- * A class for the same reason VoiceSession in voice.ts is one: it holds a live
- * microphone, and that has to be released down every path — answered,
- * cancelled, navigated away from, or interrupted by an incoming call.
- */
-export class Listener {
-  private rec: SpeechRecognitionLike | null = null;
-  private finished = false;
-  private best = '';
-
-  constructor(private lang: Lang, private events: ListenEvents = {}) {}
-
-  /** True if this device can construct a recogniser at all. */
-  static get available(): boolean { return canListen(); }
-
-  start(): boolean {
-    const Ctor = recognitionCtor();
-    if (!Ctor) { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
-
-    let rec: SpeechRecognitionLike;
-    try { rec = new Ctor(); } catch { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
-
-    rec.lang = langMeta(this.lang).tag;
-    /* One question at a time. Continuous mode keeps the microphone open
-       between sentences, which on a phone means a recording indicator that
-       never goes away and a battery that empties while the app sits idle. */
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
-
-    rec.onresult = (e) => {
-      let interim = '';
-      let final = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        const text = r[0]?.transcript ?? '';
-        if (r.isFinal) final += text; else interim += text;
-      }
-      if (final) {
-        this.best = `${this.best} ${final}`.trim();
-        this.events.onPartial?.(this.best);
-      } else if (interim) {
-        this.events.onPartial?.(`${this.best} ${interim}`.trim());
-      }
-    };
-
-    rec.onerror = (e) => {
-      const err = classify(e.error);
-      /* A no-speech report after something was already heard is not a failure:
-         the recogniser is describing the silence that followed the answer. */
-      if (err === 'no-speech' && this.best) return;
-      this.finished = true;
-      this.events.onError?.(err);
-    };
-
-    rec.onend = () => {
-      if (!this.finished && this.best) this.events.onFinal?.(this.best);
-      this.finished = true;
-      this.rec = null;
-      this.events.onEnd?.();
-    };
-
-    try { rec.start(); } catch { this.events.onError?.('failed'); this.events.onEnd?.(); return false; }
-    this.rec = rec;
-    return true;
-  }
-
-  /** Stop listening and deliver whatever was heard. */
-  stop(): void {
-    try { this.rec?.stop(); } catch { /* already stopped */ }
-  }
-
-  /** Stop listening and throw away whatever was heard. */
-  cancel(): void {
-    this.finished = true;
-    this.best = '';
-    try { this.rec?.abort(); } catch { /* already stopped */ }
-    this.rec = null;
   }
 }
