@@ -105,6 +105,50 @@ function AccountBar() {
   );
 }
 
+/**
+ * The way in to Msizi on a phone, floating over whatever you are reading.
+ *
+ * It floats rather than living in the tab bar because of what it is for. The
+ * four tabs are places you go on purpose; Msizi is what you reach for in the
+ * middle of something else — halfway down a job description, unsure whether the
+ * pay is legal, or what a safety flag would do to you. Making that a
+ * destination you have to navigate to means leaving the thing you were confused
+ * about in order to ask about it.
+ *
+ * Three decisions here are deliberate and easy to undo by accident:
+ *
+ * **It is not amber.** Amber is the one primary action on a screen, and on a
+ * phone that is already the ＋ in the middle of the tab bar. A second amber
+ * circle a thumb's width away would be two things claiming to be the most
+ * important, and neither reading as it. Ink gives full contrast in both themes
+ * without borrowing a meaning that belongs to something else.
+ *
+ * **It sits above the tab bar, not over it.** Anchored past the bar's own
+ * height plus the home-indicator inset, so it never lands on a tab, and never
+ * on the strip iOS reserves for the swipe-up gesture.
+ *
+ * **It gets out of the way twice.** While the keyboard is up it is hidden, for
+ * the same reason the tab bar is — that space is the message being typed. And
+ * on the Msizi screen itself it is hidden, because a button that reopens the
+ * screen you are already on is a button that covers the answer you asked for.
+ */
+function MsiziFab({ onOpen, hidden }: { onOpen: () => void; hidden: boolean }) {
+  const t = useT();
+  if (hidden) return null;
+  return (
+    <button
+      onClick={onOpen}
+      aria-label={t('msizi.open')}
+      className="lg:hidden fixed z-40 grid place-items-center w-14 h-14 rounded-full
+        bg-ink text-canvas shadow-e2 transition hover:opacity-90 active:scale-95
+        right-[max(16px,env(safe-area-inset-right))]
+        bottom-[calc(76px+env(safe-area-inset-bottom))]"
+    >
+      <Icon name="assistant" size={24} />
+    </button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { state, navigate, goBack, canGoBack } = useApp();
   const t = useT();
@@ -198,30 +242,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between gap-3 h-14
             pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
             <BrandMark />
-            <div className="flex items-center gap-2">
-              {/* The mobile tab bar is four tabs plus the ＋ button, and every
-                  one of those is a place you go to do something. Msizi is a
-                  place you go when you are stuck, so it lives up here where it
-                  is reachable from every screen without displacing any of
-                  them. */}
-              <button
-                onClick={() => navigate('msizi')}
-                aria-label={t('msizi.open')}
-                aria-current={current === 'msizi' ? 'page' : undefined}
-                className={`grid place-items-center w-11 h-11 shrink-0 rounded-chip border transition active:scale-95
-                  ${current === 'msizi'
-                    ? 'border-brand bg-brand-solid text-brand-on'
-                    : 'border-line bg-surface text-ink hover:bg-surface-2'}`}
-              >
-                <Icon name="assistant" size={18} />
-              </button>
-              <ThemeToggle />
-            </div>
+            <ThemeToggle />
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">
-          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-8">{children}</div>
+          {/* Deeper bottom padding below lg, so the floating button never
+              comes to rest on top of the last line of a screen. */}
+          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-28 lg:pb-8">{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
@@ -255,6 +283,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </div>
       </div>
+
+      <MsiziFab
+        onOpen={() => navigate('msizi')}
+        hidden={keyboardOpen || state.nav.screen === 'msizi'}
+      />
     </div>
   );
 }
