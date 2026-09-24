@@ -117,11 +117,21 @@ function AccountBar() {
  *
  * Three decisions here are deliberate and easy to undo by accident:
  *
- * **It is not amber.** Amber is the one primary action on a screen, and on a
- * phone that is already the ＋ in the middle of the tab bar. A second amber
- * circle a thumb's width away would be two things claiming to be the most
- * important, and neither reading as it. Ink gives full contrast in both themes
- * without borrowing a meaning that belongs to something else.
+ * **It wears the feature band, not amber.** Amber is the one primary action on
+ * a screen, and on a phone that is already the ＋ in the middle of the tab bar;
+ * a second amber circle a thumb's width away is two things both claiming to be
+ * the most important, and neither reading as it. So this takes the app's own
+ * deep indigo gradient — the same one, from the same single definition, that
+ * backs the Msizi screen's header — and carries the brand as an amber mark
+ * inside it. That is a deliberate echo: the button and the screen it opens are
+ * the same object seen twice, which is most of what makes a floating control
+ * feel designed rather than dropped on.
+ *
+ * It also means the button looks identical in both themes, because `--v-feature`
+ * is dark in both and the accent is the same amber in both. A mark that changes
+ * colour with the theme is a mark people have to re-learn; the dark-mode border
+ * is there only because the band sits a shade off the canvas there and would
+ * otherwise have no edge.
  *
  * **It sits above the tab bar, not over it.** Anchored past the bar's own
  * height plus the home-indicator inset, so it never lands on a tab, and never
@@ -139,12 +149,17 @@ function MsiziFab({ onOpen, hidden }: { onOpen: () => void; hidden: boolean }) {
     <button
       onClick={onOpen}
       aria-label={t('msizi.open')}
-      className="lg:hidden fixed z-40 grid place-items-center w-14 h-14 rounded-full
-        bg-ink text-canvas shadow-e2 transition hover:opacity-90 active:scale-95
+      className="feature-band lg:hidden fixed z-40 grid place-items-center w-14 h-14 rounded-full
+        shadow-e2 transition duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
+        dark:border dark:border-line
         right-[max(16px,env(safe-area-inset-right))]
         bottom-[calc(76px+env(safe-area-inset-bottom))]"
     >
-      <Icon name="assistant" size={24} />
+      {/* The colour goes on the icon rather than the button, because
+          `.feature-band` sets its own `color` and is defined after Tailwind's
+          utilities — a `text-` class here would be overridden and the mark
+          would come out the band's plain foreground instead of amber. */}
+      <Icon name="assistant" size={26} className="text-on-feature-accent" />
     </button>
   );
 }
