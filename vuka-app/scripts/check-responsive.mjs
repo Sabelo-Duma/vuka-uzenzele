@@ -232,8 +232,13 @@ async function signIn(page, viewport, role) {
   await page.waitForTimeout(600);
 }
 
-const WORKER_SCREENS = ['Home', 'Find work', 'My Record', 'Chats', 'Me'];
-const EMPLOYER_SCREENS = ['Home', 'My jobs', 'Chats', 'Me'];
+/* "Ask Msizi" is reached from the sidebar on a wide screen and from the top bar
+   on a phone, and the walk below finds either by accessible name. It is on both
+   lists because its composer — a text field, a microphone and a button on one
+   row — is the same shape as the chat composer, which is the tightest row in
+   the app and the one that has actually broken at 320px before. */
+const WORKER_SCREENS = ['Home', 'Find work', 'My Record', 'Chats', 'Ask Msizi', 'Me'];
+const EMPLOYER_SCREENS = ['Home', 'My jobs', 'Chats', 'Ask Msizi', 'Me'];
 
 async function walk(page, viewport, screens) {
   for (const name of screens) {

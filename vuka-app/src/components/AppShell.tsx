@@ -105,6 +105,65 @@ function AccountBar() {
   );
 }
 
+/**
+ * The way in to Msizi on a phone, floating over whatever you are reading.
+ *
+ * It floats rather than living in the tab bar because of what it is for. The
+ * four tabs are places you go on purpose; Msizi is what you reach for in the
+ * middle of something else — halfway down a job description, unsure whether the
+ * pay is legal, or what a safety flag would do to you. Making that a
+ * destination you have to navigate to means leaving the thing you were confused
+ * about in order to ask about it.
+ *
+ * Three decisions here are deliberate and easy to undo by accident:
+ *
+ * **It wears the feature band, not amber.** Amber is the one primary action on
+ * a screen, and on a phone that is already the ＋ in the middle of the tab bar;
+ * a second amber circle a thumb's width away is two things both claiming to be
+ * the most important, and neither reading as it. So this takes the app's own
+ * deep indigo gradient — the same one, from the same single definition, that
+ * backs the Msizi screen's header — and carries the brand as an amber mark
+ * inside it. That is a deliberate echo: the button and the screen it opens are
+ * the same object seen twice, which is most of what makes a floating control
+ * feel designed rather than dropped on.
+ *
+ * It also means the button looks identical in both themes, because `--v-feature`
+ * is dark in both and the accent is the same amber in both. A mark that changes
+ * colour with the theme is a mark people have to re-learn; the dark-mode border
+ * is there only because the band sits a shade off the canvas there and would
+ * otherwise have no edge.
+ *
+ * **It sits above the tab bar, not over it.** Anchored past the bar's own
+ * height plus the home-indicator inset, so it never lands on a tab, and never
+ * on the strip iOS reserves for the swipe-up gesture.
+ *
+ * **It gets out of the way twice.** While the keyboard is up it is hidden, for
+ * the same reason the tab bar is — that space is the message being typed. And
+ * on the Msizi screen itself it is hidden, because a button that reopens the
+ * screen you are already on is a button that covers the answer you asked for.
+ */
+function MsiziFab({ onOpen, hidden }: { onOpen: () => void; hidden: boolean }) {
+  const t = useT();
+  if (hidden) return null;
+  return (
+    <button
+      onClick={onOpen}
+      aria-label={t('msizi.open')}
+      className="feature-band lg:hidden fixed z-40 grid place-items-center w-14 h-14 rounded-full
+        shadow-e2 transition duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
+        dark:border dark:border-line
+        right-[max(16px,env(safe-area-inset-right))]
+        bottom-[calc(76px+env(safe-area-inset-bottom))]"
+    >
+      {/* The colour goes on the icon rather than the button, because
+          `.feature-band` sets its own `color` and is defined after Tailwind's
+          utilities — a `text-` class here would be overridden and the mark
+          would come out the band's plain foreground instead of amber. */}
+      <Icon name="assistant" size={26} className="text-on-feature-accent" />
+    </button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { state, navigate, goBack, canGoBack } = useApp();
   const t = useT();
@@ -166,6 +225,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>{t(CHAT_TAB.labelKey)}</span>
             <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
           </button>
+          {/* Msizi — also both roles. Sits last because it is the thing you
+              reach for when one of the others has not made sense. */}
+          <button
+            onClick={() => navigate('msizi')}
+            aria-current={current === 'msizi' ? 'page' : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-small font-bold transition
+              ${current === 'msizi' ? 'bg-brand-solid text-brand-on' : 'text-dim hover:bg-surface-2 hover:text-ink'}`}
+          >
+            <Icon name="assistant" size={20} />
+            <span>{t('msizi.open')}</span>
+          </button>
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -192,7 +262,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-y-auto scroll-area">
-          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-8">{children}</div>
+          {/* Deeper bottom padding below lg, so the floating button never
+              comes to rest on top of the last line of a screen. */}
+          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-28 lg:pb-8">{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
@@ -226,6 +298,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </div>
       </div>
+
+      <MsiziFab
+        onOpen={() => navigate('msizi')}
+        hidden={keyboardOpen || state.nav.screen === 'msizi'}
+      />
     </div>
   );
 }

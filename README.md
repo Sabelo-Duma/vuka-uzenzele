@@ -112,6 +112,16 @@ call-centre roles.
 - **🛡️ Trust by design** — ID verification, two-way reviews, one-tap safety flag that
   gates tier progress.
 - **⚖️ Fair Pay meter** — live minimum-wage check on every job and every employer rate.
+- **🗣️ Msizi, the in-app helper** — ask any question about Vuka by typing or by talking, and
+  hear the answer read back. *"umsizi"* is isiZulu for helper. It is a written, checked
+  knowledge base rather than a language model, and that is a deliberate choice on two
+  counts: it costs nothing to run, so it stays free for every user forever and works with
+  no signal; and it cannot invent an answer about somebody's wages, their record or their
+  safety. Every figure it quotes — the minimum wage, the confirmation window, the tier
+  thresholds — is resolved live from the server, so it can never recite a stale one. It
+  reads your own record back to you, and it says "I do not know that one" rather than
+  guessing. Voice uses the phone's own speech engine: free, private, and honest about the
+  fact that most handsets can only listen and speak in English and Afrikaans.
 - **📶 Low-data ethos** — no external requests; the shell is cached, so browsing and
   applying use very little data and work offline. (Actual *zero-rating* would need a
   signed arrangement with the mobile networks — the copy deliberately does not claim it.)
