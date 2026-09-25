@@ -365,15 +365,12 @@ const SAY_AS: [RegExp, string][] = [
   [/\bVuka Uzenzele\b/gi, 'Vooka Oozen-zeh-leh'],
   [/\bUzenzele\b/gi, 'Oozen-zeh-leh'],
   [/\bVuka\b/gi, 'Vooka'],
-  [/\bumsizi\b/gi, 'oom-see-zee'],
-  [/\bMsizi\b/gi, 'Msee-zee'],
-  [/\bSawubona\b/gi, 'Sah-woo-boh-nah'],
-  [/\bSanibonani\b/gi, 'Sah-nee-boh-nah-nee'],
-  [/\bNgiyabonga\b/gi, 'Ngee-yah-bong-gah'],
-  [/\bSiyabonga\b/gi, 'See-yah-bong-gah'],
-  [/\bEnkosi\b/gi, 'En-koh-see'],
-  [/\bDumela\b/gi, 'Doo-meh-lah'],
-  [/\bMolo\b/g, 'Moh-loh'],
+  /* Chosen by ear from live samples, 2026-09-25: "short and straight". The
+     long respellings (Msee-zee, Sah-woo-boh-nah) made the voice drag every
+     syllable, so the greetings — Sawubona, Molo, Dumela, Ngiyabonga — are
+     left as written, and only the words it actually got wrong are respelled. */
+  [/\bumsizi\b/gi, 'umse-ze'],
+  [/\bMsizi\b/gi, 'Mse-ze'],
   [/\bisiZulu\b/gi, 'isi-Zoo-loo'],
   [/\bisiXhosa\b/gi, 'isi-Kaw-sah'],
   [/\bSesotho\b/gi, 'Seh-soo-too'],

@@ -396,7 +396,8 @@ ok(S.voiceScore(voice('Emmanuel', 'en-US')) === S.voiceScore(voice('Unknown Engi
 ok(S.sayAs('Welcome to Vuka.') === 'Welcome to Vooka.', 'Vuka is spelled the way it is said, VOO-kah');
 ok(S.sayAs("Vuka's rules") === "Vooka's rules", 'and in the possessive');
 ok(/Oozen/.test(S.sayAs('Vuka Uzenzele')) && !/Uzenzele/.test(S.sayAs('Vuka Uzenzele')), 'the full name is respelled');
-ok(S.sayAs('I am Msizi') === 'I am Msee-zee', 'Msizi is respelled');
+ok(S.sayAs('I am Msizi') === 'I am Mse-ze', 'Msizi is respelled short and straight, as chosen by ear');
+ok(S.sayAs('Sawubona! Molo.') === 'Sawubona! Molo.', 'greetings are said as written — respelling them made the voice drag');
 ok(S.sayAs('Vukani') === 'Vukani', 'only whole words — other words are untouched');
 
 /* ---- 6c. The natural voice: few clips, and never silence ---------------- */
