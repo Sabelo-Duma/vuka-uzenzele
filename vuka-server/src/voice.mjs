@@ -149,8 +149,9 @@ export async function synthesize(rawText, requestedVoice) {
     }
     if (/terms/i.test(detail)) {
       /* Groq asks for the model's terms to be accepted once, in the console,
-         by the account owner. Nothing here can do that. */
-      block(60 * 60 * 1000, 'terms_not_accepted');
+         by the account owner. Nothing here can do that. Short, because the
+         moment they do, the voice should come back without a restart. */
+      block(5 * 60 * 1000, 'terms_not_accepted');
     }
     throw Object.assign(new Error(`voice ${res.status}: ${detail}`), { code: 'unavailable' });
   }
