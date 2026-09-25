@@ -20,6 +20,7 @@ import { captureError, installProcessHandlers, recentErrors, errorSummary, monit
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
+import { synthesize, voiceStats } from './voice.mjs';
 import {
   subscribe, emit, isOnline, hasStream, connectionStats, closeAll, setVisibility, onPresenceChange,
 } from './realtime.mjs';
@@ -615,6 +616,7 @@ app.get('/api/health', asyncH(async (_req, res) => {
     // Msizi's model fallback. False is fine: the app answers from its own
     // knowledge base and says so.
     ai: aiStats(),
+    voice: voiceStats(),
     monitoring: monitoringTarget,
     // How many devices are holding a live chat channel open right now. Worth
     // watching: it is the one number that says whether people are getting
@@ -1735,6 +1737,33 @@ app.post('/api/assistant/ask', requireAuth, assistantLimiter, asyncH(async (req,
     if (e.code === 'over_budget') return res.status(429).json({ error: 'Msizi has answered a lot today. Try again tomorrow.', reason: 'over_budget' });
     captureError(e.cause ?? e, 'assistant:ask');
     res.status(503).json({ error: 'Msizi could not think that through right now.', reason: e.code ?? 'unavailable' });
+  }
+}));
+
+/* ---- Msizi's natural voice. See voice.mjs. One clip of at most 200
+   characters per request, so its own per-IP limit: an answer is a handful of
+   clips, and they must not eat the question limit above. */
+const voiceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Slow down a little.', reason: 'slow_down' },
+});
+
+app.post('/api/assistant/voice', requireAuth, voiceLimiter, asyncH(async (req, res) => {
+  try {
+    const { audio, cached } = await synthesize(req.body?.text, req.body?.voice);
+    res.set('Content-Type', 'audio/wav');
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('X-Voice-Cache', cached ? 'hit' : 'miss');
+    res.send(audio);
+  } catch (e) {
+    if (e.code === 'empty' || e.code === 'too_long') return res.status(400).json({ error: 'That clip is not speakable.', reason: e.code });
+    if (e.code === 'not_configured') return res.status(503).json({ error: 'No natural voice is set up.', reason: e.code });
+    if (e.code === 'over_budget') return res.status(429).json({ error: 'The natural voice is resting until tomorrow.', reason: e.code });
+    captureError(e, 'assistant:voice');
+    res.status(503).json({ error: 'The natural voice is not available right now.', reason: 'unavailable' });
   }
 }));
 

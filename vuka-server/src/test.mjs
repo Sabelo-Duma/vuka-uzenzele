@@ -491,6 +491,13 @@ async function run() {
     ok(A.tidy('**Yes** you can.\n- one\n# Heading') === 'Yes you can.\n• one\nHeading', 'markdown is flattened to the plain text the app renders');
     ok(A.violatesFacts('Vuka holds your money until the job is done.'), 'a reply saying Vuka holds the money is caught');
     ok(!A.violatesFacts('Vuka does not hold your money. The employer pays you directly.'), 'the true statement is not');
+
+    // The natural voice: gated, bounded, and honest when it is off.
+    ok((await api('POST', '/assistant/voice', { body: { text: 'Hello' } })).status === 401, 'voice requires auth');
+    ok((await api('POST', '/assistant/voice', { token: wTok, body: { text: 'x'.repeat(201) } })).status === 400, 'a clip over 200 characters is refused');
+    const vOff = await api('POST', '/assistant/voice', { token: wTok, body: { text: 'Welcome to Vooka.' } });
+    ok(vOff.status === 503 && vOff.json?.reason === 'not_configured', 'with no key the voice says so, and the app uses the phone');
+    ok(h?.voice?.configured === false && h?.voice?.dailyCap > 0, 'health reports the voice and its daily cap');
   }
 
   // 9j) safety reports are stored, not just toasted
