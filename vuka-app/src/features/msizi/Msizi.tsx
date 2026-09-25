@@ -28,7 +28,8 @@ import { ask, askById, groundingFor, lookup, openers, type MsiziContext, type Ms
 import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
 import {
-  Listener, audioMode, canListen, canSpeak, onVoicesChanged, pickVoice, primeSpeech, speak, stopSpeaking, voicesReady,
+  Listener, audioMode, canListen, canSpeak, onVoicesChanged, pickVoice, primeSpeech, setNeuralVoice, speak, stopSpeaking,
+  voicesReady,
   type ListenError,
 } from '../../lib/speech';
 import { langMeta } from '../../i18n';
@@ -164,6 +165,15 @@ export function Msizi() {
     stopSpeaking();
   }, []);
 
+  /* The natural voice for English answers (vuka-server/src/voice.mjs). Only
+     while signed in — the route needs a session — and the phone's own voice
+     covers everything it cannot. */
+  useEffect(() => {
+    if (!state.user) return undefined;
+    setNeuralVoice((text) => api.assistantVoice(text));
+    return () => setNeuralVoice(null);
+  }, [state.user]);
+
   const speechCoverage = useMemo(
     () => (voicesLoaded ? pickVoice(lang).coverage : 'native'),
     /* voiceTick is not read here — it is the signal that the list underneath
@@ -191,7 +201,11 @@ export function Msizi() {
     setSpeakingTurn(turn.id);
     /* A live answer is the person's own record. It is read by a voice on the
        phone, never by one that sends the sentence to a server. */
-    speak(text, lang, () => setSpeakingTurn((cur) => (cur === turn.id ? null : cur)),
+    /* The language of the TEXT, which picks the voice. Written answers are in
+       English whatever the app is set to; small talk, AI answers and the
+       refusal come back in the app's language. */
+    const textLang = r.kind === 'chat' || r.kind === 'ai' || r.kind === 'miss' ? lang : 'en';
+    speak(text, textLang, () => setSpeakingTurn((cur) => (cur === turn.id ? null : cur)),
       { localOnly: r.kind === 'live' });
   }, [lang, t]);
 
@@ -409,7 +423,7 @@ export function Msizi() {
                   <button
                     onClick={() => {
                       if (speakingTurn === turn.id) { stopSpeaking(); setSpeakingTurn(null); }
-                      else readAloud(turn);
+                      else { primeSpeech(); readAloud(turn); }
                     }}
                     className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface-2 px-3.5 py-2
                       text-small font-bold text-ink hover:bg-surface transition active:scale-95"

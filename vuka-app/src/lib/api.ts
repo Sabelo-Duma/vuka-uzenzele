@@ -498,6 +498,27 @@ export const api = {
     entries: { title: string; body: string }[];
     history: { q: string; a: string }[];
   }) => request<{ answer: string; provider: string }>('POST', '/assistant/ask', input),
+  /* One clip of Msizi's natural voice, as WAV. Throws ApiError (status 429 or
+     503 when the free allowance is spent or no voice is set up), and the
+     caller falls back to the phone's own voice. */
+  assistantVoice: async (text: string): Promise<Blob> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/assistant/voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ text }),
+      });
+    } catch {
+      throw new ApiError('offline', 0);
+    }
+    if (!res.ok) {
+      let reason: string | undefined;
+      try { reason = ((await res.json()) as { reason?: string }).reason; } catch { /* not json */ }
+      throw new ApiError('voice unavailable', res.status, reason);
+    }
+    return res.blob();
+  },
   reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
     request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),
   /* Blocking. A safety report waits for a person to read it; this takes effect

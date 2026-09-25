@@ -177,10 +177,14 @@ function rankedFor(voices: SpeechSynthesisVoice[], tag: string): SpeechSynthesis
       const lang = v.lang.toLowerCase().replace('_', '-');
       return lang === want || lang.split('-')[0] === base;
     })
-    /* Exact region first — en-ZA over en-US for the same score — then quality. */
+    /* Region is worth a bonus, not a veto. It used to sort first, so an
+       iPhone's compact South African voice (Tessa) always beat a downloaded
+       Premium or Enhanced voice from another region — which is the difference
+       between "robot" and "person". Now en-ZA wins a tie, and a clearly
+       better voice wins outright. */
     .sort((a, b) => {
-      const exact = (v: SpeechSynthesisVoice) => (v.lang.toLowerCase().replace('_', '-') === want ? 1 : 0);
-      return (exact(b) - exact(a)) || (voiceScore(b) - voiceScore(a));
+      const exact = (v: SpeechSynthesisVoice) => (v.lang.toLowerCase().replace('_', '-') === want ? 3 : 0);
+      return (voiceScore(b) + exact(b)) - (voiceScore(a) + exact(a));
     });
 }
 
@@ -347,6 +351,42 @@ export function toSpeech(text: string): string {
  * every ten seconds. Sentences are short enough that the bug never triggers, so
  * the nudging can go.
  */
+/**
+ * How an English voice should say the South African words in Msizi's answers.
+ *
+ * Reported from a phone: "it can't pronounce Vuka". An English engine reads it
+ * as "VYOO-ka" or "VUH-ka"; the word is isiZulu for "wake up" and is said
+ * VOO-kah. Engines accept no phonetic markup in the browser, and Orpheus none
+ * either, so the fix is spelling it the way it sounds. Applied ONLY for English
+ * voices — an isiZulu voice already says these correctly, and would be thrown
+ * by the respelling.
+ */
+const SAY_AS: [RegExp, string][] = [
+  [/\bVuka Uzenzele\b/gi, 'Vooka Oozen-zeh-leh'],
+  [/\bUzenzele\b/gi, 'Oozen-zeh-leh'],
+  [/\bVuka\b/gi, 'Vooka'],
+  [/\bumsizi\b/gi, 'oom-see-zee'],
+  [/\bMsizi\b/gi, 'Msee-zee'],
+  [/\bSawubona\b/gi, 'Sah-woo-boh-nah'],
+  [/\bSanibonani\b/gi, 'Sah-nee-boh-nah-nee'],
+  [/\bNgiyabonga\b/gi, 'Ngee-yah-bong-gah'],
+  [/\bSiyabonga\b/gi, 'See-yah-bong-gah'],
+  [/\bEnkosi\b/gi, 'En-koh-see'],
+  [/\bDumela\b/gi, 'Doo-meh-lah'],
+  [/\bMolo\b/g, 'Moh-loh'],
+  [/\bisiZulu\b/gi, 'isi-Zoo-loo'],
+  [/\bisiXhosa\b/gi, 'isi-Kaw-sah'],
+  [/\bSesotho\b/gi, 'Seh-soo-too'],
+  [/\bSoweto\b/g, 'So-weh-toh'],
+];
+
+/** Respell South African words for an English voice. Exported for the tests. */
+export function sayAs(text: string): string {
+  let out = text;
+  for (const [re, said] of SAY_AS) out = out.replace(re, said);
+  return out;
+}
+
 export function toSentences(text: string): string[] {
   return toSpeech(text)
     .split(/(?<=[.!?:])\s+/)
@@ -370,13 +410,6 @@ export interface SpeakHandle {
 let speakGeneration = 0;
 
 /**
- * Read text aloud.
- *
- * Always cancels whatever was already speaking. Two answers talking over each
- * other is worse than either of them, and on a phone held to the ear it is
- * unusable.
- */
-/**
  * Unlock speech on iOS. MUST be called synchronously inside a tap.
  *
  * iOS Safari refuses speechSynthesis.speak() unless it is called in the same
@@ -387,6 +420,10 @@ let speakGeneration = 0;
  */
 let primed = false;
 export function primeSpeech(): void {
+  /* The natural voice plays through an <audio> element, which iOS gates the
+     same way. It is unlocked on every tap, not just the first: a clip started
+     inside a gesture keeps the element allowed for what follows. */
+  unlockAudio();
   if (primed || !canSpeak()) return;
   try {
     const u = new SpeechSynthesisUtterance(' ');
@@ -394,6 +431,172 @@ export function primeSpeech(): void {
     window.speechSynthesis.speak(u);
     primed = true;
   } catch { /* nothing to unlock */ }
+}
+
+/* ------------------------------------------------------------------
+   The natural voice.
+
+   A neural voice from the server (vuka-server/src/voice.mjs) for English
+   answers, because the phone's own English voices are what got "sounds like a
+   robot". The phone's voice is always the fallback — for other languages, for
+   the person's own record, offline, and when the free allowance is spent.
+   ------------------------------------------------------------------ */
+
+type NeuralSource = (text: string) => Promise<Blob>;
+let neuralSource: NeuralSource | null = null;
+/** Set after a refusal, so a spent allowance is not asked again per sentence. */
+let neuralOffUntil = 0;
+const NEURAL_BACKOFF_MS = 10 * 60 * 1000;
+/** The server's per-clip limit is 200; a margin for whitespace differences. */
+export const CLIP_CHARS = 190;
+
+/** Wire up the natural voice. The screen passes the API call in, which keeps
+    this module free of network code (and testable without it). */
+export function setNeuralVoice(fn: NeuralSource | null): void {
+  neuralSource = fn;
+}
+
+function neuralAvailable(): boolean {
+  return neuralSource !== null && Date.now() >= neuralOffUntil && typeof Audio !== 'undefined';
+}
+
+/**
+ * Pack sentences into as few clips as possible, each at most `max` characters.
+ *
+ * The free allowance is counted in requests, so ten short sentences sent one
+ * by one would cost ten times what the same answer costs packed into two. A
+ * sentence longer than a clip is split at commas, then at spaces.
+ */
+export function packClips(sentences: string[], max = CLIP_CHARS): string[] {
+  const pieces: string[] = [];
+  for (const s of sentences) {
+    if (s.length <= max) { pieces.push(s); continue; }
+    let rest = s;
+    while (rest.length > max) {
+      const window = rest.slice(0, max);
+      const cut = Math.max(window.lastIndexOf(', '), window.lastIndexOf('; '));
+      const at = cut > max / 3 ? cut + 1 : Math.max(window.lastIndexOf(' '), 1);
+      pieces.push(rest.slice(0, at).trim());
+      rest = rest.slice(at).trim();
+    }
+    if (rest) pieces.push(rest);
+  }
+  const clips: string[] = [];
+  for (const p of pieces) {
+    const last = clips[clips.length - 1];
+    if (last !== undefined && last.length + 1 + p.length <= max) clips[clips.length - 1] = `${last} ${p}`;
+    else clips.push(p);
+  }
+  return clips;
+}
+
+let player: HTMLAudioElement | null = null;
+let silentUrl: string | null = null;
+
+function getPlayer(): HTMLAudioElement | null {
+  if (player) return player;
+  if (typeof Audio === 'undefined') return null;
+  player = new Audio();
+  player.preload = 'auto';
+  return player;
+}
+
+/** A tenth of a second of silence, as a WAV blob (CSP allows blob:, not data:). */
+function silence(): string | null {
+  if (silentUrl) return silentUrl;
+  if (typeof URL === 'undefined' || typeof Blob === 'undefined') return null;
+  const rate = 8000;
+  const samples = rate / 10;
+  const buf = new ArrayBuffer(44 + samples);
+  const v = new DataView(buf);
+  const str = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + samples, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, samples, true);
+  for (let i = 0; i < samples; i++) v.setUint8(44 + i, 128);
+  silentUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  return silentUrl;
+}
+
+function unlockAudio(): void {
+  if (!neuralSource) return;
+  const p = getPlayer();
+  const src = silence();
+  if (!p || !src) return;
+  try {
+    /* Only if idle. Unlocking over a clip that is playing would cut it off. */
+    if (!p.paused && !p.ended) return;
+    p.src = src;
+    void p.play().catch(() => { /* locked; the phone's voice will be used */ });
+  } catch { /* nothing to unlock */ }
+}
+
+type PlayResult = 'ended' | 'failed' | 'stopped';
+
+function playBlob(blob: Blob, generation: number): Promise<PlayResult> {
+  const p = getPlayer();
+  if (!p) return Promise.resolve('failed');
+  const url = URL.createObjectURL(blob);
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (r: PlayResult) => {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(watch);
+      p.onended = null;
+      p.onerror = null;
+      URL.revokeObjectURL(url);
+      resolve(r);
+    };
+    /* stopSpeaking() bumps the generation; this is how a clip hears about it. */
+    const watch = window.setInterval(() => {
+      if (generation !== speakGeneration) { try { p.pause(); } catch { /* gone */ } done('stopped'); }
+    }, 120);
+    p.onended = () => done('ended');
+    p.onerror = () => done('failed');
+    p.src = url;
+    p.play().catch(() => done('failed'));
+  });
+}
+
+/**
+ * Play clips through the natural voice, fetching each next clip while the
+ * current one plays. On any failure the rest is handed to `fallback` so the
+ * answer is always finished, in one voice or the other.
+ */
+async function speakNeural(
+  clips: string[], generation: number, fallback: (rest: string[]) => void, finish: () => void,
+): Promise<void> {
+  const source = neuralSource;
+  if (!source) { fallback(clips); return; }
+  const fetchClip = (i: number) => {
+    const pending = source(clips[i]);
+    pending.catch(() => { /* handled where awaited */ });
+    return pending;
+  };
+  let next = fetchClip(0);
+  for (let i = 0; i < clips.length; i++) {
+    let blob: Blob;
+    try {
+      blob = await next;
+    } catch {
+      neuralOffUntil = Date.now() + NEURAL_BACKOFF_MS;
+      if (generation === speakGeneration) fallback(clips.slice(i));
+      return;
+    }
+    if (generation !== speakGeneration) return;
+    if (i + 1 < clips.length) next = fetchClip(i + 1);
+    const result = await playBlob(blob, generation);
+    if (result === 'stopped') return;
+    if (result === 'failed') {
+      /* Playback refused — on iOS, an element that was never unlocked. The
+         phone's voice was unlocked by the same tap, so it can finish. */
+      if (generation === speakGeneration) fallback(clips.slice(i));
+      return;
+    }
+  }
+  finish();
 }
 
 /**
@@ -409,16 +612,27 @@ export function audioMode(mode: 'playback' | 'play-and-record' | 'auto'): void {
   } catch { /* not supported */ }
 }
 
+/**
+ * Read text aloud. `lang` is the language the TEXT is in — the written
+ * answers are English whatever the app language is.
+ *
+ * English goes to the natural voice when it is available, unless `localOnly`
+ * (the person's own record, which stays on the phone). Everything else, and
+ * anything the natural voice cannot finish, is read by the phone's voice.
+ */
 export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { localOnly?: boolean } = {}): SpeakHandle {
   const noop: SpeakHandle = { done: Promise.resolve() };
-  if (!canSpeak() || !text.trim()) { onEnd?.(); return noop; }
+  const neural = lang === 'en' && !opts.localOnly && neuralAvailable();
+  if ((!canSpeak() && !neural) || !text.trim()) { onEnd?.(); return noop; }
 
   stopSpeaking();
   const generation = speakGeneration;
 
   audioMode('playback');
-  const { voice } = pickVoice(lang, opts);
-  const sentences = toSentences(text);
+  const { voice } = canSpeak() ? pickVoice(lang, opts) : { voice: null };
+  /* Respell South African words only for an English voice. */
+  const english = neural || (voice ? voice.lang.toLowerCase().startsWith('en') : lang === 'en');
+  const sentences = toSentences(text).map((s) => (english ? sayAs(s) : s));
   if (sentences.length === 0) { onEnd?.(); return noop; }
 
   const done = new Promise<void>((resolve) => {
@@ -430,7 +644,23 @@ export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { loca
       resolve();
     };
 
-    try {
+    if (neural) {
+      void speakNeural(packClips(sentences), generation,
+        (rest) => speakDevice(rest, voice, lang, finish), finish);
+      return;
+    }
+    speakDevice(sentences, voice, lang, finish);
+  });
+
+  return { done };
+}
+
+/** The phone's own voice, one utterance per sentence. */
+function speakDevice(
+  sentences: string[], voice: SpeechSynthesisVoice | null, lang: Lang, finish: () => void,
+): void {
+  if (!canSpeak() || sentences.length === 0) { finish(); return; }
+  try {
       sentences.forEach((sentence, i) => {
         const u = new SpeechSynthesisUtterance(sentence);
         if (voice) { u.voice = voice; u.lang = voice.lang; }
@@ -454,17 +684,16 @@ export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { loca
         }
         window.speechSynthesis.speak(u);
       });
-    } catch {
-      finish();
-    }
-  });
-
-  return { done };
+  } catch {
+    finish();
+  }
 }
 
 /** Silence immediately. Safe to call when nothing is speaking. */
 export function stopSpeaking(): void {
   speakGeneration += 1;
+  /* The natural voice's clip stops at once, not at the next watch tick. */
+  if (player && !player.paused) { try { player.pause(); } catch { /* gone */ } }
   if (!canSpeak()) return;
   try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ }
 }

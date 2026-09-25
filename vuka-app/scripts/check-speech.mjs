@@ -391,6 +391,93 @@ ok(S.voiceScore(voice('Emmanuel', 'en-US')) === S.voiceScore(voice('Unknown Engi
   }
 }
 
+/* ---- 6b. "It can't pronounce Vuka" -------------------------------------- */
+
+ok(S.sayAs('Welcome to Vuka.') === 'Welcome to Vooka.', 'Vuka is spelled the way it is said, VOO-kah');
+ok(S.sayAs("Vuka's rules") === "Vooka's rules", 'and in the possessive');
+ok(/Oozen/.test(S.sayAs('Vuka Uzenzele')) && !/Uzenzele/.test(S.sayAs('Vuka Uzenzele')), 'the full name is respelled');
+ok(S.sayAs('I am Msizi') === 'I am Msee-zee', 'Msizi is respelled');
+ok(S.sayAs('Vukani') === 'Vukani', 'only whole words — other words are untouched');
+
+/* ---- 6c. The natural voice: few clips, and never silence ---------------- */
+
+{
+  const sentences = S.toSentences('One short line.\nAnother short line.\nA third.\n' + 'Word '.repeat(60) + 'end.');
+  const clips = S.packClips(sentences);
+  ok(clips.every((c) => c.length <= S.CLIP_CHARS), 'every clip fits the provider limit',
+    clips.map((c) => c.length).join(','));
+  ok(clips[0].startsWith('One short line. Another short line. A third.'),
+    'short sentences share a clip — the free allowance is counted per request', clips[0]);
+  ok(clips.join(' ').replace(/\s+/g, ' ') === sentences.join(' ').replace(/\s+/g, ' '),
+    'packing loses and adds nothing');
+}
+
+async function neuralRun(sourceBehaviour, audioBehaviour = 'ok') {
+  const played = [];
+  const spokenByDevice = [];
+  const saved = { ...globalThis.window };
+  const savedAudio = globalThis.Audio;
+  const savedUrl = globalThis.URL;
+  class FakeAudio {
+    constructor() { this.paused = true; this.ended = false; this.src = ''; this.onended = null; this.onerror = null; }
+    play() {
+      if (this.src.startsWith('blob:silence')) return Promise.resolve();
+      /* Read from the run in progress, not captured: speech.ts keeps ONE
+         player for the page's life, so it outlives the run that created it. */
+      if (globalThis.__audio.behaviour === 'refuse') return Promise.reject(new Error('NotAllowedError'));
+      globalThis.__audio.played.push(this.src);
+      this.paused = false;
+      Promise.resolve().then(() => { this.paused = true; this.onended?.(); });
+      return Promise.resolve();
+    }
+    pause() { this.paused = true; }
+  }
+  let n = 0;
+  globalThis.__audio = { behaviour: audioBehaviour, played };
+  globalThis.Audio = FakeAudio;
+  globalThis.URL = { createObjectURL: (b) => (b.type === 'audio/wav' && b.size < 1000 ? 'blob:silence' : `blob:clip${++n}`), revokeObjectURL: () => {} };
+  globalThis.window.setInterval = () => 0;
+  globalThis.window.clearInterval = () => {};
+  globalThis.window.speechSynthesis = {
+    getVoices: () => [voice('Samantha', 'en-US')],
+    speak: (u) => { spokenByDevice.push(u.text); if (u.onend) Promise.resolve().then(() => u.onend()); },
+    cancel: () => {},
+  };
+  globalThis.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+  S.setNeuralVoice(sourceBehaviour);
+  let ended = false;
+  try {
+    const h = S.speak('Welcome to Vuka. ' + 'This answer is long enough to need a second clip, '.repeat(5) + 'the end.', 'en', () => { ended = true; });
+    await h.done;
+  } finally {
+    S.setNeuralVoice(null);
+    globalThis.Audio = savedAudio;
+    globalThis.URL = savedUrl;
+    Object.assign(globalThis.window, saved);
+  }
+  return { played, spokenByDevice, ended };
+}
+
+{
+  const good = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }));
+  ok(good.played.length >= 2 && good.spokenByDevice.length === 0, 'English plays through the natural voice, clip by clip',
+    `played ${good.played.length}, device ${good.spokenByDevice.length}`);
+  ok(good.ended, 'and reports the end once it is done');
+
+  const locked = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }), 'refuse');
+  ok(locked.spokenByDevice.length > 0 && locked.ended, 'playback refused by the browser falls back too', JSON.stringify(locked));
+  ok(locked.played.length === 0, 'having tried the natural voice first');
+
+  const spent = await neuralRun(async () => { throw new Error('429'); });
+  ok(spent.played.length === 0 && spent.spokenByDevice.length > 0 && spent.ended,
+    'a spent allowance falls back to the phone\'s voice — never silence');
+  ok(spent.spokenByDevice[0].includes('Vooka'), 'and the phone\'s English voice gets the respelling too', spent.spokenByDevice[0]);
+
+  const after = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }));
+  ok(after.played.length === 0 && after.spokenByDevice.length > 0,
+    'after a refusal it backs off rather than asking again for every answer');
+}
+
 /* ---- 7. Every answer Msizi can say is actually speakable ---------------- */
 
 /* The rules above are asserted against hand-written examples, which proves the
