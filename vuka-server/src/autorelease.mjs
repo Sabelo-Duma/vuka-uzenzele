@@ -14,12 +14,13 @@
    and total earned but is excluded from the average, so an employer's silence
    can move neither the worker's rating nor their own.
 
-   Later this is also the seam escrow needs — the same window, releasing money
-   instead of a reference.
+   It is also where escrow releases: the same window moves the secured pay
+   into the worker's wallet (escrow.mjs).
    ============================================================ */
 
 import { all, run } from './db.mjs';
 import { uuid } from './auth.mjs';
+import { release } from './escrow.mjs';
 
 /**
  * Hours an employer gets to confirm before the job is credited without them.
@@ -89,6 +90,12 @@ export async function releaseDueJobs({ now = new Date(), hours = AUTO_RELEASE_HO
         0, `Confirmed automatically — ${r.employer_name} did not respond within ${hours} hours. The work counts; it carries no rating.`,
         r.safety_flag ? 1 : 0, 1, ts],
     );
+
+    /* The seam this file was written to leave: the same window now releases
+       the secured pay to the worker's wallet too, so an employer who never
+       answers cannot hold wages hostage. */
+    const paid = await release(r.gig_id, r.worker_id, r.app_id);
+    r.releasedCents = paid?.amountCents ?? 0;
 
     released.push(r);
     if (onRelease) {

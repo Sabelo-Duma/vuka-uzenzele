@@ -96,9 +96,9 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
       <H>Your bank details never touch your phone twice</H>
       <P>
         Account numbers are encrypted at rest and are never sent back to any device. Once saved, the
-        app can only ever display something like "Capitec •••• 4321". {OPERATOR.tradingName} does not
-        process payments and no money moves through Vuka — payment for a job is arranged directly
-        between you and the employer.
+        app can only ever display something like "Capitec •••• 4321". In-app payments are in test
+        mode: no real money moves through Vuka yet, and until they are switched on, payment for a job
+        is arranged directly between you and the employer.
       </P>
 
       <H>The lawful basis we rely on</H>
@@ -239,9 +239,11 @@ export function TermsSheet({ onClose }: { onClose: () => void }) {
 
       <H>Money</H>
       <P>
-        Payment is arranged and made <b>directly between the worker and the employer</b>. Vuka does
-        not hold, transfer or guarantee any payment, and takes no commission from what you earn.
-        Bank details you add are stored so you can be paid; adding them does not mean Vuka is paying you.
+        Vuka shows a job's pay being secured before work starts, released to the worker's wallet on
+        confirmation, and withdrawn to their bank. <b>This is in test mode:</b> no real money moves
+        through Vuka yet, and Vuka does not hold, transfer or guarantee any payment. Until payments are
+        switched on, payment is arranged and made <b>directly between the worker and the employer</b>.
+        Vuka takes no commission from what you earn.
       </P>
 
       <H>The fair-pay check is guidance</H>

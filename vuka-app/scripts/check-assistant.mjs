@@ -113,10 +113,10 @@ try {
   /* --- typing a question reaches the right answer --- */
   const paid = await askText(page, 'how do i get paid');
   const paidText = await paid.innerText();
-  ok(/employer pays you directly/i.test(paidText),
-    'the payment answer says the employer pays directly', paidText.slice(0, 160));
-  ok(/not an escrow|does not hold your money|does not process payments/i.test(paidText),
-    'the payment answer is explicit that Vuka does not hold the money', paidText.slice(0, 200));
+  ok(/secured before the work starts/i.test(paidText),
+    'the payment answer says the pay is secured before work starts', paidText.slice(0, 160));
+  ok(/test mode/i.test(paidText) && /no real money/i.test(paidText),
+    'the payment answer is explicit that it is test mode and no real money moves', paidText.slice(0, 400));
 
   /* --- the wage it quotes is the one the server is serving --- */
   const config = await page.evaluate(async () => {

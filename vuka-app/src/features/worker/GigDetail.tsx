@@ -8,6 +8,7 @@ import { DetailHeader, FairMeter, Hero, KV, PayBox, StickyCta } from '../../comp
 import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { ReviewSheet } from './ReviewSheet';
+import { WorkerFundingPanel } from '../../components/Funding';
 
 export function GigDetail({ id }: { id: string }) {
   const { state, applyGig, toast, navigate, goBack } = useApp();
@@ -49,6 +50,7 @@ export function GigDetail({ id }: { id: string }) {
       </Hero>
 
       <div className="py-4">
+        <WorkerFundingPanel gig={gig} />
         <FairMeter ratePerHour={gig.payPerHour} minWage={minWagePerHour()} />
         <p className="text-ink leading-relaxed text-small m-0">{gig.description}</p>
       </div>

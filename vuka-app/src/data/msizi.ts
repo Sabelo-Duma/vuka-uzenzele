@@ -433,12 +433,15 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'how-payment-works',
     title: 'How you get paid',
     asks: ['How do I get paid?', 'Does Vuka hold my money?', 'When do I get my money?'],
-    keywords: ['paid', 'payment', 'money', 'wages', 'cash', 'eft', 'salary', 'earn', 'escrow'],
+    keywords: ['paid', 'payment', 'money', 'wages', 'cash', 'eft', 'salary', 'earn', 'escrow', 'secured', 'funds', 'wallet'],
     body:
-      'The employer pays you directly. Vuka does not process payments and does not hold your money at any point.\n'
-      + 'This matters, so it is worth being plain about it: Vuka is not an escrow service. When an employer confirms your finished job in the app, what that releases is your reference — the entry on your record, your rating and your tier progress. It does not release money, because the money was never with us.\n'
-      + 'So agree the amount and how you will be paid with the employer before you start the work. The listing shows the rate per hour and the hours, which is what you should be paid.\n'
+      'The pay for a job is secured before the work starts. The employer puts the full amount in when they post the job, or later — but always before they can hire anyone.\n'
+      + '• Look for Funds secured on a job. It means the pay is already waiting for you. A job showing Awaiting funds can still be applied for, but nobody can be hired onto it until the employer adds the money.\n'
+      + '• Until someone is hired, the employer can take the funds back, free. From the moment you are hired, the money is locked for you.\n'
+      + '• When the employer confirms your finished job — or automatically, {autoReleaseHours} after you mark it done if they never answer — the pay moves into your Vuka wallet under Me. You withdraw it to your bank account whenever you like.\n'
+      + 'Right now this is in TEST MODE: the wallet is a practice run and no real money moves through Vuka yet. Until it is switched on, agree with the employer how they will actually pay you, before you start.\n'
       + 'If an employer does not pay you, report it. That is exactly what the safety report is for.',
+    goto: { screen: 'me', labelKey: 'msizi.goto.me' },
     next: ['banking-details', 'fair-pay', 'report-someone'],
   },
   {
@@ -449,7 +452,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'You can save your banking details under Me, so you have them ready to give an employer without digging for a card.\n'
       + 'They are encrypted on the server and are never sent back to the app. Even you only ever see a masked hint — your bank, the account type, and the last four digits. Nothing sensitive is stored on your phone.\n'
-      + 'Adding them is optional, and Vuka does not pay you through them today, since the employer pays you directly.\n'
+      + 'They are where your wallet sends your pay when you withdraw it. Payments are in test mode for now, so no real money is sent to them yet.\n'
       + 'Nobody from Vuka will ever phone or message you asking for your account number, your PIN or an OTP. Anyone who does is not from Vuka.',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
     next: ['how-payment-works', 'what-data'],
@@ -493,7 +496,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'Open the job from your Home screen and mark it done. You will be asked to rate the employer out of five stars before you can — this is the part that keeps employers honest, and it is why other workers can see who is good to work for.\n'
       + 'If something about the job was unsafe, there is a box to raise a safety flag at the same time. A person reads those.\n'
-      + 'The employer is then asked to confirm. Once they do, the job lands on your record with their rating and review.',
+      + 'The employer is then asked to confirm. Once they do, the job lands on your record with their rating and review, and the pay that was secured for it moves into your wallet (test mode for now).',
     next: ['confirm-work', 'ratings-average'],
   },
   {
@@ -503,7 +506,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['confirm', 'confirmation', 'waiting', 'pending', 'never confirmed', 'auto release', 'stuck'],
     body:
       'After you mark a job done, the employer has {autoReleaseHours} hours to confirm it.\n'
-      + 'If they never do, the job is credited to you anyway once that window passes. You get the record entry, the earnings and the tier progress. It is stored without a rating, so their silence cannot drag your average down — or push it up.\n'
+      + 'If they never do, the job is credited to you anyway once that window passes. You get the record entry, the earnings, the tier progress — and the secured pay moves into your wallet. It is stored without a rating, so their silence cannot drag your average down — or push it up.\n'
       + 'This exists because an employer who simply stops replying used to cancel a worker progress permanently, for work that was genuinely done. Now they cannot.',
     next: ['ratings-average', 'my-jobs'],
   },
@@ -518,6 +521,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'Tap Post. You describe the work, where it is, how many hours, and what you are paying per hour.\n'
       + '• The Fair-Pay meter shows you how your rate compares with the national minimum wage of {minWage} per hour as you type. Paying under it is not lawful.\n'
+      + '• Secure the pay when you post, or later. You can take it back free until you hire; you cannot hire anyone until it is secured. Workers see Funds secured on your job, which is what makes good people apply.\n'
       + '• Your job goes live to workers near you immediately.\n'
       + '• You see everyone who applies, with their record — rating, jobs completed, tier and badges.\n'
       + 'Posting is free, and Vuka takes no commission.',
@@ -547,7 +551,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'When a worker marks a job done you get a notification. Open it, confirm the work, and rate them out of five with a short review.\n'
       + 'Please do it promptly. For you it is a tap; for them it is the entry on their record that unlocks the next tier and the next kind of job.\n'
       + 'If you do not confirm within {autoReleaseHours} hours, the job is credited to the worker automatically, without a rating. Your review is the part that is lost, and that review is the most valuable thing you can give someone who is building a first work history.\n'
-      + 'Confirming releases their reference. It does not move money — you pay the worker directly.',
+      + 'Confirming also releases the pay you secured into the worker\'s Vuka wallet. From the moment you hired them it was locked for them. Payments are in test mode for now — no real money moves yet.',
     next: ['how-payment-works', 'choose-worker'],
   },
   {
@@ -557,8 +561,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['cost', 'fee', 'commission', 'charge', 'free', 'price', 'employer'],
     role: 'employer',
     body:
-      'Nothing. Posting a job is free, hiring is free, and Vuka takes no commission on what you pay the worker.\n'
-      + 'Vuka does not handle the payment at all — you pay the worker directly, however the two of you agree.',
+      'Posting a job is free and hiring is free. What you pay is the pay itself, secured before you hire, and you can take it back free until you do.\n'
+      + 'Payments are in test mode for now, so no real money moves through Vuka yet and nothing is charged. Any fee, once payments are switched on, will be shown before you pay.',
     next: ['how-payment-works', 'post-a-job'],
   },
 
