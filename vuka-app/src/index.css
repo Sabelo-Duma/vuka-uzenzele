@@ -319,6 +319,69 @@ h1, h2, h3, h4 {
   .splash-bar { width: 100% !important; }
 }
 
+/* ---- Msizi's orb ----
+   One object, everywhere Msizi appears: the floating button, the screen's
+   hero, the avatar on each answer. A sphere of the brand amber with a slowly
+   turning halo, so the way in and the screen it opens are visibly the same
+   thing (they were not: an amber tile on one, an indigo disc on the other).
+
+   It shows what Msizi is doing without a word:
+     idle       breathes, the halo drifts
+     listening  vermilion ripples — vermilion is "happening right now"
+     thinking   the halo spins up
+     speaking   the sphere swells with the voice's own loudness (--level,
+                set per frame from Web Audio in lib/speech.ts)
+
+   The fills are the brand amber and the dark-palette feature indigo — the same
+   values the splash uses — so it reads the same in both themes. */
+.orb { position: relative; width: var(--orb, 56px); height: var(--orb, 56px); --level: 0; isolation: isolate; flex-shrink: 0; }
+.orb-halo {
+  position: absolute; inset: -16%; border-radius: 999px; z-index: -1;
+  background: conic-gradient(from 0deg, #F5A200, #FF7A45, #FFD27A, #4FE3C5, #7C8CFF, #F5A200);
+  filter: blur(calc(var(--orb, 56px) * 0.11)); opacity: 0.55;
+  animation: orbSpin 14s linear infinite;
+}
+.orb-core {
+  position: absolute; inset: 0; border-radius: 999px; overflow: hidden;
+  background: radial-gradient(circle at 32% 28%, #FFF6DC 0%, #FFD27A 16%, #F5A200 44%, #C45F00 76%, #5A2600 100%);
+  box-shadow: 0 calc(var(--orb, 56px) * 0.08) calc(var(--orb, 56px) * 0.3) rgba(245, 162, 0, 0.35);
+  animation: orbBreathe 4.5s ease-in-out infinite;
+  display: grid; place-items: center; color: #2A1400;
+}
+/* A second light source, turning, so the sphere looks lit rather than flat. */
+.orb-core::after {
+  content: ''; position: absolute; inset: 8%; border-radius: 999px;
+  background: conic-gradient(from 90deg, transparent 0 55%, rgba(255, 255, 255, 0.45) 70%, transparent 85%);
+  mix-blend-mode: soft-light; animation: orbSpin 9s linear infinite reverse;
+}
+.orb-ripple { position: absolute; inset: 0; border-radius: 999px; border: 2px solid var(--v-live-solid); opacity: 0; pointer-events: none; }
+
+.orb[data-state="listening"] .orb-ripple { animation: orbRipple 1.8s ease-out infinite; }
+.orb[data-state="listening"] .orb-ripple + .orb-ripple { animation-delay: 0.9s; }
+.orb[data-state="listening"] .orb-core { animation: orbListen 1.1s ease-in-out infinite; }
+.orb[data-state="listening"] .orb-halo { animation-duration: 5s; opacity: 0.75; }
+.orb[data-state="thinking"] .orb-halo { animation-duration: 1.3s; opacity: 0.85; }
+.orb[data-state="thinking"] .orb-core { animation: orbBreathe 1.3s ease-in-out infinite; }
+.orb[data-state="speaking"] .orb-core {
+  animation: none;
+  transform: scale(calc(1 + var(--level) * 0.14));
+  transition: transform 80ms linear;
+}
+.orb[data-state="speaking"] .orb-halo { animation: orbSpin 6s linear infinite, orbGlow 0.9s ease-in-out infinite alternate; }
+
+@keyframes orbSpin { to { transform: rotate(360deg); } }
+@keyframes orbBreathe { 50% { transform: scale(1.035); } }
+@keyframes orbListen { 50% { transform: scale(1.07); } }
+@keyframes orbRipple { 0% { transform: scale(1); opacity: 0.75; } 100% { transform: scale(1.75); opacity: 0; } }
+@keyframes orbGlow { to { opacity: 0.95; } }
+
+/* The hero's backdrop light: the orb's own glow thrown onto the band. */
+.msizi-glow::before {
+  content: ''; position: absolute; left: 50%; top: -30%; width: 140%; aspect-ratio: 1; transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(245, 162, 0, 0.22) 0%, rgba(124, 140, 255, 0.10) 35%, transparent 65%);
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
