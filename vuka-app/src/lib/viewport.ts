@@ -51,8 +51,44 @@ let frame = 0;
  * Writes nothing when the value has not changed, so a stream of resize events
  * during a URL-bar animation does not invalidate style on every frame.
  */
+/**
+ * True for the app launched from the iPhone home screen.
+ *
+ * That is the one place measuring the layout viewport is NOT enough, and it
+ * is the handset the bug was reported from. With viewport-fit=cover and a
+ * black-translucent status bar, iOS draws the page under the status bar but
+ * sizes the layout viewport as though it were not there: clientHeight, 100%,
+ * 100dvh and 100svh all come back one status bar SHORT — about 59pt on a
+ * Dynamic Island phone, which is exactly the strip the report showed under the
+ * tab bar — until the first scroll makes WebKit look again. So measuring
+ * faithfully records the wrong number.
+ *
+ * In that mode there is no browser chrome at all: the window IS the screen.
+ * So the screen's own size is the right answer, and the one number iOS does
+ * not get wrong at launch.
+ */
+function iosStandalone(): boolean {
+  return (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
+
+function measure(): number {
+  const layout = document.documentElement.clientHeight;
+  if (!iosStandalone()) return layout;
+  const { width, height } = window.screen;
+  /* screen.width/height do not swap on rotation in iOS, so pick by the
+     window's own shape. */
+  const portrait = window.innerHeight >= window.innerWidth;
+  const full = portrait ? Math.max(width, height) : Math.min(width, height);
+  const across = portrait ? Math.min(width, height) : Math.max(width, height);
+  /* Only when the window really is the whole screen. An iPad in Split View is
+     narrower than the screen, and its height is not the screen's to borrow. */
+  if (full <= 0 || Math.abs(window.innerWidth - across) > 2) return layout;
+  /* Never smaller than what was measured, in case a later iOS fixes this. */
+  return Math.max(full, layout);
+}
+
 function apply(): void {
-  const height = document.documentElement.clientHeight;
+  const height = measure();
   if (!Number.isFinite(height) || height <= 0) return;
   const next = `${height}px`;
   const root = document.documentElement;
