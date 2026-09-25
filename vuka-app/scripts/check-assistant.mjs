@@ -95,15 +95,19 @@ try {
   await openMsizi(page);
 
   /* --- it opens, and offers somewhere to start --- */
-  const introShown = await page.getByText(/ask me anything about vuka/i).first().isVisible().catch(() => false);
+  const introShown = await page.getByText(/ask me anything/i).first().isVisible().catch(() => false);
   ok(introShown, 'Msizi opens with its tagline');
+  /* Said once, up front, on the opening screen. */
+  const notAi = await page.getByText(/never your record/i).first().isVisible().catch(() => false);
+  ok(notAi, 'the screen says plainly what is sent to the AI, and that the record never is');
 
   const openerChips = page.getByRole('button', { name: /\?$/ });
   const openerCount = await openerChips.count();
   ok(openerCount >= 3, 'opening suggestions are offered', `found ${openerCount}`);
 
   /* --- tapping a suggestion answers it --- */
-  const firstChip = await openerChips.first().innerText();
+  /* The chip carries a decorative ✦; the question is the text after it. */
+  const firstChip = (await openerChips.first().innerText()).replace('✦', '').trim();
   await openerChips.first().click();
   await page.locator('article').last().waitFor({ timeout: 10_000 });
   const firstAnswer = await page.locator('article').last().innerText();
@@ -169,8 +173,6 @@ try {
     `speak buttons ${speakCount}, notices ${cannotSpeak}`);
 
   /* --- the honesty line is on the screen, not buried --- */
-  const notAi = await page.getByText(/never your record/i).first().isVisible().catch(() => false);
-  ok(notAi, 'the screen says plainly what is sent to the AI, and that the record never is');
 
   /* --- conversation: "hello" is greeted, not refused (reported from a phone) --- */
   const hello = await askText(page, 'hello');
@@ -239,25 +241,25 @@ try {
   ok(await mic.count() > 0, 'the microphone button is offered when a recogniser exists');
   await mic.click();
 
-  await dead.getByText(/listening/i).first().waitFor({ timeout: 5_000 }).catch(() => {});
-  ok(await dead.getByText(/listening/i).count() > 0, 'tapping the microphone starts listening');
+  await dead.getByText(/listening — speak now/i).first().waitFor({ timeout: 5_000 }).catch(() => {});
+  ok(await dead.getByText(/listening — speak now/i).count() > 0, 'tapping the microphone starts listening');
   ok(await dead.evaluate(() => window.__micOpen === true), 'the recogniser was started');
 
   /* Nothing is ever said and the engine never replies. It must give up anyway. */
   await dead.waitForFunction(
-    () => !/listening/i.test(document.body.innerText),
+    () => !/listening — speak now/i.test(document.body.innerText),
     null,
     { timeout: 20_000 },
   ).catch(() => {});
 
-  ok(await dead.getByText(/listening/i).count() === 0,
+  ok(await dead.getByText(/listening — speak now/i).count() === 0,
     'listening stops on its own when the engine never ends',
-    await dead.getByText(/listening/i).count() > 0 ? 'still listening after 20s' : '');
+    await dead.getByText(/listening — speak now/i).count() > 0 ? 'still listening after 20s' : '');
   ok(await dead.evaluate(() => window.__aborted === true),
     'the microphone is force-released rather than left open');
   ok(await dead.evaluate(() => window.__micOpen === false),
     'the microphone is not still open');
-  ok(await dead.getByText(/did not hear|type your question/i).count() > 0,
+  ok(await dead.getByText(/did not hear|type your question|stopped listening/i).count() > 0,
     'the user is told what happened rather than left guessing');
 
   /* And the screen is usable again afterwards — not stuck mid-session. */
@@ -265,6 +267,63 @@ try {
   ok((await after.innerText()).length > 100, 'the screen still works after a failed voice attempt');
 
   await dead.close();
+
+  /* ---- A voice CONVERSATION: greet back, then keep listening -------------
+
+     Reported from a phone: "it should not stop the microphone after I say
+     hello — it should greet back and keep listening so I can ask more".
+     A recogniser that hears "hello", then "how do I get paid", then nothing.
+     Msizi must answer both without another tap, and let go at the end. */
+  const talk = await browser.newPage({ viewport: { width: 420, height: 880 } });
+  await talk.addInitScript(() => {
+    const script = ['hello', 'how do I get paid'];
+    window.__starts = 0;
+    class TalkingRecognition {
+      constructor() { this.onresult = null; this.onerror = null; this.onend = null; this.onspeechstart = null; }
+      start() {
+        const n = window.__starts++;
+        const said = script[n];
+        setTimeout(() => {
+          if (said) {
+            this.onspeechstart?.();
+            const results = { length: 1, 0: { isFinal: true, length: 1, 0: { transcript: said, confidence: 0.9 } } };
+            this.onresult?.({ resultIndex: 0, results });
+          } else {
+            this.onerror?.({ error: 'no-speech' });
+          }
+          this.onend?.();
+        }, 300);
+      }
+      stop() {}
+      abort() {}
+    }
+    Object.defineProperty(window, 'SpeechRecognition', { value: TalkingRecognition, configurable: true });
+    Object.defineProperty(window, 'webkitSpeechRecognition', { value: TalkingRecognition, configurable: true });
+  });
+  await signIn(talk, 'worker');
+  await openMsizi(talk);
+  await talk.getByRole('button', { name: /tap to talk/i }).first().click();
+
+  /* Her greeting is read aloud in real time (about ten seconds even in a
+     headless browser); only then does she listen again, unprompted. */
+  await talk.waitForFunction(() => window.__starts >= 2, null, { timeout: 40_000 }).catch(() => {});
+  const starts = await talk.evaluate(() => window.__starts);
+  ok(starts >= 2, 'after answering, Msizi listens again by herself — no second tap', `listened ${starts} time(s)`);
+  await talk.getByText(/secured before the work starts/i).first().waitFor({ timeout: 20_000 }).catch(() => {});
+
+  /* The payment answer is long. Tapping the mic while she reads it is a
+     barge-in: she stops, and listens — the button offers to talk, not stop. */
+  const barge = talk.getByRole('button', { name: /tap to talk/i }).first();
+  ok(await barge.count() > 0, 'while she is speaking, the mic offers to interrupt her');
+  await barge.click().catch(() => {});
+  await talk.waitForFunction(() => window.__starts >= 3, null, { timeout: 10_000 }).catch(() => {});
+  ok(await talk.evaluate(() => window.__starts) >= 3, 'interrupting her starts listening straight away');
+  const convoText = await talk.locator('main, body').first().innerText();
+  ok(/I am Msizi/i.test(convoText), '"hello" was greeted back', convoText.slice(0, 200));
+  ok(/secured before the work starts/i.test(convoText), 'and the follow-up question was answered in the same conversation');
+  await talk.getByText(/stopped listening/i).first().waitFor({ timeout: 10_000 }).catch(() => {});
+  ok(await talk.getByText(/stopped listening/i).count() > 0, 'going quiet ends the conversation gently, not with an error');
+  await talk.close();
 } finally {
   await browser.close();
 }

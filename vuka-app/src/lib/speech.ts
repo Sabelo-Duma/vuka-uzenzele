@@ -516,8 +516,57 @@ function silence(): string | null {
   return silentUrl;
 }
 
+/* ---- Web Audio, preferred over the <audio> element ---------------------
+
+   Reported from an iPhone: the first spoken question worked, the second said
+   "That did not work". An <audio> element takes over iOS's audio session for
+   playback, and the microphone cannot get it back — the next recognition
+   fails. Web Audio plays through a path that coexists with the recogniser,
+   so it is used wherever it exists; the element is only the fallback.
+
+   It also gives us the voice's loudness, frame by frame, which is what makes
+   Msizi's orb move with what she is saying rather than on a loop. */
+
+type AudioCtor = typeof AudioContext;
+let actx: AudioContext | null = null;
+let currentSource: AudioBufferSourceNode | null = null;
+
+function audioContext(): AudioContext | null {
+  if (actx) return actx;
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as { AudioContext?: AudioCtor; webkitAudioContext?: AudioCtor };
+  const Ctor = w.AudioContext ?? w.webkitAudioContext;
+  if (!Ctor) return null;
+  try { actx = new Ctor(); } catch { actx = null; }
+  return actx;
+}
+
+/* ---- How loud Msizi is right now, 0..1, for the orb -------------------- */
+
+const levelListeners = new Set<(level: number) => void>();
+function emitLevel(level: number): void { for (const fn of levelListeners) fn(level); }
+
+/** Subscribe to the speaking voice's loudness. Returns an unsubscribe. */
+export function onSpeechLevel(fn: (level: number) => void): () => void {
+  levelListeners.add(fn);
+  return () => { levelListeners.delete(fn); };
+}
+
 function unlockAudio(): void {
   if (!neuralSource) return;
+  const c = audioContext();
+  if (c) {
+    try {
+      if (c.state === 'suspended') void c.resume().catch(() => { /* still locked */ });
+      /* One silent sample, started inside the tap, is what iOS counts. */
+      const buf = c.createBuffer(1, 1, 22050);
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.connect(c.destination);
+      src.start(0);
+    } catch { /* nothing to unlock */ }
+    return;
+  }
   const p = getPlayer();
   const src = silence();
   if (!p || !src) return;
@@ -531,7 +580,60 @@ function unlockAudio(): void {
 
 type PlayResult = 'ended' | 'failed' | 'stopped';
 
+async function playBlobWebAudio(c: AudioContext, blob: Blob, generation: number): Promise<PlayResult> {
+  let buffer: AudioBuffer;
+  try {
+    buffer = await c.decodeAudioData(await blob.arrayBuffer());
+  } catch {
+    return 'failed';
+  }
+  if (generation !== speakGeneration) return 'stopped';
+  if (c.state === 'suspended') { try { await c.resume(); } catch { /* checked below */ } }
+  if (c.state !== 'running') return 'failed';
+
+  return new Promise((resolve) => {
+    const src = c.createBufferSource();
+    src.buffer = buffer;
+    const analyser = c.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    analyser.connect(c.destination);
+    currentSource = src;
+
+    const data = new Uint8Array(analyser.fftSize);
+    let raf = 0;
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+      emitLevel(Math.min(1, Math.sqrt(sum / data.length) * 3.2));
+      if (generation !== speakGeneration) { try { src.stop(); } catch { /* gone */ } done('stopped'); return; }
+      raf = window.requestAnimationFrame(tick);
+    };
+
+    let settled = false;
+    const done = (r: PlayResult) => {
+      if (settled) return;
+      settled = true;
+      if (raf) window.cancelAnimationFrame(raf);
+      emitLevel(0);
+      if (currentSource === src) currentSource = null;
+      try { src.disconnect(); analyser.disconnect(); } catch { /* gone */ }
+      resolve(r);
+    };
+    src.onended = () => done('ended');
+    try {
+      src.start(0);
+      if (typeof window.requestAnimationFrame === 'function') raf = window.requestAnimationFrame(tick);
+    } catch {
+      done('failed');
+    }
+  });
+}
+
 function playBlob(blob: Blob, generation: number): Promise<PlayResult> {
+  const c = audioContext();
+  if (c) return playBlobWebAudio(c, blob, generation);
   const p = getPlayer();
   if (!p) return Promise.resolve('failed');
   const url = URL.createObjectURL(blob);
@@ -625,7 +727,10 @@ export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { loca
   stopSpeaking();
   const generation = speakGeneration;
 
-  audioMode('playback');
+  /* No audioSession override here any more. Forcing "playback" was meant to
+     keep the answer on the loudspeaker, and it is what stopped the microphone
+     working a second time: a playback-only session has no input. The default
+     lets iOS pick per phase, and Web Audio (above) plays without taking over. */
   const { voice } = canSpeak() ? pickVoice(lang, opts) : { voice: null };
   /* Respell South African words only for an English voice. */
   const english = neural || (voice ? voice.lang.toLowerCase().startsWith('en') : lang === 'en');
@@ -652,11 +757,32 @@ export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { loca
   return { done };
 }
 
+/**
+ * Utterances being spoken, held so the browser cannot collect them.
+ *
+ * Chromium drops an utterance nothing references, and a dropped utterance
+ * never fires onend. For one answer that only leaves a Stop button showing;
+ * in a voice conversation it is worse, because "she has finished speaking" is
+ * the cue to listen again, and without it the conversation silently stalls.
+ */
+const liveUtterances = new Set<SpeechSynthesisUtterance>();
+
 /** The phone's own voice, one utterance per sentence. */
 function speakDevice(
-  sentences: string[], voice: SpeechSynthesisVoice | null, lang: Lang, finish: () => void,
+  sentences: string[], voice: SpeechSynthesisVoice | null, lang: Lang, finishOnce: () => void,
 ): void {
-  if (!canSpeak() || sentences.length === 0) { finish(); return; }
+  if (!canSpeak() || sentences.length === 0) { finishOnce(); return; }
+  const mine: SpeechSynthesisUtterance[] = [];
+  /* And a watchdog in case the engine never reports at all — some have no
+     voice and say nothing, some lose the event. Generous: a slow reading
+     speed over the whole text, plus a margin. */
+  const chars = sentences.reduce((n, s) => n + s.length, 0);
+  const watchdog = window.setTimeout(() => finish(), 4_000 + chars * 110);
+  const finish = () => {
+    window.clearTimeout(watchdog);
+    for (const u of mine) liveUtterances.delete(u);
+    finishOnce();
+  };
   try {
       sentences.forEach((sentence, i) => {
         const u = new SpeechSynthesisUtterance(sentence);
@@ -679,6 +805,8 @@ function speakDevice(
              onend that is never coming. */
           u.onerror = finish;
         }
+        mine.push(u);
+        liveUtterances.add(u);
         window.speechSynthesis.speak(u);
       });
   } catch {
@@ -691,6 +819,8 @@ export function stopSpeaking(): void {
   speakGeneration += 1;
   /* The natural voice's clip stops at once, not at the next watch tick. */
   if (player && !player.paused) { try { player.pause(); } catch { /* gone */ } }
+  if (currentSource) { try { currentSource.stop(); } catch { /* already ended */ } currentSource = null; }
+  emitLevel(0);
   if (!canSpeak()) return;
   try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ }
 }
@@ -705,6 +835,7 @@ export type ListenError =
   | 'no-speech'   // nothing was said
   | 'no-language' // this device cannot recognise the chosen language
   | 'network'     // the recogniser needs a connection and had none
+  | 'busy'        // the microphone was held by something else; retry
   | 'failed';     // anything else
 
 export interface ListenEvents {
@@ -945,6 +1076,10 @@ function classify(code: string): ListenError {
     case 'no-speech': return 'no-speech';
     case 'language-not-supported': return 'no-language';
     case 'network': return 'network';
+    /* The microphone is held by something else — on iOS, usually audio that
+       was just playing. Not a failure of the person, and worth a retry. */
+    case 'audio-capture':
+    case 'aborted': return 'busy';
     default: return 'failed';
   }
 }

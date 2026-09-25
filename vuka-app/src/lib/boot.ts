@@ -41,10 +41,32 @@ async function checkForUpdate(): Promise<void> {
     const reg = await navigator.serviceWorker.getRegistration();
     if (!reg) return;
     await reg.update();
+    /* update() resolves when the CHECK is done, not when the new build is in.
+       Downloading and activating it takes longer — and that gap is what put
+       the app on screen and then reloaded it under the user's thumb: splash,
+       app, splash, app. So if a new worker is on its way, wait for it to take
+       over while the splash is still up (the cap in splashReady still holds);
+       the reload then happens behind the splash, and the second splash is the
+       same picture, so it reads as one launch. */
+    const incoming = reg.installing ?? reg.waiting;
+    if (incoming && navigator.serviceWorker.controller) {
+      await new Promise<void>((resolve) => {
+        navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+        incoming.addEventListener('statechange', () => {
+          if (incoming.state === 'redundant') resolve();
+        });
+      });
+    }
   } catch {
     /* Offline, blocked, or unsupported. The app still opens. */
   }
 }
+
+/**
+ * True while a launch screen is showing. Once the app is on screen, a new
+ * build is never forced on the user mid-use — it is picked up next launch.
+ */
+let splashShowing = true;
 
 /**
  * Reload when a NEW worker takes over, so the user lands on the new build
@@ -79,6 +101,11 @@ export function reloadOnNewWorker(): void {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadControllerAtLoad) return;
     if (reloading) return;
+    /* Reported from a phone: the app appeared, then the loading screen came
+       back and it loaded again. That was this reload firing after the splash
+       had gone. A new build now only reloads the page while the splash still
+       covers it; after that it waits for the next launch. */
+    if (!splashShowing) return;
     reloading = true;
     /* A second stop, in case a pathological worker activates on every load:
        one reload per tab session, whatever else happens. */
@@ -112,6 +139,7 @@ export function dismissBootSplash(): void {
      a light-mode phone does not sit a pale strip above an indigo splash; left
      in place it would keep the app's status bar indigo for the whole session. */
   document.getElementById('boot-theme')?.remove();
+  splashShowing = false;
 
   const el = document.getElementById('boot');
   if (!el) return;
