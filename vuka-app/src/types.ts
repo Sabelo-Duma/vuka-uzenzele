@@ -97,6 +97,16 @@ export interface Gig {
   when: string;
   description: string;
   urgent: boolean;
+  /**
+   * Escrow (vuka-server/src/escrow.mjs). 'held': the employer has secured the
+   * pay and it is waiting. 'released': it went to the worker. 'none': not
+   * funded yet — nobody can be hired until it is. Absent on old cached data.
+   */
+  funding?: 'held' | 'released' | 'none';
+  /** hours × rate, rounded to the rand, as the server computes it. */
+  totalPay?: number;
+  /** 'test' until a payment provider is connected: no real money moves. */
+  paymentsMode?: 'test' | 'live';
 }
 
 /** Formal, tier-gated job. */

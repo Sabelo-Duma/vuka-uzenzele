@@ -4,6 +4,7 @@ import { distanceLabel } from '../lib/geo';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
 import { Avatar, Card, Chip, Skeleton, Stars, TierBadge, Tile } from './ui';
 import { Icon } from './Icon';
+import { FundingChip } from './Funding';
 
 /** Shimmer placeholder matching a gig/formal card while data loads. */
 export function GigCardSkeleton() {
@@ -109,6 +110,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
+          <FundingChip gig={gig} />
           {gig.urgent && <Chip tone="live" icon="bolt">Urgent</Chip>}
           {fair && <Chip tone="verified" icon="shield">Fair pay</Chip>}
           <Chip tone="neutral">🗓 {gig.when}</Chip>

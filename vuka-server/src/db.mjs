@@ -260,6 +260,38 @@ export async function initDb() {
       updated_at TEXT NOT NULL
     );
 
+    /* Escrow: the pay for a gig, secured by the employer before work starts.
+       See escrow.mjs. One live row per gig; a reversed row stays as history.
+       Deliberately no FK to gigs — deleting a gig must not delete the record
+       of money that was secured against it. Amounts are whole cents. */
+    CREATE TABLE IF NOT EXISTS escrow (
+      id TEXT PRIMARY KEY,
+      gig_id TEXT NOT NULL,
+      employer_id TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      test_mode INTEGER NOT NULL DEFAULT 1,
+      worker_id TEXT,
+      application_id TEXT,
+      funded_at TEXT NOT NULL,
+      reversed_at TEXT,
+      released_at TEXT
+    );
+
+    /* A worker's wallet is a ledger, never a balance column: every rand in or
+       out is a row, and the balance is their sum. Releases are positive,
+       withdrawals negative. */
+    CREATE TABLE IF NOT EXISTS wallet_entries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      escrow_id TEXT,
+      note TEXT,
+      test_mode INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS formal_applications (
       id TEXT PRIMARY KEY,
       job_id TEXT NOT NULL REFERENCES formal_jobs(id) ON DELETE CASCADE,

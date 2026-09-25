@@ -22,6 +22,9 @@ import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
 import { synthesize, voiceStats } from './voice.mjs';
 import {
+  PAYMENTS_MODE, EscrowError, fund, reverse, release, wallet, withdraw, fundingFor, escrowFor, gigTotalCents,
+} from './escrow.mjs';
+import {
   subscribe, emit, isOnline, hasStream, connectionStats, closeAll, setVisibility, onPresenceChange,
 } from './realtime.mjs';
 import { cspDirectives, cspCoversInlineScripts, STATIC_DIR } from './csp.mjs';
@@ -158,7 +161,7 @@ function historyOut(h) {
  *   employerRating is null (not 5.0) until real workers have rated the employer;
  *   the client renders that as "New employer" rather than inventing stars.
  */
-function gigOut(g, rating) {
+function gigOut(g, rating, funding) {
   return {
     id: g.id, title: g.title, category: g.category, employer: g.employer_name,
     employerId: g.employer_id, employerInitials: g.employer_initials,
@@ -169,6 +172,12 @@ function gigOut(g, rating) {
     employerRating: rating?.avg ?? null, employerRatingCount: rating?.count ?? 0,
     location: g.location, distanceKm: g.distance_km, hours: g.hours, payPerHour: g.pay_per_hour,
     when: g.when_text, description: g.description, urgent: !!g.urgent, status: g.status,
+    /* Escrow (escrow.mjs): 'held' means the pay is secured and waiting,
+       'released' that it has gone to the worker, 'none' that the employer has
+       not funded it yet. Workers see this before they apply. */
+    funding: funding ?? 'none',
+    totalPay: Math.round(Number(g.hours) * Number(g.pay_per_hour)),
+    paymentsMode: PAYMENTS_MODE,
     // Overwritten by withDistance() when both sides' coordinates are known.
     // 'listed' means the number is the listing's own label, not a measurement.
     distanceSource: 'listed',
@@ -297,7 +306,8 @@ const viewerCoords = (req) => parseCoords(req.query?.lat, req.query?.lng);
 /** Serialize gig rows with their employers' real ratings and a real distance. */
 async function gigsOut(rows, from = null) {
   const ratings = await employerRatings(rows.map((r) => r.employer_id));
-  return rows.map((r) => withDistance(gigOut(r, ratings.get(r.employer_id)), rowCoords(r), from));
+  const funding = await fundingFor(rows.map((r) => r.id));
+  return rows.map((r) => withDistance(gigOut(r, ratings.get(r.employer_id), funding.get(r.id)), rowCoords(r), from));
 }
 
 /**
@@ -617,6 +627,8 @@ app.get('/api/health', asyncH(async (_req, res) => {
     // knowledge base and says so.
     ai: aiStats(),
     voice: voiceStats(),
+    // 'test' until a payment provider is connected: escrow is a ledger only.
+    payments: PAYMENTS_MODE,
     monitoring: monitoringTarget,
     // How many devices are holding a live chat channel open right now. Worth
     // watching: it is the one number that says whether people are getting
@@ -996,6 +1008,10 @@ app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, r
       where, 0, coords?.lat ?? null, coords?.lng ?? null, hoursNum, rate,
       when || 'Flexible', description || '', urgent ? 1 : 0, 'open', new Date().toISOString()]);
   const row = await get('SELECT * FROM gigs WHERE id = ?', [id]);
+  /* Secure the pay in the same step, when the employer chose to. A gig can
+     also be posted unfunded and funded later — but nobody can be hired onto
+     it until it is (see /hire). */
+  if (req.body?.fund) await fund(row, user.id);
   // Fire-and-forget: a slow push service must never slow down posting a job.
   void alertNearbyWorkers(row).catch((e) => captureError(e, 'alertNearbyWorkers'));
   res.status(201).json((await gigsOut([row]))[0]);
@@ -1034,6 +1050,12 @@ app.delete('/api/gigs/:id', requireAuth, requireRole('employer'), asyncH(async (
     [gig.id],
   );
 
+  /* Nobody is hired (checked above), so any secured pay goes back to the
+     employer, at no fee, before the listing goes. */
+  let refundedCents = 0;
+  const held = await escrowFor(gig.id);
+  if (held?.status === 'held') refundedCents = (await reverse(gig, req.user.id)).amountCents;
+
   await run('DELETE FROM gigs WHERE id = ?', [gig.id]);
 
   /* Tell the people who applied. They cannot see the listing any more, so
@@ -1047,7 +1069,7 @@ app.delete('/api/gigs/:id', requireAuth, requireRole('employer'), asyncH(async (
     );
   }
 
-  res.json({ ok: true, deleted: gig.id, applicantsNotified: waiting.length });
+  res.json({ ok: true, deleted: gig.id, applicantsNotified: waiting.length, refunded: refundedCents / 100 });
 }));
 
 app.get('/api/me/applications', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
@@ -1086,6 +1108,7 @@ app.get('/api/me/jobs', requireAuth, requireRole('worker'), asyncH(async (req, r
     [req.user.id]
   );
   const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  const funding = await fundingFor(rows.map((r) => r.id));
   res.json(rows.map((r) => ({
     applicationId: r.app_id,
     status: r.app_status,
@@ -1094,7 +1117,7 @@ app.get('/api/me/jobs', requireAuth, requireRole('worker'), asyncH(async (req, r
     completedAt: r.completed_at,
     employerRatingOfMe: r.employer_rating,
     employerReview: r.employer_review,
-    gig: gigOut(r, ratings.get(r.employer_id)),
+    gig: gigOut(r, ratings.get(r.employer_id), funding.get(r.id)),
   })));
 }));
 
@@ -1140,6 +1163,14 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
   if (app_.status !== 'applied') return res.status(409).json({ error: 'That application has already been decided.' });
   const alreadyHired = await get("SELECT * FROM applications WHERE gig_id = ? AND status IN ('hired','worker_done','completed')", [g.id]);
   if (alreadyHired) return res.status(409).json({ error: 'You have already hired someone for this job.' });
+  /* The rule the escrow exists for: work only starts once the pay is waiting. */
+  const secured = await escrowFor(g.id);
+  if (secured?.status !== 'held') {
+    return res.status(409).json({
+      error: `Add the funds for this job (R${gigTotalCents(g) / 100}) before you hire. The worker starts once the pay is secured.`,
+      reason: 'needs_funding',
+    });
+  }
 
   const now = new Date().toISOString();
   await run("UPDATE applications SET status = 'hired', hired_at = ? WHERE id = ?", [now, app_.id]);
@@ -1227,11 +1258,12 @@ app.get('/api/me/hires', requireAuth, requireRole('employer'), asyncH(async (req
     [req.user.id]
   );
   const ratings = await employerRatings(rows.map((r) => r.employer_id));
+  const funding = await fundingFor(rows.map((r) => r.id));
   res.json(rows.map((r) => ({
     applicationId: r.app_id, status: r.app_status, hiredAt: r.hired_at,
     workerDoneAt: r.worker_done_at, completedAt: r.completed_at,
     worker: { id: r.worker_id, name: r.worker_name, initials: initialsOf(r.worker_name) },
-    gig: gigOut(r, ratings.get(r.employer_id)),
+    gig: gigOut(r, ratings.get(r.employer_id), funding.get(r.id)),
   })));
 }));
 
@@ -1261,6 +1293,9 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
 
   await run("UPDATE applications SET status = 'completed', employer_rating = ?, employer_review = ?, completed_at = ? WHERE id = ?",
     [rating, review, now, app_.id]);
+  /* And the secured pay moves to the worker's wallet. A job posted before
+     escrow existed has nothing held, and this is a no-op. */
+  const released = await release(g.id, app_.worker_id, app_.id);
 
   // The worker just proved they can do this category of work.
   const profile = await profileOf(app_.worker_id);
@@ -1277,12 +1312,15 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
     reach(worker, {
       type: 'confirmed',
       title: `${rating}/5 — your CV just grew ⭐`,
-      body: `${g.employer_name} confirmed "${g.title}". The reference is on your CV.`,
+      body: released
+        ? `${g.employer_name} confirmed "${g.title}". R${released.amountCents / 100} is in your Vuka wallet.`
+        : `${g.employer_name} confirmed "${g.title}". The reference is on your CV.`,
       url: '/?tab=cv',
       tag: `confirmed-${g.id}`,
-    }, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`);
+    }, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`
+      + (released ? ` R${released.amountCents / 100} is in your Vuka wallet.` : ''));
   }
-  res.json({ ok: true, status: 'completed', rating, review });
+  res.json({ ok: true, status: 'completed', rating, review, released: released ? released.amountCents / 100 : 0 });
 }));
 
 // ---- formal jobs ----
@@ -1767,6 +1805,46 @@ app.post('/api/assistant/voice', requireAuth, voiceLimiter, asyncH(async (req, r
   }
 }));
 
+/* ---- Escrow (escrow.mjs). TEST MODE: a ledger, no real money moves. ---- */
+
+function escrowFail(res, e) {
+  if (e instanceof EscrowError) return res.status(e.status).json({ error: e.message, reason: e.reason });
+  throw e;
+}
+
+app.post('/api/gigs/:id/fund', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  if (!g) return res.status(404).json({ error: 'That job could not be found.' });
+  try {
+    const { escrow, already } = await fund(g, req.user.id);
+    res.status(already ? 200 : 201).json({ ok: true, funding: escrow.status, amount: escrow.amount_cents / 100, mode: PAYMENTS_MODE });
+  } catch (e) { escrowFail(res, e); }
+}));
+
+app.post('/api/gigs/:id/unfund', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
+  if (!g) return res.status(404).json({ error: 'That job could not be found.' });
+  try {
+    const { amountCents, fee } = await reverse(g, req.user.id);
+    res.json({ ok: true, funding: 'none', refunded: amountCents / 100, fee, mode: PAYMENTS_MODE });
+  } catch (e) { escrowFail(res, e); }
+}));
+
+app.get('/api/me/wallet', requireAuth, asyncH(async (req, res) => {
+  const w = await wallet(req.user.id);
+  res.json({
+    mode: w.mode, balance: w.balanceCents / 100, pending: w.pendingCents / 100,
+    entries: w.entries.map((e) => ({ ...e, amount: e.amountCents / 100 })),
+  });
+}));
+
+app.post('/api/me/wallet/withdraw', requireAuth, asyncH(async (req, res) => {
+  try {
+    const out = await withdraw(req.user.id);
+    res.json({ ok: true, amount: out.amountCents / 100, to: out.to, mode: out.mode });
+  } catch (e) { escrowFail(res, e); }
+}));
+
 app.post('/api/safety/report', requireAuth, asyncH(async (req, res) => {
   const concern = String(req.body?.concern ?? '').trim();
   if (!concern) return res.status(400).json({ error: 'Describe the concern so we can help.' });
@@ -1866,7 +1944,8 @@ app.get('/api/me/invitations', requireAuth, requireRole('worker'), asyncH(async 
     [req.user.id]
   );
   const ratings = await employerRatings(rows.map((r) => r.employer_id));
-  res.json(rows.map((r) => ({ id: r.inv_id, message: r.inv_message, gig: gigOut(r, ratings.get(r.employer_id)) })));
+  const funding = await fundingFor(rows.map((r) => r.id));
+  res.json(rows.map((r) => ({ id: r.inv_id, message: r.inv_message, gig: gigOut(r, ratings.get(r.employer_id), funding.get(r.id)) })));
 }));
 
 app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
@@ -1874,6 +1953,26 @@ app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asy
   if (!inv) return res.status(404).json({ error: 'This invitation is no longer available.' });
   const accept = !!req.body?.accept;
   const now = new Date().toISOString();
+  /* Accepting an invitation hires the worker, so the same rule as /hire:
+     not until the pay is secured. The invitation stays open, and the employer
+     is told what is holding it up. */
+  if (accept) {
+    const secured = await escrowFor(inv.gig_id);
+    if (secured?.status !== 'held') {
+      const gig = await get('SELECT * FROM gigs WHERE id = ?', [inv.gig_id]);
+      const employer = gig?.employer_id ? await userById(gig.employer_id) : null;
+      if (employer) {
+        const who = (await userById(req.user.id))?.name ?? 'A worker';
+        reach(employer,
+          { type: 'needs-funding', title: `${who} wants to take your job`, body: `Add the funds for "${gig.title}" so they can start.` },
+          `${who} wants to take "${gig.title}". Add the funds in Vuka so they can start.`);
+      }
+      return res.status(409).json({
+        error: 'The employer has not secured the pay for this job yet. We have told them — you can accept as soon as they do.',
+        reason: 'needs_funding',
+      });
+    }
+  }
   await run('UPDATE invitations SET status = ? WHERE id = ?', [accept ? 'accepted' : 'declined', inv.id]);
 
   if (accept) {

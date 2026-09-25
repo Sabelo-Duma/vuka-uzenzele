@@ -102,6 +102,13 @@ export async function seed() {
     gigEmployerIds.set(g.id, employerId);
     const at = coordsForPlace(g.location);
     await run(INS_GIG, [g.id, employerId, g.title, g.category, g.name, g.ei, g.location, g.dist, at?.lat ?? null, at?.lng ?? null, g.hours, g.rate, g.when, g.description, g.urgent, 'open', NOW]);
+    /* Demo escrow, test mode. Every gig but the last is funded, so the demo
+       shows both what a worker sees on a secured job and on one still
+       waiting for its funds. */
+    if (g.id !== 'j6') {
+      await run('INSERT INTO escrow (id, gig_id, employer_id, amount_cents, status, test_mode, funded_at) VALUES (?,?,?,?,?,?,?)',
+        [uuid(), g.id, employerId, Math.round(g.hours * g.rate) * 100, 'held', 1, NOW]);
+    }
   }
 
   const talentIds = [];

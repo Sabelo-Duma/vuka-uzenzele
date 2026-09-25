@@ -15,6 +15,7 @@ import { Avatar, Button, Card, Chip, EmptyState, Sheet, StarRating, Stars, TierB
 import { CardSkeletonGrid } from '../../components/cards';
 import { DetailHeader } from '../../components/bits';
 import { Icon } from '../../components/Icon';
+import { FundingChip, TestModeNote, gigTotal } from '../../components/Funding';
 
 export function Applicants({ id }: { id: string }) {
   const { navigate, goBack, toast, loadApplicants, hireWorker, confirmWork } = useApp();
@@ -24,6 +25,7 @@ export function Applicants({ id }: { id: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [confirming, setConfirming] = useState<Applicant | null>(null);
+  const [funding, setFunding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -51,11 +53,44 @@ export function Applicants({ id }: { id: string }) {
     }
   };
 
+  /* Escrow, test mode. Securing the pay is what unlocks hiring; taking it
+     back is free, and only possible until somebody is hired. */
+  const secure = async () => {
+    if (!gig) return;
+    setFunding(true);
+    try {
+      const res = await api.fundGig(gig.id);
+      toast(`${money(res.amount)} secured 🔒 Workers now see "Funds secured", and you can hire.`);
+      await load();
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setFunding(false);
+    }
+  };
+
+  const takeBack = async () => {
+    if (!gig) return;
+    setFunding(true);
+    try {
+      const res = await api.unfundGig(gig.id);
+      toast(`${money(res.refunded)} returned to you — no fee.`);
+      await load();
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setFunding(false);
+    }
+  };
+
   const confirm = async (a: Applicant, rating: number, review: string) => {
     setBusyId(a.applicationId);
     try {
       await confirmWork(a.applicationId, rating, review);
-      toast(`Confirmed — ${a.worker.name.split(' ')[0]}'s reference is on their CV ⭐`);
+      const first = a.worker.name.split(' ')[0];
+      toast(gig?.funding === 'held'
+        ? `Confirmed — ${money(gigTotal(gig))} is in ${first}'s wallet, and the reference is on their CV ⭐`
+        : `Confirmed — ${first}'s reference is on their CV ⭐`);
       setConfirming(null);
       await load();
     } catch (e) {
@@ -89,9 +124,42 @@ export function Applicants({ id }: { id: string }) {
             {c && <Tile emoji={c.icon} />}
             <div className="flex-1 min-w-0">
               <h3 className="font-display m-0 text-lead font-extrabold text-ink leading-tight tracking-tight break-words">{gig.title}</h3>
-              <div className="text-small text-dim mt-0.5">{gig.location} · {gig.when} · <b className="text-ink font-mono tnum">{money(gig.hours * gig.payPerHour)}</b></div>
+              <div className="text-small text-dim mt-0.5">{gig.location} · {gig.when} · <b className="text-ink font-mono tnum">{money(gigTotal(gig))}</b></div>
             </div>
           </div>
+
+          {/* The pay. Nobody can be hired until it is secured; it can be taken
+              back for free until then, and is locked from the moment of hire. */}
+          {gig.funding && (
+            <div className="mt-3 pt-3 border-t border-line-soft">
+              <div className="flex items-center gap-2 flex-wrap mb-2"><FundingChip gig={gig} /></div>
+              {gig.funding === 'none' && (
+                <>
+                  <p className="text-small text-ink leading-relaxed m-0 mb-2.5">
+                    Secure the <b className="font-mono tnum">{money(gigTotal(gig))}</b> to hire someone. Workers see "Funds secured" on your job, and you can take it back for free until you hire.
+                  </p>
+                  <Button block size="sm" icon="lock" disabled={funding} onClick={secure}>
+                    {funding ? 'Securing…' : `Secure ${money(gigTotal(gig))} now`}
+                  </Button>
+                </>
+              )}
+              {gig.funding === 'held' && !hired && (
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-small text-dim leading-relaxed m-0 flex-1 min-w-[12rem]">The pay is waiting. You can take it back for free until you hire.</p>
+                  <Button size="sm" variant="ghost" disabled={funding} onClick={takeBack}>{funding ? 'Returning…' : 'Take funds back'}</Button>
+                </div>
+              )}
+              {gig.funding === 'held' && hired && (
+                <p className="text-small text-dim leading-relaxed m-0">
+                  Locked for {hired.worker.name.split(' ')[0]}. It is paid into their wallet when you confirm the work — or automatically if you don't respond in time.
+                </p>
+              )}
+              {gig.funding === 'released' && (
+                <p className="text-small text-dim leading-relaxed m-0">Paid into {hired ? hired.worker.name.split(' ')[0] : 'the worker'}'s wallet.</p>
+              )}
+              {gig.paymentsMode !== 'live' && <TestModeNote className="mt-3" />}
+            </div>
+          )}
           {/* Withdrawing is only offered while it is still possible — once
               someone is hired this is their pay, and the server refuses. */}
           {!hired && (
@@ -148,6 +216,7 @@ export function Applicants({ id }: { id: string }) {
                   onOpen={() => navigate('workerDetail', a.worker.id)}
                   onMessage={() => navigate('chat', a.worker.id)}
                   onHire={hired ? undefined : () => hire(a)}
+                  needsFunds={gig?.funding === 'none'}
                 />
               ))}
               {hired && <p className="text-small text-dim leading-relaxed px-1 mt-1">These applicants have been told the job is taken. Invite them to your next one from Talent.</p>}
@@ -175,9 +244,11 @@ export function Applicants({ id }: { id: string }) {
   );
 }
 
-function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
+function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm, needsFunds = false }: {
   a: Applicant; busy: boolean; onOpen: () => void; onMessage: () => void;
   onHire?: () => void; onConfirm?: () => void;
+  /** The job is not funded yet, so hiring is not possible — say why. */
+  needsFunds?: boolean;
 }) {
   const t = TIERS[a.worker.tier.id] ?? TIERS[0];
   const autoConfirm = timeToAutoConfirm(a.workerDoneAt, autoReleaseHours());
@@ -220,7 +291,11 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm }: {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2.5 mt-3 [&>*]:flex-1">
-        {onHire && <Button size="sm" disabled={busy} onClick={onHire}>{busy ? 'Hiring…' : 'Hire for this job'}</Button>}
+        {onHire && (
+          <Button size="sm" disabled={busy || needsFunds} onClick={onHire}>
+            {busy ? 'Hiring…' : needsFunds ? 'Secure the pay to hire' : 'Hire for this job'}
+          </Button>
+        )}
         {onConfirm && <Button size="sm" variant="primary" disabled={busy} onClick={onConfirm}>Confirm & rate</Button>}
         <Button size="sm" variant="ghost" icon="chat" onClick={onMessage}>Message</Button>
       </div>
@@ -251,9 +326,11 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
     try {
       const res = await api.deleteGig(gig.id);
       await listMyGigs().catch(() => { /* the list refreshes on its own next time */ });
-      toast(res.applicantsNotified > 0
-        ? `Job withdrawn — ${res.applicantsNotified} applicant${res.applicantsNotified === 1 ? ' was' : 's were'} told`
-        : 'Job withdrawn');
+      const told = res.applicantsNotified > 0
+        ? ` — ${res.applicantsNotified} applicant${res.applicantsNotified === 1 ? ' was' : 's were'} told`
+        : '';
+      const back = res.refunded ? ` ${money(res.refunded)} returned to you, no fee.` : '';
+      toast(`Job withdrawn${told}.${back}`);
       onDone();
     } catch (e) {
       toast((e as Error).message);
@@ -267,6 +344,7 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
       <p className="text-small text-dim leading-relaxed mb-4">
         <b className="text-ink">“{gig.title}”</b> will be removed from the feed. This cannot be undone
         {waiting > 0 && <>, and <b className="text-ink font-mono tnum">{waiting}</b> {waiting === 1 ? 'person who applied' : 'people who applied'} will be told</>}.
+        {gig.funding === 'held' && <> The <b className="text-ink font-mono tnum">{money(gigTotal(gig))}</b> you secured comes back to you, with no fee.</>}
       </p>
       <Button block variant="danger" disabled={busy} onClick={withdraw}>
         {busy ? 'Withdrawing…' : 'Yes, withdraw it'}
@@ -289,7 +367,7 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
     <Sheet title="Confirm the work" onClose={onClose}>
       <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">How did {first} do?</h3>
       <p className="text-dim text-small leading-relaxed mb-4">
-        Confirming “{gigTitle}” releases {first}'s pay and writes your review onto their CV as a verified reference. Please be fair — it's the record employers after you will read.
+        Confirming “{gigTitle}” releases {first}'s pay into their Vuka wallet and writes your review onto their CV as a verified reference. Please be fair — it's the record employers after you will read.
       </p>
       <StarRating value={rating} onChange={setRating} />
       <label className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5 mt-4">Your review (optional)</label>

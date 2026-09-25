@@ -142,7 +142,7 @@ async function run() {
   ok(Array.isArray(gigs.json) && gigs.json.length === 6, 'six seeded gigs, got ' + gigs.json?.length);
 
   // 6) employer posts a gig -> visible to everyone (multi-user)
-  const posted = await api('POST', '/gigs', { token: eTok, body: { title: 'Paint my fence', category: 'garden', hours: 4, payPerHour: 60, location: 'Katlehong', when: 'Sat 09:00', description: 'Two coats.' } });
+  const posted = await api('POST', '/gigs', { token: eTok, body: { fund: true, title: 'Paint my fence', category: 'garden', hours: 4, payPerHour: 60, location: 'Katlehong', when: 'Sat 09:00', description: 'Two coats.' } });
   ok(posted.status === 201 && posted.json?.id, 'employer posts a gig');
   const postedId = posted.json.id;
   const gigs2 = await api('GET', '/gigs');
@@ -489,8 +489,15 @@ async function run() {
     ok(!A.redact('my ID is 9001015009087 and phone 071 234 5678').match(/\d{5}/), 'ID and phone numbers are masked before leaving');
     ok(A.redact('mail me at a.b@c.co.za').includes('[email]'), 'email addresses are masked');
     ok(A.tidy('**Yes** you can.\n- one\n# Heading') === 'Yes you can.\n• one\nHeading', 'markdown is flattened to the plain text the app renders');
-    ok(A.violatesFacts('Vuka holds your money until the job is done.'), 'a reply saying Vuka holds the money is caught');
-    ok(!A.violatesFacts('Vuka does not hold your money. The employer pays you directly.'), 'the true statement is not');
+    ok(A.violatesFacts('Vuka does not hold your money. The employer pays you directly.'), 'the old "paid directly" model is caught — pay is in escrow now');
+    ok(A.violatesFacts('Even after you are hired, the employer can take the money back.'), 'a late reversal claim is caught');
+    ok(!A.violatesFacts('Once you are hired the funds are locked and cannot be taken back.'), 'the true statement about locking is not');
+    ok(!A.violatesFacts('The employer secures the pay before hiring and it goes to your wallet.'), 'the escrow description is not');
+    ok(/test mode/.test(A.withTestNote('Your pay goes to your wallet.', 'en')), 'a money answer gets the test-mode note');
+    ok(/sokuhlola/.test(A.withTestNote('Imali yakho iya ku-wallet.', 'zu')), 'in the language of the answer');
+    ok(A.withTestNote(A.withTestNote('Imali yakho iya ku-wallet.', 'zu'), 'zu').split('sokuhlola').length === 2, 'and never twice in isiZulu either');
+    ok(A.withTestNote('Payments are in test mode. Your pay goes to your wallet.', 'en').split('test mode').length === 2, 'and never twice');
+    ok(A.withTestNote('Meet in daylight.', 'en') === 'Meet in daylight.', 'answers not about money are untouched');
 
     // The natural voice: gated, bounded, and honest when it is off.
     ok((await api('POST', '/assistant/voice', { body: { text: 'Hello' } })).status === 401, 'voice requires auth');
@@ -773,7 +780,7 @@ async function run() {
 
     /** Post a gig, hire the worker, and wait for the detached notify to settle. */
     const hireOnce = async (title) => {
-      const g = await api('POST', '/gigs', { token: emp, body: { title, category: 'cleaning', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Wed 09:00' } });
+      const g = await api('POST', '/gigs', { token: emp, body: { fund: true, title, category: 'cleaning', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Wed 09:00' } });
       await api('POST', `/gigs/${g.json.id}/apply`, { token: wTok });
       await api('POST', `/gigs/${g.json.id}/hire`, { token: emp, body: { workerId: wId } });
       await new Promise((r) => setTimeout(r, 400));   // reach() runs detached
@@ -855,7 +862,7 @@ async function run() {
 
     const held = await api('POST', '/gigs', {
       token: eTok,
-      body: { title: 'Hired, so it stays', category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
+      body: { fund: true, title: 'Hired, so it stays', category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
     });
     await api('POST', `/gigs/${held.json.id}/apply`, { token: wTok });
     await api('POST', `/gigs/${held.json.id}/hire`, { token: eTok, body: { workerId: wId } });
@@ -866,7 +873,7 @@ async function run() {
        existed that could remove it. */
     const newGig = (title) => api('POST', '/gigs', {
       token: eTok,
-      body: { title, category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
+      body: { fund: true, title, category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'This week', description: 'Temporary.' },
     });
 
     const junk = await newGig('Delete me - listing cleanup test');
@@ -956,7 +963,7 @@ async function run() {
     // password-reset section deliberately invalidates.
     const arEmp = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Sipho Ndlovu', phone: '0829990007', password: 'test1234', verifyToken: await verifyPhone('0829990007') } })).json.token;
 
-    const posted = await api('POST', '/gigs', { token: arEmp, body: { title: 'Move some boxes', category: 'errands', hours: 3, payPerHour: 55, location: 'Soweto', when: 'Tue 08:00' } });
+    const posted = await api('POST', '/gigs', { token: arEmp, body: { fund: true, title: 'Move some boxes', category: 'errands', hours: 3, payPerHour: 55, location: 'Soweto', when: 'Tue 08:00' } });
     const gigId = posted.json.id;
     await api('POST', `/gigs/${gigId}/apply`, { token: wTok });
     await api('POST', `/gigs/${gigId}/hire`, { token: arEmp, body: { workerId: wId } });
@@ -1412,7 +1419,7 @@ async function run() {
       'a typing ping from a blocked person is accepted and goes nowhere');
 
     // The other ways to reach somebody.
-    const postedGig = await api('POST', '/gigs', { token: emp.tok, body: { title: 'Sweep the yard', category: 'garden', location: 'Soweto', hours: 2, payPerHour: 60, when: 'Sat', description: 'Yard needs a tidy before the weekend.' } });
+    const postedGig = await api('POST', '/gigs', { token: emp.tok, body: { fund: true, title: 'Sweep the yard', category: 'garden', location: 'Soweto', hours: 2, payPerHour: 60, when: 'Sat', description: 'Yard needs a tidy before the weekend.' } });
     ok(postedGig.status === 201, 'the employer can still post work');
     const invited = await api('POST', `/talent/${wrk.id}/invite`, { token: emp.tok, body: { gigId: postedGig.json.id } });
     ok(invited.status === 403, 'a blocked employer cannot invite the worker to a job');
@@ -1493,6 +1500,84 @@ async function run() {
     ok(after?.database?.ok === true, 'with the database still reachable throughout');
   }
 
+
+  // 10z) Escrow, test mode. The rules the product owner set on 2026-09-25:
+  // fund before anyone is hired; free reversal until then, locked after;
+  // confirmation (or auto-release) moves the pay into the worker's wallet;
+  // the worker withdraws to their bank.
+  {
+    const reg = async (role, name, phone) => (await api('POST', '/auth/register', {
+      body: { role, name, phone, password: 'test1234', verifyToken: await verifyPhone(phone), ...(role === 'worker' ? { age: 24, location: 'Soweto' } : {}) },
+    })).json;
+    const E = await reg('employer', 'Busi Nkosi', '0829990020');
+    const W = await reg('worker', 'Themba Mokoena', '0829990021');
+    const job = { title: 'Wash my windows', category: 'cleaning', hours: 3, payPerHour: 60, location: 'Soweto', when: 'Sat' };
+
+    // Posted without funds: visible, appliable, but nobody can be hired.
+    const bare = (await api('POST', '/gigs', { token: E.token, body: job })).json;
+    ok(bare.funding === 'none' && bare.totalPay === 180 && bare.paymentsMode === 'test', 'an unfunded gig says so, with its total and the mode');
+    ok((await api('POST', `/gigs/${bare.id}/apply`, { token: W.token })).status < 300, 'a worker can still apply to an unfunded gig');
+    const blocked = await api('POST', `/gigs/${bare.id}/hire`, { token: E.token, body: { workerId: W.user.id } });
+    ok(blocked.status === 409 && blocked.json?.reason === 'needs_funding', 'hiring onto an unfunded gig is refused');
+    ok(/R180/.test(blocked.json?.error ?? ''), 'and the refusal says how much to add', blocked.json?.error);
+    ok((await api('POST', `/gigs/${bare.id}/fund`, { token: W.token })).status === 403, 'a worker cannot fund a gig');
+    ok((await api('POST', `/gigs/${bare.id}/unfund`, { token: E.token })).json?.reason === 'not_funded', 'nothing to reverse on an unfunded gig');
+
+    // Funded later, then reversed for free, then funded again.
+    const f1 = await api('POST', `/gigs/${bare.id}/fund`, { token: E.token });
+    ok(f1.status === 201 && f1.json?.amount === 180 && f1.json?.mode === 'test', 'the employer funds it later — the full pay');
+    ok((await api('POST', `/gigs/${bare.id}/fund`, { token: E.token })).status === 200, 'funding twice does not take the money twice');
+    ok((await api('GET', `/gigs/${bare.id}`)).json?.funding === 'held', 'workers now see the funds are secured');
+    const rev = await api('POST', `/gigs/${bare.id}/unfund`, { token: E.token });
+    ok(rev.json?.refunded === 180 && rev.json?.fee === 0, 'before anyone is hired the employer can take it all back, at zero fee');
+    ok((await api('GET', `/gigs/${bare.id}`)).json?.funding === 'none', 'and the gig shows unfunded again');
+    await api('POST', `/gigs/${bare.id}/fund`, { token: E.token });
+
+    // Hire: now it locks.
+    ok((await api('POST', `/gigs/${bare.id}/hire`, { token: E.token, body: { workerId: W.user.id } })).json?.ok, 'a funded gig can be hired');
+    const locked = await api('POST', `/gigs/${bare.id}/unfund`, { token: E.token });
+    ok(locked.status === 409 && locked.json?.reason === 'locked', 'once someone is hired the funds are locked to them');
+    const w0 = (await api('GET', '/me/wallet', { token: W.token })).json;
+    ok(w0.balance === 0 && w0.pending === 180 && w0.mode === 'test', 'the worker sees the pay waiting for them, not yet in the wallet');
+
+    // Done and confirmed: into the wallet.
+    await api('POST', `/gigs/${bare.id}/complete`, { token: W.token, body: { rating: 5 } });
+    const hire = (await api('GET', '/me/hires', { token: E.token })).json.find((h) => h.gig.id === bare.id);
+    const conf = await api('POST', `/applications/${hire.applicationId}/confirm`, { token: E.token, body: { rating: 5 } });
+    ok(conf.json?.released === 180, 'confirming releases the pay');
+    const w1 = (await api('GET', '/me/wallet', { token: W.token })).json;
+    ok(w1.balance === 180 && w1.pending === 0, 'and it reflects in the worker\'s wallet');
+    ok(w1.entries[0]?.kind === 'release' && w1.entries[0]?.gigTitle === 'Wash my windows' && w1.entries[0]?.testMode, 'the wallet says which job it was for, and that it is test mode');
+    ok((await api('GET', `/gigs/${bare.id}`)).json?.funding === 'released', 'the gig shows the pay as released');
+
+    // Withdraw: needs a bank account, then empties the wallet.
+    const noBank = await api('POST', '/me/wallet/withdraw', { token: W.token });
+    ok(noBank.status === 409 && noBank.json?.reason === 'needs_banking', 'withdrawing needs bank details first');
+    await api('PUT', '/me/banking', { token: W.token, body: { holder: 'T Mokoena', bank: 'capitec', accountType: 'savings', accountNumber: '9876543210' } });
+    const out = await api('POST', '/me/wallet/withdraw', { token: W.token });
+    ok(out.json?.amount === 180 && /3210/.test(out.json?.to ?? '') && out.json?.mode === 'test', 'the worker withdraws it all to their bank (test mode)');
+    ok((await api('GET', '/me/wallet', { token: W.token })).json?.balance === 0, 'and the wallet is empty');
+    ok((await api('POST', '/me/wallet/withdraw', { token: W.token })).json?.reason === 'empty', 'nothing more to withdraw');
+
+    // Deleting an unfilled funded gig refunds it.
+    const temp = (await api('POST', '/gigs', { token: E.token, body: { ...job, title: 'Changed my mind', fund: true } })).json;
+    ok(temp.funding === 'held', 'a gig can be funded in the same step as posting it');
+    const del = await api('DELETE', `/gigs/${temp.id}`, { token: E.token });
+    ok(del.json?.refunded === 180, 'removing an unfilled job gives the funds back');
+
+    // Invitations obey the same rule.
+    const inviteGig = (await api('POST', '/gigs', { token: E.token, body: { ...job, title: 'Invite only' } })).json;
+    await api('POST', `/talent/${W.user.id}/invite`, { token: E.token, body: { gigId: inviteGig.id } });
+    const myInv = (await api('GET', '/me/invitations', { token: W.token })).json.find((i) => i.gig.id === inviteGig.id);
+    ok(myInv?.gig?.funding === 'none', 'an invitation shows whether its gig is funded');
+    const acc = await api('POST', `/invitations/${myInv.id}/respond`, { token: W.token, body: { accept: true } });
+    ok(acc.status === 409 && acc.json?.reason === 'needs_funding', 'accepting an invitation to an unfunded gig waits for the funds');
+    ok((await api('GET', '/me/invitations', { token: W.token })).json.some((i) => i.id === myInv.id), 'and the invitation stays open');
+    await api('POST', `/gigs/${inviteGig.id}/fund`, { token: E.token });
+    ok((await api('POST', `/invitations/${myInv.id}/respond`, { token: W.token, body: { accept: true } })).status < 300, 'once funded, it can be accepted');
+
+    ok((await api('GET', '/health')).json?.payments === 'test', 'health reports payments are in test mode');
+  }
 
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.

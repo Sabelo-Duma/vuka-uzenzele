@@ -241,7 +241,16 @@ export interface CreateGigInput {
   /** Exact coordinates, when the employer chose to share them. Optional by
    *  design: without them the server places the job from its location text. */
   lat?: number; lng?: number;
+  /** Secure the pay in the same step (escrow, test mode). */
+  fund?: boolean;
 }
+
+/** The worker's wallet: released pay, and pay secured on jobs they are hired onto. */
+export interface WalletEntry {
+  id: string; kind: 'release' | 'withdrawal'; amount: number; note: string | null;
+  testMode: boolean; at: string; gigTitle: string | null;
+}
+export interface Wallet { mode: 'test' | 'live'; balance: number; pending: number; entries: WalletEntry[] }
 
 /** Viewer position, appended so the server can measure real distances. */
 export type Near = { lat: number; lng: number } | null | undefined;
@@ -413,13 +422,18 @@ export const api = {
   getGig: (id: string, near?: Near) => request<Gig>('GET', `/gigs/${id}${nearQuery(near)}`),
   createGig: (input: CreateGigInput) => request<Gig>('POST', '/gigs', input),
   /** Withdraw your own listing. Refuses once someone is hired for it. */
-  deleteGig: (id: string) => request<{ ok: boolean; applicantsNotified: number }>('DELETE', `/gigs/${id}`),
+  deleteGig: (id: string) => request<{ ok: boolean; applicantsNotified: number; refunded?: number }>('DELETE', `/gigs/${id}`),
   applyGig: (id: string) => request<{ ok: boolean }>('POST', `/gigs/${id}/apply`),
   /** Worker marks the work done and rates the employer. The CV moves only on the employer's confirmation. */
   completeGig: (id: string, rating: number, safetyFlag: boolean) =>
     request<{ ok: boolean; status: WorkStatus; awaitingConfirmationFrom: string }>('POST', `/gigs/${id}/complete`, { rating, safetyFlag }),
   listMyJobs: () => request<MyJob[]>('GET', '/me/jobs'),
   listApplicants: (gigId: string) => request<{ gig: Gig; applicants: Applicant[] }>('GET', `/gigs/${gigId}/applicants`),
+  /* Escrow, test mode — see vuka-server/src/escrow.mjs. */
+  fundGig: (gigId: string) => request<{ ok: boolean; funding: 'held'; amount: number; mode: string }>('POST', `/gigs/${gigId}/fund`),
+  unfundGig: (gigId: string) => request<{ ok: boolean; refunded: number; fee: number; mode: string }>('POST', `/gigs/${gigId}/unfund`),
+  getWallet: () => request<Wallet>('GET', '/me/wallet'),
+  withdrawWallet: () => request<{ ok: boolean; amount: number; to: string; mode: string }>('POST', '/me/wallet/withdraw'),
   hireWorker: (gigId: string, workerId: string) => request<{ ok: boolean; applicationId: string }>('POST', `/gigs/${gigId}/hire`, { workerId }),
   listMyHires: () => request<Hire[]>('GET', '/me/hires'),
   confirmWork: (applicationId: string, rating: number, review?: string) =>

@@ -5,6 +5,8 @@ import { useApp } from '../../store/appStore';
 import type { CategoryId } from '../../types';
 import { Button } from '../../components/ui';
 import { FairMeter } from '../../components/bits';
+import { TestModeNote } from '../../components/Funding';
+import { money } from '../../lib/format';
 
 // text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, hiding the Post button behind the keyboard.
@@ -27,6 +29,9 @@ export function PostJob() {
   const [when, setWhen] = useState('This week');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
+  /* Escrow: secure the pay now, or later — but before hiring either way. On by
+     default, because a funded job is the one workers trust enough to take. */
+  const [fundNow, setFundNow] = useState(true);
   // Pinning the job to exact coordinates is what lets workers see a real
   // distance instead of an estimate — so it's offered, and it's optional.
   const [pin, setPin] = useState<Coords | null>(null);
@@ -46,6 +51,8 @@ export function PostJob() {
 
   const rateNum = Number(rate) || 0;
   const minWage = minWagePerHour();
+  /* Rounded to the rand, the same way the server computes what is secured. */
+  const total = Math.round((Number(hours) || 0) * rateNum);
 
   /**
    * Everything wrong with the form, before anything is sent.
@@ -81,8 +88,10 @@ export function PostJob() {
     }
     setBusy(true);
     try {
-      await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, ...(pin ?? {}) });
-      toast('Job posted! Verified youth nearby can now apply 🚀');
+      await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, fund: fundNow, ...(pin ?? {}) });
+      toast(fundNow
+        ? `Job posted and ${money(total)} secured — workers will see "Funds secured" 🔒`
+        : 'Job posted! Add the funds before you hire someone.');
       navigate('home');
     } catch (e) {
       // The server names the field it rejected; put the message there.
@@ -165,7 +174,23 @@ export function PostJob() {
           knows exactly what is about to be published about their offer. */}
       <FairMeter ratePerHour={rateNum} minWage={minWage} />
 
-      <Button block variant="primary" disabled={busy} onClick={submit}>{busy ? 'Posting…' : "Post job — it's free to post"}</Button>
+      {/* The pay, secured up front. Workers see whether it is before applying,
+          and nobody can be hired until it is. */}
+      <div className="rounded-2xl border border-line bg-surface p-4 mb-3.5">
+        <label className="flex gap-3 items-start cursor-pointer min-h-[44px]">
+          <input type="checkbox" className="mt-1 w-5 h-5 accent-[var(--v-brand)] shrink-0" checked={fundNow} onChange={(e) => setFundNow(e.target.checked)} />
+          <span className="text-small text-ink leading-relaxed">
+            <b>Secure the pay now — <span className="font-mono tnum">{money(total)}</span></b><br />
+            Workers see <b>Funds secured</b> on your job. You can take it back for free until you hire someone; after that it is locked for them and paid into their wallet when you confirm the work.
+            {!fundNow && <><br /><span className="text-dim">You can add it later — but you will need to before you hire.</span></>}
+          </span>
+        </label>
+        <TestModeNote className="mt-3" />
+      </div>
+
+      <Button block variant="primary" disabled={busy} onClick={submit}>
+        {busy ? 'Posting…' : fundNow ? `Post job & secure ${money(total)}` : 'Post job without funds'}
+      </Button>
       <p className="text-center text-small text-dim leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
     </>
   );

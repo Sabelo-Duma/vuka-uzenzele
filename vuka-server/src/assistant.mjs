@@ -10,9 +10,9 @@
    ------------------------------------------------------------
    Why this is allowed now when it was refused before.
 
-   The first Msizi refused a model for two reasons: cost, and a model saying
-   "yes, Vuka holds your money" because such apps usually do. Both are handled
-   here rather than waved away:
+   The first Msizi refused a model for two reasons: cost, and a model
+   describing how payment "usually" works on gig apps instead of how it works
+   here. Both are handled here rather than waved away:
 
    COST. Only free tiers, never a card on file. Groq's free tier (no payment
    method, no training on API data) is the default; Google's Gemini free tier
@@ -122,8 +122,10 @@ export function redact(text) {
  */
 const FACTS = [
   'Vuka Uzenzele ("Vuka") is a free South African app that connects people looking for work with gigs (short jobs like cleaning, gardening, dog-walking, moving help, errands, car washing) and formal jobs.',
-  'VUKA DOES NOT HOLD, PROCESS OR TOUCH MONEY. The employer pays the worker directly (cash, EFT or however they agree). Vuka never keeps wages, never takes a cut from the worker, and there is no escrow. Never say or imply that Vuka holds, protects, guarantees or releases payment.',
-  'When an employer confirms a job, what is released is the worker\'s REFERENCE: the job is added to their record ("My Record"), their Vuka Score and rating. It is not money.',
+  'HOW PAYMENT WORKS (escrow, see escrow.mjs): the employer secures the full pay for a job in Vuka before anyone is hired — when posting it, or later. Workers see "Funds secured" on a job before they apply. Nobody can be hired onto a job until its pay is secured.',
+  'Until a worker is hired, the employer can take the funds back at no fee. From the moment someone is hired, the funds are locked for that worker and cannot be taken back.',
+  'When the employer confirms the job — or automatically, if they never answer within the confirmation window — the pay moves into the worker\'s Vuka wallet, and the job is added to their record ("My Record"). The worker withdraws from the wallet to the bank account saved under "Me".',
+  'PAYMENTS ARE IN TEST MODE. No real money moves yet: funding, the wallet and withdrawals are a practice run until a payment provider is connected. Whenever you explain payments, say that it is test mode.',
   'My Record is a verified work CV built from completed, confirmed jobs. The Vuka Score, tiers on "The Ladder", badges and star ratings come from it.',
   'Workers find work under "Find work", apply with one tap, chat with employers in "Chats", and see their record in "My Record". Settings, language, ID verification, banking details and job alerts are under "Me".',
   'Employers post a job with the + button, choose from applicants, and confirm the work afterwards.',
@@ -190,13 +192,46 @@ export function tidy(text) {
 }
 
 /**
- * The last line of defence on the one claim that must never be made. A reply
- * saying Vuka holds or guarantees the money is replaced, not edited.
+ * The last line of defence on how payment works. Models reach for the most
+ * common gig-app pattern, and for Vuka both of these are wrong:
+ *
+ *  · "the employer pays you directly / in cash" or "Vuka does not handle the
+ *    money" — the old model. Pay is secured in escrow before anyone is hired.
+ *  · "the employer can cancel and take the money back" once someone is hired —
+ *    it is locked from the moment of hiring.
+ *
+ * A reply making either claim is replaced, not edited.
  */
-const MONEY_CLAIM = /\bvuka\b[^.]{0,60}\b(holds?|keeps?|protects?|guarantees?|releases?|safeguards?)\b[^.]{0,30}\b(money|payment|wages?|pay|funds?)\b/i;
+const OLD_MODEL = /\b(pays? (you|the worker|workers) (directly|in cash|cash)|paid directly by the employer|vuka (does not|doesn.t|never|won.t) (hold|handle|process|touch|keep)s?\b)/i;
+const LATE_REVERSAL = /\b(after|once|even after)\b[^.]{0,40}\bhired\b[^.]{0,60}\b(take|get|pull|withdraw|reverse)s?\b[^.]{0,20}\b(back|refund|money|funds)\b/i;
 
 export function violatesFacts(text) {
-  return MONEY_CLAIM.test(text) && !/\b(not|never|doesn.t|does not|don.t)\b/i.test(text.match(MONEY_CLAIM)?.[0] ?? '');
+  if (OLD_MODEL.test(text)) return true;
+  const late = text.match(LATE_REVERSAL)?.[0];
+  return !!late && !/\b(not|never|cannot|can.t|no longer|locked)\b/i.test(late);
+}
+
+const ESCROW_ANSWER =
+  'The employer secures the full pay for the job in Vuka before anyone is hired, and you can see "Funds secured" on the job before you apply. '
+  + 'Until someone is hired the employer can take the funds back for free; once you are hired they are locked for you. '
+  + 'When the employer confirms the job, or automatically if they never answer, the pay moves into your Vuka wallet and you withdraw it to your bank account.';
+
+/* Said whenever money comes up, in the language of the answer, because it is
+   true right now and a person deciding whether to take a job needs it. */
+const TEST_NOTE = {
+  en: 'Payments are in test mode for now, so no real money moves yet.',
+  zu: 'Izinkokhelo zisesimweni sokuhlola okwamanje, ngakho ayikho imali yangempela edluliswayo okwamanje.',
+  xh: 'Iintlawulo zikwimo yovavanyo okwangoku, ngoko akukho mali yokwenyani ihambayo okwangoku.',
+  st: 'Ditefo di maemong a teko hajwale, kahoo ha ho chelete ya nnete e fetisetswang hajwale.',
+  af: 'Betalings is vir eers in toetsmodus, so geen regte geld beweeg nog nie.',
+};
+const MONEY_WORDS = /\b(pay|paid|payment|money|funds?|wallet|withdraw|escrow|secured|rand|imali|chelete|geld|betaal|umholo|moputso|ukukhokhelwa)\b/i;
+const HAS_TEST_NOTE = /test mode|\btest\b|practice|no real money|toetsmodus|hlola|vavanyo|\bteko\b/i;
+
+/** Append the test-mode note to any answer about money that lacks one. */
+export function withTestNote(text, lang = 'en') {
+  if (!MONEY_WORDS.test(text) || HAS_TEST_NOTE.test(text)) return text;
+  return `${text}\n${TEST_NOTE[lang] ?? TEST_NOTE.en}`;
 }
 
 async function callProvider(p, messages) {
@@ -249,13 +284,9 @@ export async function askAssistant({ userId, question, lang, entries, history })
       const answer = tidy(await callProvider(p, messages));
       if (!answer) throw new Error(`${p.name}: empty answer`);
       if (violatesFacts(answer)) {
-        return {
-          provider: p.name,
-          answer: 'Vuka never holds or handles your money. The employer pays you directly, the way you agree between you. '
-            + 'What Vuka keeps is your record: once the employer confirms the job, it is added to My Record and your Vuka Score.',
-        };
+        return { provider: p.name, answer: withTestNote(ESCROW_ANSWER, 'en') };
       }
-      return { answer, provider: p.name };
+      return { answer: withTestNote(answer, safeLang), provider: p.name };
     } catch (e) {
       lastError = e;
     }
