@@ -20,6 +20,9 @@ process.env.VUKA_RATE_MAX = '100000';
 // Storage figures are cached for a quarter of an hour in production. A test
 // that asserts a count it just created needs the real one.
 process.env.VUKA_STORAGE_TTL_MS = '0';
+// Msizi's model fallback must never reach a real provider from a test run.
+delete process.env.VUKA_GROQ_API_KEY;
+delete process.env.VUKA_GEMINI_API_KEY;
 // A throwaway VAPID keypair so the push routes are switched on for the run.
 // Generated here with node:crypto rather than via push.mjs, because that module
 // reads its keys at import time — importing it first would freeze them as empty.
@@ -472,6 +475,23 @@ async function run() {
   ok((await api('PUT', '/me/preferences', { token: wTok, body: { jobAlerts: false } })).json?.jobAlerts === false, 'job alerts turned off');
   ok((await api('GET', '/me/preferences', { token: wTok })).json?.jobAlerts === false, 'preference persists');
   ok((await api('PUT', '/me/preferences', { token: wTok, body: { jobAlerts: true } })).json?.jobAlerts === true, 'job alerts turned back on');
+
+  // 9i) Msizi's model fallback: gated, honest when switched off, and the
+  // guards that do not depend on a provider actually hold.
+  {
+    ok((await api('POST', '/assistant/ask', { body: { question: 'hi' } })).status === 401, 'assistant requires auth');
+    ok((await api('POST', '/assistant/ask', { token: wTok, body: { question: '  ' } })).status === 400, 'empty question rejected');
+    const off = await api('POST', '/assistant/ask', { token: wTok, body: { question: 'can I bring my child to a job?', lang: 'en' } });
+    ok(off.status === 503 && off.json?.reason === 'not_configured', 'with no key, it says so rather than failing');
+    const h = (await api('GET', '/health')).json;
+    ok(h?.ai?.configured === false, 'health reports the fallback as off');
+    const A = await import('./assistant.mjs');
+    ok(!A.redact('my ID is 9001015009087 and phone 071 234 5678').match(/\d{5}/), 'ID and phone numbers are masked before leaving');
+    ok(A.redact('mail me at a.b@c.co.za').includes('[email]'), 'email addresses are masked');
+    ok(A.tidy('**Yes** you can.\n- one\n# Heading') === 'Yes you can.\n• one\nHeading', 'markdown is flattened to the plain text the app renders');
+    ok(A.violatesFacts('Vuka holds your money until the job is done.'), 'a reply saying Vuka holds the money is caught');
+    ok(!A.violatesFacts('Vuka does not hold your money. The employer pays you directly.'), 'the true statement is not');
+  }
 
   // 9j) safety reports are stored, not just toasted
   ok((await api('POST', '/safety/report', { body: { concern: 'x' } })).status === 401, 'safety report requires auth');

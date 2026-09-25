@@ -117,6 +117,28 @@ const QUALITY_HINTS = [
   { match: /siri/i, score: 3 },
 ];
 
+/**
+ * Msizi is a woman's voice. Asked for by the product owner, and it matches the
+ * character — a patient helper, "umsizi".
+ *
+ * The API has no gender field either, so this is by name. The list covers the
+ * voices that actually ship on the phones and browsers this app meets:
+ *   · iOS / macOS: Tessa is South African English, then the Siri-era family
+ *     (Samantha, Karen, Moira, Fiona, Serena, Kate, Ava, Zoe, Allison...).
+ *   · Edge / Windows: the "Online (Natural)" neural voices — Leah is en-ZA,
+ *     Adri is Afrikaans, Thando is isiZulu — plus Zira, Hazel, Susan, Aria...
+ *   · Chrome desktop: "Google UK English Female", "Google US English".
+ *   · Android: Google's voice codes, where sfg/tpc/iob/iog/gba/aua/ahp are
+ *     female.
+ * A name that is not recognised either way scores nothing, so a phone with
+ * only unfamiliar voices still speaks.
+ */
+const FEMALE_NAMES = /\b(female|woman|tessa|leah|adri|thando|samantha|karen|moira|fiona|serena|kate|ava|zoe|zoey|allison|susan|victoria|veena|nicky|stephanie|martha|catherine|shelley|sandy|flo|kathy|siri female|zira|hazel|heera|aria|jenny|michelle|emma|sonia|libby|natasha|clara|salli|joanna|kendra|kimberly|ivy|amy|olivia|emily|sara|elsa|ellen|lisa)\b|x-(sfg|tpc|iob|iog|gba|aua|ahp|fis|fnf)/i;
+const MALE_NAMES = /\b(male|man|luke|willem|themba|david|mark|daniel|alex|fred|tom|aaron|arthur|gordon|rishi|oliver|guy|ryan|brian|christopher|eric|roger|steffan|andrew|george|james|william|thomas|ravi|matthew|joey|justin|kevin|russell|lee|reed|rocko|grandpa|eddy)\b|x-(iom|tpd|rjs|gbd|gbb|aud|ahd|fnm)/i;
+
+/** Novelty voices macOS and iOS ship alongside the real ones. Never Msizi. */
+const NOVELTY = /\b(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|grandma|junior|ralph)\b/i;
+
 /** Names that mark a voice as one to avoid unless it is all there is. */
 const POOR_HINTS = /compact|espeak|pico|fallback|low.?quality/i;
 
@@ -125,18 +147,25 @@ export function voiceScore(voice: SpeechSynthesisVoice): number {
   let score = 0;
   for (const hint of QUALITY_HINTS) if (hint.match.test(voice.name)) score += hint.score;
   if (POOR_HINTS.test(voice.name)) score -= 6;
+  if (NOVELTY.test(voice.name)) score -= 20;
+  /* Weighted so that a female voice beats a male one of the same quality, but
+     a neural male voice still beats a robotic female one. */
+  if (FEMALE_NAMES.test(voice.name)) score += 4;
+  else if (MALE_NAMES.test(voice.name)) score -= 4;
   /* A voice the OS has marked default is the one the owner of the phone
      already chose to hear everywhere else. Worth a nudge, not a veto. */
   if (voice.default) score += 1;
-  /* Deliberately NOT preferring remote voices, even though they usually sound
-     better. Msizi reads a person's own record aloud — "you have earned two
-     thousand one hundred and fifty rand" — and a remote voice means that
-     sentence is sent to a vendor's servers to be spoken. The whole argument for
-     building Msizi the way it is built is that nothing about somebody's work
-     history leaves their phone. A nicer voice is not worth breaking that, so a
-     local voice wins ties. */
+  /* A local voice wins ties. Remote voices usually sound better, and a remote
+     voice means the sentence is sent to a vendor's servers to be spoken — so
+     answers carrying a person's own record ("you have earned...") are spoken
+     with localOnly, and never leave the phone. See pickVoice. */
   if (voice.localService) score += 2;
   return score;
+}
+
+/** True if a voice is sent off the phone to be spoken. */
+function isRemote(voice: SpeechSynthesisVoice): boolean {
+  return voice.localService === false;
 }
 
 /** Every voice this device offers for a language tag, best first. */
@@ -163,10 +192,16 @@ function rankedFor(voices: SpeechSynthesisVoice[], tag: string): SpeechSynthesis
  * refusing the second because it is not spelled like the first would silence a
  * voice that was sitting right there.
  */
-export function pickVoice(lang: Lang): VoicePick {
+export function pickVoice(lang: Lang, opts: { localOnly?: boolean } = {}): VoicePick {
   if (!canSpeak()) return { voice: null, coverage: 'none' };
   let voices: SpeechSynthesisVoice[] = [];
   try { voices = window.speechSynthesis.getVoices(); } catch { voices = []; }
+  /* A person's own figures ("you have earned...") are never handed to a remote
+     voice. Everything else may use one, because on Edge the remote neural
+     voices are the only ones that speak isiZulu, and they are the nicest. On
+     a phone with only remote voices a personal answer is shown and not read —
+     the words are on screen either way. */
+  if (opts.localOnly) voices = voices.filter((v) => !isRemote(v));
   /* A browser that exposes speechSynthesis but has no voices installed cannot
      speak at all, which is a different thing from having the wrong voice.
      Reporting it as a fallback produced the sentence "Your phone has no English
@@ -341,14 +376,48 @@ let speakGeneration = 0;
  * other is worse than either of them, and on a phone held to the ear it is
  * unusable.
  */
-export function speak(text: string, lang: Lang, onEnd?: () => void): SpeakHandle {
+/**
+ * Unlock speech on iOS. MUST be called synchronously inside a tap.
+ *
+ * iOS Safari refuses speechSynthesis.speak() unless it is called in the same
+ * call stack as a user gesture — and an answer read after listening, or after
+ * waiting on the network, is never in that stack. That is why voice questions
+ * were answered in silence on an iPhone. Speaking one silent utterance inside
+ * the tap unlocks the synthesiser for the rest of the page's life.
+ */
+let primed = false;
+export function primeSpeech(): void {
+  if (primed || !canSpeak()) return;
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+    primed = true;
+  } catch { /* nothing to unlock */ }
+}
+
+/**
+ * Tell iOS 17+ what the page is doing with audio. After the microphone has
+ * been open, WebKit can leave the session in play-and-record, which routes
+ * speech to the earpiece at a whisper. Setting "playback" before speaking puts
+ * it back on the loudspeaker. Harmless where unsupported.
+ */
+export function audioMode(mode: 'playback' | 'play-and-record' | 'auto'): void {
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (session) session.type = mode;
+  } catch { /* not supported */ }
+}
+
+export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { localOnly?: boolean } = {}): SpeakHandle {
   const noop: SpeakHandle = { done: Promise.resolve() };
   if (!canSpeak() || !text.trim()) { onEnd?.(); return noop; }
 
   stopSpeaking();
   const generation = speakGeneration;
 
-  const { voice } = pickVoice(lang);
+  audioMode('playback');
+  const { voice } = pickVoice(lang, opts);
   const sentences = toSentences(text);
   if (sentences.length === 0) { onEnd?.(); return noop; }
 
@@ -370,7 +439,10 @@ export function speak(text: string, lang: Lang, onEnd?: () => void): SpeakHandle
            app's vocabulary for the first time, in a second or third language —
            and a shade slower reads as considered rather than sluggish. */
         u.rate = 0.96;
-        u.pitch = 1;
+        /* A touch above neutral. Many engines' default for a female voice sits
+           low and flat; this lifts it toward a warmer, conversational pitch
+           without tipping into cartoon. */
+        u.pitch = 1.05;
         u.volume = 1;
         if (i === sentences.length - 1) {
           u.onend = finish;

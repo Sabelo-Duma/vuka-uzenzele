@@ -44,6 +44,16 @@ services:
         sync: false
       - key: VUKA_VAPID_SUBJECT
         sync: false            # mailto: address a push service can contact
+      # Msizi's AI fallback (free, no card). Without a key Msizi still answers
+      # from its written knowledge base; with one, it can handle questions the
+      # knowledge base does not cover. Get a free key at console.groq.com/keys
+      # (Groq does not train on API traffic). Gemini is an optional second —
+      # aistudio.google.com/apikey — but its free tier MAY use traffic for
+      # training, so it is only a fallback. See vuka-server/src/assistant.mjs.
+      - key: VUKA_GROQ_API_KEY
+        sync: false
+      - key: VUKA_GEMINI_API_KEY
+        sync: false
       # SMS — the only thing gating new sign-ups. Without it /api/auth/otp
       # returns 503 and nobody new can register; existing and demo accounts
       # still work, which is what makes it easy to miss.

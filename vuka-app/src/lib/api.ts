@@ -490,6 +490,14 @@ export const api = {
   deleteBanking: () => request<{ ok: boolean }>('DELETE', '/me/banking'),
   getPreferences: () => request<Preferences>('GET', '/me/preferences'),
   savePreferences: (prefs: Preferences) => request<Preferences>('PUT', '/me/preferences', prefs),
+  /* Msizi's fallback when its own knowledge base has no answer. Only the
+     question, recent turns and public help text are sent — see
+     vuka-server/src/assistant.mjs. */
+  assistantAsk: (input: {
+    question: string; lang: string;
+    entries: { title: string; body: string }[];
+    history: { q: string; a: string }[];
+  }) => request<{ answer: string; provider: string }>('POST', '/assistant/ask', input),
   reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
     request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),
   /* Blocking. A safety report waits for a person to read it; this takes effect

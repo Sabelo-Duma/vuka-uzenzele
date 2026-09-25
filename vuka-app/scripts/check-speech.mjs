@@ -351,6 +351,46 @@ ok(S.voiceScore(voice('Some Voice', 'en', { local: true })) > S.voiceScore(voice
 ok(S.voiceScore(voice('Unknown Engine', 'en')) >= 0,
   'an unrecognised voice is not penalised', S.voiceScore(voice('Unknown Engine', 'en')));
 
+/* Msizi is a woman's voice — asked for by the product owner. */
+const pairs = [
+  ['Tessa', 'Daniel'],                                                  // iOS / macOS
+  ['Samantha', 'Alex'],
+  ['Google UK English Female', 'Google UK English Male'],               // Chrome
+  ['Microsoft Zira - English (United States)', 'Microsoft David - English (United States)'],
+  ['en-us-x-sfg-local', 'en-us-x-iom-local'],                           // Android codes
+];
+for (const [f, m] of pairs) {
+  ok(S.voiceScore(voice(f, 'en-US')) > S.voiceScore(voice(m, 'en-US')),
+    `female "${f}" outranks male "${m}" at the same quality`);
+}
+ok(S.voiceScore(voice('Microsoft Luke Online (Natural) - English (South Africa)', 'en-ZA', { local: false }))
+  > S.voiceScore(voice('English Compact', 'en-ZA')),
+  'a natural male voice still beats a robotic unnamed one — quality is not traded away entirely');
+ok(S.voiceScore(voice('Samantha', 'en-US')) > S.voiceScore(voice('Grandma', 'en-US')),
+  'novelty voices (Grandma, Bubbles, Zarvox...) are never Msizi');
+ok(S.voiceScore(voice('Emmanuel', 'en-US')) === S.voiceScore(voice('Unknown Engine', 'en-US')),
+  'names are matched as whole words — "Emmanuel" is not read as "Emma" or "man"');
+
+/* pickVoice end to end, against a device list shaped like a real iPhone's. */
+{
+  const saved = globalThis.window;
+  const list = [
+    voice('Daniel', 'en-GB'), voice('Samantha', 'en-US', { def: true }),
+    voice('Tessa', 'en-ZA'), voice('Bubbles', 'en-US'), voice('Microsoft Thando Online (Natural)', 'zu-ZA', { local: false }),
+  ];
+  globalThis.window = { ...(saved ?? {}), speechSynthesis: { getVoices: () => list } };
+  try {
+    ok(S.pickVoice('en').voice?.name === 'Tessa', 'English on an iPhone is read by Tessa, the South African woman',
+      S.pickVoice('en').voice?.name);
+    ok(S.pickVoice('zu').voice?.name === 'Microsoft Thando Online (Natural)', 'isiZulu uses a real isiZulu voice where one exists');
+    ok(S.pickVoice('zu', { localOnly: true }).voice?.name === 'Tessa',
+      'a personal answer never goes to a remote voice — it falls back to a local one');
+    ok(S.pickVoice('zu', { localOnly: true }).coverage === 'fallback', 'and says it is a fallback');
+  } finally {
+    globalThis.window = saved;
+  }
+}
+
 /* ---- 7. Every answer Msizi can say is actually speakable ---------------- */
 
 /* The rules above are asserted against hand-written examples, which proves the

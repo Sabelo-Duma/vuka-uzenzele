@@ -597,8 +597,10 @@ export function rank(query: string, role: Role): Scored[] {
    ------------------------------------------------------------------ */
 
 export interface MsiziReply {
-  /** 'miss' means Msizi does not know — the UI must not dress it up. */
-  kind: 'answer' | 'live' | 'miss';
+  /** 'miss' means Msizi does not know — the UI must not dress it up.
+      'chat' is small talk (lib/msiziChat.ts); 'ai' came from the model
+      fallback and is labelled as such; 'thinking' is waiting on it. */
+  kind: 'answer' | 'live' | 'miss' | 'chat' | 'ai' | 'thinking';
   id: string | null;
   title: string;
   /** Fully resolved. No placeholders survive this. */
@@ -617,6 +619,30 @@ export function lookup(id: string): { id: string; title: string; ask: string } |
   const l = LIVE_BY_ID.get(id);
   if (l) return { id, title: l.title, ask: l.asks[0] };
   return null;
+}
+
+/**
+ * The written entries nearest a question, resolved, for the model fallback to
+ * answer from. Live intents are left out on purpose: they are built from the
+ * person's own record, and that never goes to the model.
+ */
+export function groundingFor(query: string, ctx: MsiziContext, max = 4): { title: string; body: string }[] {
+  const out: { title: string; body: string }[] = [];
+  for (const r of rank(query, ctx.role)) {
+    if (out.length >= max) break;
+    if (r.live || r.score < 0.05) continue;
+    const e = KNOWLEDGE.find((k) => k.id === r.id);
+    if (e) out.push({ title: e.title, body: fill(e.body, ctx) });
+  }
+  /* Nothing near at all: give it the basics, so "what is this app" in words
+     the index has never seen still gets a grounded answer. */
+  if (out.length === 0) {
+    for (const id of ['what-is-vuka', 'how-payment-works', 'is-it-safe']) {
+      const e = KNOWLEDGE.find((k) => k.id === id);
+      if (e) out.push({ title: e.title, body: fill(e.body, ctx) });
+    }
+  }
+  return out;
 }
 
 /** The chips to show before anything has been asked. */

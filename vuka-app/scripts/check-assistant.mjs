@@ -65,6 +65,10 @@ async function askText(page, question) {
   await page.getByRole('button', { name: /^ask$/i }).click();
   const answers = page.locator('article');
   await answers.last().waitFor({ timeout: 10_000 });
+  /* A question the written answers do not cover goes to the model fallback
+     first and shows "Thinking..." until that settles. Wait it out — against a
+     server with no key it comes straight back as the honest refusal. */
+  await answers.last().getByText(/thinking/i).waitFor({ state: 'detached', timeout: 20_000 }).catch(() => {});
   return answers.last();
 }
 
@@ -144,9 +148,11 @@ try {
   /* --- and it admits what it does not know --- */
   const miss = await askText(page, 'who won the soccer last night');
   const missText = await miss.innerText();
-  ok(/do not know that one/i.test(missText),
-    'an unanswerable question is honestly refused', missText.slice(0, 200));
-  ok(/try asking/i.test(missText),
+  /* With a model configured this may instead be a short, labelled AI reply
+     steering back to Vuka; either is honest, a confident KB answer is not. */
+  ok(/do not know that one/i.test(missText) || /worked out by ai/i.test(missText),
+    'an unanswerable question is honestly refused, or answered as labelled AI', missText.slice(0, 200));
+  ok(/try asking|ask me next/i.test(missText),
     'a refusal still offers somewhere to go', missText.slice(0, 200));
 
   /* --- voice: offered, or explained. Never a dead button. --- */
@@ -163,8 +169,17 @@ try {
     `speak buttons ${speakCount}, notices ${cannotSpeak}`);
 
   /* --- the honesty line is on the screen, not buried --- */
-  const notAi = await page.getByText(/does not guess/i).first().isVisible().catch(() => false);
-  ok(notAi, 'the screen says plainly that Msizi does not guess');
+  const notAi = await page.getByText(/never your record/i).first().isVisible().catch(() => false);
+  ok(notAi, 'the screen says plainly what is sent to the AI, and that the record never is');
+
+  /* --- conversation: "hello" is greeted, not refused (reported from a phone) --- */
+  const hello = await askText(page, 'hello');
+  const helloText = await hello.innerText();
+  ok(/i am msizi/i.test(helloText) && !/do not know/i.test(helloText),
+    '"hello" is answered with a greeting', helloText.slice(0, 160));
+  const hiQ = await askText(page, 'Hi, how do I get paid?');
+  ok(/paid|pay/i.test(await hiQ.innerText()) && !/i am msizi/i.test(await hiQ.innerText()),
+    'a greeting in front of a question does not swallow the question');
 
   /* --- starting again clears the conversation --- */
   await page.getByRole('button', { name: /start again/i }).click();

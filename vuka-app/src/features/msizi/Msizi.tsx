@@ -24,9 +24,11 @@ import { useApp } from '../../store/appStore';
 import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { computeCv } from '../../lib/engine';
 import { autoReleaseHours } from '../../data/catalog';
-import { ask, askById, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
+import { ask, askById, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
+import { peelGreeting, smallTalk } from '../../lib/msiziChat';
+import { api } from '../../lib/api';
 import {
-  Listener, canListen, canSpeak, onVoicesChanged, pickVoice, speak, stopSpeaking, voicesReady,
+  Listener, audioMode, canListen, canSpeak, onVoicesChanged, pickVoice, primeSpeech, speak, stopSpeaking, voicesReady,
   type ListenError,
 } from '../../lib/speech';
 import { langMeta } from '../../i18n';
@@ -111,7 +113,6 @@ export function Msizi() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
   const [listening, setListening] = useState(false);
-  const [heard, setHeard] = useState('');
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [speakingTurn, setSpeakingTurn] = useState<number | null>(null);
   /** False until the browser has published its voice list. */
@@ -182,32 +183,82 @@ export function Msizi() {
        sentence boundaries, and it is those boundaries that give the voice a
        cadence instead of one flat run-on. Flattening them here — which the
        first version did — is what made it sound recited. */
-    const text = turn.reply.kind === 'miss'
+    const r = turn.reply;
+    if (r.kind === 'thinking') return;
+    const text = r.kind === 'miss'
       ? `${t('msizi.missTitle')}.\n${t('msizi.missBody')}`
-      : `${turn.reply.title}.\n${turn.reply.body}`;
+      : r.title ? `${r.title}.\n${r.body}` : r.body;
     setSpeakingTurn(turn.id);
-    speak(text, lang, () => setSpeakingTurn((cur) => (cur === turn.id ? null : cur)));
+    /* A live answer is the person's own record. It is read by a voice on the
+       phone, never by one that sends the sentence to a server. */
+    speak(text, lang, () => setSpeakingTurn((cur) => (cur === turn.id ? null : cur)),
+      { localOnly: r.kind === 'live' });
   }, [lang, t]);
 
-  const put = useCallback((question: string, reply: MsiziReply, spoken: boolean) => {
+  const put = useCallback((question: string, reply: MsiziReply, spoken: boolean): Turn => {
     const turn: Turn = { id: nextId.current++, question, reply, spoken };
     setTurns((prev) => [...prev, turn]);
     setVoiceNote(null);
     scrollToEnd();
     /* Asked out loud, answered out loud. Typed questions are not read back:
-       somebody on a taxi with the volume up did not ask for that, and on iOS
-       speech started outside a tap is refused anyway. */
-    if (spoken) readAloud(turn);
+       somebody on a taxi with the volume up did not ask for that. The iOS
+       rule that speech must start inside a tap is met by primeSpeech(),
+       called when the microphone was tapped. */
+    if (spoken && reply.kind !== 'thinking') readAloud(turn);
+    return turn;
   }, [readAloud, scrollToEnd]);
+
+  /** Swap a "thinking" turn for what came back, and read it if it was spoken. */
+  const settleTurn = useCallback((turn: Turn, reply: MsiziReply) => {
+    const next = { ...turn, reply };
+    setTurns((prev) => prev.map((x) => (x.id === turn.id ? next : x)));
+    scrollToEnd();
+    if (turn.spoken) readAloud(next);
+  }, [readAloud, scrollToEnd]);
+
+  /* The conversation so far, for the model fallback's follow-ups. */
+  const turnsRef = useRef<Turn[]>([]);
+  turnsRef.current = turns;
+
+  const firstName = (state.user?.name ?? '').trim().split(/\s+/)[0] ?? '';
 
   const submit = useCallback((question: string, spoken = false) => {
     const q = question.trim();
     if (!q) return;
     stopSpeaking();
     setDraft('');
-    setHeard('');
-    put(q, ask(q, ctx), spoken);
-  }, [ctx, put]);
+   
+
+    /* 1. Conversation: "hello", "thanks", "what can you do". */
+    const chat = smallTalk(q, lang, firstName, ctx.role);
+    if (chat) {
+      put(q, {
+        kind: 'chat', id: null, title: '', body: chat.body,
+        suggestions: chat.offerOpeners ? openers(ctx.role).slice(0, 4) : [], score: 1,
+      }, spoken);
+      return;
+    }
+
+    /* 2. The written answers. "Hi, how do I get paid" is asked without the hi. */
+    const query = peelGreeting(q).rest || q;
+    const reply = ask(query, ctx);
+    if (reply.kind !== 'miss') { put(q, reply, spoken); return; }
+
+    /* 3. Nothing written covers it. Ask the model, grounded on the nearest
+          entries. Offline, unconfigured or over quota, it says honestly that it
+          does not know, exactly as before. */
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { put(q, reply, spoken); return; }
+    const pending = put(q, { ...reply, kind: 'thinking' }, spoken);
+    const history = turnsRef.current
+      .filter((x) => x.reply.kind !== 'thinking' && x.reply.kind !== 'live')
+      .slice(-3)
+      .map((x) => ({ q: x.question, a: x.reply.kind === 'miss' ? '' : x.reply.body }));
+    api.assistantAsk({ question: query, lang, entries: groundingFor(query, ctx), history })
+      .then(({ answer }) => settleTurn(pending, {
+        kind: 'ai', id: null, title: '', body: answer, suggestions: reply.suggestions.slice(0, 3), score: reply.score,
+      }))
+      .catch(() => settleTurn(pending, reply));
+  }, [ctx, put, settleTurn, lang, firstName]);
 
   const pick = useCallback((id: string) => {
     const entry = lookup(id);
@@ -231,19 +282,27 @@ export function Msizi() {
 
   const startListening = useCallback(() => {
     if (listening) { listenerRef.current?.stop(); return; }
+    /* Synchronously, inside this tap: the only moment iOS lets speech be
+       unlocked. Without it, the spoken answer that follows is silently refused
+       — which is why voice questions were answered in silence on an iPhone. */
+    primeSpeech();
     stopSpeaking();
     setVoiceNote(null);
-    setHeard('');
+   
 
+    /* The words appear in the question box as they are recognised, the same
+       box typing uses, so the person sees exactly what was heard. Anything
+       already typed stays in front. */
+    const prefix = draft.trim() ? `${draft.trim()} ` : '';
     const listener = new Listener(lang, {
-      onPartial: setHeard,
-      onFinal: (text) => submit(text, true),
-      onError: (err) => setVoiceNote(voiceMessage(err)),
-      onEnd: () => { setListening(false); setHeard(''); listenerRef.current = null; },
+      onPartial: (text) => { setDraft(prefix + text); },
+      onFinal: (text) => submit(prefix + text, true),
+      onError: (err) => { setVoiceNote(voiceMessage(err)); setDraft(prefix.trim()); },
+      onEnd: () => { setListening(false); listenerRef.current = null; audioMode('playback'); },
     });
     listenerRef.current = listener;
     if (listener.start()) setListening(true);
-  }, [listening, lang, submit, voiceMessage]);
+  }, [listening, lang, submit, voiceMessage, draft]);
 
   /* ---- what this device can actually do ---- */
 
@@ -319,20 +378,34 @@ export function Msizi() {
                  moving anywhere. */
               aria-live="polite"
             >
-              {turn.reply.kind === 'miss' ? (
+              {turn.reply.kind === 'thinking' ? (
+                <p role="status" className="flex items-center gap-2.5 text-body text-dim">
+                  <span aria-hidden="true" className="flex gap-1">
+                    <span className="w-2 h-2 rounded-full bg-brand animate-bounce" />
+                    <span className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:150ms]" />
+                    <span className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:300ms]" />
+                  </span>
+                  {t('msizi.thinking')}
+                </p>
+              ) : turn.reply.kind === 'miss' ? (
                 <>
                   <h2 className="text-lead font-display font-bold text-ink mb-1.5">{t('msizi.missTitle')}</h2>
                   <p className="text-body text-dim leading-relaxed">{t('msizi.missBody')}</p>
                 </>
               ) : (
                 <>
-                  <h2 className="text-lead font-display font-bold text-ink mb-2.5">{turn.reply.title}</h2>
+                  {turn.reply.title && (
+                    <h2 className="text-lead font-display font-bold text-ink mb-2.5">{turn.reply.title}</h2>
+                  )}
                   <AnswerBody text={turn.reply.body} />
+                  {turn.reply.kind === 'ai' && (
+                    <p className="mt-3 text-micro text-faint leading-snug">{t('msizi.aiLabel')}</p>
+                  )}
                 </>
               )}
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {speakSupported && turn.reply.kind !== 'miss' && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 empty:hidden">
+                {speakSupported && turn.reply.kind !== 'miss' && turn.reply.kind !== 'thinking' && (
                   <button
                     onClick={() => {
                       if (speakingTurn === turn.id) { stopSpeaking(); setSpeakingTurn(null); }
@@ -357,7 +430,7 @@ export function Msizi() {
                 )}
               </div>
 
-              {turn.reply.suggestions.length > 0 && (
+              {turn.reply.kind !== 'thinking' && turn.reply.suggestions.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-line-soft">
                   <h3 className="text-micro font-bold uppercase tracking-wide text-faint mb-2.5">
                     {t(turn.reply.kind === 'miss' ? 'msizi.tryAsking' : 'msizi.askNext')}
@@ -394,7 +467,8 @@ export function Msizi() {
         {listening && (
           <p role="status" className="mb-2.5 flex items-center gap-2.5 text-small font-bold text-live">
             <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full bg-live-solid animate-pulse" />
-            {heard || t('msizi.listening')}
+            {/* The words themselves are in the question box below. */}
+            {t('msizi.listening')}
           </p>
         )}
         <form
