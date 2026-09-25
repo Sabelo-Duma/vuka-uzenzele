@@ -142,13 +142,28 @@ async function measure(page) {
       }
     }
 
-    const nav = document.querySelector('nav[aria-label="Primary"]:not(.hidden)');
+    /* The BOTTOM BAR specifically, by its own class.
+
+       This used to select `nav[aria-label="Primary"]:not(.hidden)`, and both
+       navs carry that label — the desktop sidebar's and the phone's tab bar.
+       querySelector returns the first in the document, which is the sidebar;
+       on a phone its ancestor <aside> is the thing set to display:none, so the
+       nav inside still computed as `display: flex` and reported `visible:
+       true` with a rectangle of all zeros.
+
+       Every assertion below therefore ran against a 0x0 element at every
+       mobile width, and "tab bar is below the fold" could never be true. The
+       checks were not failing; they were measuring nothing. A tab bar that
+       floated 60px above the bottom of an installed app got through this suite
+       untouched. */
+    const nav = document.querySelector('nav.tabbar');
     if (nav) {
       const navRect = nav.getBoundingClientRect();
       const fab = nav.querySelector('button[aria-label="Find work"], button[aria-label="Post a job"]');
       const fabRect = fab?.firstElementChild?.getBoundingClientRect() ?? null;
       out.nav = {
-        visible: getComputedStyle(nav).display !== 'none',
+        // Height, not just `display`, so an ancestor hiding it still counts.
+        visible: navRect.height > 0 && getComputedStyle(nav).display !== 'none',
         bottom: Math.round(navRect.bottom),
         top: Math.round(navRect.top),
         fabTop: fabRect ? Math.round(fabRect.top) : null,
@@ -181,6 +196,11 @@ async function check(page, viewport, screen) {
   }
   if (m.nav?.visible) {
     if (m.nav.bottom > m.vh + 1) note(viewport, screen, `tab bar is ${m.nav.bottom - m.vh}px below the fold`);
+    /* And the other way round, which is what the installed app actually did:
+       the bar floating short of the bottom with a strip of canvas beneath it,
+       until a scroll forced the shell to be re-measured. Only the too-low case
+       was ever asserted, so the too-high one shipped. */
+    if (m.nav.bottom < m.vh - 1) note(viewport, screen, `tab bar floats ${m.vh - m.nav.bottom}px above the bottom`);
     if (m.nav.fabTop !== null && m.nav.fabTop < 0) note(viewport, screen, `the + button is cut off at the top (${m.nav.fabTop}px)`);
     if (m.nav.fabBottom !== null && m.nav.fabBottom > m.vh + 1) note(viewport, screen, `the + button is cut off at the bottom`);
   }

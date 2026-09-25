@@ -1,0 +1,264 @@
+/* ============================================================
+   Msizi's second brain — a free language model, on a short leash.
+
+   The app answers most questions on its own, from the written knowledge base
+   in vuka-app/src/data/msizi.ts. That stays the first and trusted path. This
+   module handles what that path cannot: questions phrased in a way no entry
+   anticipated, follow-ups ("and how long does that take?"), and questions in
+   isiZulu, isiXhosa or Sesotho that the alias table does not recognise.
+
+   ------------------------------------------------------------
+   Why this is allowed now when it was refused before.
+
+   The first Msizi refused a model for two reasons: cost, and a model saying
+   "yes, Vuka holds your money" because such apps usually do. Both are handled
+   here rather than waved away:
+
+   COST. Only free tiers, never a card on file. Groq's free tier (no payment
+   method, no training on API data) is the default; Google's Gemini free tier
+   is an optional second. If neither key is set, or both are over their daily
+   quota, this answers 503 and the app falls back to the knowledge base — the
+   app never breaks for want of a model. A daily cap sits below the provider's
+   own so that one busy day does not burn the quota by lunchtime.
+
+   ACCURACY. The model is never asked what it knows. It is handed:
+     · the non-negotiable facts below, which are true of this codebase, and
+     · the knowledge-base entries nearest the question, chosen by the app,
+   and told to answer ONLY from those, and to say plainly when they do not
+   cover the question. The facts lead with the payment one on purpose.
+
+   PRIVACY (POPIA). What leaves the server is the question, the last couple of
+   turns, and public help text — never the person's record, name, earnings or
+   phone. Long digit runs (ID numbers, phone numbers, account numbers) are
+   masked before sending, because people type those into help boxes.
+   ============================================================ */
+
+const LANGS = {
+  en: 'English',
+  zu: 'isiZulu',
+  xh: 'isiXhosa',
+  st: 'Sesotho',
+  af: 'Afrikaans',
+};
+
+/* ---- providers ---------------------------------------------------------
+
+   Both speak the OpenAI chat-completions shape, so one code path serves
+   either. Order is preference: Groq first because its free tier does not use
+   API traffic for training; Gemini's free tier does, which is why it is the
+   fallback and not the default. */
+
+function providers() {
+  const list = [];
+  const groq = process.env.VUKA_GROQ_API_KEY?.trim();
+  if (groq) {
+    list.push({
+      name: 'groq',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: groq,
+      model: process.env.VUKA_GROQ_MODEL?.trim() || 'openai/gpt-oss-120b',
+      extra: { reasoning_effort: 'low' },
+    });
+  }
+  const gemini = process.env.VUKA_GEMINI_API_KEY?.trim();
+  if (gemini) {
+    list.push({
+      name: 'gemini',
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      key: gemini,
+      model: process.env.VUKA_GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
+      extra: {},
+    });
+  }
+  return list;
+}
+
+export const aiConfigured = () => providers().length > 0;
+
+/* ---- budget ------------------------------------------------------------
+
+   In memory, like the rate limiters: one instance, and a restart forgiving
+   the count is harmless. Groq's free tier allows about 1,000 requests a day
+   per model; staying under that keeps the last person of the day answered. */
+
+const DAILY_CAP = Number(process.env.VUKA_AI_DAILY_CAP || 900);
+const PER_USER_DAILY = Number(process.env.VUKA_AI_PER_USER_DAILY || 60);
+
+let budgetDay = '';
+let usedToday = 0;
+const perUser = new Map();
+
+function spend(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== budgetDay) { budgetDay = today; usedToday = 0; perUser.clear(); }
+  if (usedToday >= DAILY_CAP) return 'daily';
+  const mine = perUser.get(userId) ?? 0;
+  if (mine >= PER_USER_DAILY) return 'user';
+  usedToday += 1;
+  perUser.set(userId, mine + 1);
+  return null;
+}
+
+export function aiStats() {
+  return { configured: aiConfigured(), usedToday, dailyCap: DAILY_CAP };
+}
+
+/* ---- privacy ------------------------------------------------------------ */
+
+/** Mask anything that looks like an ID, phone or account number, and emails. */
+export function redact(text) {
+  return String(text ?? '')
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[email]')
+    .replace(/\+?\d[\d\s-]{5,}\d/g, '[number]')
+    .slice(0, 600);
+}
+
+/* ---- the brief --------------------------------------------------------- */
+
+/**
+ * True of this codebase. Each line is here because a plausible model answer
+ * would contradict it. Change one only after checking the code that it
+ * describes.
+ */
+const FACTS = [
+  'Vuka Uzenzele ("Vuka") is a free South African app that connects people looking for work with gigs (short jobs like cleaning, gardening, dog-walking, moving help, errands, car washing) and formal jobs.',
+  'VUKA DOES NOT HOLD, PROCESS OR TOUCH MONEY. The employer pays the worker directly (cash, EFT or however they agree). Vuka never keeps wages, never takes a cut from the worker, and there is no escrow. Never say or imply that Vuka holds, protects, guarantees or releases payment.',
+  'When an employer confirms a job, what is released is the worker\'s REFERENCE: the job is added to their record ("My Record"), their Vuka Score and rating. It is not money.',
+  'My Record is a verified work CV built from completed, confirmed jobs. The Vuka Score, tiers on "The Ladder", badges and star ratings come from it.',
+  'Workers find work under "Find work", apply with one tap, chat with employers in "Chats", and see their record in "My Record". Settings, language, ID verification, banking details and job alerts are under "Me".',
+  'Employers post a job with the + button, choose from applicants, and confirm the work afterwards.',
+  'Safety: meet in daylight where possible, tell someone where you are going, never pay money to get a job — any "job" asking the worker for a fee is a scam. Report or block anyone from their profile or chat. In danger, phone the police on 10111, or 112 from a cellphone.',
+  'Msizi (isiZulu "umsizi" = helper) is the in-app helper. It can explain and look things up, but it cannot apply, hire, post, pay or change anything on anyone\'s behalf.',
+];
+
+function systemPrompt(lang) {
+  const language = LANGS[lang] ?? 'English';
+  return [
+    'You are Msizi, the warm, patient helper inside the Vuka Uzenzele app in South Africa.',
+    'The person you are talking to may be looking for their first job and may be reading in their second or third language.',
+    '',
+    'RULES — follow all of them:',
+    `1. Reply in ${language}. If they wrote in a different South African language, reply in the language they wrote in.`,
+    '2. Answer ONLY from the FACTS and the HELP ENTRIES below. Do not use outside knowledge about Vuka or about other apps.',
+    '3. If the facts and entries do not answer the question, say honestly that you are not sure, and suggest where in the app to look or what they could ask instead. Never invent a feature, a figure, an amount, a law or a time limit.',
+    '4. Never quote a rand amount, wage or number of hours unless it appears word for word in the entries.',
+    '5. If the question has nothing to do with Vuka, work or safety, answer in one friendly sentence at most and steer back to what you can help with.',
+    '6. Keep it short: two to five plain sentences, or a few lines starting with "• ". No markdown, no headings, no bold, no emoji, no links.',
+    '7. Talk like a kind person, not a manual. Use "you". Your answer may be read out loud, so write it to be spoken.',
+    '8. You cannot take any action in the app. If asked to, explain where they can do it themselves.',
+    '9. If someone says they are in danger, tell them to phone 10111 (or 112 from a cellphone) first.',
+    '',
+    'FACTS:',
+    ...FACTS.map((f) => `- ${f}`),
+  ].join('\n');
+}
+
+function entriesBlock(entries) {
+  if (!entries.length) return 'HELP ENTRIES: (none matched this question)';
+  return ['HELP ENTRIES:', ...entries.map((e) => `## ${e.title}\n${e.body}`)].join('\n\n');
+}
+
+/** Take the client's entries, but only in a shape and size that we choose. */
+function cleanEntries(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 5).map((e) => ({
+    title: String(e?.title ?? '').slice(0, 120),
+    body: String(e?.body ?? '').slice(0, 1500),
+  })).filter((e) => e.title && e.body);
+}
+
+function cleanHistory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(-3).map((t) => ({
+    q: redact(t?.q).slice(0, 300),
+    a: String(t?.a ?? '').slice(0, 600),
+  })).filter((t) => t.q);
+}
+
+/** Models sometimes ignore "no markdown". The app renders plain text only. */
+export function tidy(text) {
+  return String(text ?? '')
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * The last line of defence on the one claim that must never be made. A reply
+ * saying Vuka holds or guarantees the money is replaced, not edited.
+ */
+const MONEY_CLAIM = /\bvuka\b[^.]{0,60}\b(holds?|keeps?|protects?|guarantees?|releases?|safeguards?)\b[^.]{0,30}\b(money|payment|wages?|pay|funds?)\b/i;
+
+export function violatesFacts(text) {
+  return MONEY_CLAIM.test(text) && !/\b(not|never|doesn.t|does not|don.t)\b/i.test(text.match(MONEY_CLAIM)?.[0] ?? '');
+}
+
+async function callProvider(p, messages) {
+  const res = await fetch(p.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key}` },
+    body: JSON.stringify({
+      model: p.model,
+      messages,
+      temperature: 0.3,
+      max_tokens: 700,
+      ...p.extra,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    const err = new Error(`${p.name} ${res.status}: ${detail.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
+/**
+ * Answer one question. Resolves to { answer, provider } or throws an Error
+ * with `.code` of 'not_configured' | 'over_budget' | 'unavailable'.
+ */
+export async function askAssistant({ userId, question, lang, entries, history }) {
+  const list = providers();
+  if (list.length === 0) throw Object.assign(new Error('AI not configured'), { code: 'not_configured' });
+
+  const over = spend(userId);
+  if (over) throw Object.assign(new Error(`AI budget reached (${over})`), { code: 'over_budget' });
+
+  const safeLang = LANGS[lang] ? lang : 'en';
+  const messages = [
+    { role: 'system', content: `${systemPrompt(safeLang)}\n\n${entriesBlock(cleanEntries(entries))}` },
+  ];
+  for (const turn of cleanHistory(history)) {
+    messages.push({ role: 'user', content: turn.q });
+    if (turn.a) messages.push({ role: 'assistant', content: turn.a });
+  }
+  messages.push({ role: 'user', content: redact(question) });
+
+  let lastError = null;
+  for (const p of list) {
+    try {
+      const answer = tidy(await callProvider(p, messages));
+      if (!answer) throw new Error(`${p.name}: empty answer`);
+      if (violatesFacts(answer)) {
+        return {
+          provider: p.name,
+          answer: 'Vuka never holds or handles your money. The employer pays you directly, the way you agree between you. '
+            + 'What Vuka keeps is your record: once the employer confirms the job, it is added to My Record and your Vuka Score.',
+        };
+      }
+      return { answer, provider: p.name };
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw Object.assign(new Error(lastError?.message ?? 'AI unavailable'), { code: 'unavailable', cause: lastError });
+}

@@ -345,6 +345,68 @@ for (const i of M.LIVE_INTENTS) {
     `got ${reply.id} at ${reply.score.toFixed(2)}`);
 }
 
+/* ---- Conversation: "hello" must never be "I do not know that one" ----- */
+
+/* Reported from a real phone: the first thing a person typed was "hello" and
+   the answer was a refusal. Small talk is its own layer, checked here in all
+   five languages, and it must NOT swallow real questions. */
+const chatFile = join(outDir, 'chat.mjs');
+await build({
+  entryPoints: [join(root, 'src', 'lib', 'msiziChat.ts')],
+  outfile: chatFile, bundle: true, format: 'esm', platform: 'neutral', target: 'es2022', logLevel: 'silent',
+});
+const C = await import(pathToFileURL(chatFile).href);
+
+const SMALL_TALK = [
+  ['hello', 'greet'], ['Hello!', 'greet'], ['hi msizi', 'greet'], ['Sawubona', 'greet'], ['Molo', 'greet'],
+  ['Dumela', 'greet'], ['Hallo', 'greet'], ['howzit', 'greet'], ['good morning', 'greet'],
+  ['how are you?', 'howAreYou'], ['unjani', 'howAreYou'], ['hoe gaan dit', 'howAreYou'], ['o kae', 'howAreYou'],
+  ['thank you', 'thanks'], ['thanks Msizi!', 'thanks'], ['ngiyabonga', 'thanks'], ['enkosi', 'thanks'],
+  ['ke a leboha', 'thanks'], ['dankie', 'thanks'],
+  ['bye', 'bye'], ['sala kahle', 'bye'], ['totsiens', 'bye'],
+  ['what can you do', 'capabilities'], ['help', 'capabilities'], ['ngisize', 'capabilities'],
+  ['are you a robot?', 'areYouAi'], ['who are you', 'whoAreYou'], ['tell me a joke', 'joke'], ['ok', 'ack'],
+];
+for (const [text, intent] of SMALL_TALK) {
+  const r = C.smallTalk(text, 'en', 'Thandeka', 'worker');
+  ok(r?.intent === intent, `"${text}" is small talk (${intent})`, `got ${r?.intent ?? 'nothing'}`);
+}
+
+/* Replies exist and are filled in every language, with no placeholder left. */
+for (const lang of ['en', 'zu', 'xh', 'st', 'af']) {
+  for (const [text] of SMALL_TALK) {
+    const r = C.smallTalk(text, lang, 'Thandeka', 'worker');
+    ok(r && r.body.length > 5 && !/\{\w+\}/.test(r.body), `${lang}: "${text}" has a real reply`, r?.body);
+  }
+}
+ok(C.smallTalk('hello', 'en', 'Thandeka', 'worker').body.includes('Thandeka'), 'a greeting uses the first name');
+ok(C.smallTalk('Sawubona', 'en', '', 'worker').body.startsWith('Sawubona!'), 'a greeting is returned in the words it came in');
+
+/* Real questions are NOT small talk. */
+for (const q of ['how do i get paid', 'hello how do i get paid', 'thanks but what about my bank details',
+  'help me find work', 'is it safe', 'what is my score']) {
+  ok(C.smallTalk(q, 'en', '', 'worker') === null, `"${q}" is a question, not small talk`);
+}
+
+/* A greeting in front of a question is peeled off and the question answered. */
+for (const [q, id] of [['Hi, how do I get paid?', 'how-payment-works'], ['Sawubona Msizi how do I find work', 'find-work'],
+  ['hello! what is my score', 'my-score']]) {
+  const { rest } = C.peelGreeting(q);
+  const reply = M.ask(rest, worker);
+  ok(reply.id === id, `"${q}" is answered as "${rest}" (${id})`, `got ${reply.id}`);
+}
+
+/* The model fallback is grounded on written answers, never on the record. */
+{
+  const g = M.groundingFor('does vuka keep my money', worker);
+  ok(g.length > 0 && g.length <= 4, 'grounding sends a handful of entries');
+  ok(g.every((e) => !/\{\w+\}/.test(e.body)), 'grounding bodies have their figures resolved');
+  const titles = new Set(M.LIVE_INTENTS.map((i) => i.title));
+  ok(M.groundingFor('what is my score', worker).every((e) => !titles.has(e.title)),
+    'a live answer (the person\'s own record) is never sent as grounding');
+  ok(M.groundingFor('zzzz qqqq', worker).length > 0, 'a question with nothing near still gets the basics');
+}
+
 /* ---- done -------------------------------------------------------------- */
 
 rmSync(outDir, { recursive: true, force: true });

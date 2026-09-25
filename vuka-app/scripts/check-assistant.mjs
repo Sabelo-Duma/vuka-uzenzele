@@ -65,6 +65,10 @@ async function askText(page, question) {
   await page.getByRole('button', { name: /^ask$/i }).click();
   const answers = page.locator('article');
   await answers.last().waitFor({ timeout: 10_000 });
+  /* A question the written answers do not cover goes to the model fallback
+     first and shows "Thinking..." until that settles. Wait it out — against a
+     server with no key it comes straight back as the honest refusal. */
+  await answers.last().getByText(/thinking/i).waitFor({ state: 'detached', timeout: 20_000 }).catch(() => {});
   return answers.last();
 }
 
@@ -144,9 +148,11 @@ try {
   /* --- and it admits what it does not know --- */
   const miss = await askText(page, 'who won the soccer last night');
   const missText = await miss.innerText();
-  ok(/do not know that one/i.test(missText),
-    'an unanswerable question is honestly refused', missText.slice(0, 200));
-  ok(/try asking/i.test(missText),
+  /* With a model configured this may instead be a short, labelled AI reply
+     steering back to Vuka; either is honest, a confident KB answer is not. */
+  ok(/do not know that one/i.test(missText) || /worked out by ai/i.test(missText),
+    'an unanswerable question is honestly refused, or answered as labelled AI', missText.slice(0, 200));
+  ok(/try asking|ask me next/i.test(missText),
     'a refusal still offers somewhere to go', missText.slice(0, 200));
 
   /* --- voice: offered, or explained. Never a dead button. --- */
@@ -163,8 +169,17 @@ try {
     `speak buttons ${speakCount}, notices ${cannotSpeak}`);
 
   /* --- the honesty line is on the screen, not buried --- */
-  const notAi = await page.getByText(/does not guess/i).first().isVisible().catch(() => false);
-  ok(notAi, 'the screen says plainly that Msizi does not guess');
+  const notAi = await page.getByText(/never your record/i).first().isVisible().catch(() => false);
+  ok(notAi, 'the screen says plainly what is sent to the AI, and that the record never is');
+
+  /* --- conversation: "hello" is greeted, not refused (reported from a phone) --- */
+  const hello = await askText(page, 'hello');
+  const helloText = await hello.innerText();
+  ok(/i am msizi/i.test(helloText) && !/do not know/i.test(helloText),
+    '"hello" is answered with a greeting', helloText.slice(0, 160));
+  const hiQ = await askText(page, 'Hi, how do I get paid?');
+  ok(/paid|pay/i.test(await hiQ.innerText()) && !/i am msizi/i.test(await hiQ.innerText()),
+    'a greeting in front of a question does not swallow the question');
 
   /* --- starting again clears the conversation --- */
   await page.getByRole('button', { name: /start again/i }).click();
@@ -190,6 +205,66 @@ try {
     'the posting answer mentions the pay reference', hiringText.slice(0, 200));
 
   await emp.close();
+
+  /* ---- Listening always stops ------------------------------------------
+     The reported bug, driven through the real screen: tap the microphone on a
+     phone whose recogniser accepts start() and then does nothing at all — no
+     result, no error, no onend, which is what Chrome on Android does when the
+     platform engine does not report an endpoint. The microphone stayed open
+     and the button pulsed until the app was closed.
+
+     check-speech.mjs proves the Listener's own contract against a fake engine.
+     This proves the screen is actually wired to it. */
+  const dead = await browser.newPage({ viewport: { width: 420, height: 880 } });
+  await dead.addInitScript(() => {
+    class DeadRecognition {
+      constructor() {
+        this.lang = ''; this.continuous = false; this.interimResults = false; this.maxAlternatives = 1;
+        this.onresult = null; this.onerror = null; this.onend = null;
+        this.onstart = null; this.onspeechstart = null; this.onaudioend = null;
+        window.__micOpen = false; window.__aborted = false;
+      }
+      start() { window.__micOpen = true; }          // ...and then nothing, ever.
+      stop() { /* ignored, exactly like the real one */ }
+      abort() { window.__micOpen = false; window.__aborted = true; }
+    }
+    Object.defineProperty(window, 'SpeechRecognition', { value: DeadRecognition, configurable: true });
+    Object.defineProperty(window, 'webkitSpeechRecognition', { value: DeadRecognition, configurable: true });
+  });
+
+  await signIn(dead, 'worker');
+  await openMsizi(dead);
+
+  const mic = dead.getByRole('button', { name: /ask by voice/i }).first();
+  ok(await mic.count() > 0, 'the microphone button is offered when a recogniser exists');
+  await mic.click();
+
+  await dead.getByText(/listening/i).first().waitFor({ timeout: 5_000 }).catch(() => {});
+  ok(await dead.getByText(/listening/i).count() > 0, 'tapping the microphone starts listening');
+  ok(await dead.evaluate(() => window.__micOpen === true), 'the recogniser was started');
+
+  /* Nothing is ever said and the engine never replies. It must give up anyway. */
+  await dead.waitForFunction(
+    () => !/listening/i.test(document.body.innerText),
+    null,
+    { timeout: 20_000 },
+  ).catch(() => {});
+
+  ok(await dead.getByText(/listening/i).count() === 0,
+    'listening stops on its own when the engine never ends',
+    await dead.getByText(/listening/i).count() > 0 ? 'still listening after 20s' : '');
+  ok(await dead.evaluate(() => window.__aborted === true),
+    'the microphone is force-released rather than left open');
+  ok(await dead.evaluate(() => window.__micOpen === false),
+    'the microphone is not still open');
+  ok(await dead.getByText(/did not hear|type your question/i).count() > 0,
+    'the user is told what happened rather than left guessing');
+
+  /* And the screen is usable again afterwards — not stuck mid-session. */
+  const after = await askText(dead, 'how do i get paid');
+  ok((await after.innerText()).length > 100, 'the screen still works after a failed voice attempt');
+
+  await dead.close();
 } finally {
   await browser.close();
 }

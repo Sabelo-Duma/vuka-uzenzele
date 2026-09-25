@@ -221,6 +221,31 @@ h1, h2, h3, h4 {
   height: 100vh;
   height: -webkit-fill-available;
   height: 100dvh;
+  /* And a fourth, measured rather than resolved.
+
+     On the launch of an INSTALLED app the window is still settling around the
+     system bars when first layout runs, so dvh gets computed against a
+     half-finished window and nothing asks the page to look again. The tab bar
+     comes up short of the bottom with a strip of canvas beneath it, and one
+     scroll — which forces the recalculation — drops it into place.
+
+     --app-height is that same layout-viewport height, measured in
+     lib/viewport.ts and re-measured whenever the window changes. dvh remains
+     the fallback, so if that script never runs this is exactly what it was. */
+  height: var(--app-height, 100dvh);
+}
+
+/* The installed app, where there is no browser chrome to make room for.
+
+   On an iPhone home-screen launch, dvh, svh and 100% all come back one status
+   bar short (viewport-fit=cover with a black-translucent bar), and only lvh
+   reports the full screen. lib/viewport.ts publishes the screen height for
+   that case; this is the fallback if it has not run yet, and html/body follow
+   so the shell is never taller than the document holding it — which would let
+   the whole page rubber-band by exactly the missing strip. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html, body, #root { height: var(--app-height, 100lvh); }
+  .app-shell { height: var(--app-height, 100lvh); }
 }
 
 /* The + button is lifted above the tab bar, so it is the first thing to be

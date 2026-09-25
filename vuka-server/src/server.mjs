@@ -19,6 +19,7 @@ import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mj
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
+import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
 import {
   subscribe, emit, isOnline, hasStream, connectionStats, closeAll, setVisibility, onPresenceChange,
 } from './realtime.mjs';
@@ -611,6 +612,9 @@ app.get('/api/health', asyncH(async (_req, res) => {
     payoutsConfigured: hasEncryptionKey,
     smsConfigured,
     pushConfigured,
+    // Msizi's model fallback. False is fine: the app answers from its own
+    // knowledge base and says so.
+    ai: aiStats(),
     monitoring: monitoringTarget,
     // How many devices are holding a live chat channel open right now. Worth
     // watching: it is the one number that says whether people are getting
@@ -1702,6 +1706,38 @@ app.post('/api/push/test', requireAuth, asyncH(async (req, res) => {
 }));
 
 // ---- safety reports ----
+/* ---- Msizi, when the knowledge base has no answer ----
+   See assistant.mjs for what is sent and what is not. A per-IP limit on top of
+   the global one: each call spends a slice of a free daily quota that every
+   user shares, so one runaway client must not be able to spend it all. */
+const assistantLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Msizi needs a moment. Try again in a minute.', reason: 'slow_down' },
+});
+
+app.post('/api/assistant/ask', requireAuth, assistantLimiter, asyncH(async (req, res) => {
+  const question = String(req.body?.question ?? '').trim();
+  if (!question) return res.status(400).json({ error: 'Ask a question first.', reason: 'empty' });
+  if (!aiConfigured()) return res.status(503).json({ error: 'Msizi is answering from its own notes only.', reason: 'not_configured' });
+  try {
+    const out = await askAssistant({
+      userId: req.user.id,
+      question,
+      lang: String(req.body?.lang ?? 'en'),
+      entries: req.body?.entries,
+      history: req.body?.history,
+    });
+    res.json(out);
+  } catch (e) {
+    if (e.code === 'over_budget') return res.status(429).json({ error: 'Msizi has answered a lot today. Try again tomorrow.', reason: 'over_budget' });
+    captureError(e.cause ?? e, 'assistant:ask');
+    res.status(503).json({ error: 'Msizi could not think that through right now.', reason: e.code ?? 'unavailable' });
+  }
+}));
+
 app.post('/api/safety/report', requireAuth, asyncH(async (req, res) => {
   const concern = String(req.body?.concern ?? '').trim();
   if (!concern) return res.status(400).json({ error: 'Describe the concern so we can help.' });
