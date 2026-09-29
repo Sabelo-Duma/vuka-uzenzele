@@ -228,12 +228,35 @@ export interface Hire {
   gig: Gig;
 }
 export interface IdVerification {
-  status: 'none' | 'pending' | 'verified' | 'rejected';
+  id?: string;
+  status: 'none' | 'draft' | 'pending' | 'verified' | 'rejected';
   last4?: string;
   fullName?: string;
   reason?: string | null;
   submittedAt?: string;
   reviewedAt?: string | null;
+  /** 'scan' = card and selfies; 'manual' = number typed in. */
+  method?: 'scan' | 'manual';
+  /** The random instruction for the second selfie. Only on a draft. */
+  challenge?: string;
+  /** The Home Affairs step. 'test' mode until a verification bureau is appointed. */
+  homeAffairs?: { mode: 'test' | 'live'; status: string; note?: string };
+}
+/** What the server made of the barcode against the ID number and name. */
+export interface IdChecks {
+  barcodeRead: boolean;
+  idFromBarcode: boolean | null;
+  dateOfBirth: boolean | null;
+  sex: boolean | null;
+  name: boolean | null;
+  mismatches: string[];
+}
+export type IdDocumentKind = 'card_front' | 'selfie' | 'selfie_challenge';
+export interface IdScanInput {
+  consent: true;
+  fullName: string;
+  idNumber: string;
+  scan: Record<string, string | undefined> & { source: 'pdf417' | 'code39' | 'typed' };
 }
 export interface CreateGigInput {
   title: string; category: CategoryId; hours: number; payPerHour: number;
@@ -440,6 +463,27 @@ export const api = {
     request<{ ok: boolean; status: WorkStatus; rating: number; review: string }>('POST', `/applications/${applicationId}/confirm`, { rating, review }),
   getIdVerification: () => request<IdVerification>('GET', '/me/id-verification'),
   submitIdVerification: (fullName: string, idNumber: string) => request<IdVerification>('POST', '/me/id-verification', { fullName, idNumber }),
+  /* The scanned ID: start (checked, saved as a draft), one PUT per photo,
+     then submit. See vuka-server/src/idcheck.mjs. */
+  startIdScan: (input: IdScanInput) => request<IdVerification & { checks: IdChecks }>('POST', '/me/id-verification/scan', input),
+  uploadIdDocument: async (verificationId: string, kind: IdDocumentKind, photo: Blob): Promise<void> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/me/id-verification/${encodeURIComponent(verificationId)}/documents/${kind}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': photo.type || 'image/jpeg', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: photo,
+      });
+    } catch {
+      throw new ApiError("Can't reach Vuka right now. Check your connection and try again.", 0);
+    }
+    if (!res.ok) {
+      let msg = 'That photo could not be sent. Please try again.';
+      try { msg = ((await res.json()) as { error?: string }).error ?? msg; } catch { /* not json */ }
+      throw new ApiError(msg, res.status);
+    }
+  },
+  submitIdScan: (verificationId: string) => request<IdVerification>('POST', `/me/id-verification/${encodeURIComponent(verificationId)}/submit`),
   listApplications: () => request<{ gigId: string; status: string }[]>('GET', '/me/applications'),
   listFormal: (near?: Near) => request<FormalJob[]>('GET', `/formal-jobs${nearQuery(near)}`),
   getCv: () => request<CvResult>('GET', '/me/cv'),

@@ -3,6 +3,7 @@ import { useApp } from '../../store/appStore';
 import { api, ApiError, type BlockedUser, type IdVerification } from '../../lib/api';
 import { Avatar, Button, InlineError, Sheet, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { IdScan } from './IdScan';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { LANGS, coverage, langMeta, translate, type Lang } from '../../i18n';
@@ -145,6 +146,11 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
   const [fullName, setFullName] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [busy, setBusy] = useState(false);
+  /* Scanning the card is the way in; typing the number is the fallback. */
+  const [scanning, setScanning] = useState(false);
+  const [typing, setTyping] = useState(false);
+
+  const reload = () => api.getIdVerification().then(setSubmission).catch(() => { /* keep what we had */ });
 
   useEffect(() => {
     let cancelled = false;
@@ -191,7 +197,12 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
         <>
           <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">We're checking your ID<span className="text-brand">.</span></h3>
           <p className="text-small text-dim mt-1.5 leading-relaxed">
-            Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
+            Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. {submission?.method === 'scan'
+              ? 'A person is comparing your selfies with your card. '
+              : ''}Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
+          </p>
+          <p className="text-micro text-dim mt-2 leading-relaxed">
+            Home Affairs check: coming soon. It is in test mode until a verification service is connected.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
         </>
@@ -209,6 +220,19 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
           {loading ? (
             <div className="flex flex-col gap-3 mt-4" aria-busy="true"><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>
+          ) : !typing ? (
+            <>
+              <div className="flex gap-2.5 items-start bg-surface-2 rounded-xl px-3.5 py-3 mt-4 mb-4">
+                <span className="text-ink shrink-0"><Icon name="camera" size={16} /></span>
+                <span className="text-small text-ink leading-snug">
+                  Scan your smart ID card and take two quick selfies. It takes about two minutes, and the details fill themselves in.
+                </span>
+              </div>
+              <Button block icon="camera" onClick={() => setScanning(true)}>Scan my ID card</Button>
+              <button onClick={() => setTyping(true)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">
+                Type my ID number instead
+              </button>
+            </>
           ) : (
             <>
               <div className="mt-4 mb-3">
@@ -226,17 +250,23 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
                   placeholder="13 digits"
                   aria-label="South African ID number"
                 />
-                <p className="text-micro text-dim mt-1.5">We check the number is valid, then confirm it against Home Affairs records.</p>
+                <p className="text-micro text-dim mt-1.5">We check the number is valid, and a person at Vuka reviews it. Scanning your card is quicker to approve.</p>
               </div>
               <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
                 <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
                 <span className="text-small text-ink leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
               </div>
               <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for verification'}</Button>
-              <button onClick={onClose} className="w-full text-center text-small text-dim font-bold mt-3 hover:text-ink">Maybe later</button>
+              <button onClick={() => setTyping(false)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">Scan my card instead</button>
             </>
           )}
         </>
+      )}
+      {scanning && (
+        <IdScan
+          onClose={() => { setScanning(false); void reload(); }}
+          onDone={() => { setScanning(false); void reload(); toast('ID sent for checking 🪪 We will let you know.'); }}
+        />
       )}
     </Sheet>
   );

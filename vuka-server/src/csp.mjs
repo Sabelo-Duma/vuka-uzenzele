@@ -94,7 +94,12 @@ export function cspDirectives() {
     /* Same-origin bundles, plus the measured hash of the theme bootstrap.
        No 'unsafe-inline' and no 'unsafe-eval': the Vite production build needs
        neither, and allowing either would leave the directive decorative. */
-    scriptSrc: ["'self'", ...scriptHashes],
+    scriptSrc: ["'self'", ...scriptHashes,
+      /* WebAssembly compilation only — for the ID card barcode reader
+         (zxing-wasm), whose .wasm is served from this origin. This is NOT
+         'unsafe-eval': it lets the browser compile a WebAssembly module, and
+         nothing else; JavaScript eval stays blocked. */
+      "'wasm-unsafe-eval'"],
 
     /* 'unsafe-inline' is genuinely required here and is a much smaller
        concession than it sounds. React sets element style attributes directly —
