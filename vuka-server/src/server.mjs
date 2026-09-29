@@ -1765,6 +1765,7 @@ app.post('/api/assistant/ask', requireAuth, assistantLimiter, asyncH(async (req,
   try {
     const out = await askAssistant({
       userId: req.user.id,
+      role: req.user.role,
       question,
       lang: String(req.body?.lang ?? 'en'),
       entries: req.body?.entries,

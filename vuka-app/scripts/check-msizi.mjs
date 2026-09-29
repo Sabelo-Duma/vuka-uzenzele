@@ -196,6 +196,41 @@ const SHOULD_MATCH = [
   ['what is a safety flag', 'safety-flag', worker],
   ['how do i share my cv', 'public-cv', worker],
 
+  /* Found by probing 2026-09-29 — every one of these was answered by the
+     WRONG page (delete-account for a money question, the privacy page for
+     "secure the pay", scam-warning for "is this real money", total-earned
+     for "who made you", formal-jobs-locked for "how do i apply"). */
+  ['how do i apply', 'find-work', worker],
+  ['good morning msizi how do i apply for a job', 'find-work', worker],
+  ['i need a job', 'find-work', worker],
+  ['who made you', 'who-is-msizi', worker],
+  ['the employer was rude to me', 'report-someone', worker],
+  ['i feel unsafe', 'is-it-safe', worker],
+  ['what tier am i', 'my-tier', worker],
+  ['how do i get more jobs', 'get-more-work', worker],
+  ['why am i not getting jobs', 'get-more-work', worker],
+  // Escrow, worker side
+  ['what does funds secured mean', 'funds-secured', worker],
+  ['what does awaiting funds mean', 'funds-secured', worker],
+  ['can the employer take the money back', 'funds-secured', worker],
+  ['how do i withdraw my money', 'wallet-withdraw', worker],
+  ['where is my wallet', 'wallet-withdraw', worker],
+  ['how long does withdrawal take', 'wallet-withdraw', worker],
+  ['how much is in my wallet', 'my-wallet', worker],
+  ['what is my balance', 'my-wallet', worker],
+  ['is this real money', 'test-mode', worker],
+  ['what is test mode', 'test-mode', worker],
+  // Escrow, employer side
+  ['how do i fund a job', 'employer-fund-job', employer],
+  ['how do i secure the pay', 'employer-fund-job', employer],
+  ['why cant i hire', 'employer-fund-job', employer],
+  ['why is hire disabled', 'employer-fund-job', employer],
+  ['how do i get my money back', 'employer-fund-job', employer],
+  ['can i cancel after hiring', 'employer-fund-job', employer],
+  ['what happens to my money if i delete the job', 'employer-fund-job', employer],
+  ['do i pay the worker directly', 'employer-fund-job', employer],
+  ['how do i pay the worker', 'employer-fund-job', employer],
+
   // Money — the answers that must never be wrong
   ['how do i get paid', 'how-payment-works', worker],
   ['does vuka hold my money', 'how-payment-works', worker],
@@ -394,6 +429,41 @@ for (const [q, id] of [['Hi, how do I get paid?', 'how-payment-works'], ['Sawubo
   const { rest } = C.peelGreeting(q);
   const reply = M.ask(rest, worker);
   ok(reply.id === id, `"${q}" is answered as "${rest}" (${id})`, `got ${reply.id}`);
+}
+
+/* More ways people actually say these. */
+for (const [text, intent] of [['ok cool', 'ack'], ['sounds good', 'ack'], ['how are you doing today', 'howAreYou'],
+  ['can you repeat that', 'repeat'], ['say that again', 'repeat'], ['phinda', 'repeat']]) {
+  const r = C.smallTalk(text, 'en', 'Thandeka', 'worker');
+  ok(r?.intent === intent, `"${text}" is small talk (${intent})`, `got ${r?.intent ?? 'nothing'}`);
+}
+
+/* The wallet answer reads the person's own figure, and is honest when it
+   cannot — loading, unreadable — rather than saying R0. */
+{
+  const w = (wallet) => M.askById('my-wallet', { ...worker, wallet })?.body ?? '';
+  ok(/R180/.test(w({ balance: 180, pending: 0, mode: 'test' })), 'the wallet answer reads the balance', w({ balance: 180, pending: 0, mode: 'test' }));
+  ok(/secured on jobs/.test(w({ balance: 0, pending: 90, mode: 'test' })), 'and what is secured on jobs in progress');
+  ok(/test mode/.test(w({ balance: 180, pending: 0, mode: 'test' })), 'and says it is test mode');
+  ok(/loading/.test(w(undefined)) && !/R0/.test(w(undefined)), 'while loading it says so, and never invents R0');
+  ok(/could not read/.test(w(null)), 'when it cannot be read it says so');
+}
+
+/* Units are added by the placeholder. "{autoReleaseHours} hours" printed
+   "3 days hours" — on screen and out loud. No filled answer may double one. */
+for (const e of KNOWLEDGE) {
+  const body = M.askById(e.id, e.role === 'employer' ? employer : worker)?.body ?? '';
+  ok(!/\b(days?|hours?) (hours?|days?)\b/.test(body), `${e.id}: no doubled unit ("3 days hours")`, body.match(/.{20}(days?|hours?) (hours?|days?).{10}/)?.[0]);
+}
+
+/* Payment is escrow now. No answer may describe the old direct-pay model. */
+for (const e of KNOWLEDGE) {
+  ok(!/pays? you directly|paid you directly|never handled|does not handle the money|not an escrow/i.test(e.body),
+    `${e.id}: does not describe the old "paid directly" model`);
+}
+for (const i of M.LIVE_INTENTS) {
+  const body = M.askById(i.id, worker)?.body ?? '';
+  ok(!/paid you directly|never handled/i.test(body), `${i.id}: does not describe the old "paid directly" model`);
 }
 
 /* The model fallback is grounded on written answers, never on the record. */

@@ -368,6 +368,14 @@ h1, h2, h3, h4 {
   transition: transform 80ms linear;
 }
 .orb[data-state="speaking"] .orb-halo { animation: orbSpin 6s linear infinite, orbGlow 0.9s ease-in-out infinite alternate; }
+/* The phone's own voice reports no loudness, so without this the sphere sat
+   perfectly still while she talked. data-live is set by the screen only while
+   real levels are arriving; otherwise a gentle talking pulse stands in. */
+.orb[data-state="speaking"]:not([data-live]) .orb-core { animation: orbTalk 0.5s ease-in-out infinite alternate; }
+@keyframes orbTalk { from { transform: scale(1); } to { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) {
+  .orb[data-state="speaking"] .orb-core { transform: none !important; }
+}
 
 @keyframes orbSpin { to { transform: rotate(360deg); } }
 @keyframes orbBreathe { 50% { transform: scale(1.035); } }

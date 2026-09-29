@@ -444,6 +444,8 @@ let neuralSource: NeuralSource | null = null;
 /** Set after a refusal, so a spent allowance is not asked again per sentence. */
 let neuralOffUntil = 0;
 const NEURAL_BACKOFF_MS = 10 * 60 * 1000;
+/** A one-off failure — offline for a moment, a refused playback — backs off briefly. */
+const NEURAL_BLIP_MS = 60 * 1000;
 /** The server's per-clip limit is 200; a margin for whitespace differences. */
 export const CLIP_CHARS = 190;
 
@@ -606,7 +608,9 @@ async function playBlobWebAudio(c: AudioContext, blob: Blob, generation: number)
       analyser.getByteTimeDomainData(data);
       let sum = 0;
       for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
-      emitLevel(Math.min(1, Math.sqrt(sum / data.length) * 3.2));
+      /* Never exactly 0 while a clip plays: 0 is reserved for "the clip has
+         ended", so a silent gap between words does not read as the end. */
+      emitLevel(Math.max(0.001, Math.min(1, Math.sqrt(sum / data.length) * 3.2)));
       if (generation !== speakGeneration) { try { src.stop(); } catch { /* gone */ } done('stopped'); return; }
       raf = window.requestAnimationFrame(tick);
     };
@@ -669,6 +673,23 @@ async function speakNeural(
 ): Promise<void> {
   const source = neuralSource;
   if (!source) { fallback(clips); return; }
+  /* Can this device play a clip right now? Checked BEFORE anything is fetched,
+     because every clip spends a slice of a small free daily allowance. On iOS
+     the audio context is often left suspended or "interrupted" after the
+     microphone has been open, and resume() outside a tap is refused — then the
+     phone's voice reads it, and no allowance is wasted. */
+  const c = audioContext();
+  if (c && c.state !== 'running') {
+    try {
+      await Promise.race([c.resume(), new Promise((r) => { window.setTimeout(r, 300); })]);
+    } catch { /* checked below */ }
+    if ((c.state as string) !== 'running') {
+      neuralOffUntil = Date.now() + NEURAL_BLIP_MS;
+      if (generation === speakGeneration) fallback(clips);
+      return;
+    }
+  }
+  if (generation !== speakGeneration) return;
   const fetchClip = (i: number) => {
     const pending = source(clips[i]);
     pending.catch(() => { /* handled where awaited */ });
@@ -679,8 +700,11 @@ async function speakNeural(
     let blob: Blob;
     try {
       blob = await next;
-    } catch {
-      neuralOffUntil = Date.now() + NEURAL_BACKOFF_MS;
+    } catch (e) {
+      /* Out of allowance, or no voice set up (429/503): stay off for a while.
+         Anything else is probably a blip, and is retried a minute later. */
+      const status = (e as { status?: number }).status ?? 0;
+      neuralOffUntil = Date.now() + (status === 429 || status === 503 ? NEURAL_BACKOFF_MS : NEURAL_BLIP_MS);
       if (generation === speakGeneration) fallback(clips.slice(i));
       return;
     }
@@ -689,8 +713,11 @@ async function speakNeural(
     const result = await playBlob(blob, generation);
     if (result === 'stopped') return;
     if (result === 'failed') {
-      /* Playback refused — on iOS, an element that was never unlocked. The
-         phone's voice was unlocked by the same tap, so it can finish. */
+      /* Playback refused — on iOS, audio that was never unlocked. The phone's
+         voice was unlocked by the same tap, so it can finish; and the natural
+         voice rests a minute, so the next answers do not fetch clips that
+         would be refused the same way. */
+      neuralOffUntil = Date.now() + NEURAL_BLIP_MS;
       if (generation === speakGeneration) fallback(clips.slice(i));
       return;
     }
@@ -698,18 +725,10 @@ async function speakNeural(
   finish();
 }
 
-/**
- * Tell iOS 17+ what the page is doing with audio. After the microphone has
- * been open, WebKit can leave the session in play-and-record, which routes
- * speech to the earpiece at a whisper. Setting "playback" before speaking puts
- * it back on the loudspeaker. Harmless where unsupported.
- */
-export function audioMode(mode: 'playback' | 'play-and-record' | 'auto'): void {
-  try {
-    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
-    if (session) session.type = mode;
-  } catch { /* not supported */ }
-}
+/* There was an audioMode() here that set navigator.audioSession.type. Setting
+   it to "playback" is what stopped the iPhone microphone working a second
+   time (a playback session has no input), so it was removed rather than left
+   for someone to reach for again. */
 
 /**
  * Read text aloud. `lang` is the language the TEXT is in — the written
@@ -732,6 +751,10 @@ export function speak(text: string, lang: Lang, onEnd?: () => void, opts: { loca
      working a second time: a playback-only session has no input. The default
      lets iOS pick per phase, and Web Audio (above) plays without taking over. */
   const { voice } = canSpeak() ? pickVoice(lang, opts) : { voice: null };
+  /* localOnly and no voice on the phone: the browser's default could be an
+     online one, which would send the person's own figures away. The words are
+     on screen; it is not read aloud. */
+  if (opts.localOnly && !voice) { onEnd?.(); return noop; }
   /* Respell South African words only for an English voice. */
   const english = neural || (voice ? voice.lang.toLowerCase().startsWith('en') : lang === 'en');
   const sentences = toSentences(text).map((s) => (english ? sayAs(s) : s));
@@ -777,7 +800,7 @@ function speakDevice(
      voice and say nothing, some lose the event. Generous: a slow reading
      speed over the whole text, plus a margin. */
   const chars = sentences.reduce((n, s) => n + s.length, 0);
-  const watchdog = window.setTimeout(() => finish(), 4_000 + chars * 110);
+  const watchdog = window.setTimeout(() => finish(), 4_000 + chars * 75);
   const finish = () => {
     window.clearTimeout(watchdog);
     for (const u of mine) liveUtterances.delete(u);

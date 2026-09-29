@@ -64,6 +64,12 @@ export interface MsiziContext {
   /** Unread direct messages. */
   unread: number;
   idVerified: boolean;
+  /**
+   * The worker's wallet (escrow, test mode), fetched by the screen. Undefined
+   * while it loads or for employers; null when it could not be read. Read back
+   * only to the person it belongs to, and never sent to the model.
+   */
+  wallet?: { balance: number; pending: number; mode: string } | null;
 }
 
 /* ------------------------------------------------------------------
@@ -155,7 +161,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
   {
     id: 'my-tier',
     title: 'Your tier',
-    asks: ['What is my tier?', 'What level am I?', 'How far am I from the next tier?'],
+    asks: ['What is my tier?', 'What tier am I?', 'What level am I?', 'How far am I from the next tier?'],
     keywords: ['my tier', 'my level', 'my rank', 'next tier', 'how far', 'my ladder'],
     role: 'worker',
     resolve: (ctx) => {
@@ -201,8 +207,8 @@ export const LIVE_INTENTS: LiveIntent[] = [
     resolve: (ctx) => {
       if (!ctx.cv || ctx.cv.jobsDone === 0) return NO_RECORD;
       return `You have earned ${money(ctx.cv.totalEarned)} from ${ctx.cv.jobsDone} completed `
-        + `job${ctx.cv.jobsDone === 1 ? '' : 's'}. That is what the employers paid you directly — `
-        + 'Vuka never handled it.';
+        + `job${ctx.cv.jobsDone === 1 ? '' : 's'}, counted from the pay each job listed. `
+        + 'What is in your wallet right now is a separate figure — ask me "how much is in my wallet".';
     },
   },
   {
@@ -221,6 +227,25 @@ export const LIVE_INTENTS: LiveIntent[] = [
       const lines = [`You have earned ${earned.length} of ${BADGES.length} badges: ${earned.map((b) => `${b.icon} ${b.label}`).join(', ')}.`];
       if (missing.length > 0) lines.push(`Still to come: ${missing.map((b) => `${b.label} (${b.desc.toLowerCase()})`).join('; ')}.`);
       return lines.join(' ');
+    },
+  },
+  {
+    id: 'my-wallet',
+    title: 'Your wallet',
+    asks: ['How much is in my wallet?', 'What is my balance?', 'How much can I withdraw?'],
+    keywords: ['my wallet', 'my balance', 'in my wallet', 'can i withdraw', 'wallet balance'],
+    role: 'worker',
+    resolve: (ctx) => {
+      if (ctx.wallet === undefined) return 'Your wallet is still loading. Ask me again in a moment, or open Me, then My wallet.';
+      if (ctx.wallet === null) return 'I could not read your wallet just now. Open Me, then My wallet, to see it.';
+      const { balance, pending, mode } = ctx.wallet;
+      const parts = [balance > 0
+        ? `You have ${money(balance)} in your wallet, ready to withdraw to your bank.`
+        : 'Your wallet is empty right now.'];
+      if (pending > 0) parts.push(`Another ${money(pending)} is secured on jobs you are doing. It arrives when each one is confirmed.`);
+      if (balance <= 0 && pending <= 0) parts.push('Pay lands here when an employer confirms a job you did.');
+      if (mode !== 'live') parts.push('Payments are in test mode for now, so no real money has moved yet.');
+      return parts.join('\n');
     },
   },
   {

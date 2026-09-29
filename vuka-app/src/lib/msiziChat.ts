@@ -27,7 +27,10 @@ import type { Role } from '../types';
 
 type Intent =
   | 'greet' | 'howAreYou' | 'thanks' | 'bye' | 'capabilities' | 'whoAreYou'
-  | 'areYouAi' | 'joke' | 'ack' | 'laugh' | 'praise' | 'upset';
+  | 'areYouAi' | 'joke' | 'ack' | 'laugh' | 'praise' | 'upset'
+  /* Handled by the screen, which re-reads the previous answer; the lines
+     below are only for when there is nothing to repeat yet. */
+  | 'repeat';
 
 function norm(text: string): string {
   return text
@@ -51,14 +54,15 @@ const GREETINGS = [
 ];
 
 const PATTERNS: [Intent, RegExp][] = [
-  ['howAreYou', /^(how are (you|u)( doing| today)?|how r u|hows it going|how is it going|whats up|wassup|sup|unjani|ninjani|unjani wena|o kae|o phela joang|le kae|hoe gaan dit( met jou)?|hoe gaan dit|kunjani|kuhamba kanjani|ungubani wena kanjani)$/],
+  ['repeat', /^(repeat|repeat (that|it)|(can|could) (you|u) repeat( that| it)?|say (that|it) again|come again|pardon|sorry what|what did you say|again|once more|phinda|phinda futhi|phinda kabili|phinda uthi|pheta|pheta hape|herhaal|sê weer|se weer)$/],
+  ['howAreYou', /^(how are (you|u)( doing)?( today)?|how r u|how is your day|hows your day|how you doing|hows it going|how is it going|whats up|wassup|sup|unjani|ninjani|unjani wena|o kae|o phela joang|le kae|hoe gaan dit( met jou)?|hoe gaan dit|kunjani|kuhamba kanjani|ungubani wena kanjani)$/],
   ['thanks', /^(thank (you|u)( so much| very much)?|thanks( a lot| so much)?|thx|ta|cheers|shot|sharp|ngiyabonga|siyabonga|ngiyabonga kakhulu|enkosi|enkosi kakhulu|ndiyabulela|ke a leboha|kea leboha|ke leboha|dankie|baie dankie)( msizi)?$/],
   ['bye', /^(bye|bye bye|goodbye|good bye|see (you|ya)( later)?|later|good night|night|sala kahle|salani kahle|hamba kahle|sala sentle|hamba kakuhle|salang hantle|tsamaya hantle|sala hantle|totsiens|tot siens|mooi loop|lekker bly|sharp sharp|chat later)$/],
   ['capabilities', /^(help|help me|i need help|can you help( me)?|what can (you|u) do|what do you do|what are you for|what can i ask( you)?|how does this work|ngisize|ngicela usizo|ndincede|nceda|nthuse|ke kopa thuso|help my|kan jy my help|wat kan jy doen)$/],
   ['whoAreYou', /^(who are (you|u)|whats your name|what is your name|your name|ungubani|ngubani igama lakho|ungubani wena|ndiwe bani|o mang|lebitso la hao ke mang|wie is jy|wat is jou naam)$/],
   ['areYouAi', /^(are (you|u) (a )?(robot|bot|ai|human|real|real person|person|machine|computer|chatgpt|siri)|is this (a )?(bot|robot|ai|real person)|am i talking to (a )?(bot|robot|person|human)|are you alive|is jy n robot|ungumuntu|uyirobhothi)$/],
   ['joke', /^(tell me a joke|say something funny|make me laugh|a joke|joke|vertel my n grap|ngixoxele ihlaya)$/],
-  ['ack', /^(ok|okay|okey|k|kk|ok thanks|okay thanks|alright|all right|cool|nice|great|good|fine|got it|i see|understood|sure|yes|yeah|yep|no|nope|nah|yebo|ja|nee|ee|aowa|kulungile|kuhle|ho lokile|reg so|mooi)$/],
+  ['ack', /^((ok|okay|okey|k|kk|alright|all right|cool|nice|great|good|fine|perfect|awesome|sweet|noted|lovely)( cool| then| great| thanks| thank you| nice| good)?|got it|i see|understood|sure|sounds good|makes sense|yes|yeah|yep|no|nope|nah|yebo|ja|nee|ee|aowa|kulungile|kuhle|ho lokile|reg so|mooi)$/],
   ['laugh', /^(lol|lmao|haha+|hahaha+|hehe+|ha ha|lekker)$/],
   ['praise', /^(you are (great|awesome|amazing|the best|helpful|smart|clever)|good (bot|job)|well done|nice one|i love (you|this|this app)|ngiyakuthanda|uyasiza|jy is wonderlik)$/],
   ['upset', /^(you are (useless|stupid|dumb|bad|rubbish)|useless|stupid|this is useless|you dont understand|you do not understand|wrong|thats wrong|that is wrong|not helpful|awusizi lutho)$/],
@@ -114,6 +118,7 @@ const REPLIES: Record<Lang, Lines> = {
     laugh: ['Glad that made you smile! Anything else I can help with?'],
     praise: ['Thank you{name}, that is kind! What else can I help you with?'],
     upset: ['Sorry{name} — I did not get that right. Try asking in different words, or tap one of the questions below.'],
+    repeat: ['I have not said anything yet{name} — ask me a question and I will answer it.'],
   },
   zu: {
     greet: ['{Greeting}{name}! NginguMsizi, umsizi wakho ku-Vuka. Ngibuze noma yini — ukuthola umsebenzi, ukukhokhelwa, irekhodi lakho, noma ukuphepha.'],
@@ -128,6 +133,7 @@ const REPLIES: Record<Lang, Lines> = {
     laugh: ['Ngiyajabula ukuthi umamathekile! Kukhona okunye?'],
     praise: ['Ngiyabonga{name}! Yini enye engingakusiza ngayo?'],
     upset: ['Uxolo{name} — angikutholanga kahle. Zama ukubuza ngamanye amagama, noma uthinte omunye wemibuzo ngezansi.'],
+    repeat: ['Angikasho lutho{name} — ngibuze umbuzo ngizowuphendula.'],
   },
   xh: {
     greet: ['{Greeting}{name}! NdinguMsizi, umncedisi wakho kwi-Vuka. Ndibuze nantoni na — ukufumana umsebenzi, ukuhlawulwa, irekhodi yakho, okanye ukhuseleko.'],
@@ -142,6 +148,7 @@ const REPLIES: Record<Lang, Lines> = {
     laugh: ['Ndiyavuya ukuba uncumile! Ikhona enye into?'],
     praise: ['Enkosi{name}! Yintoni enye endingakunceda ngayo?'],
     upset: ['Uxolo{name} — andikuvanga kakuhle. Zama ukubuza ngamanye amagama, okanye uchukumise omnye wemibuzo engezantsi.'],
+    repeat: ['Andikathethi nto{name} — ndibuze umbuzo ndiza kuwuphendula.'],
   },
   st: {
     greet: ['{Greeting}{name}! Ke Msizi, mothusi wa hao ho Vuka. Mpotse eng kapa eng — ho fumana mosebetsi, ho lefuwa, rekoto ya hao, kapa polokeho.'],
@@ -156,6 +163,7 @@ const REPLIES: Record<Lang, Lines> = {
     laugh: ['Ke thabile hore o bososele! Ho na le ntho e nngwe?'],
     praise: ['Ke a leboha{name}! Nka o thusa ka eng hape?'],
     upset: ['Ke kopa tshwarelo{name} — ha ke a o utlwisisa hantle. Leka ho botsa ka mantswe a mang, kapa o tobetse e nngwe ya dipotso tse ka tlase.'],
+    repeat: ['Ha ke eso bue letho{name} — mpotse potso mme ke tla e araba.'],
   },
   af: {
     greet: ['{Greeting}{name}! Ek is Msizi, jou helper op Vuka. Vra my enigiets — werk kry, betaal word, jou rekord, of veilig bly.'],
@@ -170,6 +178,7 @@ const REPLIES: Record<Lang, Lines> = {
     laugh: ['Bly dit het jou laat glimlag! Nog iets?'],
     praise: ['Dankie{name}, dis gaaf van jou! Waarmee kan ek nog help?'],
     upset: ['Jammer{name} — ek het dit nie reg gekry nie. Probeer dit in ander woorde vra, of tik een van die vrae hieronder.'],
+    repeat: ['Ek het nog niks gesê nie{name} — vra my iets en ek sal antwoord.'],
   },
 };
 

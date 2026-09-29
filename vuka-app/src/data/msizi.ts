@@ -95,14 +95,14 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['free', 'cost', 'price', 'fee', 'charge', 'subscription', 'pay to use'],
     body:
       'Vuka is free. There is no sign-up fee, no monthly fee, and no charge to apply for work or to post a job.\n'
-      + 'Vuka also does not take a cut of what you earn, because Vuka does not handle the money at all — the employer pays you directly.\n'
+      + 'Vuka does not take a cut of what you earn. The pay for a job is secured by the employer before work starts and released to your wallet when it is confirmed — in test mode for now, so no real money moves through Vuka yet.\n'
       + 'If anyone ever asks you to pay a fee to get a job on Vuka, that is a scam. Report it.',
     next: ['how-payment-works', 'report-someone'],
   },
   {
     id: 'who-is-msizi',
     title: 'Who Msizi is',
-    asks: ['Who are you?', 'What can you do?', 'Are you a robot?'],
+    asks: ['Who are you?', 'What can you do?', 'Are you a robot?', 'Who made you?', 'Who built Msizi?'],
     keywords: ['msizi', 'assistant', 'help', 'bot', 'ai', 'robot', 'you'],
     body:
       'I am Msizi — "umsizi" means helper. I answer questions about how Vuka works.\n'
@@ -224,7 +224,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'find-work',
     title: 'Finding work',
-    asks: ['How do I find work?', 'Where are the jobs?', 'How do I get a job?'],
+    asks: ['How do I find work?', 'Where are the jobs?', 'How do I get a job?', 'How do I apply for a job?', 'I need a job'],
     keywords: ['find', 'work', 'job', 'jobs', 'gig', 'gigs', 'search', 'browse', 'apply', 'hiring'],
     role: 'worker',
     body:
@@ -442,7 +442,80 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       + 'Right now this is in TEST MODE: the wallet is a practice run and no real money moves through Vuka yet. Until it is switched on, agree with the employer how they will actually pay you, before you start.\n'
       + 'If an employer does not pay you, report it. That is exactly what the safety report is for.',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
-    next: ['banking-details', 'fair-pay', 'report-someone'],
+    next: ['funds-secured', 'wallet-withdraw', 'test-mode', 'banking-details'],
+  },
+  {
+    id: 'funds-secured',
+    title: 'What Funds secured means',
+    asks: ['What does Funds secured mean?', 'What does Awaiting funds mean?', 'Can the employer take the money back?', 'Is the money really there?'],
+    keywords: ['funds secured', 'awaiting funds', 'secured', 'take back', 'take the money back', 'locked', 'reverse', 'paid out', 'escrow'],
+    role: 'worker',
+    body:
+      'Every gig shows one of three labels, so you know about the pay before you apply:\n'
+      + '• Funds secured — the employer has already put the full pay in. It is waiting for you.\n'
+      + '• Awaiting funds — not yet. You can still apply, but nobody can be hired onto it until the employer adds the money.\n'
+      + '• Paid out — the job is done and the pay went to the worker.\n'
+      + 'Can the employer take it back? Only before anyone is hired. From the moment you are hired, the money is locked for you, and it moves into your wallet when the job is confirmed — or automatically, {autoReleaseHours} after you mark it done, if the employer never answers.\n'
+      + 'This is in test mode for now, so no real money moves through Vuka yet.',
+    next: ['wallet-withdraw', 'test-mode', 'confirm-work'],
+  },
+  {
+    id: 'wallet-withdraw',
+    title: 'Your wallet, and withdrawing',
+    asks: ['How do I withdraw my money?', 'Where is my wallet?', 'How long does a withdrawal take?'],
+    keywords: ['wallet', 'withdraw', 'withdrawal', 'cash out', 'take out', 'balance', 'transfer', 'payout'],
+    role: 'worker',
+    body:
+      'Your wallet is under Me, then My wallet. It shows what you can withdraw now, and what is secured on jobs you are still doing.\n'
+      + '• Pay lands in the wallet when an employer confirms your job.\n'
+      + '• Withdraw sends the whole balance to the bank account you saved under Get paid. Add your bank details there first.\n'
+      + 'Because payments are in test mode, no money is actually sent yet, so there is no waiting time to tell you about. When real payments are switched on, the time a withdrawal takes will be shown before you confirm it.\n'
+      + 'Ask me "how much is in my wallet" and I will read you your balance.',
+    goto: { screen: 'me', labelKey: 'msizi.goto.me' },
+    next: ['my-wallet', 'banking-details', 'test-mode'],
+  },
+  {
+    id: 'test-mode',
+    title: 'What test mode means',
+    asks: ['What is test mode?', 'Is this real money?', 'Why does it say test mode?'],
+    keywords: ['test mode', 'test', 'practice', 'real money', 'fake money', 'not real', 'pretend'],
+    body:
+      'Vuka shows the full way payment will work — pay secured before the job, released to the worker wallet when it is confirmed, then withdrawn to the bank. Right now that is a practice run: no real money moves through Vuka yet.\n'
+      + 'Until payments are switched on, agree with the other person how the pay will actually be made, before the work starts. Everything else — your record, ratings, tiers and badges — is real and counts.\n'
+      + 'When real payments start, the app will say so clearly, and test mode will disappear from these screens.',
+    next: ['how-payment-works', 'report-someone'],
+  },
+  {
+    id: 'employer-fund-job',
+    title: 'Securing the pay for a job',
+    asks: ['How do I fund a job?', 'Why can I not hire anyone?', 'How do I get my money back?', 'Can I cancel after hiring?', 'How do I pay the worker?', 'What happens to the money if I delete the job?'],
+    keywords: ['fund', 'secure', 'secure the pay', 'funds', 'hire disabled', 'cannot hire', 'money back', 'refund', 'take back', 'cancel', 'pay the worker', 'directly', 'awaiting funds'],
+    role: 'employer',
+    body:
+      'The pay for a job is secured before anyone starts. Tick Secure the pay now when you post, or open the job later and tap Secure the pay.\n'
+      + '• Nobody can be hired until the pay is secured. That is why the Hire button says Secure the pay to hire.\n'
+      + '• Before you hire, you can take the funds back at no fee. Withdrawing a job nobody was hired for also gives them back.\n'
+      + '• From the moment you hire someone, the funds are locked for them. They move into the worker wallet when you confirm the work — or automatically, {autoReleaseHours} after they mark it done, if you do not answer.\n'
+      + 'A job someone is hired for cannot be cancelled in the app. Message the worker to sort it out, and report it under Me if something is wrong.\n'
+      + 'Payments are in test mode for now, so no real money moves through Vuka yet.',
+    goto: { screen: 'post', labelKey: 'msizi.goto.post' },
+    next: ['employer-confirm', 'test-mode', 'employer-cost'],
+  },
+  {
+    id: 'get-more-work',
+    title: 'Getting more jobs',
+    asks: ['How do I get more jobs?', 'Why am I not getting jobs?', 'How do I get hired faster?'],
+    keywords: ['more jobs', 'not getting', 'no jobs', 'get hired', 'chances', 'nobody hires', 'unemployed', 'need work'],
+    role: 'worker',
+    body:
+      'Employers choose from the record they can see, so the things that move you up the list are the things you control:\n'
+      + '• Fill in your profile and the skills you actually have, so you show up for the right work.\n'
+      + '• Verify your ID under Me. Given two people, an employer takes the verified one.\n'
+      + '• Turn on Job alerts, so you hear about a gig the moment it is posted and can apply early.\n'
+      + '• Prefer jobs showing Funds secured, and ones near you — you arrive on time, and the pay is waiting.\n'
+      + '• Do each job well and mark it done. Every confirmed job and good rating lifts your Vuka Score and your tier.',
+    goto: { screen: 'jobs', labelKey: 'msizi.goto.jobs' },
+    next: ['find-work', 'move-up-tier', 'notifications'],
   },
   {
     id: 'banking-details',
@@ -477,7 +550,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
        counting. Two entries sharing a phrasing is a coin toss at match time. */
     title: 'What the total earned figure counts',
     asks: ['What does total earned include?', 'How is my total earnings worked out?'],
-    keywords: ['earned', 'earnings', 'total', 'income', 'money made', 'counted'],
+    keywords: ['earned', 'earnings', 'total', 'income', 'counted'],
     role: 'worker',
     body:
       'Your Record adds up everything from every completed job and shows it as your total earned.\n'
@@ -505,7 +578,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     asks: ['The employer has not confirmed my job', 'How long does confirmation take?', 'What if they never confirm?'],
     keywords: ['confirm', 'confirmation', 'waiting', 'pending', 'never confirmed', 'auto release', 'stuck'],
     body:
-      'After you mark a job done, the employer has {autoReleaseHours} hours to confirm it.\n'
+      'After you mark a job done, the employer has {autoReleaseHours} to confirm it.\n'
       + 'If they never do, the job is credited to you anyway once that window passes. You get the record entry, the earnings, the tier progress — and the secured pay moves into your wallet. It is stored without a rating, so their silence cannot drag your average down — or push it up.\n'
       + 'This exists because an employer who simply stops replying used to cancel a worker progress permanently, for work that was genuinely done. Now they cannot.',
     next: ['ratings-average', 'my-jobs'],
@@ -550,7 +623,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'When a worker marks a job done you get a notification. Open it, confirm the work, and rate them out of five with a short review.\n'
       + 'Please do it promptly. For you it is a tap; for them it is the entry on their record that unlocks the next tier and the next kind of job.\n'
-      + 'If you do not confirm within {autoReleaseHours} hours, the job is credited to the worker automatically, without a rating. Your review is the part that is lost, and that review is the most valuable thing you can give someone who is building a first work history.\n'
+      + 'If you do not confirm within {autoReleaseHours}, the job is credited to the worker automatically, without a rating. Your review is the part that is lost, and that review is the most valuable thing you can give someone who is building a first work history.\n'
       + 'Confirming also releases the pay you secured into the worker\'s Vuka wallet. From the moment you hired them it was locked for them. Payments are in test mode for now — no real money moves yet.',
     next: ['how-payment-works', 'choose-worker'],
   },
@@ -570,7 +643,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'is-it-safe',
     title: 'Staying safe',
-    asks: ['Is Vuka safe?', 'How do I stay safe?', 'Is it safe to go to a stranger house?'],
+    asks: ['Is Vuka safe?', 'How do I stay safe?', 'Is it safe to go to a stranger house?', 'I feel unsafe'],
     keywords: ['safe', 'safety', 'danger', 'scam', 'risk', 'stranger', 'protect', 'careful'],
     body:
       'Vuka gives you information to judge with, but you are the one travelling to an address, so the sensible precautions still apply:\n'
@@ -607,8 +680,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'report-someone',
     title: 'Reporting someone',
-    asks: ['How do I report someone?', 'Someone did not pay me', 'How do I report a scam?'],
-    keywords: ['report', 'complaint', 'abuse', 'did not pay', 'unsafe', 'harassment', 'safety centre', 'robbed', 'assaulted', 'threatened', 'attacked', 'stole', 'hurt', 'mugged'],
+    asks: ['How do I report someone?', 'Someone did not pay me', 'How do I report a scam?', 'The employer was rude to me'],
+    keywords: ['report', 'complaint', 'abuse', 'did not pay', 'unsafe', 'harassment', 'rude', 'disrespectful', 'shouted', 'insulted', 'safety centre', 'robbed', 'assaulted', 'threatened', 'attacked', 'stole', 'hurt', 'mugged'],
     body:
       'Use the Safety centre under Me, or raise a flag when you mark a job done.\n'
       + 'Tell us what happened in your own words. Reports go to a queue that a person reads — they are not handled by a machine.\n'
@@ -701,5 +774,5 @@ export const BY_ID: Map<string, KnowledgeEntry> = new Map(KNOWLEDGE.map((e) => [
  */
 export const OPENERS: Record<Role, string[]> = {
   worker: ['find-work', 'the-ladder', 'how-payment-works', 'vuka-score', 'is-it-safe'],
-  employer: ['post-a-job', 'choose-worker', 'employer-confirm', 'employer-cost', 'is-it-safe'],
+  employer: ['post-a-job', 'employer-fund-job', 'choose-worker', 'employer-confirm', 'is-it-safe'],
 };
