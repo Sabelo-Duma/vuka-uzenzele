@@ -12,7 +12,7 @@
    refuse (503). That way a missing key can never be papered over with a
    guessable default, and it also can't take the whole app down.
    ============================================================ */
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 
 const RAW_KEY = process.env.VUKA_ENCRYPTION_KEY || '';
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -62,4 +62,41 @@ export function decryptField(sealed) {
   } catch {
     return null;
   }
+}
+
+/* ---- Binary documents (ID card and selfie images) ----------------------
+
+   Same AES-256-GCM key, laid out as bytes rather than hex so an image is not
+   doubled in size: [ 1 version byte | 12-byte IV | 16-byte tag | ciphertext ]. */
+
+/** Seal a Buffer. */
+export function encryptBytes(buf) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', KEY, iv);
+  const ct = Buffer.concat([cipher.update(buf), cipher.final()]);
+  return Buffer.concat([Buffer.from([1]), iv, cipher.getAuthTag(), ct]);
+}
+
+/** Open a sealed Buffer, or null if it cannot be opened (wrong key, tampering). */
+export function decryptBytes(sealed) {
+  try {
+    const b = Buffer.from(sealed);
+    if (b.length < 29 || b[0] !== 1) return null;
+    const decipher = createDecipheriv('aes-256-gcm', KEY, b.subarray(1, 13));
+    decipher.setAuthTag(b.subarray(13, 29));
+    return Buffer.concat([decipher.update(b.subarray(29)), decipher.final()]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A keyed fingerprint of an ID number, so the same ID can be found on another
+ * account without the number itself ever being stored in the clear. Encrypted
+ * values cannot be compared (each has its own random IV); this can. HMAC,
+ * keyed with the encryption key, so a table of hashes of every possible ID
+ * number cannot be precomputed by someone holding only a database dump.
+ */
+export function fingerprintId(idNumber) {
+  return createHmac('sha256', KEY).update(`sa-id:${String(idNumber).replace(/\D/g, '')}`).digest('hex');
 }

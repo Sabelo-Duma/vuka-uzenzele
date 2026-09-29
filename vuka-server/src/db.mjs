@@ -376,6 +376,22 @@ export async function initDb() {
       reviewed_at TEXT
     );
 
+    /* The images behind a scanned ID submission: the front of the card and the
+       two selfies. Encrypted before they are stored (crypto.mjs encryptBytes),
+       and deleted the moment the submission is decided — a face photo used for
+       matching is special personal information under POPIA, and nothing needs
+       it after the decision. Separate from attachments on purpose: those are
+       swept after an hour when no chat message claims them. */
+    CREATE TABLE IF NOT EXISTS id_documents (
+      id TEXT PRIMARY KEY,
+      verification_id TEXT NOT NULL REFERENCES id_verifications(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      bytes_enc ${BLOB_TYPE} NOT NULL,
+      size INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     /* Worker → employer ratings. The employer rating shown on a gig is an
        average of these rows — never a hardcoded number. */
     CREATE TABLE IF NOT EXISTS employer_ratings (
@@ -429,6 +445,20 @@ export async function initDb() {
      users makes the same flow work for both sides, and lets a worker see
      whether the stranger whose address they are going to is verified. */
   await addColumn('users', 'id_verified', 'INTEGER');
+  /* Scanned ID submissions (2026-09-29): how it was made, what the card's
+     barcode said, which checks passed, the random selfie instruction, the
+     Home Affairs step, and a keyed fingerprint of the ID number so one ID
+     cannot be verified on two accounts. */
+  await addColumn('id_verifications', 'method', 'TEXT');
+  await addColumn('id_verifications', 'id_hash', 'TEXT');
+  await addColumn('id_verifications', 'scan_json', 'TEXT');
+  await addColumn('id_verifications', 'checks_json', 'TEXT');
+  await addColumn('id_verifications', 'challenge', 'TEXT');
+  await addColumn('id_verifications', 'home_affairs', 'TEXT');
+  await addColumn('id_verifications', 'gender', 'TEXT');
+  await addColumn('id_verifications', 'citizen', 'INTEGER');
+  await exec('CREATE INDEX IF NOT EXISTS idx_idverif_hash ON id_verifications(id_hash)');
+  await exec('CREATE INDEX IF NOT EXISTS idx_iddocs_verif ON id_documents(verification_id)');
   // Unix seconds; tokens issued before this stop working (password reset).
   await addColumn('users', 'sessions_valid_from', 'INTEGER');
   // Two-sided completion: applied → hired → worker_done → completed.

@@ -593,7 +593,7 @@ async function run() {
   {
     const empTok = (await api('POST', '/auth/register', { body: { role: 'employer', name: 'Naledi Khumalo', phone: '0829990012', password: 'test1234', verifyToken: await verifyPhone('0829990012') } })).json.token;
     ok((await api('GET', '/me/id-verification', { token: empTok })).json?.status === 'none', 'an employer starts unverified');
-    ok((await api('POST', '/me/id-verification', { token: empTok, body: { fullName: 'Naledi Khumalo', idNumber: '0001015009085' } })).status === 201,
+    ok((await api('POST', '/me/id-verification', { token: empTok, body: { fullName: 'Naledi Khumalo', idNumber: '8001015009087' } })).status === 201,
       'an employer can submit an ID for verification');
 
     const queue = await fetch(BASE + '/admin/id-verifications', { headers: { 'x-admin-token': 'test-admin-token' } }).then((r) => r.json());
@@ -1585,6 +1585,85 @@ async function run() {
     ok((await api('POST', `/invitations/${myInv.id}/respond`, { token: W.token, body: { accept: true } })).status < 300, 'once funded, it can be accepted');
 
     ok((await api('GET', '/health')).json?.payments === 'test', 'health reports payments are in test mode');
+  }
+
+  // 10y) Scanned ID: the card and the person it belongs to (2026-09-29).
+  // Consent, a checked draft, three encrypted photos, submit, review, and the
+  // photos gone once it is decided. One ID cannot be verified on two accounts.
+  {
+    const reg = async (role, name, phone) => (await api('POST', '/auth/register', {
+      body: { role, name, phone, password: 'test1234', verifyToken: await verifyPhone(phone), ...(role === 'worker' ? { age: 24, location: 'Soweto' } : {}) },
+    })).json;
+    const A = await reg('worker', 'Thandeka Mokoena', '0829990030');
+    const B = await reg('worker', 'Someone Else', '0829990031');
+    // A valid female ID born 17 May 1995 (Luhn completed in the test).
+    const luhnDigit = (s) => { for (let d = 0; d <= 9; d++) { const id = s + d; let sum = 0, dbl = false;
+      for (let i = id.length - 1; i >= 0; i--) { let n = +id[i]; if (dbl) { n *= 2; if (n > 9) n -= 9; } sum += n; dbl = !dbl; }
+      if (sum % 10 === 0) return id; } return null; };
+    const ID = luhnDigit('950517012308');
+    const barcode = { source: 'pdf417', surname: 'MOKOENA', names: 'THANDEKA', sex: 'F', nationality: 'RSA', dateOfBirth: '17 MAY 1995', idNumber: ID };
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4000, 7)]);
+    const put = (tok, id, kind, bytes = jpeg, type = 'image/jpeg') => fetch(`${BASE}/me/id-verification/${id}/documents/${kind}`, {
+      method: 'PUT', headers: { 'Content-Type': type, Authorization: `Bearer ${tok}` }, body: bytes,
+    });
+
+    ok((await api('POST', '/me/id-verification/scan', { token: A.token, body: { fullName: 'Thandeka Mokoena', idNumber: ID, scan: barcode } })).json?.reason === 'consent',
+      'a scan without consent is refused');
+    const start = await api('POST', '/me/id-verification/scan', { token: A.token, body: { consent: true, fullName: 'Thandeka Mokoena', idNumber: ID, scan: barcode } });
+    ok(start.status === 201 && start.json?.status === 'draft' && start.json?.method === 'scan', 'a scan starts as a draft');
+    ok(typeof start.json?.challenge === 'string' && start.json.challenge.length > 5, 'the draft carries a random instruction for the second selfie');
+    ok(start.json?.checks?.idFromBarcode === true && start.json?.checks?.dateOfBirth === true && start.json?.checks?.sex === true && start.json?.checks?.name === true,
+      'the barcode agrees with the number, the birth date, the sex and the name', JSON.stringify(start.json?.checks));
+    ok((await api('GET', '/me/id-verification', { token: A.token })).json?.status === 'none', 'an unfinished scan does not show as submitted');
+    const vid = start.json.id;
+
+    // Mismatches are recorded, not refused — a reviewer weighs them.
+    const other = await api('POST', '/me/id-verification/scan', { token: B.token, body: { consent: true, fullName: 'Someone Else', idNumber: luhnDigit('880229567808'),
+      scan: { source: 'pdf417', surname: 'MOKOENA', names: 'THANDEKA', sex: 'F', dateOfBirth: '17 MAY 1995', idNumber: ID } } });
+    ok(other.status === 201 && ['idFromBarcode', 'dateOfBirth', 'sex', 'name'].every((k) => other.json?.checks?.mismatches?.includes(k)),
+      'a barcode that disagrees with what was typed is flagged on every count', JSON.stringify(other.json?.checks));
+
+    ok((await api('POST', `/me/id-verification/${vid}/submit`, { token: A.token })).json?.reason === 'missing', 'submitting without the photos is refused');
+    ok((await put(A.token, vid, 'card_front', jpeg, 'text/plain')).status === 415, 'a photo must be an image');
+    ok((await put(A.token, vid, 'passport')).status === 400, 'an unknown photo kind is refused');
+    ok((await put(B.token, vid, 'card_front')).status === 404, 'nobody can add photos to someone else\'s submission');
+    for (const kind of ['card_front', 'selfie', 'selfie_challenge']) ok((await put(A.token, vid, kind)).status === 200, `the ${kind} photo is accepted`);
+    ok((await put(A.token, vid, 'selfie')).status === 200, 'a retaken photo replaces the first');
+    const { all: dbAll, get: dbGet } = await import('./db.mjs');
+    const stored = await dbAll('SELECT kind, bytes_enc FROM id_documents WHERE verification_id = ?', [vid]);
+    ok(stored.length === 3, 'one photo per kind is kept, not every retake', String(stored.length));
+    ok(stored.every((r) => { const b = Buffer.from(r.bytes_enc); return b[0] === 1 && b.indexOf(Buffer.from([0xff, 0xd8, 0xff])) === -1; }),
+      'the photos are encrypted at rest — no JPEG is readable in the database');
+
+    const sent = await api('POST', `/me/id-verification/${vid}/submit`, { token: A.token });
+    ok(sent.json?.status === 'pending' && sent.json?.homeAffairs?.mode === 'test' && sent.json?.homeAffairs?.status === 'not_run',
+      'submitting sends it for review, with the Home Affairs step in test mode', JSON.stringify(sent.json?.homeAffairs));
+    ok((await put(A.token, vid, 'selfie')).status === 409, 'photos cannot be changed once it is sent');
+
+    // The same ID on another account is refused while it is under review.
+    const dup = await api('POST', '/me/id-verification/scan', { token: B.token, body: { consent: true, fullName: 'Someone Else', idNumber: ID, scan: { source: 'typed' } } });
+    ok(dup.status === 409 && dup.json?.reason === 'id_in_use', 'an ID under review on one account cannot be used on another');
+    ok((await api('POST', '/me/id-verification', { token: B.token, body: { fullName: 'Someone Else', idNumber: ID } })).json?.reason === 'id_in_use',
+      'nor typed in by hand');
+
+    // Review.
+    process.env.VUKA_ADMIN_TOKEN = 'test-admin-token';
+    const adminHeaders = { 'x-admin-token': 'test-admin-token' };
+    const queue = await (await fetch(`${BASE}/admin/id-verifications`, { headers: adminHeaders })).json();
+    const mine = queue.find((q) => q.id === vid);
+    ok(mine?.method === 'scan' && mine?.documents?.length === 3 && mine?.challenge && mine?.scan?.surname === 'MOKOENA',
+      'the reviewer sees the scan, the checks, the instruction and the three photos', JSON.stringify(mine));
+    ok(mine && !('idNumber' in (mine.scan ?? {})), 'the barcode\'s copy of the ID number is not kept');
+    const img = await fetch(`${BASE}/admin/id-verifications/${vid}/documents/selfie`, { headers: adminHeaders });
+    const imgBytes = Buffer.from(await img.arrayBuffer());
+    ok(img.status === 200 && imgBytes.equals(jpeg) && img.headers.get('cache-control') === 'no-store', 'the reviewer can open a photo, decrypted, never cached');
+    ok((await fetch(`${BASE}/admin/id-verifications/${vid}/documents/selfie`)).status === 401, 'nobody else can');
+    await fetch(`${BASE}/admin/id-verifications/${vid}/decide`, { method: 'POST', headers: { ...adminHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ approve: true }) });
+    ok((await dbGet('SELECT COUNT(*) AS n FROM id_documents WHERE verification_id = ?', [vid])).n == 0, 'once decided, the photos are deleted');
+    ok((await api('GET', '/me/id-verification', { token: A.token })).json?.status === 'verified', 'and the person is verified');
+    ok((await api('POST', '/me/id-verification/scan', { token: B.token, body: { consent: true, fullName: 'Someone Else', idNumber: ID, scan: { source: 'typed' } } })).json?.reason === 'id_in_use',
+      'a verified ID cannot be verified again on another account');
+    delete process.env.VUKA_ADMIN_TOKEN;
   }
 
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).

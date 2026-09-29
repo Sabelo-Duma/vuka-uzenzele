@@ -12,7 +12,8 @@ import {
   randomDigits, hashCode, verifyCode, signPurposeToken, verifyPurposeToken,
 } from './auth.mjs';
 import { computeCv, autoReview, MIN_WAGE_PER_HOUR, MAX_GIG_HOURS, CATEGORY_IDS, TIERS, BADGES } from './engine.mjs';
-import { encryptField, hasEncryptionKey } from './crypto.mjs';
+import { encryptField, hasEncryptionKey, encryptBytes, decryptBytes, fingerprintId } from './crypto.mjs';
+import { pickChallenge, crossCheck, cleanScan, homeAffairsCheck, HOME_AFFAIRS_MODE } from './idcheck.mjs';
 import { sendSms, smsConfigured, otpEcho } from './notify.mjs';
 import { sendPush, pushConfigured, vapidPublicKey } from './push.mjs';
 import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mjs';
@@ -1475,13 +1476,35 @@ app.delete('/api/me/banking', requireAuth, asyncH(async (req, res) => {
    Format validity is not identity: a submission lands as 'pending' and is
    decided by the ops route below (or, later, by a Home Affairs / bureau
    integration wired in at the same point). */
+const parseJson = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
 const idVerificationOut = (row) => (row ? {
+  /* A draft is a scan started and not yet sent. It is the person's own to
+     finish or throw away, and shows to them as not submitted. */
+  id: row.id,
   status: row.status, last4: row.id_number_last4, fullName: row.full_name,
   reason: row.reason, submittedAt: row.submitted_at, reviewedAt: row.reviewed_at,
+  method: row.method ?? 'manual',
+  challenge: row.status === 'draft' ? row.challenge : undefined,
+  homeAffairs: parseJson(row.home_affairs) ?? { mode: HOME_AFFAIRS_MODE, status: 'not_run' },
 } : { status: 'none' });
 
+/**
+ * Is this ID number already verified, or under review, on someone else's
+ * account? Keyed fingerprint, so the number itself is never compared in the
+ * clear. Rows from before the fingerprint existed have none and are skipped.
+ */
+async function idInUseElsewhere(idNumber, userId) {
+  return !!(await get(
+    "SELECT id FROM id_verifications WHERE id_hash = ? AND user_id != ? AND status IN ('pending','verified') LIMIT 1",
+    [fingerprintId(idNumber), userId],
+  ));
+}
+const ID_IN_USE = 'That ID number is already linked to another Vuka account. If this is your ID and you did not create that account, report it under Me, Safety centre.';
+
 app.get('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
-  const row = await get('SELECT * FROM id_verifications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1', [req.user.id]);
+  /* The latest SENT submission decides the state; an unfinished scan does not
+     hide a verified or pending one. */
+  const row = await get("SELECT * FROM id_verifications WHERE user_id = ? AND status != 'draft' ORDER BY submitted_at DESC LIMIT 1", [req.user.id]);
   res.json(idVerificationOut(row));
 }));
 
@@ -1500,11 +1523,13 @@ app.post('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
   const check = validateSaId(idNumber);
   if (!check.ok) return res.status(400).json({ error: check.reason });
   if (check.age < 16) return res.status(400).json({ error: 'You need to be at least 16 to work on Vuka.' });
+  if (await idInUseElsewhere(idNumber, req.user.id)) return res.status(409).json({ error: ID_IN_USE, reason: 'id_in_use' });
 
   const id = uuid();
   const now = new Date().toISOString();
-  await run('INSERT INTO id_verifications (id, user_id, full_name, id_number_enc, id_number_last4, date_of_birth, status, provider, submitted_at) VALUES (?,?,?,?,?,?,?,?,?)',
-    [id, req.user.id, fullName, encryptField(idNumber), idNumber.slice(-4), check.dateOfBirth, 'pending', 'manual', now]);
+  await run('INSERT INTO id_verifications (id, user_id, full_name, id_number_enc, id_number_last4, date_of_birth, status, provider, submitted_at, method, id_hash, gender, citizen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [id, req.user.id, fullName, encryptField(idNumber), idNumber.slice(-4), check.dateOfBirth, 'pending', 'manual', now,
+      'manual', fingerprintId(idNumber), check.gender, check.citizen ? 1 : 0]);
 
   // The ID is the authoritative source for age, so trust it over what was typed
   // at sign-up.
@@ -1513,6 +1538,99 @@ app.post('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
   }
   console.warn(`ID VERIFICATION ${id} submitted by ${req.user.id} — awaiting review.`);
   res.status(201).json(idVerificationOut(await get('SELECT * FROM id_verifications WHERE id = ?', [id])));
+}));
+
+/* ---------------- Scanned ID (card + the person it belongs to) ----------
+   Three steps, so the images never ride in a JSON body:
+     1. POST .../scan     the typed name, the ID number and what the card's
+                          barcode said. Checked and saved as a DRAFT; the reply
+                          carries the random instruction for the second selfie.
+     2. PUT  .../:id/documents/:kind   each image, raw JPEG, encrypted on arrival.
+     3. POST .../:id/submit            all three present: the Home Affairs step
+                          runs (test mode) and the submission goes to review.
+   See idcheck.mjs for what is and is not proven by each check. */
+const ID_DOC_KINDS = ['card_front', 'selfie', 'selfie_challenge'];
+const ID_DOC_MAX_BYTES = Number(process.env.VUKA_ID_DOC_MAX_BYTES || 3 * 1024 * 1024);
+const ID_DOC_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+async function myDraft(req, res) {
+  const row = await get('SELECT * FROM id_verifications WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+  if (!row) { res.status(404).json({ error: 'That ID submission could not be found.' }); return null; }
+  if (row.status !== 'draft') { res.status(409).json({ error: 'That ID submission has already been sent.' }); return null; }
+  return row;
+}
+
+app.post('/api/me/id-verification/scan', requireAuth, asyncH(async (req, res) => {
+  if (!hasEncryptionKey && process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ error: 'ID verification is temporarily unavailable. Please try again later.' });
+  }
+  if (req.body?.consent !== true) {
+    return res.status(400).json({ error: 'Please agree to how your ID photos are used before continuing.', reason: 'consent' });
+  }
+  const fullName = String(req.body?.fullName ?? '').trim();
+  if (fullName.length < 3 || fullName.length > 120) return res.status(400).json({ error: 'Please enter your full name exactly as it appears on your ID.' });
+
+  const existing = await get("SELECT * FROM id_verifications WHERE user_id = ? AND status != 'draft' ORDER BY submitted_at DESC LIMIT 1", [req.user.id]);
+  if (existing?.status === 'verified') return res.status(409).json({ error: 'Your identity is already verified.' });
+  if (existing?.status === 'pending') return res.status(409).json({ error: "Your ID is already being checked. We'll let you know as soon as it's done." });
+
+  const idNumber = String(req.body?.idNumber ?? '').replace(/\D/g, '');
+  const check = validateSaId(idNumber);
+  if (!check.ok) return res.status(400).json({ error: check.reason });
+  if (check.age < 16) return res.status(400).json({ error: 'You need to be at least 16 to work on Vuka.' });
+  if (await idInUseElsewhere(idNumber, req.user.id)) return res.status(409).json({ error: ID_IN_USE, reason: 'id_in_use' });
+
+  const scan = cleanScan(req.body?.scan);
+  const checks = crossCheck({ fullName, idNumber, idCheck: check, scan });
+  /* The number read from the barcode is compared above and not kept. */
+  if (scan) delete scan.idNumber;
+
+  /* One draft at a time: starting again throws the unfinished one away,
+     images and all. */
+  await run("DELETE FROM id_verifications WHERE user_id = ? AND status = 'draft'", [req.user.id]);
+  const id = uuid();
+  const challenge = pickChallenge();
+  await run(`INSERT INTO id_verifications (id, user_id, full_name, id_number_enc, id_number_last4, date_of_birth, status, provider,
+      submitted_at, method, id_hash, scan_json, checks_json, challenge, gender, citizen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, req.user.id, fullName, encryptField(idNumber), idNumber.slice(-4), check.dateOfBirth, 'draft', 'manual',
+      new Date().toISOString(), 'scan', fingerprintId(idNumber), JSON.stringify(scan), JSON.stringify(checks), challenge,
+      check.gender, check.citizen ? 1 : 0]);
+  res.status(201).json({ ...idVerificationOut(await get('SELECT * FROM id_verifications WHERE id = ?', [id])), checks });
+}));
+
+app.put('/api/me/id-verification/:id/documents/:kind', requireAuth,
+  express.raw({ type: () => true, limit: ID_DOC_MAX_BYTES }),
+  asyncH(async (req, res) => {
+    const kind = String(req.params.kind);
+    if (!ID_DOC_KINDS.includes(kind)) return res.status(400).json({ error: 'Unknown document.' });
+    const mime = String(req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+    if (!ID_DOC_TYPES.has(mime)) return res.status(415).json({ error: 'Please send a photo (JPEG, PNG or WebP).' });
+    const body = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!body || body.length < 1000) return res.status(400).json({ error: 'That photo did not come through. Please take it again.' });
+    const draft = await myDraft(req, res);
+    if (!draft) return;
+    await run('DELETE FROM id_documents WHERE verification_id = ? AND kind = ?', [draft.id, kind]);
+    await run('INSERT INTO id_documents (id, verification_id, kind, mime, bytes_enc, size, created_at) VALUES (?,?,?,?,?,?,?)',
+      [uuid(), draft.id, kind, mime, encryptBytes(body), body.length, new Date().toISOString()]);
+    res.json({ ok: true, kind });
+  }));
+
+app.post('/api/me/id-verification/:id/submit', requireAuth, asyncH(async (req, res) => {
+  const draft = await myDraft(req, res);
+  if (!draft) return;
+  const have = new Set((await all('SELECT kind FROM id_documents WHERE verification_id = ?', [draft.id])).map((r) => r.kind));
+  const missing = ID_DOC_KINDS.filter((k) => !have.has(k));
+  if (missing.length) return res.status(409).json({ error: 'Some photos are missing. Please take them again.', reason: 'missing', missing });
+
+  const homeAffairs = await homeAffairsCheck({ verificationId: draft.id });
+  await run("UPDATE id_verifications SET status = 'pending', submitted_at = ?, home_affairs = ? WHERE id = ?",
+    [new Date().toISOString(), JSON.stringify(homeAffairs), draft.id]);
+  if (await profileOf(req.user.id)) {
+    const age = draft.date_of_birth ? Math.floor((Date.now() - Date.parse(draft.date_of_birth)) / 31_557_600_000) : null;
+    if (age) await run('UPDATE worker_profiles SET age = ? WHERE user_id = ?', [age, req.user.id]);
+  }
+  console.warn(`ID VERIFICATION ${draft.id} (scan) submitted by ${req.user.id} — awaiting review.`);
+  res.json(idVerificationOut(await get('SELECT * FROM id_verifications WHERE id = ?', [draft.id])));
 }));
 
 /* Ops-only review routes. Guarded by VUKA_ADMIN_TOKEN (an x-admin-token
@@ -1530,7 +1648,28 @@ function requireAdmin(req, res, next) {
 
 app.get('/api/admin/id-verifications', requireAdmin, asyncH(async (_req, res) => {
   const rows = await all("SELECT v.*, u.name, u.phone FROM id_verifications v JOIN users u ON u.id = v.user_id WHERE v.status = 'pending' ORDER BY v.submitted_at ASC LIMIT 200");
-  res.json(rows.map((r) => ({ id: r.id, userId: r.user_id, name: r.name, phone: r.phone, fullName: r.full_name, last4: r.id_number_last4, dateOfBirth: r.date_of_birth, submittedAt: r.submitted_at })));
+  const docs = await all("SELECT verification_id, kind FROM id_documents WHERE verification_id IN (SELECT id FROM id_verifications WHERE status = 'pending')");
+  const byVerif = new Map();
+  for (const d of docs) byVerif.set(d.verification_id, [...(byVerif.get(d.verification_id) ?? []), d.kind]);
+  res.json(rows.map((r) => ({
+    id: r.id, userId: r.user_id, name: r.name, phone: r.phone, fullName: r.full_name, last4: r.id_number_last4,
+    dateOfBirth: r.date_of_birth, gender: r.gender, submittedAt: r.submitted_at,
+    method: r.method ?? 'manual', scan: parseJson(r.scan_json), checks: parseJson(r.checks_json),
+    /* The reviewer checks the second selfie actually follows this. */
+    challenge: r.challenge, documents: byVerif.get(r.id) ?? [], homeAffairs: parseJson(r.home_affairs),
+  })));
+}));
+
+/* A reviewer opens an image. Decrypted only on the way out, never cached. */
+app.get('/api/admin/id-verifications/:id/documents/:kind', requireAdmin, asyncH(async (req, res) => {
+  const doc = await get('SELECT * FROM id_documents WHERE verification_id = ? AND kind = ?', [req.params.id, req.params.kind]);
+  if (!doc) return res.status(404).json({ error: 'That photo is not there. It is deleted once a submission is decided.' });
+  const bytes = decryptBytes(toBytes(doc.bytes_enc));
+  if (!bytes) return res.status(500).json({ error: 'That photo could not be opened.' });
+  res.set('Content-Type', doc.mime);
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.send(bytes);
 }));
 
 app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (req, res) => {
@@ -1546,6 +1685,10 @@ app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (r
      statement matched nothing and an approved employer stayed unverified —
      after we had already taken and encrypted their ID number. */
   if (approve) await run('UPDATE users SET id_verified = 1 WHERE id = ?', [row.user_id]);
+  /* Decided, so the photos have done their job. A face photo used for
+     matching is special personal information under POPIA; it is not kept a
+     moment longer than the decision needs it. */
+  await run('DELETE FROM id_documents WHERE verification_id = ?', [row.id]);
   res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
 }));
 
