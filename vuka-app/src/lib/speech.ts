@@ -455,6 +455,35 @@ export function setNeuralVoice(fn: NeuralSource | null): void {
   neuralSource = fn;
 }
 
+/** Asks the server whether EVERY clip of an answer can be spoken naturally. */
+type NeuralCheck = (clips: string[]) => Promise<boolean>;
+let neuralCheck: NeuralCheck | null = null;
+export function setNeuralCheck(fn: NeuralCheck | null): void {
+  neuralCheck = fn;
+}
+
+/**
+ * Wait for the audio context to be running, up to `ms`.
+ *
+ * After the microphone closes, an iPhone takes a moment to hand audio back:
+ * the context sits "interrupted" or "suspended" and returns to "running" by
+ * itself. The first version gave up after 0.3 s, fell back to the phone's
+ * voice, and then stayed off the natural voice for a minute — which is the
+ * mid-conversation change of voice that was reported. Now it waits, and a
+ * miss costs only this one answer.
+ */
+async function audioRunning(c: AudioContext, ms: number): Promise<boolean> {
+  if (c.state === 'running') return true;
+  try { void c.resume().catch(() => { /* retried by the state change */ }); } catch { /* ignore */ }
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if ((c.state as string) === 'running') return true;
+    await new Promise((r) => { window.setTimeout(r, 100); });
+    if ((c.state as string) === 'suspended') { try { void c.resume().catch(() => {}); } catch { /* ignore */ } }
+  }
+  return (c.state as string) === 'running';
+}
+
 function neuralAvailable(): boolean {
   return neuralSource !== null && Date.now() >= neuralOffUntil && typeof Audio !== 'undefined';
 }
@@ -679,17 +708,21 @@ async function speakNeural(
      microphone has been open, and resume() outside a tap is refused — then the
      phone's voice reads it, and no allowance is wasted. */
   const c = audioContext();
-  if (c && c.state !== 'running') {
-    try {
-      await Promise.race([c.resume(), new Promise((r) => { window.setTimeout(r, 300); })]);
-    } catch { /* checked below */ }
-    if ((c.state as string) !== 'running') {
-      neuralOffUntil = Date.now() + NEURAL_BLIP_MS;
-      if (generation === speakGeneration) fallback(clips);
-      return;
-    }
+  if (c && !(await audioRunning(c, 2500))) {
+    /* This answer only. No back-off: the next one will very likely play. */
+    if (generation === speakGeneration) fallback(clips);
+    return;
   }
   if (generation !== speakGeneration) return;
+  /* One voice per answer. If the server cannot promise the whole answer in
+     the natural voice (allowance spent, clips not saved), the phone reads all
+     of it — never a switch halfway through a sentence. */
+  if (neuralCheck) {
+    let whole = false;
+    try { whole = await neuralCheck(clips); } catch { whole = false; }
+    if (generation !== speakGeneration) return;
+    if (!whole) { fallback(clips); return; }
+  }
   const fetchClip = (i: number) => {
     const pending = source(clips[i]);
     pending.catch(() => { /* handled where awaited */ });
@@ -703,8 +736,11 @@ async function speakNeural(
     } catch (e) {
       /* Out of allowance, or no voice set up (429/503): stay off for a while.
          Anything else is probably a blip, and is retried a minute later. */
+      /* 503: no natural voice is set up at all — stay off for a while. 429
+         and blips: briefly; the whole-answer check keeps answers in one
+         voice, and saved clips still play while the allowance is spent. */
       const status = (e as { status?: number }).status ?? 0;
-      neuralOffUntil = Date.now() + (status === 429 || status === 503 ? NEURAL_BACKOFF_MS : NEURAL_BLIP_MS);
+      neuralOffUntil = Date.now() + (status === 503 ? NEURAL_BACKOFF_MS : NEURAL_BLIP_MS);
       if (generation === speakGeneration) fallback(clips.slice(i));
       return;
     }

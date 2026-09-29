@@ -559,6 +559,9 @@ export const api = {
   /* One clip of Msizi's natural voice, as WAV. Throws ApiError (status 429 or
      503 when the free allowance is spent or no voice is set up), and the
      caller falls back to the phone's own voice. */
+  /* Can the whole answer be read in the natural voice? One voice per answer. */
+  assistantVoiceCheck: async (texts: string[]): Promise<boolean> =>
+    (await request<{ speakable: boolean }>('POST', '/assistant/voice/check', { texts })).speakable,
   assistantVoice: async (text: string): Promise<Blob> => {
     let res: Response;
     try {

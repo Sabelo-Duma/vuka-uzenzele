@@ -465,6 +465,19 @@ async function neuralRun(sourceBehaviour, audioBehaviour = 'ok') {
     `played ${good.played.length}, device ${good.spokenByDevice.length}`);
   ok(good.ended, 'and reports the end once it is done');
 
+  /* One voice per answer: when the server cannot promise the WHOLE answer in
+     the natural voice, the phone reads all of it — no switch mid-sentence. */
+  S.setNeuralCheck(async () => false);
+  const partial = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }));
+  S.setNeuralCheck(null);
+  ok(partial.played.length === 0 && partial.spokenByDevice.length > 0 && partial.ended,
+    'if the whole answer cannot be voiced naturally, the phone reads all of it — never a mix',
+    `played ${partial.played.length}, device ${partial.spokenByDevice.length}`);
+  S.setNeuralCheck(async () => true);
+  const whole = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }));
+  S.setNeuralCheck(null);
+  ok(whole.played.length >= 2 && whole.spokenByDevice.length === 0, 'and when it can, the natural voice reads all of it');
+
   const locked = await neuralRun(async (text) => new Blob([text.padEnd(2000, '.')], { type: 'audio/wav' }), 'refuse');
   ok(locked.spokenByDevice.length > 0 && locked.ended, 'playback refused by the browser falls back too', JSON.stringify(locked));
   ok(locked.played.length === 0, 'having tried the natural voice first');

@@ -36,7 +36,7 @@ import { ask, askById, groundingFor, lookup, openers, type MsiziContext, type Ms
 import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
 import {
-  Listener, canListen, canSpeak, onSpeechLevel, onVoicesChanged, pickVoice, primeSpeech, setNeuralVoice,
+  Listener, canListen, canSpeak, onSpeechLevel, onVoicesChanged, pickVoice, primeSpeech, setNeuralCheck, setNeuralVoice,
   speak, stopSpeaking, voicesReady, type ListenError,
 } from '../../lib/speech';
 import { langMeta } from '../../i18n';
@@ -238,7 +238,8 @@ export function Msizi() {
   useEffect(() => {
     if (!state.user) return undefined;
     setNeuralVoice((text) => api.assistantVoice(text));
-    return () => setNeuralVoice(null);
+    setNeuralCheck((clips) => api.assistantVoiceCheck(clips));
+    return () => { setNeuralVoice(null); setNeuralCheck(null); };
   }, [state.user]);
 
   /* The orb swells with her voice. Written straight onto the element, once a

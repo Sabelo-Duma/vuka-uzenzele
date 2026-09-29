@@ -21,7 +21,7 @@ import { captureError, installProcessHandlers, recentErrors, errorSummary, monit
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
-import { synthesize, voiceStats } from './voice.mjs';
+import { synthesize, voiceStats, voiceCacheStats, canSpeakAll } from './voice.mjs';
 import {
   PAYMENTS_MODE, EscrowError, fund, reverse, release, wallet, withdraw, fundingFor, escrowFor, gigTotalCents,
 } from './escrow.mjs';
@@ -627,7 +627,7 @@ app.get('/api/health', asyncH(async (_req, res) => {
     // Msizi's model fallback. False is fine: the app answers from its own
     // knowledge base and says so.
     ai: aiStats(),
-    voice: voiceStats(),
+    voice: { ...voiceStats(), saved: await voiceCacheStats() },
     // 'test' until a payment provider is connected: escrow is a ledger only.
     payments: PAYMENTS_MODE,
     monitoring: monitoringTarget,
@@ -1932,6 +1932,11 @@ const voiceLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Slow down a little.', reason: 'slow_down' },
 });
+
+/* Before an answer starts: can ALL of it be read in the natural voice? */
+app.post('/api/assistant/voice/check', requireAuth, voiceLimiter, asyncH(async (req, res) => {
+  res.json({ speakable: await canSpeakAll(req.body?.texts, req.body?.voice) });
+}));
 
 app.post('/api/assistant/voice', requireAuth, voiceLimiter, asyncH(async (req, res) => {
   try {
