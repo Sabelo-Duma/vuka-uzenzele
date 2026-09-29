@@ -268,6 +268,7 @@ export const af = {
   'msizi.tryAsking': 'Probeer vra',
   'msizi.askNext': 'Vra my volgende',
   'msizi.missTitle': 'Daardie een weet ek nie',
+  'msizi.offTopicTitle': 'Daarmee kan ek nie help nie',
   'msizi.missBody': 'Ek beantwoord net vrae oor Vuka — werk kry, jou rekord, betaling, en veiligheid. Hier is waarmee ek kan help:',
   'msizi.notAi': "Msizi antwoord uit hoe Vuka werklik werk. As 'n vraag nuut is, kan dit 'n gratis KI vra — net jou woorde word gestuur, nooit jou rekord nie.",
   'msizi.thinking': 'Ek dink…',

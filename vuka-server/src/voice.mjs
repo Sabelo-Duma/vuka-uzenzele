@@ -33,7 +33,7 @@ import { createHash } from 'node:crypto';
 import { all, get, run, toBytes } from './db.mjs';
 
 const MODEL = 'canopylabs/orpheus-v1-english';
-const URL = 'https://api.groq.com/openai/v1/audio/speech';
+const API_URL = 'https://api.groq.com/openai/v1/audio/speech';
 /* The three female voices are autumn, diana and hannah. */
 const VOICES = ['hannah', 'diana', 'autumn'];
 export const MAX_CHARS = 200;
@@ -186,7 +186,7 @@ export async function synthesize(rawText, requestedVoice) {
 
   let res;
   try {
-    res = await fetch(URL, {
+    res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key()}` },
       body: JSON.stringify({ model: MODEL, voice, input: text, response_format: 'wav' }),
@@ -248,4 +248,76 @@ export async function canSpeakAll(texts, requestedVoice) {
   rollDay();
   if (Date.now() < blockedUntil) return false;
   return used + missing <= DAILY_CAP;
+}
+
+/* ---- Recording the written answers overnight ---------------------------
+
+   The free allowance resets on a rolling day and is mostly unused at night.
+   So between 23:00 and 05:00 (South African time) the server works through
+   every written answer (voice-warm.json, generated from the app's own speech
+   code) and saves each clip it does not have yet, a couple at a time, until
+   the provider says stop. Within a couple of weeks every written answer is
+   saved, and from then on those are always read in the natural voice, at no
+   cost. Most-asked answers come first in the list. */
+
+let warmList = null;
+async function loadWarmList() {
+  if (warmList) return warmList;
+  try {
+    const { readFile } = await import('node:fs/promises');
+    const raw = await readFile(new URL('./voice-warm.json', import.meta.url), 'utf8');
+    warmList = (JSON.parse(raw).clips ?? []).filter((c) => typeof c === 'string' && c.length <= MAX_CHARS);
+  } catch {
+    warmList = [];
+  }
+  return warmList;
+}
+
+/** How many of the written answers' clips are saved. For /api/health. */
+export async function warmProgress() {
+  const list = await loadWarmList();
+  let saved = 0;
+  for (const text of list) {
+    try {
+      if (await get('SELECT 1 AS ok FROM tts_clips WHERE key = ?', [dbKey(`${defaultVoice()}\u0000${clean(text)}`)])) saved += 1;
+    } catch { /* not counted */ }
+  }
+  return { saved, total: list.length };
+}
+
+/** Is it night in South Africa (UTC+2)? */
+function quietHours(now = new Date()) {
+  const h = (now.getUTCHours() + 2) % 24;
+  return h >= 23 || h < 5;
+}
+
+export async function warmOnce({ perRun = 2, force = false } = {}) {
+  if (!voiceConfigured() || (!force && !quietHours())) return 0;
+  rollDay();
+  if (Date.now() < blockedUntil) return 0;
+  const voice = defaultVoice();
+  let done = 0;
+  for (const text of await loadWarmList()) {
+    if (done >= perRun) break;
+    const k = `${voice}\u0000${clean(text)}`;
+    if (cache.has(k)) continue;
+    try {
+      if (await get('SELECT 1 AS ok FROM tts_clips WHERE key = ?', [dbKey(k)])) continue;
+    } catch { return done; }
+    try {
+      await synthesize(text, voice);
+      done += 1;
+    } catch {
+      return done; // over the allowance, or the provider is down: try next time
+    }
+  }
+  return done;
+}
+
+/** Run the overnight recorder every `everyMinutes`. Returns a stop function. */
+export function startVoiceWarmer({ everyMinutes = 10 } = {}) {
+  if (process.env.VUKA_VOICE_WARM === '0') return () => {};
+  const timer = setInterval(() => { void warmOnce().catch(() => {}); }, everyMinutes * 60_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }

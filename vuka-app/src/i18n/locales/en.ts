@@ -289,6 +289,7 @@ export const en = {
   'msizi.tryAsking': 'Try asking',
   'msizi.askNext': 'Ask me next',
   'msizi.missTitle': 'I do not know that one',
+  'msizi.offTopicTitle': "That's not something I can help with",
   'msizi.missBody': 'I only answer questions about Vuka — finding work, your record, getting paid, and staying safe. Here is what I can help with:',
   'msizi.notAi': 'Msizi answers from how Vuka actually works. When a question is new, it may ask a free AI — only your words are sent, never your record.',
   'msizi.thinking': 'Thinking…',

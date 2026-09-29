@@ -274,6 +274,7 @@ export const st = {
   'msizi.tryAsking': 'Leka ho botsa',
   'msizi.askNext': 'Mpotse e latelang',
   'msizi.missTitle': 'Ha ke tsebe potso eo',
+  'msizi.offTopicTitle': 'Ha ke kgone ho thusa ka seo',
   'msizi.missBody': 'Ke araba dipotso tsa Vuka feela — ho fumana mosebetsi, rekoto ya hao, ho lefshwa, le polokeho. Mona ke seo nka o thusang ka sona:',
   'msizi.notAi': 'Msizi o araba ho ya ka tsela eo Vuka e sebetsang ka yona. Ha potso e le ntjha, a ka botsa AI ya mahala — ho romelwa mantswe a hao feela, eseng rekoto ya hao.',
   'msizi.thinking': 'Ke a nahana…',

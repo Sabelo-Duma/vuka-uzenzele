@@ -555,7 +555,7 @@ export const api = {
     question: string; lang: string;
     entries: { title: string; body: string }[];
     history: { q: string; a: string }[];
-  }) => request<{ answer: string; provider: string }>('POST', '/assistant/ask', input),
+  }) => request<{ answer: string; provider: string; offTopic?: boolean }>('POST', '/assistant/ask', input),
   /* One clip of Msizi's natural voice, as WAV. Throws ApiError (status 429 or
      503 when the free allowance is spent or no voice is set up), and the
      caller falls back to the phone's own voice. */

@@ -148,7 +148,7 @@ function systemPrompt(lang, role = 'worker') {
     '2. Answer ONLY from the FACTS and the HELP ENTRIES below. Do not use outside knowledge about Vuka or about other apps.',
     '3. If the facts and entries do not answer the question, say honestly that you are not sure, and suggest where in the app to look or what they could ask instead. Never invent a feature, a figure, an amount, a law or a time limit.',
     '4. Never quote a rand amount, wage or number of hours unless it appears word for word in the entries.',
-    '5. If the question has nothing to do with Vuka, work or safety, answer in one friendly sentence at most and steer back to what you can help with.',
+    '5. You ONLY help with: Vuka and how to use it; finding, applying for and doing work (including general job advice such as CVs, interviews and fair pay); getting paid; the person\'s record, ratings and tiers; and staying safe. If the question is about anything else — sport, news, general knowledge, homework, jokes, recipes, other apps — do NOT answer it, not even partly. Reply with exactly the one word OFFTOPIC and nothing else.',
     '6. Keep it short: two to five plain sentences, or a few lines starting with "• ". No markdown, no headings, no bold, no emoji, no links.',
     '7. Talk like a kind person, not a manual. Use "you". Your answer may be read out loud, so write it to be spoken.',
     '8. You cannot take any action in the app. If asked to, explain where they can do it themselves.',
@@ -179,6 +179,17 @@ function cleanHistory(raw) {
     q: redact(t?.q).slice(0, 300),
     a: String(t?.a ?? '').slice(0, 600),
   })).filter((t) => t.q);
+}
+
+/**
+ * The model's signal that a question is not about Vuka (rule 5). Tolerant of
+ * punctuation or formatting around the word, and of a reasoning model that
+ * adds a stray sentence after it — but only when the reply STARTS with it, so
+ * an answer that merely mentions the word is not swallowed.
+ */
+export function isOffTopic(raw) {
+  const t = String(raw ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim().replace(/^[\s*_`"'\[(]+/, '');
+  return /^OFF[\s_-]?TOPIC\b/i.test(t);
 }
 
 /** Models sometimes ignore "no markdown". The app renders plain text only. */
@@ -300,7 +311,12 @@ export async function askAssistant({ userId, role = 'worker', question, lang, en
   let lastError = null;
   for (const p of list) {
     try {
-      const answer = tidy(await callProvider(p, messages));
+      const raw = await callProvider(p, messages);
+      /* Not a Vuka question. Answered by the app with its own honest "I only
+         help with Vuka" in the person's language — never by the model having
+         a go at the football results. */
+      if (isOffTopic(raw)) return { provider: p.name, answer: '', offTopic: true };
+      const answer = tidy(raw);
       if (!answer) throw new Error(`${p.name}: empty answer`);
       if (violatesFacts(answer)) {
         return { provider: p.name, answer: withTestNote(ESCROW_ANSWER[role] ?? ESCROW_ANSWER.worker, 'en') };
