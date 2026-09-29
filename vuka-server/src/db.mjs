@@ -382,6 +382,20 @@ export async function initDb() {
        matching is special personal information under POPIA, and nothing needs
        it after the decision. Separate from attachments on purpose: those are
        swept after an hour when no chat message claims them. */
+    /* Msizi's natural-voice clips, kept across restarts and deploys. The free
+       voice allowance is tiny (a couple of dozen clips a day), and an
+       in-memory cache was emptied by every deploy, so the same answers were
+       paid for again and again. The text is a help answer read aloud — never
+       a person's own figures, which are only spoken by the phone. */
+    CREATE TABLE IF NOT EXISTS tts_clips (
+      key TEXT PRIMARY KEY,
+      voice TEXT NOT NULL,
+      bytes ${BLOB_TYPE} NOT NULL,
+      size INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      used_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS id_documents (
       id TEXT PRIMARY KEY,
       verification_id TEXT NOT NULL REFERENCES id_verifications(id) ON DELETE CASCADE,

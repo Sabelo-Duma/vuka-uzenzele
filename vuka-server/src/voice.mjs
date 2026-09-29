@@ -29,6 +29,9 @@
    never sent here (the app keeps those on the phone's voice).
    ============================================================ */
 
+import { createHash } from 'node:crypto';
+import { all, get, run, toBytes } from './db.mjs';
+
 const MODEL = 'canopylabs/orpheus-v1-english';
 const URL = 'https://api.groq.com/openai/v1/audio/speech';
 /* The three female voices are autumn, diana and hannah. */
@@ -37,6 +40,10 @@ export const MAX_CHARS = 200;
 
 const DAILY_CAP = Number(process.env.VUKA_TTS_DAILY_CAP || 95);
 const CACHE_MAX_BYTES = Number(process.env.VUKA_TTS_CACHE_BYTES || 48 * 1024 * 1024);
+/* The durable copy, in the database. Sized well inside the free 500 MB: a
+   clip is a few hundred kilobytes, so this holds every written answer read
+   aloud several times over. */
+const DB_CACHE_MAX_BYTES = Number(process.env.VUKA_TTS_DB_CACHE_BYTES || 60 * 1024 * 1024);
 
 function key() { return process.env.VUKA_GROQ_API_KEY?.trim() || ''; }
 
@@ -93,6 +100,49 @@ function cachePut(k, buf) {
   }
 }
 
+/* ---- durable cache (database) ------------------------------------------ */
+
+const dbKey = (k) => createHash('sha256').update(k).digest('hex');
+
+async function dbCacheGet(k) {
+  try {
+    const row = await get('SELECT bytes FROM tts_clips WHERE key = ?', [dbKey(k)]);
+    if (!row) return null;
+    /* Touch it, so eviction takes the clips nobody has asked for lately. */
+    void run('UPDATE tts_clips SET used_at = ? WHERE key = ?', [new Date().toISOString(), dbKey(k)]).catch(() => {});
+    return toBytes(row.bytes);
+  } catch {
+    return null; // a cache must never be the reason a clip fails
+  }
+}
+
+async function dbCachePut(k, voice, buf) {
+  try {
+    const now = new Date().toISOString();
+    await run('DELETE FROM tts_clips WHERE key = ?', [dbKey(k)]);
+    await run('INSERT INTO tts_clips (key, voice, bytes, size, created_at, used_at) VALUES (?,?,?,?,?,?)',
+      [dbKey(k), voice, buf, buf.length, now, now]);
+    const total = Number((await get('SELECT COALESCE(SUM(size), 0) AS n FROM tts_clips'))?.n ?? 0);
+    if (total > DB_CACHE_MAX_BYTES) {
+      let over = total - DB_CACHE_MAX_BYTES;
+      for (const r of await all('SELECT key, size FROM tts_clips ORDER BY used_at ASC LIMIT 200')) {
+        if (over <= 0) break;
+        await run('DELETE FROM tts_clips WHERE key = ?', [r.key]);
+        over -= Number(r.size);
+      }
+    }
+  } catch { /* best effort */ }
+}
+
+export async function voiceCacheStats() {
+  try {
+    const r = await get('SELECT COUNT(*) AS n, COALESCE(SUM(size), 0) AS b FROM tts_clips');
+    return { clips: Number(r?.n ?? 0), bytes: Number(r?.b ?? 0) };
+  } catch {
+    return { clips: 0, bytes: 0 };
+  }
+}
+
 export function voiceStats() {
   rollDay();
   return {
@@ -124,6 +174,10 @@ export async function synthesize(rawText, requestedVoice) {
   const k = `${voice}\u0000${text}`;
   const hit = cacheGet(k);
   if (hit) return { audio: hit, cached: true };
+  /* Then the durable copy: a clip bought once is never bought again, across
+     restarts and deploys. */
+  const stored = await dbCacheGet(k);
+  if (stored) { cachePut(k, stored); return { audio: stored, cached: true }; }
 
   rollDay();
   if (Date.now() < blockedUntil) throw Object.assign(new Error(`blocked: ${blockedReason}`), { code: 'over_budget' });
@@ -163,5 +217,35 @@ export async function synthesize(rawText, requestedVoice) {
   const audio = Buffer.from(await res.arrayBuffer());
   if (audio.length < 100) throw Object.assign(new Error('voice: empty audio'), { code: 'unavailable' });
   cachePut(k, audio);
+  await dbCachePut(k, voice, audio);
   return { audio, cached: false };
+}
+
+/**
+ * Can every clip of this answer be spoken in the natural voice, right now?
+ *
+ * Asked before an answer starts, so it is read in ONE voice. Reported from a
+ * phone: when the allowance ran out halfway through an answer, the voice
+ * changed mid-sentence — which sounded worse than either voice alone. So an
+ * answer is only started in the natural voice if it can be finished in it:
+ * every clip already saved, or room left in the allowance for the rest.
+ */
+export async function canSpeakAll(texts, requestedVoice) {
+  if (!voiceConfigured()) return false;
+  const voice = VOICES.includes(requestedVoice) ? requestedVoice : defaultVoice();
+  const list = (Array.isArray(texts) ? texts : []).slice(0, 20).map(clean).filter(Boolean);
+  if (list.length === 0 || list.some((t) => t.length > MAX_CHARS)) return false;
+  let missing = 0;
+  for (const text of list) {
+    const k = `${voice}\u0000${text}`;
+    if (cache.has(k)) continue;
+    try {
+      if (await get('SELECT 1 AS ok FROM tts_clips WHERE key = ?', [dbKey(k)])) continue;
+    } catch { /* treat as missing */ }
+    missing += 1;
+  }
+  if (missing === 0) return true;
+  rollDay();
+  if (Date.now() < blockedUntil) return false;
+  return used + missing <= DAILY_CAP;
 }

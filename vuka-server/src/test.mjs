@@ -513,6 +513,9 @@ async function run() {
     const vOff = await api('POST', '/assistant/voice', { token: wTok, body: { text: 'Welcome to Vooka.' } });
     ok(vOff.status === 503 && vOff.json?.reason === 'not_configured', 'with no key the voice says so, and the app uses the phone');
     ok(h?.voice?.configured === false && h?.voice?.dailyCap > 0, 'health reports the voice and its daily cap');
+    ok((await api('POST', '/assistant/voice/check', { body: { texts: ['Hello.'] } })).status === 401, 'the whole-answer voice check requires auth');
+    ok((await api('POST', '/assistant/voice/check', { token: wTok, body: { texts: ['Hello.'] } })).json?.speakable === false,
+      'with no voice set up, no answer is promised in the natural voice');
   }
 
   // 9j) safety reports are stored, not just toasted
