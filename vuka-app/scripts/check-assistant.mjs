@@ -114,6 +114,11 @@ try {
   ok(firstAnswer.includes(firstChip.trim()), 'the question asked is echoed back', firstChip);
   ok(firstAnswer.length > 200, 'a tapped suggestion produces a real answer', `${firstAnswer.length} chars`);
 
+  /* --- the question the product owner reported failing, word for word --- */
+  const apply = await askText(page, 'How do I apply for a job?');
+  ok(/finding work/i.test(await apply.innerText()),
+    '"How do I apply for a job?" is answered with how to find and apply for work', (await apply.innerText()).slice(0, 160));
+
   /* --- typing a question reaches the right answer --- */
   const paid = await askText(page, 'how do i get paid');
   const paidText = await paid.innerText();

@@ -52,6 +52,13 @@ interface Turn {
   spoken: boolean;
 }
 
+/** The title and first line of an answer, for the screen-reader announcement. */
+function announcement(reply: MsiziReply): string {
+  if (reply.kind === 'miss') return '';
+  const first = reply.body.split('\n')[0] ?? '';
+  return reply.title ? `${reply.title}. ${first}` : first;
+}
+
 /** How long to wait after Msizi stops speaking before listening again. */
 const RELISTEN_MS = 350;
 
@@ -137,12 +144,21 @@ export function Msizi() {
   const [voicesLoaded, setVoicesLoaded] = useState(false);
   /** Bumped whenever that list changes, to force the capability re-read. */
   const [voiceTick, setVoiceTick] = useState(0);
+  /** The worker's wallet, for "how much is in my wallet". Undefined = loading. */
+  const [wallet, setWallet] = useState<MsiziContext['wallet']>(undefined);
 
   const listenerRef = useRef<Listener | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(1);
   const orbRef = useRef<HTMLSpanElement | null>(null);
   const relistenTimer = useRef<number | null>(null);
+  /** False once the screen has gone: nothing may speak or listen after that. */
+  const aliveRef = useRef(true);
+  /** Bumped by "Start again", so an answer still on its way is dropped. */
+  const epochRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  /** What a screen reader is told, for answers the app is not reading aloud. */
+  const [announce, setAnnounce] = useState('');
   /** Set below; lets the reply path restart listening without a hook cycle. */
   const listenRef = useRef<(retry?: number) => void>(() => {});
 
@@ -168,8 +184,21 @@ export function Msizi() {
     gigsNearby: state.gigs.length,
     unread: state.unread,
     idVerified: state.worker.idVerified,
+    wallet,
   }), [state.role, state.user, state.worker, state.minWage, state.appliedGigIds,
-       state.appliedFormalIds, state.gigs, state.unread]);
+       state.appliedFormalIds, state.gigs, state.unread, wallet]);
+
+  /* The wallet is read once when the screen opens, for workers only. It is
+     the person's own money, so it is only ever read back to them — it is not
+     part of anything sent to the model. */
+  useEffect(() => {
+    if (state.role !== 'worker' || !state.user) return undefined;
+    let live = true;
+    api.getWallet()
+      .then((w) => { if (live) setWallet({ balance: w.balance, pending: w.pending, mode: w.mode }); })
+      .catch(() => { if (live) setWallet(null); });
+    return () => { live = false; };
+  }, [state.role, state.user]);
 
   /* Voices arrive asynchronously, so what this device can manage is not known
      at first paint — and Chromium can publish them later than voicesReady is
@@ -189,11 +218,18 @@ export function Msizi() {
   /* Let go of the microphone and stop talking on the way out — whichever way
      out it is. A page that keeps speaking after you have navigated away is
      alarming, and a microphone left open is worse. */
-  useEffect(() => () => {
-    convoRef.current = false;
-    if (relistenTimer.current !== null) window.clearTimeout(relistenTimer.current);
-    listenerRef.current?.cancel();
-    stopSpeaking();
+  useEffect(() => {
+    /* Set on mount as well as cleared on unmount: React may mount, unmount and
+       mount again (StrictMode does, on purpose), and a flag only ever cleared
+       would drop every answer after the first remount. */
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      convoRef.current = false;
+      if (relistenTimer.current !== null) window.clearTimeout(relistenTimer.current);
+      listenerRef.current?.cancel();
+      stopSpeaking();
+    };
   }, []);
 
   /* The natural voice for English answers (vuka-server/src/voice.mjs). Only
@@ -208,7 +244,13 @@ export function Msizi() {
   /* The orb swells with her voice. Written straight onto the element, once a
      frame, so a talking Msizi does not re-render the whole conversation. */
   useEffect(() => onSpeechLevel((level) => {
-    orbRef.current?.style.setProperty('--level', level.toFixed(3));
+    const el = orbRef.current;
+    if (!el) return;
+    el.style.setProperty('--level', level.toFixed(3));
+    /* Real levels are arriving (the natural voice): the sphere follows them
+       instead of the stand-in pulse. Cleared when the clip ends. */
+    if (level > 0.01) el.dataset.live = '1';
+    else if (level === 0) delete el.dataset.live;
   }), []);
 
   const speechCoverage = useMemo(
@@ -262,15 +304,20 @@ export function Msizi() {
     /* Asked out loud, answered out loud. Typed questions are not read back:
        somebody on a taxi with the volume up did not ask for that. */
     if (spoken && reply.kind !== 'thinking') readAloud(turn, afterReply);
+    else if (reply.kind !== 'thinking') setAnnounce(announcement(reply));
     return turn;
   }, [readAloud, scrollToEnd, afterReply]);
 
   /** Swap a "thinking" turn for what came back, and read it if it was spoken. */
-  const settleTurn = useCallback((turn: Turn, reply: MsiziReply) => {
+  const settleTurn = useCallback((turn: Turn, reply: MsiziReply, epoch: number) => {
+    /* An answer can arrive after the person has left, or started again. Then
+       it is dropped — never read aloud over whatever they are doing now. */
+    if (!aliveRef.current || epoch !== epochRef.current) return;
     const next = { ...turn, reply };
     setTurns((prev) => prev.map((x) => (x.id === turn.id ? next : x)));
     scrollToEnd();
     if (turn.spoken) readAloud(next, afterReply);
+    else setAnnounce(announcement(reply));
   }, [readAloud, scrollToEnd, afterReply]);
 
   /* The conversation so far, for the model fallback's follow-ups. */
@@ -283,13 +330,27 @@ export function Msizi() {
     const q = question.trim();
     if (!q) return;
     stopSpeaking();
+    /* stopSpeaking() silences the old answer without its onEnd firing, so its
+       "speaking" state has to be cleared here or the orb stays stuck on it. */
+    setSpeakingTurn(null);
+    /* Enter pressed while the microphone is open: the typed words win, and the
+       listener is dropped so it cannot submit the same question again. */
+    if (!spoken && listenerRef.current) listenerRef.current.cancel();
     setDraft('');
     /* Typing ends a voice conversation — the person has switched modes. */
     if (!spoken) setConversation(false);
 
     /* 1. Conversation: "hello", "thanks", "what can you do". */
     const chat = smallTalk(q, lang, firstName, ctx.role);
+    /* "Say that again" — mostly asked by voice, by somebody who missed a word.
+       The last real answer is shown and read again, not re-looked-up. */
+    if (chat?.intent === 'repeat') {
+      const last = [...turnsRef.current].reverse().find((x) => x.reply.kind !== 'thinking');
+      if (last) { put(q, last.reply, spoken); return; }
+    }
     if (chat) {
+      /* "Bye" ends a voice conversation — she answers, and stops listening. */
+      if (chat.intent === 'bye') setConversation(false);
       put(q, {
         kind: 'chat', id: null, title: '', body: chat.body,
         suggestions: chat.offerOpeners ? openers(ctx.role).slice(0, 4) : [], score: 1,
@@ -307,6 +368,7 @@ export function Msizi() {
           does not know, exactly as before. */
     if (typeof navigator !== 'undefined' && navigator.onLine === false) { put(q, reply, spoken); return; }
     const pending = put(q, { ...reply, kind: 'thinking' }, spoken);
+    const epoch = epochRef.current;
     const history = turnsRef.current
       .filter((x) => x.reply.kind !== 'thinking' && x.reply.kind !== 'live')
       .slice(-3)
@@ -314,8 +376,8 @@ export function Msizi() {
     api.assistantAsk({ question: query, lang, entries: groundingFor(query, ctx), history })
       .then(({ answer }) => settleTurn(pending, {
         kind: 'ai', id: null, title: '', body: answer, suggestions: reply.suggestions.slice(0, 3), score: reply.score,
-      }))
-      .catch(() => settleTurn(pending, reply));
+      }, epoch))
+      .catch(() => settleTurn(pending, reply, epoch));
   }, [ctx, put, settleTurn, lang, firstName, setConversation]);
 
   const pick = useCallback((id: string) => {
@@ -323,6 +385,7 @@ export function Msizi() {
     const reply = askById(id, ctx);
     if (!entry || !reply) return;
     stopSpeaking();
+    setSpeakingTurn(null);
     setConversation(false);
     put(entry.ask, reply, false);
   }, [ctx, put, setConversation]);
@@ -476,7 +539,13 @@ export function Msizi() {
               </p>
             </div>
             <button
-              onClick={() => { stopSpeaking(); setSpeakingTurn(null); setConversation(false); listenerRef.current?.cancel(); setTurns([]); }}
+              onClick={() => {
+                epochRef.current += 1;
+                stopSpeaking(); setSpeakingTurn(null); setConversation(false);
+                listenerRef.current?.cancel(); setTurns([]); setAnnounce('');
+                /* The button removes itself; focus goes somewhere useful. */
+                window.requestAnimationFrame(() => inputRef.current?.focus());
+              }}
               className="shrink-0 min-h-[44px] px-3.5 rounded-pill text-small font-bold text-on-feature border border-white/20 hover:bg-white/10 transition"
             >
               {t('msizi.clear')}
@@ -520,12 +589,9 @@ export function Msizi() {
               <MsiziOrb size={30} state={speakingTurn === turn.id ? 'speaking' : turn.reply.kind === 'thinking' ? 'thinking' : 'idle'} className="mt-1" />
               <div
                 className="flex-1 min-w-0 rounded-[22px] rounded-tl-md border border-line bg-surface px-4 py-3.5 shadow-e1"
-                /* Announced as it arrives — the answer is the point of the
-                   screen, and it appears without focus moving anywhere. */
-                aria-live="polite"
               >
                 {turn.reply.kind === 'thinking' ? (
-                  <p role="status" className="m-0 flex items-center gap-2.5 text-body text-dim">
+                  <p className="m-0 flex items-center gap-2.5 text-body text-dim">
                     <span aria-hidden="true" className="flex gap-1">
                       <span className="w-2 h-2 rounded-full bg-brand-solid animate-bounce" />
                       <span className="w-2 h-2 rounded-full bg-brand-solid animate-bounce [animation-delay:150ms]" />
@@ -558,7 +624,7 @@ export function Msizi() {
                           if (speakingTurn === turn.id) { stopSpeaking(); setSpeakingTurn(null); }
                           else { primeSpeech(); readAloud(turn); }
                         }}
-                        className="inline-flex items-center gap-2 min-h-[40px] rounded-pill border border-line bg-surface-2 px-3.5
+                        className="inline-flex items-center gap-2 min-h-[44px] rounded-pill border border-line bg-surface-2 px-3.5
                           text-small font-bold text-ink hover:bg-surface transition active:scale-95"
                       >
                         <Icon name={speakingTurn === turn.id ? 'stop' : 'play'} size={15} />
@@ -568,7 +634,7 @@ export function Msizi() {
                     {turn.reply.goto && (
                       <button
                         onClick={() => navigate(turn.reply.goto!.screen)}
-                        className="inline-flex items-center gap-1.5 min-h-[40px] rounded-pill border border-brand bg-brand-soft px-3.5
+                        className="inline-flex items-center gap-1.5 min-h-[44px] rounded-pill border border-brand bg-brand-soft px-3.5
                           text-small font-bold text-brand hover:bg-surface-2 transition active:scale-95"
                       >
                         {t(turn.reply.goto.labelKey)}
@@ -592,7 +658,13 @@ export function Msizi() {
             )}
           </article>
         ))}
-        <div ref={bottomRef} />
+        {/* Scrolled to with room for the composer, which would otherwise sit
+            over the last lines and the follow-up chips. */}
+        <div ref={bottomRef} className="scroll-mb-40" />
+        {/* The single place new answers are announced — only those the app is
+            not already reading aloud, so a screen reader and the voice never
+            talk over each other. */}
+        <p className="sr-only" aria-live="polite">{announce}</p>
       </div>
 
       {/* ---- Composer. Sticky so the question box is always reachable. ---- */}
@@ -610,6 +682,7 @@ export function Msizi() {
         >
           {listening && <span aria-hidden="true" className="pulse-dot shrink-0" />}
           <input
+            ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={listening ? t('msizi.listening') : t('msizi.placeholder')}

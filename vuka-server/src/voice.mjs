@@ -80,6 +80,10 @@ function cacheGet(k) {
 
 function cachePut(k, buf) {
   if (buf.length > CACHE_MAX_BYTES / 4) return;
+  /* Two people missing the cache on the same sentence at once both store it;
+     count the bytes once, or the total creeps up and evicts too early. */
+  const prev = cache.get(k);
+  if (prev) { cache.delete(k); cacheBytes -= prev.length; }
   cache.set(k, buf);
   cacheBytes += buf.length;
   for (const [old, b] of cache) {

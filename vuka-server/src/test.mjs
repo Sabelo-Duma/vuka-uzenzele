@@ -498,6 +498,14 @@ async function run() {
     ok(A.withTestNote(A.withTestNote('Imali yakho iya ku-wallet.', 'zu'), 'zu').split('sokuhlola').length === 2, 'and never twice in isiZulu either');
     ok(A.withTestNote('Payments are in test mode. Your pay goes to your wallet.', 'en').split('test mode').length === 2, 'and never twice');
     ok(A.withTestNote('Meet in daylight.', 'en') === 'Meet in daylight.', 'answers not about money are untouched');
+    // Tightened 2026-09-29 after review.
+    ok(A.violatesFacts('The employer can cancel after hiring and get a refund.'), '"after hiring … cancel … refund" is caught');
+    ok(A.violatesFacts('After you hire, you can take the funds back.'), '"after you hire … take the funds back" is caught');
+    ok(!A.violatesFacts('After you hire someone the funds are locked and you cannot take them back.'), 'the true locked statement still passes');
+    ok(A.withTestNote('The minimum wage is R30.23 an hour, so this job is fair pay.', 'en').indexOf('test mode') === -1,
+      'a fair-pay answer is not given a payments note');
+    ok(/test mode/.test(A.withTestNote('There is a test you can take. Your wallet shows your balance.', 'en')),
+      'the word "test" alone does not count as a test-mode note');
 
     // The natural voice: gated, bounded, and honest when it is off.
     ok((await api('POST', '/assistant/voice', { body: { text: 'Hello' } })).status === 401, 'voice requires auth');

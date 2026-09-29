@@ -133,10 +133,14 @@ const FACTS = [
   'Msizi (isiZulu "umsizi" = helper) is the in-app helper. It can explain and look things up, but it cannot apply, hire, post, pay or change anything on anyone\'s behalf.',
 ];
 
-function systemPrompt(lang) {
+function systemPrompt(lang, role = 'worker') {
   const language = LANGS[lang] ?? 'English';
+  const who = role === 'employer'
+    ? 'The person asking is an EMPLOYER: someone who posts jobs, secures the pay and hires. Answer from their side.'
+    : 'The person asking is a WORKER: someone looking for work, applying and getting paid. Answer from their side.';
   return [
     'You are Msizi, the warm, patient helper inside the Vuka Uzenzele app in South Africa.',
+    who,
     'The person you are talking to may be looking for their first job and may be reading in their second or third language.',
     '',
     'RULES — follow all of them:',
@@ -203,18 +207,30 @@ export function tidy(text) {
  * A reply making either claim is replaced, not edited.
  */
 const OLD_MODEL = /\b(pays? (you|the worker|workers) (directly|in cash|cash)|paid directly by the employer|vuka (does not|doesn.t|never|won.t) (hold|handle|process|touch|keep)s?\b)/i;
-const LATE_REVERSAL = /\b(after|once|even after)\b[^.]{0,40}\bhired\b[^.]{0,60}\b(take|get|pull|withdraw|reverse)s?\b[^.]{0,20}\b(back|refund|money|funds)\b/i;
+/* "after hiring", "once they are hired", "after you hire" — and the claim that
+   money can then be taken or got back. The negation is looked for only
+   between the hiring and the claim, so "not" elsewhere cannot excuse it. */
+const LATE_REVERSAL = /\b(after|once|even after)\b[^.]{0,40}\bhir(e|ed|ing)\b([^.]{0,60}?)\b(take|get|pull|withdraw|reverse|cancel)s?\b[^.]{0,30}\b(back|refund|refunded|money|funds)\b/i;
 
 export function violatesFacts(text) {
   if (OLD_MODEL.test(text)) return true;
-  const late = text.match(LATE_REVERSAL)?.[0];
-  return !!late && !/\b(not|never|cannot|can.t|no longer|locked)\b/i.test(late);
+  const late = text.match(LATE_REVERSAL);
+  if (!late) return false;
+  return !/\b(not|never|cannot|can.t|no longer|locked)\b/i.test(late[3] ?? '');
 }
 
-const ESCROW_ANSWER =
-  'The employer secures the full pay for the job in Vuka before anyone is hired, and you can see "Funds secured" on the job before you apply. '
-  + 'Until someone is hired the employer can take the funds back for free; once you are hired they are locked for you. '
-  + 'When the employer confirms the job, or automatically if they never answer, the pay moves into your Vuka wallet and you withdraw it to your bank account.';
+/* The replacement when a reply gets payment wrong — one for each side, since
+   "once you are hired" is nonsense to the person doing the hiring. */
+const ESCROW_ANSWER = {
+  worker:
+    'The employer secures the full pay for the job in Vuka before anyone is hired, and you can see "Funds secured" on the job before you apply. '
+    + 'Until someone is hired the employer can take the funds back for free; once you are hired they are locked for you. '
+    + 'When the employer confirms the job, or automatically if they never answer, the pay moves into your Vuka wallet and you withdraw it to your bank account.',
+  employer:
+    'You secure the full pay for a job in Vuka before you hire anyone — when you post it, or later — and nobody can be hired until you do. '
+    + 'Until you hire, you can take the funds back for free. From the moment you hire someone they are locked for that worker, '
+    + 'and they move into the worker wallet when you confirm the job, or automatically if you do not answer in time.',
+};
 
 /* Said whenever money comes up, in the language of the answer, because it is
    true right now and a person deciding whether to take a job needs it. */
@@ -225,8 +241,11 @@ const TEST_NOTE = {
   st: 'Ditefo di maemong a teko hajwale, kahoo ha ho chelete ya nnete e fetisetswang hajwale.',
   af: 'Betalings is vir eers in toetsmodus, so geen regte geld beweeg nog nie.',
 };
-const MONEY_WORDS = /\b(pay|paid|payment|money|funds?|wallet|withdraw|escrow|secured|rand|imali|chelete|geld|betaal|umholo|moputso|ukukhokhelwa)\b/i;
-const HAS_TEST_NOTE = /test mode|\btest\b|practice|no real money|toetsmodus|hlola|vavanyo|\bteko\b/i;
+/* Not the bare words "pay" or "rand": they turn up in every answer about the
+   minimum wage and fair pay, which are not about money moving through Vuka. */
+const MONEY_WORDS = /\b(paid|payment|payments|money|funds?|wallet|withdraw|withdrawal|escrow|secured|imali|chelete|geld|betaal|umholo|moputso|ukukhokhelwa)\b/i;
+/* Not a bare "test" either — an answer mentioning a test is not a test-mode note. */
+const HAS_TEST_NOTE = /test mode|practice run|no real money|toetsmodus|hlola|vavanyo|\bteko\b/i;
 
 /** Append the test-mode note to any answer about money that lacks one. */
 export function withTestNote(text, lang = 'en') {
@@ -261,7 +280,7 @@ async function callProvider(p, messages) {
  * Answer one question. Resolves to { answer, provider } or throws an Error
  * with `.code` of 'not_configured' | 'over_budget' | 'unavailable'.
  */
-export async function askAssistant({ userId, question, lang, entries, history }) {
+export async function askAssistant({ userId, role = 'worker', question, lang, entries, history }) {
   const list = providers();
   if (list.length === 0) throw Object.assign(new Error('AI not configured'), { code: 'not_configured' });
 
@@ -270,7 +289,7 @@ export async function askAssistant({ userId, question, lang, entries, history })
 
   const safeLang = LANGS[lang] ? lang : 'en';
   const messages = [
-    { role: 'system', content: `${systemPrompt(safeLang)}\n\n${entriesBlock(cleanEntries(entries))}` },
+    { role: 'system', content: `${systemPrompt(safeLang, role)}\n\n${entriesBlock(cleanEntries(entries))}` },
   ];
   for (const turn of cleanHistory(history)) {
     messages.push({ role: 'user', content: turn.q });
@@ -284,7 +303,7 @@ export async function askAssistant({ userId, question, lang, entries, history })
       const answer = tidy(await callProvider(p, messages));
       if (!answer) throw new Error(`${p.name}: empty answer`);
       if (violatesFacts(answer)) {
-        return { provider: p.name, answer: withTestNote(ESCROW_ANSWER, 'en') };
+        return { provider: p.name, answer: withTestNote(ESCROW_ANSWER[role] ?? ESCROW_ANSWER.worker, 'en') };
       }
       return { answer: withTestNote(answer, safeLang), provider: p.name };
     } catch (e) {
