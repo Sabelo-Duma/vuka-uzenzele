@@ -283,7 +283,7 @@ export function Msizi() {
        are kept — speak() uses them as sentence boundaries, which is what gives
        the voice a cadence instead of one flat run-on. */
     const text = r.kind === 'miss'
-      ? `${t('msizi.missTitle')}.\n${t('msizi.missBody')}`
+      ? `${t(r.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}.\n${t('msizi.missBody')}`
       : r.title ? `${r.title}.\n${r.body}` : r.body;
     setSpeakingTurn(turn.id);
     /* The language of the TEXT picks the voice: written answers are English
@@ -375,9 +375,12 @@ export function Msizi() {
       .slice(-3)
       .map((x) => ({ q: x.question, a: x.reply.kind === 'miss' ? '' : x.reply.body }));
     api.assistantAsk({ question: query, lang, entries: groundingFor(query, ctx), history })
-      .then(({ answer }) => settleTurn(pending, {
-        kind: 'ai', id: null, title: '', body: answer, suggestions: reply.suggestions.slice(0, 3), score: reply.score,
-      }, epoch))
+      .then(({ answer, offTopic }) => settleTurn(pending, offTopic || !answer
+        /* Not a Vuka question: a polite no, in the person's own language, and
+           what Msizi can help with instead. */
+        ? { ...reply, kind: 'miss', offTopic: true, suggestions: openers(ctx.role).slice(0, 4) }
+        : { kind: 'ai', id: null, title: '', body: answer, suggestions: reply.suggestions.slice(0, 3), score: reply.score },
+      epoch))
       .catch(() => settleTurn(pending, reply, epoch));
   }, [ctx, put, settleTurn, lang, firstName, setConversation]);
 
@@ -602,7 +605,9 @@ export function Msizi() {
                   </p>
                 ) : turn.reply.kind === 'miss' ? (
                   <>
-                    <h2 className="m-0 mb-1.5 text-lead font-display font-bold text-ink">{t('msizi.missTitle')}</h2>
+                    <h2 className="m-0 mb-1.5 text-lead font-display font-bold text-ink">
+                      {t(turn.reply.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}
+                    </h2>
                     <p className="m-0 text-body text-dim leading-relaxed">{t('msizi.missBody')}</p>
                   </>
                 ) : (

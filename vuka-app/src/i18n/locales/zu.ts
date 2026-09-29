@@ -274,6 +274,7 @@ export const zu = {
   'msizi.tryAsking': 'Zama ukubuza',
   'msizi.askNext': 'Ngibuze okulandelayo',
   'msizi.missTitle': 'Angiwazi lowo mbuzo',
+  'msizi.offTopicTitle': 'Angikwazi ukusiza ngalokho',
   'msizi.missBody': 'Ngiphendula imibuzo ngeVuka kuphela — ukuthola umsebenzi, irekhodi lakho, ukukhokhelwa, nokuphepha. Nakhu engingakusiza ngakho:',
   'msizi.notAi': 'UMsizi uphendula ngendlela iVuka esebenza ngayo. Uma umbuzo umusha, angabuza i-AI yamahhala — kuthunyelwa amagama akho kuphela, hhayi irekhodi lakho.',
   'msizi.thinking': 'Ngiyacabanga…',

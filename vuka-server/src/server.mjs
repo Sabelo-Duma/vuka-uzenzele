@@ -21,7 +21,7 @@ import { captureError, installProcessHandlers, recentErrors, errorSummary, monit
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
-import { synthesize, voiceStats, voiceCacheStats, canSpeakAll } from './voice.mjs';
+import { synthesize, voiceStats, voiceCacheStats, canSpeakAll, warmProgress, startVoiceWarmer } from './voice.mjs';
 import {
   PAYMENTS_MODE, EscrowError, fund, reverse, release, wallet, withdraw, fundingFor, escrowFor, gigTotalCents,
 } from './escrow.mjs';
@@ -627,7 +627,7 @@ app.get('/api/health', asyncH(async (_req, res) => {
     // Msizi's model fallback. False is fine: the app answers from its own
     // knowledge base and says so.
     ai: aiStats(),
-    voice: { ...voiceStats(), saved: await voiceCacheStats() },
+    voice: { ...voiceStats(), saved: await voiceCacheStats(), writtenAnswers: await warmProgress() },
     // 'test' until a payment provider is connected: escrow is a ledger only.
     payments: PAYMENTS_MODE,
     monitoring: monitoringTarget,
@@ -3114,6 +3114,10 @@ const stopAttachmentSweep = (() => {
   return () => clearInterval(timer);
 })();
 
+/* Overnight, record Msizi's written answers in the natural voice with the
+   free allowance nobody is using (voice.mjs). */
+const stopVoiceWarmer = startVoiceWarmer();
+
 const stopAutoRelease = startAutoRelease({
   onError: (e) => captureError(e, 'autoRelease:sweep'),
   onRelease: async (job) => {
@@ -3151,6 +3155,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`${signal} received — shutting down gracefully…`);
   stopAutoRelease();
+  stopVoiceWarmer();
   stopAttachmentSweep();
   /* An SSE stream never finishes on its own, so server.close() would be waiting
      for something that is never going to happen and the failsafe below would be

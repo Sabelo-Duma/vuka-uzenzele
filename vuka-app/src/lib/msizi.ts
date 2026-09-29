@@ -635,6 +635,9 @@ export interface MsiziReply {
   suggestions: string[];
   /** For the tests and for tuning. Not shown. */
   score: number;
+  /** A miss because the question is not about Vuka at all (sport, news,
+      homework…), as opposed to a Vuka question Msizi cannot answer. */
+  offTopic?: boolean;
 }
 
 /** Title and canonical phrasing for a chip, whichever kind of entry it is. */
