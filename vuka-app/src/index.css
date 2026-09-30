@@ -248,6 +248,14 @@ h1, h2, h3, h4 {
   .app-shell { height: var(--app-height, 100lvh); }
 }
 
+/* Keyboard up (lib/viewport.ts): the app is exactly the visible area, the
+   page underneath cannot scroll, and the app follows any slide iOS applies.
+   position: relative + top, not a transform, so fixed-position sheets inside
+   keep the window as their frame. */
+html.kb-open, html.kb-open body { height: var(--app-height); overflow: hidden; }
+html.kb-open #root { height: var(--app-height); }
+html.kb-open .app-shell { position: relative; top: var(--app-offset, 0px); }
+
 /* The + button is lifted above the tab bar, so it is the first thing to be
    clipped if anything goes wrong. It sits on its own layer and the bar around
    it never clips. */

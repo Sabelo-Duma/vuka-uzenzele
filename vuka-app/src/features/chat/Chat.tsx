@@ -778,7 +778,7 @@ export function ChatThread({ id }: { id: string }) {
   const otherFirstName = other?.name?.split(' ')[0] ?? 'them';
 
   return (
-    <div className="max-w-[720px] mx-auto flex flex-col" style={{ minHeight: 'min(72vh, 640px)' }}>
+    <div className="max-w-[720px] w-full mx-auto flex flex-col flex-1 min-h-0">
       {/* Header: who you are talking to, and whether they are there.
 
           No back arrow. Going back is a left-edge swipe on a phone, the Chats
@@ -788,7 +788,7 @@ export function ChatThread({ id }: { id: string }) {
           thing it should have been all along: a name and a status.
 
           Sticky, so both stay visible however far down the thread you are. */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-3 bg-canvas">
+      <div className="shrink-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-2 bg-canvas">
         {other ? (
           <>
             <div className="relative shrink-0">
