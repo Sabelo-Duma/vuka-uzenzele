@@ -826,6 +826,10 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
  * here therefore costs a real person their sign-in without costing an attacker
  * anything, and the `reason` lets the app offer sign-up instead of a dead end.
  */
+/* The seeded demo accounts' password is in the public source, so the live
+   site locks them unless VUKA_ALLOW_DEMO=1 is set for a demonstration. */
+const demoLocked = () => process.env.NODE_ENV === 'production' && process.env.VUKA_ALLOW_DEMO !== '1';
+
 app.post('/api/auth/login', asyncH(async (req, res) => {
   /* `identifier` is what the single sign-in field sends; `phone` and `email`
      are accepted too so an older client keeps working. */
@@ -851,7 +855,7 @@ app.post('/api/auth/login', asyncH(async (req, res) => {
      is in the source), so on the live site they are refused outright unless
      VUKA_ALLOW_DEMO=1 is set for a demonstration. Checked after the password,
      so this reveals nothing to someone guessing. */
-  if (process.env.NODE_ENV === 'production' && process.env.VUKA_ALLOW_DEMO !== '1' && DEMO_PHONES.has(user.phone)) {
+  if (demoLocked() && DEMO_PHONES.has(user.phone)) {
     return res.status(403).json({ error: 'Demo accounts are not available on the live site.', reason: 'demo_disabled' });
   }
 
@@ -3016,6 +3020,60 @@ app.post('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
 app.delete('/api/users/:id/follow', requireAuth, asyncH(async (req, res) => {
   await run('DELETE FROM follows WHERE follower_id = ? AND followee_id = ?', [req.user.id, req.params.id]);
   res.json({ ok: true, isFollowing: false, followers: await followerCount(req.params.id) });
+}));
+
+/* Finding people. Following only ever reached someone you had already met
+   through a job, so a network could not grow past the people you worked with.
+
+   By name only, never by phone number: a number search would tell anyone
+   whether a given number is on Vuka, which is exactly what a person avoiding
+   someone does not want answered. Results carry what a profile already shows
+   (name, role, area, verified) and nothing a stranger could use to reach
+   them off the app. Blocks hide people in both directions, and on the live
+   site the locked demo accounts are left out so nobody follows a login that
+   cannot answer. With no query it suggests the newest members. */
+const SEARCH_LIMIT = 20;
+app.get('/api/users/search', requireAuth, asyncH(async (req, res) => {
+  const q = String(req.query.q ?? '').trim().replace(/\s+/g, ' ').slice(0, 40).toLowerCase();
+  if (q.length === 1) return res.json({ query: q, results: [] });
+
+  const where = ['u.id <> ?',
+    `NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?))`];
+  const params = [req.user.id, req.user.id, req.user.id];
+  if (demoLocked()) {
+    where.push(`u.phone NOT IN (${[...DEMO_PHONES].map(() => '?').join(',')})`);
+    params.push(...DEMO_PHONES);
+  }
+  let order = 'u.created_at DESC';
+  const orderParams = [];
+  if (q) {
+    /* ESCAPE '!' is spelled the same in SQLite and Postgres; the default
+       escape character is not. */
+    const lit = q.replace(/[!%_]/g, (c) => `!${c}`);
+    where.push(`LOWER(u.name) LIKE ? ESCAPE '!'`);
+    params.push(`%${lit}%`);
+    /* A name that starts with the query, or has a word that does, first. */
+    order = `CASE WHEN LOWER(u.name) LIKE ? ESCAPE '!' OR LOWER(u.name) LIKE ? ESCAPE '!' THEN 0 ELSE 1 END, u.name`;
+    orderParams.push(`${lit}%`, `% ${lit}%`);
+  }
+  const rows = await all(
+    `SELECT u.id, u.name, u.role, p.location, p.id_verified, p.color,
+            CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS following
+       FROM users u
+       LEFT JOIN worker_profiles p ON p.user_id = u.id
+       LEFT JOIN follows f ON f.follower_id = ? AND f.followee_id = u.id
+      WHERE ${where.join(' AND ')}
+      ORDER BY ${order}
+      LIMIT ${SEARCH_LIMIT}`,
+    [req.user.id, ...params, ...orderParams],
+  );
+  res.json({
+    query: q,
+    results: rows.map((u) => ({
+      id: u.id, name: u.name, role: u.role, initials: initialsOf(u.name), color: u.color || DEFAULT_AVATAR_COLOR,
+      location: u.location || null, idVerified: !!Number(u.id_verified), isFollowing: !!Number(u.following),
+    })),
+  });
 }));
 
 /* ---- public CV (shareable, no auth) ----

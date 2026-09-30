@@ -214,13 +214,13 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { ic: '📍', t: 'Find work near you', p: 'Browse gigs in your area and apply in one tap — cleaning, moving, tutoring, car washes and more.' },
-            { ic: '⭐', t: 'Do the job, get rated', p: 'Finish a gig and the person who hired you leaves a verified review. That reference is yours forever.' },
-            { ic: '🪜', t: 'Rise to bigger jobs', p: 'Your track record lifts your tier — unlocking cashier, security & call-centre roles. No matric needed.' },
+            { ic: 'pin' as const, t: 'Find work near you', p: 'Browse gigs in your area and apply in one tap — cleaning, moving, tutoring, car washes and more.' },
+            { ic: 'star' as const, t: 'Do the job, get rated', p: 'Finish a gig and the person who hired you leaves a verified review. That reference is yours forever.' },
+            { ic: 'ladder' as const, t: 'Rise to bigger jobs', p: 'Your track record lifts your tier — unlocking cashier, security & call-centre roles. No matric needed.' },
           ].map((s, i) => (
             <div key={s.t} className="rounded-[20px] border border-line bg-surface p-6 shadow-e1">
               <div className="flex items-center justify-between">
-                <span className="grid place-items-center w-12 h-12 rounded-2xl bg-surface-2 border border-line text-head">{s.ic}</span>
+                <span className="grid place-items-center w-12 h-12 rounded-2xl bg-surface-2 border border-line text-ink"><Icon name={s.ic} size={22} /></span>
                 <span className="text-small font-extrabold text-faint font-mono tnum">0{i + 1}</span>
               </div>
               <h3 className="font-display text-lead font-extrabold text-ink mt-4 tracking-tight">{s.t}</h3>
@@ -235,14 +235,14 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
         <div className="rounded-[24px] p-7 text-on-feature relative overflow-hidden shadow-e2 feature-band">
           <span aria-hidden="true" className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
           <div className="relative">
-            <div className="text-head">🙋</div>
+            <div aria-hidden="true"><Icon name="user" size={28} /></div>
             <h3 className="font-display text-title font-extrabold mt-2">Looking for work?</h3>
             <p className="text-on-feature-dim text-body leading-relaxed mt-2">Build a verified CV from real jobs, get paid fairly, and unlock formal employment — starting from zero.</p>
             <button onClick={onGetStarted} className="mt-5 rounded-pill bg-on-feature text-feature font-bold text-body px-5 py-3 hover:opacity-90 transition active:scale-95">Start earning →</button>
           </div>
         </div>
         <div className="rounded-[24px] p-7 bg-surface border border-line shadow-e2">
-          <div className="text-head">💼</div>
+          <div className="text-ink" aria-hidden="true"><Icon name="briefcase" size={28} /></div>
           <h3 className="font-display text-title font-extrabold text-ink mt-2 tracking-tight">Need to hire?</h3>
           <p className="text-dim text-body leading-relaxed mt-2">Find ID-verified youth nearby with real reviews and earned tiers. Post a job, invite, and chat directly.</p>
           <button onClick={onGetStarted} className="mt-5 rounded-pill bg-ink text-canvas font-bold text-body px-5 py-3 hover:bg-ink transition active:scale-95">Post a job →</button>
@@ -252,10 +252,10 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
       {/* Trust strip */}
       <section className="bg-surface-2 border-y border-line">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-small font-bold text-ink">
-          <span>🪪 ID-verified</span>
-          <span>⚖️ Fair-pay checked</span>
-          <span>⭐ Two-way reviews</span>
-          <span>📶 Light on data</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="id" size={16} /></span>ID-verified</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="scale" size={16} /></span>Fair-pay checked</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="star" size={16} /></span>Two-way reviews</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="signal" size={16} /></span>Light on data</span>
         </div>
       </section>
 

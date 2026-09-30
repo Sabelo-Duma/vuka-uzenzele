@@ -444,6 +444,24 @@ async function run() {
   const unf = await api('DELETE', `/users/${wId}/follow`, { token: eTok });
   ok(unf.json?.isFollowing === false, 'employer unfollows the worker');
 
+  // 9d2) finding people to follow
+  {
+    const found = await api('GET', '/users/search?q=khuma', { token: eTok });
+    const hit = found.json?.results?.find((u) => u.id === wId);
+    ok(found.status === 200 && !!hit, 'a member can find another by part of their surname');
+    ok(hit?.location === 'Katlehong' && hit?.role === 'worker' && hit?.isFollowing === false, 'with their area, role and follow state');
+    ok(!JSON.stringify(found.json).includes('0829990001') && !('phone' in (hit ?? {})), 'and never their phone number');
+    ok((await api('GET', '/users/search?q=0829990001', { token: eTok })).json?.results?.length === 0,
+      'a phone number finds nobody — search cannot reveal who is on Vuka');
+    ok((await api('GET', '/users/search?q=LWAZI', { token: eTok })).json?.results?.[0]?.id === wId, 'case does not matter, and a first-name match leads');
+    ok(!(await api('GET', '/users/search?q=lwazi', { token: wTok })).json?.results?.some((u) => u.id === wId), 'nobody finds themselves');
+    ok((await api('GET', '/users/search?q=%25', { token: eTok })).json?.results?.length === 0, 'a % is a letter, not a wildcard');
+    ok((await api('GET', '/users/search?q=l', { token: eTok })).json?.results?.length === 0, 'one letter is too little to search on');
+    const fresh = await api('GET', '/users/search', { token: eTok });
+    ok(fresh.status === 200 && fresh.json?.results?.length > 0, 'with no query it suggests the newest members');
+    ok((await api('GET', '/users/search?q=lwazi')).status === 401, 'searching needs an account');
+  }
+
   // 9e) engine config is served and matches the server's own engine
   const cfg = await api('GET', '/config');
   ok(cfg.json?.minWage > 0, 'config exposes the fair-pay minimum wage');
@@ -1431,6 +1449,10 @@ async function run() {
 
     ok((await api('POST', `/users/${emp.id}/block`, { token: wrk.tok })).json?.blocked === true, 'the worker blocks the employer');
     ok((await api('POST', `/users/${wrk.id}/block`, { token: wrk.tok })).status === 400, 'nobody can block themselves');
+    ok(!(await api('GET', '/users/search?q=block', { token: wrk.tok })).json?.results?.some((u) => u.id === emp.id),
+      'a blocked person no longer turns up in search');
+    ok(!(await api('GET', '/users/search?q=block', { token: emp.tok })).json?.results?.some((u) => u.id === wrk.id),
+      'and nor does the person who blocked them');
 
     // The blocked side is told the message did not go, and nothing more.
     const refused = await api('POST', '/messages', { token: emp.tok, body: { toUserId: wrk.id, body: 'Hello?', clientId: 'blk-3' } });

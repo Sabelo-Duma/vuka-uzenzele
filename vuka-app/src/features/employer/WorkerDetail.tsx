@@ -17,7 +17,7 @@ export function WorkerDetail({ id }: { id: string }) {
     return (
       <>
         <DetailHeader title="Worker profile" onBack={() => goBack('talent')} />
-        <EmptyState icon="🔍" title="Worker not found" hint="They may no longer be available. Browse other verified workers nearby." action={<Button onClick={() => navigate('talent')}>Back to talent</Button>} />
+        <EmptyState icon="search" title="Worker not found" hint="They may no longer be available. Browse other verified workers nearby." action={<Button onClick={() => navigate('talent')}>Back to talent</Button>} />
       </>
     );
   }
@@ -92,7 +92,7 @@ function InviteSheet({ workerId, workerName, onClose }: { workerId: string; work
     setBusyId(gig.id);
     try {
       const res = await inviteWorker(workerId, gig.id);
-      toast(res.already ? `${first} was already invited to that job` : `Invitation sent to ${first} 🤝`);
+      toast(res.already ? `${first} was already invited to that job` : `Invitation sent to ${first}`);
       onClose();
     } catch (e) { toast((e as Error).message); setBusyId(null); }
   };
@@ -105,7 +105,7 @@ function InviteSheet({ workerId, workerName, onClose }: { workerId: string; work
         <div className="flex flex-col gap-2.5">{[0, 1].map((i) => <div key={i} className="skeleton h-[68px] rounded-2xl" />)}</div>
       ) : gigs.length === 0 ? (
         <div className="text-center py-2">
-          <div className="text-hero mb-2" aria-hidden="true">📋</div>
+          <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="jobs" size={26} /></div>
           <p className="text-dim text-small leading-relaxed mb-4">You have no open jobs yet. Post one first, then invite workers to it.</p>
           <Button block onClick={() => { onClose(); navigate('post'); }}>Post a job</Button>
         </div>

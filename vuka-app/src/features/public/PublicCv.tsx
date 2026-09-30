@@ -191,7 +191,7 @@ function LoadingCv() {
 function Notice({ title, body }: { title: string; body: string }) {
   return (
     <Card className="p-8 text-center">
-      <div className="text-jumbo mb-2" aria-hidden="true">🔍</div>
+      <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="search" size={26} /></div>
       <h2 className="font-display text-ink font-extrabold text-lead m-0">{title}</h2>
       <p className="text-dim text-small leading-relaxed mt-1.5 mb-4">{body}</p>
       <a href="/" className="inline-flex rounded-pill bg-brand-solid text-brand-on font-bold text-small px-5 py-3 hover:bg-brand-hover transition">Go to Vuka Uzenzele</a>

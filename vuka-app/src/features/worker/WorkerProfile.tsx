@@ -7,7 +7,7 @@ import { Avatar, Card, Chip, TierBadge } from '../../components/ui';
 import { AccountBar } from '../../components/AppShell';
 import { InstallButton } from '../../components/InstallButton';
 import { FollowingCard } from '../../components/FollowButton';
-import { Icon } from '../../components/Icon';
+import { Icon, type IconName } from '../../components/Icon';
 import { BankingSheet, BlockedSheet, EditProfileSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { WalletSheet } from './WalletSheet';
@@ -40,7 +40,7 @@ export function WorkerProfile() {
     setAlertsBusy(true);
     try {
       await setJobAlerts(next);
-      toast(next ? "Job alerts on 🔔 — we'll ping you about new gigs nearby" : 'Job alerts off');
+      toast(next ? "Job alerts on — we'll ping you about new gigs nearby" : 'Job alerts off');
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -52,24 +52,24 @@ export function WorkerProfile() {
   const bank = bankingSummaryText(banking);
 
   type Row =
-    | { kind: 'link'; ic: string; title: string; sub: string; go: () => void }
-    | { kind: 'toggle'; ic: string; title: string; sub: string; on: boolean; act: () => void };
+    | { kind: 'link'; ic: IconName; title: string; sub: string; go: () => void }
+    | { kind: 'toggle'; ic: IconName; title: string; sub: string; on: boolean; act: () => void };
 
   const rows: Row[] = [
-    { kind: 'link', ic: '🪜', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
-    { kind: 'toggle', ic: '🔔', title: 'Job alerts', sub: jobAlerts ? 'On — notified when a gig opens near you' : "Off — you won't hear about new gigs", on: jobAlerts,
+    { kind: 'link', ic: 'ladder', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
+    { kind: 'toggle', ic: 'bell', title: 'Job alerts', sub: jobAlerts ? 'On — notified when a gig opens near you' : "Off — you won't hear about new gigs", on: jobAlerts,
       act: toggleJobAlerts },
-    { kind: 'toggle', ic: '📶', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
-      act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on 📶 — browsing stays light on data', 'Data saver off — richer images') },
-    { kind: 'link', ic: '📝', title: 'Edit your profile', sub: 'Name, email, education and languages — these go on your CV', go: () => setSheet('editProfile') },
-    { kind: 'link', ic: '👛', title: 'My wallet', sub: 'Pay from confirmed jobs — withdraw it to your bank', go: () => setSheet('wallet') },
-    { kind: 'link', ic: '💳', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
-    { kind: 'link', ic: '🪪', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID ✅' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
-    { kind: 'link', ic: '🛡️', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
-    { kind: 'link', ic: '🚫', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
-    { kind: 'link', ic: '🌍', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
-    { kind: 'link', ic: '🔒', title: 'Privacy & your data', sub: 'What we collect, and what you can make us delete', go: () => setSheet('privacy') },
-    { kind: 'link', ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
+    { kind: 'toggle', ic: 'signal', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
+      act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on — browsing stays light on data', 'Data saver off — richer images') },
+    { kind: 'link', ic: 'edit', title: 'Edit your profile', sub: 'Name, email, education and languages — these go on your CV', go: () => setSheet('editProfile') },
+    { kind: 'link', ic: 'wallet', title: 'My wallet', sub: 'Pay from confirmed jobs — withdraw it to your bank', go: () => setSheet('wallet') },
+    { kind: 'link', ic: 'card', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
+    { kind: 'link', ic: 'id', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
+    { kind: 'link', ic: 'shield', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
+    { kind: 'link', ic: 'ban', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
+    { kind: 'link', ic: 'globe', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
+    { kind: 'link', ic: 'lock', title: 'Privacy & your data', sub: 'What we collect, and what you can make us delete', go: () => setSheet('privacy') },
+    { kind: 'link', ic: 'doc', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
   ];
 
   return (
@@ -86,7 +86,7 @@ export function WorkerProfile() {
         <div className="flex justify-center gap-2 flex-wrap mt-2.5">
           <TierBadge icon={cv.tier.icon} name={cv.tier.name} />
           {w.idVerified && <Chip tone="verified" icon="shield">ID Verified</Chip>}
-          <Chip tone="neutral">⭐ {cv.avg.toFixed(1)} rating</Chip>
+          <Chip tone="neutral" icon="star">{cv.avg.toFixed(1)} rating</Chip>
         </div>
       </Card>
 
@@ -97,7 +97,7 @@ export function WorkerProfile() {
       {rows.map((r) => (
         <button key={r.title} onClick={r.kind === 'toggle' ? r.act : r.go} className="w-full text-left mb-2.5 active:scale-[.99] transition">
           <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-faint transition">
-            <div className="text-head" aria-hidden="true">{r.ic}</div>
+            <span className="grid place-items-center w-10 h-10 rounded-xl bg-surface-2 text-ink shrink-0" aria-hidden="true"><Icon name={r.ic} size={20} /></span>
             <div className="flex-1"><b className="text-small text-ink block">{r.title}</b><div className="text-small text-dim mt-0.5">{r.sub}</div></div>
             {r.kind === 'toggle'
               ? <Switch on={r.on} />

@@ -7,6 +7,7 @@ import { Button } from '../../components/ui';
 import { FairMeter } from '../../components/bits';
 import { TestModeNote } from '../../components/Funding';
 import { money } from '../../lib/format';
+import { Icon } from '../../components/Icon';
 
 // text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, hiding the Post button behind the keyboard.
@@ -41,7 +42,7 @@ export function PostJob() {
     setPinning(true);
     try {
       setPin(await requestCoords());
-      toast('Job pinned to this spot — workers will see the real distance 📍');
+      toast('Job pinned to this spot — workers will see the real distance');
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -90,7 +91,7 @@ export function PostJob() {
     try {
       await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, fund: fundNow, ...(pin ?? {}) });
       toast(fundNow
-        ? `Job posted and ${money(total)} secured — workers will see "Funds secured" 🔒`
+        ? `Job posted and ${money(total)} secured — workers will see "Funds secured"`
         : 'Job posted! Add the funds before you hire someone.');
       navigate('home');
     } catch (e) {
@@ -133,7 +134,7 @@ export function PostJob() {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-small">
             {pin ? (
               <>
-                <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">📍 Pinned to this spot</span>
+                <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5"><Icon name="pin" size={15} /> Pinned to this spot</span>
                 <button type="button" onClick={() => setPin(null)} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">Remove pin</button>
               </>
             ) : (
@@ -144,7 +145,7 @@ export function PostJob() {
                   disabled={pinning}
                   className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
                 >
-                  📍 {pinning ? 'Getting location…' : 'Pin my exact location'}
+                  <Icon name="pin" size={16} /> {pinning ? 'Getting location…' : 'Pin my exact location'}
                 </button>
                 <span className="text-faint">Optional — helps nearby workers find you</span>
               </>
@@ -191,7 +192,7 @@ export function PostJob() {
       <Button block variant="primary" disabled={busy} onClick={submit}>
         {busy ? 'Posting…' : fundNow ? `Post job & secure ${money(total)}` : 'Post job without funds'}
       </Button>
-      <p className="text-center text-small text-dim leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly. ⚖️</p>
+      <p className="text-center text-small text-dim leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly.</p>
     </>
   );
 }

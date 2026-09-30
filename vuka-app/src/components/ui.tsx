@@ -322,10 +322,10 @@ export function StarRating({ value, onChange }: { value: number; onChange: (v: n
 }
 
 /* ---------------- EmptyState ---------------- */
-export function EmptyState({ icon, title, hint, action }: { icon: string; title: string; hint: string; action?: ReactNode }) {
+export function EmptyState({ icon, title, hint, action }: { icon: IconName; title: string; hint: string; action?: ReactNode }) {
   return (
     <Card className="p-8 text-center">
-      <div className="text-hero mb-2" aria-hidden="true">{icon}</div>
+      <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name={icon} size={26} /></div>
       <h3 className="font-display text-ink font-extrabold text-lead m-0">{title}</h3>
       <p className="text-dim text-small leading-relaxed mt-1.5 mb-0">{hint}</p>
       {action && <div className="mt-4">{action}</div>}

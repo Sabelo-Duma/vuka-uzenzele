@@ -83,7 +83,7 @@ export function CvLadder() {
           </div>
           <H5>Verified work history</H5>
           {cv.jobsDone === 0
-            ? <p className="text-small text-dim m-0 leading-relaxed">No jobs yet — complete your first gig and it appears here automatically. 🌱</p>
+            ? <p className="text-small text-dim m-0 leading-relaxed">No jobs yet — complete your first gig and it appears here automatically.</p>
             : [...w.history].reverse().map((h) => <CvEntry key={h.id} h={h} />)}
         </div>
       </Card>
@@ -91,12 +91,12 @@ export function CvLadder() {
       {/* Side by side once there is room; stacked on a 320px handset, where two
           columns leave 146px and "Copy share link" breaks across two lines. */}
       <div className="flex flex-col sm:flex-row gap-2.5 mt-4">
-        <Button className="flex-1" variant="primary" onClick={() => window.print()}>📄 Download PDF</Button>
+        <Button className="flex-1" variant="primary" icon="download" onClick={() => window.print()}>Download PDF</Button>
         <Button className="flex-1" variant="ghost" onClick={() => {
           const id = state.user?.id;
           if (!id) { toast('Sign in to get a shareable link'); return; }
           const link = `${window.location.origin}/cv/${id}`;
-          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied — anyone can view your CV 📋')).catch(() => toast('Share link: ' + link));
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('Share link copied — anyone can view your CV')).catch(() => toast('Share link: ' + link));
           else toast('Share link: ' + link);
         }} icon="copy">Copy link</Button>
       </div>
@@ -266,7 +266,7 @@ function TierCard({ cv }: { cv: CvSnapshot }) {
         <div className="flex items-center gap-3"><span className="grid place-items-center w-[52px] h-[52px] rounded-[15px] bg-white/15 text-display">{cv.tier.icon}</span>
           <div><small className="text-on-feature-dim text-micro">Your tier · top of the ladder</small><h3 className="font-display m-0 text-lead font-bold">{cv.tier.name}</h3></div>
         </div>
-        <p className="text-small text-on-feature-dim leading-snug mt-3 mb-0">You're in the top 5% — employers see you first, and every formal job is open to you. 🎉</p>
+        <p className="text-small text-on-feature-dim leading-snug mt-3 mb-0">You're in the top 5% — employers see you first, and every formal job is open to you.</p>
       </Card>
     );
   }

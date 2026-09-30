@@ -85,7 +85,7 @@ export function MyJobs() {
         </div>
       ) : posted.length === 0 ? (
         <EmptyState
-          icon="🧾"
+          icon="jobs"
           title="No open jobs"
           hint="Post a job and verified youth nearby can apply. You'll see every applicant here with their real rating and tier."
           action={<Button icon="plus" onClick={() => navigate('post')}>Post a job</Button>}
@@ -119,7 +119,7 @@ export function MyJobs() {
           <SectionTitle action={<LiveDot label={`${inProgress.length} on site`} />}>Work in progress</SectionTitle>
           {inProgress.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
-              <span className="text-title" aria-hidden="true">🔨</span>
+              <span className="grid place-items-center w-10 h-10 rounded-xl bg-surface-2 text-ink shrink-0" aria-hidden="true"><Icon name="clock" size={20} /></span>
               <div className="flex-1 min-w-0">
                 <b className="text-body text-ink block">{h.gig.title}</b>
                 <div className="text-small text-dim">{h.worker.name} is on it — they'll mark it done when finished</div>
@@ -135,7 +135,7 @@ export function MyJobs() {
           <SectionTitle>Completed</SectionTitle>
           {finished.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
-              <span className="text-title" aria-hidden="true">✅</span>
+              <span className="grid place-items-center w-10 h-10 rounded-xl bg-verified-soft text-verified shrink-0" aria-hidden="true"><Icon name="check" size={20} /></span>
               <div className="flex-1 min-w-0">
                 <b className="text-body text-ink block">{h.gig.title}</b>
                 <div className="text-small text-dim">{h.worker.name} · confirmed and reviewed</div>

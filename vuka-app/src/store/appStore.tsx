@@ -440,7 +440,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const coords = await requestCoords();
       dispatch({ type: 'COORDS', coords });
       await loadFor(stateRef.current.role);
-      dispatch({ type: 'TOAST', msg: 'Using your location — distances are exact now 📍' });
+      dispatch({ type: 'TOAST', msg: 'Using your location — distances are exact now' });
     } catch (e) {
       dispatch({ type: 'TOAST', msg: (e as Error).message });
     } finally {

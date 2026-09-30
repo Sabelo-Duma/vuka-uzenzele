@@ -72,7 +72,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       console.log('voice-warm check skipped: vuka-server is not in this build context (CI checks it).');
       process.exit(0);
     }
-    const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
+    /* Line endings are not content: a Windows checkout turns them into CRLF. */
+    const current = existsSync(OUT) ? readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
     if (current !== next) {
       console.error('voice-warm.json is out of date: the written answers changed. Run: node scripts/gen-voice-warm.mjs');
       process.exit(1);

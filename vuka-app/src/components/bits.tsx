@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 
 /** Back header used by detail screens. */
 export function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
@@ -134,17 +134,17 @@ export function PerkList({ perks }: { perks: string[] }) {
 /** Reusable trust strip — the three safety pillars, shown on home screens
  *  (visible on mobile too, where the desktop rails are hidden). */
 export function TrustStrip() {
-  const pillars: { icon: string; label: string }[] = [
-    { icon: '🪪', label: 'ID-verified' },
-    { icon: '⚖️', label: 'Fair-pay checked' },
-    { icon: '⭐', label: 'Two-way reviews' },
+  const pillars: { icon: IconName; label: string }[] = [
+    { icon: 'id', label: 'ID-verified' },
+    { icon: 'scale', label: 'Fair-pay checked' },
+    { icon: 'star', label: 'Two-way reviews' },
   ];
   return (
     <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap rounded-2xl border border-line bg-surface px-4 py-2.5 mb-3">
       {pillars.map((p, i) => (
         <span key={p.label} className="flex items-center gap-2">
           {i > 0 && <span className="hidden sm:inline w-1 h-1 rounded-full bg-line -ml-2 sm:-ml-3" aria-hidden="true" />}
-          <span aria-hidden="true">{p.icon}</span>
+          <span className="text-verified" aria-hidden="true"><Icon name={p.icon} size={16} /></span>
           <span className="text-small font-bold text-ink">{p.label}</span>
         </span>
       ))}

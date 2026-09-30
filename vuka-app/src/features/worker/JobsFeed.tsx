@@ -9,6 +9,7 @@ import { Dashboard } from '../../components/Dashboard';
 import { ReputationPanel } from './ReputationPanel';
 import { locationSupported } from '../../lib/geo';
 import { applyToFormal, applyToGigs, EMPTY_FILTER, FilterBar, type JobFilter } from './JobFilters';
+import { Icon } from '../../components/Icon';
 
 export function JobsFeed() {
   const { state, setFeed, setCategory, navigate, useMyLocation, clearMyLocation } = useApp();
@@ -40,8 +41,8 @@ export function JobsFeed() {
         value={state.feed}
         onChange={setFeed}
         options={[
-          { value: 'gigs', label: <>🔥 Gigs <Cnt n={state.gigs.length} /></> },
-          { value: 'formal', label: <>🏢 Formal jobs <Cnt n={state.formalJobs.length} /></> },
+          { value: 'gigs', label: <>Gigs <Cnt n={state.gigs.length} /></> },
+          { value: 'formal', label: <>Formal jobs <Cnt n={state.formalJobs.length} /></> },
         ]}
       />
 
@@ -74,7 +75,7 @@ export function JobsFeed() {
         {state.coords ? (
           <>
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
-              📍 Sorted by real distance
+              <Icon name="pin" size={15} /> Sorted by real distance
             </span>
             <button onClick={clearMyLocation} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
               Turn off
@@ -87,7 +88,7 @@ export function JobsFeed() {
               disabled={state.locating}
               className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
             >
-              📍 {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
+              <Icon name="pin" size={16} /> {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
             </button>
             <span className="text-faint">Distances below are estimates</span>
           </>
@@ -100,13 +101,13 @@ export function JobsFeed() {
     if (state.dataLoading && state.gigs.length === 0) return <CardSkeletonGrid count={4} />;
     if (list.length === 0) {
       return cat
-        ? <EmptyState icon="🔍" title={`No ${catLabel} gigs right now`} hint="Nothing open in this category yet. Try another category, or see everything." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all gigs</Button>} />
-        : <EmptyState icon="✅" title="No open gigs right now" hint="You've applied to or completed everything available. Switch to Formal jobs to see what your tier unlocked." />;
+        ? <EmptyState icon="search" title={`No ${catLabel} gigs right now`} hint="Nothing open in this category yet. Try another category, or see everything." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all gigs</Button>} />
+        : <EmptyState icon="check" title="No open gigs right now" hint="You've applied to or completed everything available. Switch to Formal jobs to see what your tier unlocked." />;
     }
     return (
       <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder. 🪜</p>
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder.</p>
       </>
     );
   }
@@ -114,21 +115,21 @@ export function JobsFeed() {
   function Formal({ cv, list }: { cv: ReturnType<typeof computeCv>; list: FormalJob[] }) {
     if (state.dataLoading && state.formalJobs.length === 0) return <CardSkeletonGrid count={4} />;
     if (list.length === 0) {
-      return <EmptyState icon="🔍" title={`No ${catLabel ?? ''} formal roles`} hint="Nothing in this category right now. See all formal roles instead." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all roles</Button>} />;
+      return <EmptyState icon="search" title={`No ${catLabel ?? ''} formal roles`} hint="Nothing in this category right now. See all formal roles instead." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all roles</Button>} />;
     }
     const unlocked = list.filter((f) => f.minTier <= cv.tier.id);
     const locked = list.filter((f) => f.minTier > cv.tier.id);
     return (
       <>
         <Card className="p-3.5 mb-3 flex gap-2.5 items-center bg-info-soft border-info dark:border-info">
-          <span className="text-title" aria-hidden="true">🪜</span>
+          <span className="text-info shrink-0" aria-hidden="true"><Icon name="ladder" size={22} /></span>
           <div className="text-small text-ink leading-snug">
             <b>You're {cv.tier.name} {cv.tier.icon}.</b> {unlocked.length} formal job{unlocked.length !== 1 ? 's' : ''} open to you now{locked.length ? ` · ${locked.length} more unlock as you rise` : ''}.
           </div>
         </Card>
         {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
         {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. ⚖️ All pay is fair-pay checked.</p>
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. All pay is fair-pay checked.</p>
       </>
     );
   }

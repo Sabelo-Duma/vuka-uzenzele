@@ -80,6 +80,8 @@ export interface CvResult { cv: ServerCv; history: HistoryEntry[]; profile: ApiP
 export interface PublicCvResult { name: string; cv: ServerCv; history: HistoryEntry[]; profile: ApiProfile | null; followers?: number; }
 export interface Invitation { id: string; message: string | null; gig: Gig; }
 export interface ChatUser { id: string; name: string; role: Role; initials: string; color: string; }
+/** A person search result: what a profile already shows, never a phone number. */
+export interface PersonResult extends ChatUser { location: string | null; idVerified: boolean; isFollowing: boolean; }
 /** What kind of thing a message is. */
 export type MessageKind = 'text' | 'voice' | 'image';
 /** The message a reply is quoting — a snippet, not the whole thing. */
@@ -538,6 +540,8 @@ export const api = {
   follow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('POST', `/users/${userId}/follow`),
   unfollow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('DELETE', `/users/${userId}/follow`),
   listFollowing: () => request<ChatUser[]>('GET', '/me/following'),
+  /** Find people by name. No query = the newest members. */
+  searchUsers: (q: string) => request<{ query: string; results: PersonResult[] }>('GET', `/users/search?q=${encodeURIComponent(q)}`),
   mySocial: () => request<{ followers: number; following: number }>('GET', '/me/social'),
   getConfig: () => request<ServerConfig>('GET', '/config'),
   myEmployerRating: () => request<{ rating: number | null; count: number }>('GET', '/me/employer-rating'),

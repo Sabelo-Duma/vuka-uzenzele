@@ -44,7 +44,7 @@ export function Applicants({ id }: { id: string }) {
     setBusyId(a.applicationId);
     try {
       await hireWorker(id, a.worker.id);
-      toast(`${a.worker.name.split(' ')[0]} is hired 🎉 We've let them know.`);
+      toast(`${a.worker.name.split(' ')[0]} is hired. We've let them know.`);
       await load();
     } catch (e) {
       toast((e as Error).message);
@@ -60,7 +60,7 @@ export function Applicants({ id }: { id: string }) {
     setFunding(true);
     try {
       const res = await api.fundGig(gig.id);
-      toast(`${money(res.amount)} secured 🔒 Workers now see "Funds secured", and you can hire.`);
+      toast(`${money(res.amount)} secured. Workers now see "Funds secured", and you can hire.`);
       await load();
     } catch (e) {
       toast((e as Error).message);
@@ -89,8 +89,8 @@ export function Applicants({ id }: { id: string }) {
       await confirmWork(a.applicationId, rating, review);
       const first = a.worker.name.split(' ')[0];
       toast(gig?.funding === 'held'
-        ? `Confirmed — ${money(gigTotal(gig))} is in ${first}'s wallet, and the reference is on their CV ⭐`
-        : `Confirmed — ${first}'s reference is on their CV ⭐`);
+        ? `Confirmed — ${money(gigTotal(gig))} is in ${first}'s wallet, and the reference is on their CV`
+        : `Confirmed — ${first}'s reference is on their CV`);
       setConfirming(null);
       await load();
     } catch (e) {
@@ -104,7 +104,7 @@ export function Applicants({ id }: { id: string }) {
     return (
       <>
         <DetailHeader title="Applicants" onBack={() => goBack('hires')} />
-        <EmptyState icon="⚠️" title="Couldn't load applicants" hint={error} action={<Button onClick={load}>Try again</Button>} />
+        <EmptyState icon="alert" title="Couldn't load applicants" hint={error} action={<Button onClick={load}>Try again</Button>} />
       </>
     );
   }
@@ -183,7 +183,7 @@ export function Applicants({ id }: { id: string }) {
         <CardSkeletonGrid count={2} talent />
       ) : applicants.length === 0 ? (
         <EmptyState
-          icon="📭"
+          icon="talent"
           title="No applications yet"
           hint="Verified youth nearby can see this job. You can also invite someone directly from Talent."
           action={<Button onClick={() => navigate('talent')}>Browse talent</Button>}

@@ -113,7 +113,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
           <FundingChip gig={gig} />
           {gig.urgent && <Chip tone="live" icon="bolt">Urgent</Chip>}
           {fair && <Chip tone="verified" icon="shield">Fair pay</Chip>}
-          <Chip tone="neutral">🗓 {gig.when}</Chip>
+          <Chip tone="neutral" icon="calendar">{gig.when}</Chip>
         </div>
       </Card>
     </button>
@@ -148,7 +148,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
           {head}
           <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
             <Chip tone="solid" icon="shield">Formal</Chip>
-            <Chip tone="neutral">🎓 {job.education.split('·')[0].trim()}</Chip>
+            <Chip tone="neutral" icon="cap">{job.education.split('·')[0].trim()}</Chip>
           </div>
         </Card>
       </button>

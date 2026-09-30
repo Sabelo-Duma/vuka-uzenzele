@@ -137,7 +137,7 @@ function InstallHelpSheet({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <Steps items={steps} />
-      {note && <p className="text-small text-dim leading-snug mt-4 bg-surface-2 rounded-chip px-3.5 py-3">💡 {note}</p>}
+      {note && <p className="text-small text-dim leading-snug mt-4 bg-surface-2 rounded-chip px-3.5 py-3">{note}</p>}
       {/* Installing is the browser's gesture, not ours: there is no file to
           download, and a page can only ask when the browser offers. Saying so
           beats leaving someone to wonder why the button gave instructions. */}

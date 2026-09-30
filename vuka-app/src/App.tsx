@@ -23,6 +23,7 @@ import { EmployerProfile } from './features/employer/EmployerProfile';
 import { Messages, ChatThread } from './features/chat/Chat';
 import { Msizi } from './features/msizi/Msizi';
 import { PublicCv } from './features/public/PublicCv';
+import { Icon } from './components/Icon';
 
 /** Public share route: /cv/:id renders a read-only CV without auth. */
 function publicCvId(): string | null {
@@ -53,7 +54,7 @@ function useSplash(): boolean {
 function ErrorBanner({ msg, onRetry, onDismiss }: { msg: string; onRetry: () => void; onDismiss: () => void }) {
   return (
     <div role="alert" className="mb-3 flex items-center gap-3 rounded-2xl border border-danger bg-danger-soft px-3.5 py-2.5">
-      <span className="text-lead shrink-0" aria-hidden="true">⚠️</span>
+      <span className="text-danger shrink-0" aria-hidden="true"><Icon name="alert" size={20} /></span>
       <span className="flex-1 text-small text-ink leading-snug">{msg}</span>
       <button onClick={onRetry} className="shrink-0 rounded-pill bg-ink text-canvas text-small font-bold px-3 py-1.5 active:scale-95">Retry</button>
       <button onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-faint hover:text-ink px-1">✕</button>

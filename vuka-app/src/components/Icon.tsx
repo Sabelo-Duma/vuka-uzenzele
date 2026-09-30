@@ -6,7 +6,7 @@ export type IconName =
   | 'x' | 'bell' | 'camera' | 'globe' | 'card' | 'wallet' | 'star' | 'chat' | 'send' | 'clock'
   | 'reply' | 'edit' | 'trash' | 'copy' | 'search' | 'filter'
   | 'mic' | 'play' | 'pause' | 'stop' | 'image' | 'download' | 'more' | 'alert' | 'retry'
-  | 'assistant';
+  | 'assistant' | 'id' | 'doc' | 'ban' | 'signal' | 'scale' | 'calendar' | 'cap' | 'building';
 
 const P = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>,
@@ -55,6 +55,14 @@ const P = {
      two identical marks in one tab bar is two destinations nobody can tell
      apart. */
   assistant: <><path d="M20.5 11.2a7.7 7.7 0 0 1-10.6 7.2L3.5 20.5l2-6A7.7 7.7 0 1 1 20.5 11.2Z" /><path d="m12 7.6 1.1 2.4 2.4 1.1-2.4 1.1L12 14.6l-1.1-2.4L8.5 11.1l2.4-1.1z" /></>,
+  id: <><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><circle cx="8.5" cy="11" r="2.2" /><path d="M5.3 16.2c.6-1.5 1.7-2.3 3.2-2.3s2.6.8 3.2 2.3M14.5 10h4M14.5 13.5h3" /></>,
+  doc: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="m5.7 5.7 12.6 12.6" /></>,
+  signal: <><path d="M5 20v-3M10 20v-7M15 20V9M20 20V4" /></>,
+  scale: <><path d="M12 4v16M8 20h8M5 7.5h14M12 4v3.5" /><path d="m5 7.5-2.5 6a2.5 2.5 0 0 0 5 0zM19 7.5l-2.5 6a2.5 2.5 0 0 0 5 0z" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  cap: <><path d="m2 9.5 10-5 10 5-10 5z" /><path d="M6 11.5v4.5c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9.5v5" /></>,
+  building: <><rect x="4.5" y="3" width="15" height="18" rx="1.5" /><path d="M9 7.5h1.5M13.5 7.5H15M9 11.5h1.5M13.5 11.5H15M10 21v-4h4v4" /></>,
 } as const satisfies Record<IconName, React.ReactNode>;
 
 interface IconProps extends SVGProps<SVGSVGElement> {

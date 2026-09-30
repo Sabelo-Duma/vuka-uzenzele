@@ -1,6 +1,7 @@
 import { TIERS } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import { Button, Card } from '../../components/ui';
+import { Icon } from '../../components/Icon';
 
 /** Desktop side-rail: talent stats + trust note. */
 export function EmployerStats() {
@@ -19,7 +20,7 @@ export function EmployerStats() {
         </div>
       </Card>
       <Card className="p-4">
-        <div className="text-small font-bold text-ink mb-1.5">🛡️ Hire with confidence</div>
+        <div className="text-small font-bold text-ink mb-1.5">Hire with confidence</div>
         <p className="text-small text-dim leading-relaxed m-0">Every worker is ID-verified with a real, reviewed CV and an earned tier ({TIERS.map((t) => t.icon).join(' ')}). Two-way reviews keep everyone accountable.</p>
       </Card>
     </>
@@ -31,7 +32,7 @@ export function PostJobCard() {
   const { navigate } = useApp();
   return (
     <Card className="p-5 text-on-feature feature-band">
-      <div className="text-head" aria-hidden="true">💼</div>
+      <div aria-hidden="true"><Icon name="briefcase" size={26} /></div>
       <b className="block text-body mt-2">Need a hand today?</b>
       <p className="text-small text-on-feature-dim my-2 leading-snug">Post a job in 30 seconds. Verified youth nearby apply — you pick by rating and tier.</p>
       <Button block variant="primary" icon="plus" onClick={() => navigate('post')}>Post a job</Button>
