@@ -410,6 +410,56 @@ async function notifyUser(userId, payload) {
   return deliverAll(await all('SELECT * FROM push_subscriptions WHERE user_id = ?', [userId]), payload);
 }
 
+/* ---- what each notice is, and what the person chose ----
+
+   People differ: some want every buzz, some want none, most want the ones
+   about money and being hired and not the rest. So every notice has a kind,
+   each kind has its own switch, and on top of that there are quiet hours and
+   a lock-screen privacy switch. None of it touches the in-app inbox. */
+const NOTICE_KEEP_DAYS = 90;
+const CATEGORY = {
+  message: 'messages',
+  'job-alert': 'jobs',
+  hired: 'work', 'work-done': 'work', 'gig-withdrawn': 'work', 'formal-decision': 'work',
+  'invitation-accepted': 'work', 'new-application': 'work', invited: 'work',
+  'auto-confirmed': 'work', 'auto-released': 'work',
+  confirmed: 'money', 'needs-funding': 'money',
+  'id-decision': 'account',
+};
+/** Kinds copied into the inbox. Messages have Chats; job alerts have the feed. */
+const INBOX = new Set(['work', 'money', 'account']);
+const PREF_COLUMN = { messages: 'notify_messages', jobs: 'job_alerts', work: 'notify_work', money: 'notify_money', account: 'notify_account' };
+/** What the lock screen says when the person keeps details private. */
+const PRIVATE_TITLE = { messages: 'New message', jobs: 'New gig near you', work: 'Job update', money: 'Payment update', account: 'Account update' };
+
+const isOn = (row, col) => !row || row[col] === null || row[col] === undefined || Number(row[col]) === 1;
+const wants = (prefs, category) => isOn(prefs, PREF_COLUMN[category]);
+const showsPreviews = (prefs) => isOn(prefs, 'previews');
+
+/** South African time has no daylight saving, so a fixed +2 is exact. */
+const SAST_OFFSET_H = 2;
+function inQuietHours(prefs, now = new Date()) {
+  const s = prefs?.quiet_start, e = prefs?.quiet_end;
+  if (s === null || s === undefined || e === null || e === undefined || Number(s) === Number(e)) return false;
+  const h = (now.getUTCHours() + SAST_OFFSET_H) % 24;
+  // 21 → 7 wraps past midnight; 13 → 14 does not.
+  return Number(s) < Number(e) ? h >= Number(s) && h < Number(e) : h >= Number(s) || h < Number(e);
+}
+
+async function unreadNotices(userId) {
+  return Number((await get('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read_at IS NULL', [userId])).c);
+}
+
+async function recordNotice(userId, n, category) {
+  const now = new Date();
+  await run('INSERT INTO notifications (id, user_id, type, category, title, body, url, created_at) VALUES (?,?,?,?,?,?,?,?)',
+    [uuid(), userId, n.type, category, String(n.title).slice(0, 140), String(n.body ?? '').slice(0, 400), n.url ?? null, now.toISOString()]);
+  await run('DELETE FROM notifications WHERE user_id = ? AND created_at < ?',
+    [userId, new Date(now.getTime() - NOTICE_KEEP_DAYS * 86_400_000).toISOString()]);
+  // The bell on any open screen updates without a refresh.
+  emit(userId, 'notification', { unread: await unreadNotices(userId) });
+}
+
 /**
  * Tell one person something that matters, on the cheapest channel that will
  * actually reach them: push if any of their devices accepts it, SMS only if
@@ -427,16 +477,28 @@ async function notifyUser(userId, payload) {
  */
 function reach(user, payload, smsText) {
   if (!user?.id) return;
+  const category = CATEGORY[payload.type] ?? 'work';
   void (async () => {
+    /* The inbox first, and whatever the person chose: hiding a kind of
+       notification from the phone must never mean missing the news. */
+    if (INBOX.has(category)) {
+      try { await recordNotice(user.id, payload, category); } catch (e) { captureError(e, `notice:${payload.type}`); }
+    }
+    let prefs = null;
+    try { prefs = await get('SELECT * FROM user_preferences WHERE user_id = ?', [user.id]); } catch { /* defaults */ }
+    if (!wants(prefs, category) || inQuietHours(prefs)) return;
+    const open = showsPreviews(prefs);
+    const shown = open ? payload : { ...payload, title: PRIVATE_TITLE[category], body: 'Open Vuka to see it.' };
+
     let devices = 0;
     try {
-      devices = await notifyUser(user.id, payload);
+      devices = await notifyUser(user.id, shown);
     } catch (e) {
       captureError(e, `reach:${payload.type}`);
     }
     if (devices > 0) return;              // the free channel did the job
-    if (!user.phone) return;
-    const sms = await sendSms(user.phone, smsText);
+    if (!smsText || !user.phone) return;  // not every notice is worth a paid SMS
+    const sms = await sendSms(user.phone, open ? smsText : 'You have a new update on Vuka Uzenzele. Open the app to see it.');
     if (!sms.delivered && sms.provider !== 'console') {
       captureError(
         new Error(`"${payload.type}" notice reached neither push nor SMS: ${sms.error ?? sms.provider}`),
@@ -462,7 +524,7 @@ async function alertNearbyWorkers(gig) {
   if (!at) return { sent: 0, reason: 'gig location could not be placed' };
 
   const workers = await all(
-    `SELECT u.id AS id, p.location AS location
+    `SELECT u.id AS id, p.location AS location, pr.quiet_start AS quiet_start, pr.quiet_end AS quiet_end
        FROM users u
        JOIN worker_profiles p ON p.user_id = u.id
        LEFT JOIN user_preferences pr ON pr.user_id = u.id
@@ -472,6 +534,7 @@ async function alertNearbyWorkers(gig) {
   );
 
   const nearby = workers
+    .filter((w) => !inQuietHours(w))
     .map((w) => {
       const home = coordsForPlace(w.location);
       return home ? { id: w.id, km: haversineKm(home, at) } : null;
@@ -1097,6 +1160,15 @@ app.post('/api/gigs/:id/apply', requireAuth, requireRole('worker'), asyncH(async
   if (!existing) {
     await run('INSERT INTO applications (id, gig_id, worker_id, status, created_at) VALUES (?,?,?,?,?)',
       [uuid(), g.id, req.user.id, 'applied', new Date().toISOString()]);
+    /* The employer was never told anyone had applied; they had to keep
+       checking. One notice per job, replaced as more people apply. */
+    if (g.employer_id) {
+      const who = (await userById(req.user.id))?.name ?? 'A worker';
+      reach({ id: g.employer_id }, {
+        type: 'new-application', title: 'New applicant', body: `${who} applied for "${g.title}".`,
+        url: '/?tab=hires', tag: `applicants-${g.id}`,
+      });
+    }
   }
   res.json({ ok: true });
 }));
@@ -1247,7 +1319,7 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
         tag: `done-${g.id}`,
       }, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
       await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
-        [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy 🙏`, now]);
+        [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy.`, now]);
     }
   }
   if (safetyFlag) {
@@ -1324,7 +1396,7 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
   if (worker) {
     reach(worker, {
       type: 'confirmed',
-      title: `${rating}/5 — your CV just grew ⭐`,
+      title: `${rating}/5 — your CV just grew`,
       body: released
         ? `${g.employer_name} confirmed "${g.title}". R${released.amountCents / 100} is in your Vuka wallet.`
         : `${g.employer_name} confirmed "${g.title}". The reference is on your CV.`,
@@ -1701,6 +1773,9 @@ app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (r
      matching is special personal information under POPIA; it is not kept a
      moment longer than the decision needs it. */
   await run('DELETE FROM id_documents WHERE verification_id = ?', [row.id]);
+  reach({ id: row.user_id }, approve
+    ? { type: 'id-decision', title: 'Your ID is verified', body: 'Your Verified badge is now on your profile.', url: '/?tab=me', tag: 'id-decision' }
+    : { type: 'id-decision', title: 'We could not verify your ID', body: `${reason ? `${reason} ` : ''}You can try again from Profile, then Identity.`, url: '/?tab=me', tag: 'id-decision' });
   res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
 }));
 
@@ -1788,9 +1863,8 @@ app.post('/api/admin/formal-applications/:id/decide', requireAdmin, asyncH(async
   if (status !== 'applied') {
     const heard = status === 'rejected'
       ? { title: 'An update on your application', body: `${job?.title ?? 'That role'}: not this time. Keep building your record — more roles unlock as you do.` }
-      : { title: `Good news about ${job?.title ?? 'a role'} 🎉`, body: status === 'placed' ? "You've been placed. Congratulations!" : "You've been shortlisted. Expect contact soon." };
-    void notifyUser(row.worker_id, { type: 'formal-decision', ...heard, url: '/?tab=formal', tag: `formal-${row.id}` })
-      .catch((e) => captureError(e, 'notifyUser:formal-decision'));
+      : { title: `Good news about ${job?.title ?? 'a role'}`, body: status === 'placed' ? "You've been placed. Congratulations!" : "You've been shortlisted. Expect contact soon." };
+    reach({ id: row.worker_id }, { type: 'formal-decision', ...heard, url: '/?tab=formal', tag: `formal-${row.id}` });
   }
   res.json({ ok: true, status });
 }));
@@ -1836,22 +1910,88 @@ app.delete('/api/admin/gigs/:id', requireAdmin, asyncH(async (req, res) => {
 }));
 
 // ---- preferences ----
-// Only preferences the SERVER must know about live here (job alerts drive
-// push/SMS). Device-level choices — data saver, language — stay on the device.
-const prefsOut = (row) => ({ jobAlerts: row ? !!row.job_alerts : true });
+// Only preferences the SERVER must know about live here (they decide what is
+// pushed or texted). Device-level choices — data saver, language — stay on
+// the device.
+const prefsOut = (row) => ({
+  jobAlerts: isOn(row, 'job_alerts'),
+  notify: {
+    messages: isOn(row, 'notify_messages'),
+    jobs: isOn(row, 'job_alerts'),
+    work: isOn(row, 'notify_work'),
+    money: isOn(row, 'notify_money'),
+    account: isOn(row, 'notify_account'),
+  },
+  previews: showsPreviews(row),
+  quietHours: row && row.quiet_start !== null && row.quiet_start !== undefined && row.quiet_end !== null && row.quiet_end !== undefined
+    ? { start: Number(row.quiet_start), end: Number(row.quiet_end) } : null,
+});
 
 app.get('/api/me/preferences', requireAuth, asyncH(async (req, res) => {
   res.json(prefsOut(await get('SELECT * FROM user_preferences WHERE user_id = ?', [req.user.id])));
 }));
 
+/* Partial on purpose: each switch in the app saves on its own, so a change
+   made on one phone never resets a choice made on another. */
 app.put('/api/me/preferences', requireAuth, asyncH(async (req, res) => {
-  if (typeof req.body?.jobAlerts !== 'boolean') return res.status(400).json({ error: 'jobAlerts must be true or false.' });
-  const jobAlerts = req.body.jobAlerts ? 1 : 0;
+  const b = req.body || {};
+  const set = {};
+  const bool = (v, col, name) => {
+    if (v === undefined) return true;
+    if (typeof v !== 'boolean') { res.status(400).json({ error: `${name} must be true or false.` }); return false; }
+    set[col] = v ? 1 : 0; return true;
+  };
+  if (!bool(b.jobAlerts, 'job_alerts', 'jobAlerts')) return;
+  if (b.notify !== undefined) {
+    if (typeof b.notify !== 'object' || b.notify === null) return res.status(400).json({ error: 'notify must be an object.' });
+    for (const [k, v] of Object.entries(b.notify)) {
+      if (!PREF_COLUMN[k]) return res.status(400).json({ error: `There is no notification setting called "${k}".` });
+      if (!bool(v, PREF_COLUMN[k], `notify.${k}`)) return;
+    }
+  }
+  if (!bool(b.previews, 'previews', 'previews')) return;
+  if (b.quietHours !== undefined) {
+    if (b.quietHours === null) { set.quiet_start = null; set.quiet_end = null; }
+    else {
+      const { start, end } = b.quietHours ?? {};
+      const hour = (h) => Number.isInteger(h) && h >= 0 && h <= 23;
+      if (!hour(start) || !hour(end) || start === end) {
+        return res.status(400).json({ error: 'Quiet hours need a start and an end hour (0–23) that differ.' });
+      }
+      set.quiet_start = start; set.quiet_end = end;
+    }
+  }
+  const cols = Object.keys(set);
+  if (!cols.length) return res.status(400).json({ error: 'Nothing to change.' });
+
   const now = new Date().toISOString();
   const existing = await get('SELECT user_id FROM user_preferences WHERE user_id = ?', [req.user.id]);
-  if (existing) await run('UPDATE user_preferences SET job_alerts = ?, updated_at = ? WHERE user_id = ?', [jobAlerts, now, req.user.id]);
-  else await run('INSERT INTO user_preferences (user_id, job_alerts, updated_at) VALUES (?,?,?)', [req.user.id, jobAlerts, now]);
+  if (!existing) await run('INSERT INTO user_preferences (user_id, job_alerts, updated_at) VALUES (?,1,?)', [req.user.id, now]);
+  await run(`UPDATE user_preferences SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE user_id = ?`,
+    [...cols.map((c) => set[c]), now, req.user.id]);
   res.json(prefsOut(await get('SELECT * FROM user_preferences WHERE user_id = ?', [req.user.id])));
+}));
+
+// ---- the bell: in-app notifications ----
+const noticeOut = (r) => ({
+  id: r.id, type: r.type, category: r.category, title: r.title, body: r.body, url: r.url,
+  createdAt: r.created_at, read: !!r.read_at,
+});
+
+app.get('/api/notifications', requireAuth, asyncH(async (req, res) => {
+  const rows = await all('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50', [req.user.id]);
+  res.json({ items: rows.map(noticeOut), unread: await unreadNotices(req.user.id) });
+}));
+
+/** Mark one read ({ id }), or all of them (no id). */
+app.post('/api/notifications/read', requireAuth, asyncH(async (req, res) => {
+  const now = new Date().toISOString();
+  const id = req.body?.id;
+  if (id) await run('UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL', [now, String(id), req.user.id]);
+  else await run('UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL', [now, req.user.id]);
+  const unread = await unreadNotices(req.user.id);
+  emit(req.user.id, 'notification', { unread }); // the person's other devices
+  res.json({ ok: true, unread });
 }));
 
 // ---- push subscriptions ----
@@ -1891,7 +2031,7 @@ app.post('/api/push/test', requireAuth, asyncH(async (req, res) => {
   if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not switched on for this server yet.' });
   const sent = await notifyUser(req.user.id, {
     type: 'test',
-    title: 'Notifications are on ✅',
+    title: 'Notifications are on',
     body: "This is how you'll hear about work near you.",
     url: '/',
     tag: 'push-test',
@@ -2092,12 +2232,22 @@ app.post('/api/talent/:id/invite', requireAuth, requireRole('employer'), asyncH(
   if (existing) {
     if (existing.status === 'pending') return res.json({ ok: true, already: true });
     await run("UPDATE invitations SET status = 'pending', message = ?, created_at = ? WHERE id = ?", [msg, new Date().toISOString(), existing.id]);
+    tellInvited(worker, gig);
     return res.json({ ok: true });
   }
   await run('INSERT INTO invitations (id, gig_id, employer_id, worker_id, message, status, created_at) VALUES (?,?,?,?,?,?,?)',
     [uuid(), gigId, req.user.id, workerId, msg, 'pending', new Date().toISOString()]);
+  tellInvited(worker, gig);
   res.status(201).json({ ok: true });
 }));
+
+/** An invitation used to wait silently on the home screen until opened. */
+function tellInvited(worker, gig) {
+  reach(worker, {
+    type: 'invited', title: 'You have been invited to a job',
+    body: `${gig.employer_name} invited you to "${gig.title}".`, url: '/', tag: `invited-${gig.id}`,
+  });
+}
 
 app.get('/api/me/invitations', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const rows = await all(
@@ -2730,7 +2880,7 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
   if (live > 0) await markDelivered(toUserId, req.user.id);
   if (!isOnline(toUserId)) {
     const me = await userById(req.user.id);
-    void notifyUser(toUserId, {
+    reach({ id: toUserId }, {
       type: 'message',
       title: me?.name || 'New message',
       body: previewOf(saved).slice(0, 140),
@@ -2739,7 +2889,7 @@ app.post('/api/messages', requireAuth, asyncH(async (req, res) => {
          separate buzzes from one person is how people switch notifications
          off altogether. */
       tag: `chat-${req.user.id}`,
-    }).catch((e) => captureError(e, 'notifyUser:message'));
+    });
   }
   // Their own other devices should show it too.
   emit(req.user.id, 'message', out);
@@ -3189,24 +3339,24 @@ const stopAutoRelease = startAutoRelease({
   onRelease: async (job) => {
     const worker = await userById(job.worker_id);
     if (worker) {
-      void notifyUser(worker.id, {
+      reach(worker, {
         type: 'auto-released',
-        title: 'Your job has been counted ✅',
+        title: 'Your job has been counted',
         body: `${job.employer_name} didn't confirm "${job.title}" in time, so we've added it to your CV. It counts as work done — there's just no star rating on this one.`,
         url: '/?tab=cv',
         tag: `auto-released-${job.gig_id}`,
-      }).catch((e) => captureError(e, 'notifyUser:auto-released'));
+      });
     }
     if (job.employer_id) {
       const employer = await userById(job.employer_id);
       if (employer) {
-        void notifyUser(employer.id, {
+        reach(employer, {
           type: 'auto-confirmed',
           title: 'We confirmed a job for you',
           body: `"${job.title}" was marked done ${AUTO_RELEASE_HOURS} hours ago and hadn't been confirmed, so we've credited the worker. Rate them next time to help them build their CV.`,
           url: '/?tab=hires',
           tag: `auto-confirmed-${job.gig_id}`,
-        }).catch((e) => captureError(e, 'notifyUser:auto-confirmed'));
+        });
       }
     }
   },

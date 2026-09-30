@@ -9,8 +9,9 @@ import { FollowingCard } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { BankingSheet, BlockedSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
+import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 
-type SheetKey = 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
+type SheetKey = 'notifications' | 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
 
 export function EmployerProfile() {
   const { state, toast, navigate } = useApp();
@@ -46,6 +47,7 @@ export function EmployerProfile() {
       go: () => navigate('hires'),
     },
     { ic: 'star' as const, title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)}★ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
+    { ic: 'bell' as const, title: 'Notifications', sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
     { ic: 'shield' as const, title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
     { ic: 'ban' as const, title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
     { ic: 'lock' as const, title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
@@ -82,6 +84,7 @@ export function EmployerProfile() {
       <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Two-way reviews keep everyone accountable — workers rate employers too.</p>
       <div className="mt-2"><AccountBar /></div>
 
+      {sheet === 'notifications' && <NotificationSettingsSheet onClose={closeSheet} />}
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}
       {sheet === 'identity' && <IdentitySheet verified={false} onClose={closeSheet} />}
       {sheet === 'safety' && <SafetySheet onClose={closeSheet} />}

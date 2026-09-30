@@ -153,8 +153,9 @@
   "Everything else, your record, ratings, tiers and badges, is real and counts. When real payments start, the app will say so clearly, and test mode will disappear from these screens.",
   "Getting more jobs. Employers choose from the record they can see, so the things that move you up the list are the things you control:",
   "Fill in your profile and the skills you actually have, so you show up for the right work. Verify your ID under Me. Given two people, an employer takes the verified one.",
-  "Turn on Job alerts, so you hear about a gig the moment it is posted and can apply early. Prefer jobs showing Funds secured, and ones near you, you arrive on time, and the pay is waiting.",
-  "Do each job well and mark it done. Every confirmed job and good rating lifts your Vooka Score and your tier.",
+  "Turn on New gigs near me, under Me then Notifications, so you hear about a gig the moment it is posted and can apply early.",
+  "Prefer jobs showing Funds secured, and ones near you, you arrive on time, and the pay is waiting. Do each job well and mark it done.",
+  "Every confirmed job and good rating lifts your Vooka Score and your tier.",
   "Your banking details. You can save your banking details under Me, so you have them ready to give an employer without digging for a card.",
   "They are encrypted on the server and are never sent back to the app. Even you only ever see a masked hint, your bank, the account type, and the last four digits.",
   "Nothing sensitive is stored on your phone. They are where your wallet sends your pay when you withdraw it. Payments are in test mode for now, so no real money is sent to them yet.",
@@ -205,8 +206,9 @@
   "Messaging. Chats are in the app, between you and the people you are working with. You can send text, voice notes and photos.",
   "A voice note is often easier than typing, especially in your own language, or when you are describing where you are. Messages written with no signal are sent when the signal returns.",
   "Keep job conversations in the app rather than moving to another number. It is a record, and if something goes wrong it is what a person reviewing a report can actually read.",
-  "Job alerts and notifications. Turn on Job alerts under Me and your phone will notify you when new work is posted near you, when you are hired, and when someone messages you.",
-  "Your phone will ask permission the first time.",
-  "If you said no and changed your mind, you have to re-allow notifications for Vooka in your browser or phone settings, the app cannot ask again once it has been refused."
+  "Notifications. Tap the bell at the top of the screen to see every update about your jobs, your pay and your account. To choose what reaches your phone, open Me, then Notifications.",
+  "Turn them on for this phone, then pick the kinds you want: messages, new gigs near you, job updates, payments and account notices.",
+  "You can hide names and messages from the lock screen, and set quiet hours so nothing buzzes at night. Anything you switch off still waits under the bell.",
+  "If you refused permission before, allow notifications for Vooka again in your phone or browser settings. The app cannot ask a second time."
  ]
 }

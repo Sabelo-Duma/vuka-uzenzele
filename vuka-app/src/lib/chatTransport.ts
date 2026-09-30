@@ -37,7 +37,9 @@ export type ChatEvent =
   /** Authoritative unread total, from a catch-up sync. */
   | { type: 'unread'; count: number }
   /** Someone in a conversation with you arrived or went away. */
-  | { type: 'presence'; userId: string; online: boolean };
+  | { type: 'presence'; userId: string; online: boolean }
+  /** The bell's unread count changed (a new notice, or read on another device). */
+  | { type: 'notification'; unread: number };
 
 type Listener = (e: ChatEvent) => void;
 
@@ -191,6 +193,10 @@ async function connect() {
       const d = JSON.parse((e as MessageEvent).data);
       emit({ type: 'presence', userId: String(d.userId), online: !!d.online });
     } catch { /* a malformed frame must not take the stream down */ }
+  });
+  es.addEventListener('notification', (e) => {
+    const n = parsed<{ unread: number }>(e as MessageEvent);
+    if (n) emit({ type: 'notification', unread: Number(n.unread) || 0 });
   });
   es.addEventListener('typing', (e) => {
     const t = parsed<{ from: string }>(e as MessageEvent);

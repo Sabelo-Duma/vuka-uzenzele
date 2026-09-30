@@ -2,7 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode,
 } from 'react';
 import type { CvSnapshot, FormalJob, Gig, HistoryEntry, Role, TalentWorker, WorkerProfile } from '../types';
-import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type Applicant, type AuthResult, type Conversation, type CreateGigInput, type Hire, type Invitation, type MyJob, type RegisterInput } from '../lib/api';
+import { api, ApiError, setToken, getToken, toTalentWorker, type ApiProfile, type ApiUser, type Applicant, type AuthResult, type Conversation, type CreateGigInput, type Hire, type Invitation, type MyJob, type Preferences, type PreferencesChange, type RegisterInput } from '../lib/api';
 import { onChatEvent, startChatTransport, stopChatTransport } from '../lib/chatTransport';
 import { clearOutbox, flushOutbox, startOutbox, stopOutbox } from '../lib/outbox';
 import { computeCv } from '../lib/engine';
@@ -16,7 +16,7 @@ export type Screen =
   | 'talent' | 'post' | 'hires' | 'applicants'
   | 'gigDetail' | 'formalDetail' | 'workerDetail'
   | 'messages' | 'chat'
-  | 'msizi';
+  | 'msizi' | 'notifications';
 
 export interface Nav { screen: Screen; id?: string; }
 
@@ -34,6 +34,10 @@ export interface AppState {
   appliedFormalIds: string[]; // formal roles this worker has applied to (server-backed)
   myJobs: MyJob[];            // this worker's own work: hired / done / completed
   jobAlerts: boolean;         // account-level preference (drives push/SMS)
+  /** Every notification choice, from the server. Null until loaded. */
+  prefs: Preferences | null;
+  /** Unread notices behind the bell (chat messages are counted in `unread`). */
+  notices: number;
   /** The viewer's position, once they've chosen to share it. Null = distances
    *  fall back to each listing's own label, clearly marked as an estimate. */
   coords: Coords | null;
@@ -103,6 +107,8 @@ type Action =
   | { type: 'TALENT'; talent: TalentWorker[] }
   | { type: 'INVITATIONS'; invitations: Invitation[] }
   | { type: 'UNREAD'; count: number }
+  | { type: 'PREFS'; prefs: Preferences }
+  | { type: 'NOTICES'; count: number }
   | { type: 'PENDING_CONFIRMATIONS'; count: number }
   | { type: 'REMOVE_GIG'; id: string }
   | { type: 'LOGOUT' }
@@ -113,10 +119,24 @@ type Action =
   | { type: 'TOAST'; msg: string }
   | { type: 'ERROR'; error: string | null };
 
+/** Where a notification link points. @returns true if it named a screen. */
+function routeTo(params: URLSearchParams, dispatch: (a: Action) => void): boolean {
+  const chat = params.get('chat');
+  const gig = params.get('gig');
+  const tab = params.get('tab');
+  if (chat) dispatch({ type: 'NAVIGATE', nav: { screen: 'chat', id: chat } });
+  else if (gig) dispatch({ type: 'NAVIGATE', nav: { screen: 'gigDetail', id: gig } });
+  else if (tab === 'formal') { dispatch({ type: 'SET_FEED', feed: 'formal' }); dispatch({ type: 'NAVIGATE', nav: { screen: 'jobs' } }); }
+  else if (tab === 'messages' || tab === 'cv' || tab === 'hires' || tab === 'jobs' || tab === 'me' || tab === 'home') {
+    dispatch({ type: 'NAVIGATE', nav: { screen: tab } });
+  } else return false;
+  return true;
+}
+
 function init(): AppState {
   return {
     status: 'booting', dataLoading: false, user: null, role: 'worker', worker: blankWorker(),
-    gigs: [], formalJobs: [], appliedGigIds: [], appliedFormalIds: [], myJobs: [], celebrate: null, jobAlerts: true,
+    gigs: [], formalJobs: [], appliedGigIds: [], appliedFormalIds: [], myJobs: [], celebrate: null, jobAlerts: true, prefs: null, notices: 0,
     // A position saved in the last 20 minutes is good enough to reuse, so a
     // returning user gets real distances without being asked again.
     coords: cachedCoords(), locating: false, vapidKey: '',
@@ -138,6 +158,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'MY_JOBS': return { ...state, myJobs: action.jobs };
     case 'CELEBRATE': return { ...state, celebrate: action.payload };
     case 'JOB_ALERTS': return { ...state, jobAlerts: action.on };
+    case 'PREFS': return { ...state, prefs: action.prefs, jobAlerts: action.prefs.jobAlerts };
+    case 'NOTICES': return { ...state, notices: action.count };
     // Re-render on the server's config so anything reading the thresholds
     // (fair-pay chips, lock states) picks up the authoritative values.
     case 'CONFIG': return { ...state, minWage: action.minWage, vapidKey: action.vapidKey };
@@ -189,6 +211,12 @@ interface Store {
   applyGig: (id: string) => Promise<void>;
   applyFormal: (id: string) => Promise<void>;
   setJobAlerts: (on: boolean) => Promise<void>;
+  /** Change notification choices; saves at once and rolls back on failure. */
+  savePrefs: (change: PreferencesChange) => Promise<void>;
+  /** Re-read the bell's unread count. */
+  refreshNotices: () => Promise<void>;
+  /** Open what a notification points at (/?chat=…, /?tab=…, /?gig=…). */
+  openLink: (url: string | null | undefined) => void;
   /** Ask the device for a position, then reload listings with real distances. */
   useMyLocation: () => Promise<void>;
   /** Stop using the position and forget it. */
@@ -236,14 +264,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'APPLIED_FORMAL', ids: formalApps.map((a) => a.jobId) });
     dispatch({ type: 'MY_JOBS', jobs: myJobs });
     dispatch({ type: 'INVITATIONS', invitations });
-    dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
+    dispatch({ type: 'PREFS', prefs });
   }, []);
 
   const loadEmployerData = useCallback(async () => {
     const [talent, formalJobs, prefs] = await Promise.all([api.listTalent(), api.listFormal(stateRef.current.coords), api.getPreferences()]);
     dispatch({ type: 'TALENT', talent: talent.map(toTalentWorker) });
     dispatch({ type: 'FORMAL', formalJobs });
-    dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
+    dispatch({ type: 'PREFS', prefs });
   }, []);
 
   // Load the signed-in user's data. A failure here is a DATA problem (flaky
@@ -413,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'JOB_ALERTS', on });
     try {
       const prefs = await api.savePreferences({ jobAlerts: on });
-      dispatch({ type: 'JOB_ALERTS', on: prefs.jobAlerts });
+      dispatch({ type: 'PREFS', prefs });
     } catch (e) {
       dispatch({ type: 'JOB_ALERTS', on: previous });
       throw e;
@@ -427,6 +455,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // leaving the toggle on while nothing arrives is not.
       dispatch({ type: 'TOAST', msg: (e as Error).message });
     }
+  }, []);
+
+  const savePrefs = useCallback(async (change: PreferencesChange) => {
+    const before = stateRef.current.prefs;
+    if (before) {
+      dispatch({ type: 'PREFS', prefs: { ...before, ...change, notify: { ...before.notify, ...(change.notify ?? {}) },
+        jobAlerts: change.jobAlerts ?? change.notify?.jobs ?? before.jobAlerts } as Preferences });
+    }
+    try {
+      dispatch({ type: 'PREFS', prefs: await api.savePreferences(change) });
+    } catch (e) {
+      if (before) dispatch({ type: 'PREFS', prefs: before });
+      throw e;
+    }
+  }, []);
+
+  const refreshNotices = useCallback(async () => {
+    try { dispatch({ type: 'NOTICES', count: (await api.listNotifications()).unread }); } catch { /* the bell can wait */ }
   }, []);
 
   /**
@@ -523,15 +569,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (state.status !== 'authed') return;
     let params: URLSearchParams;
     try { params = new URLSearchParams(window.location.search); } catch { return; }
-    const chat = params.get('chat');
-    const tab = params.get('tab');
-    if (!chat && !tab) return;
-    if (chat) dispatch({ type: 'NAVIGATE', nav: { screen: 'chat', id: chat } });
-    else if (tab === 'messages') dispatch({ type: 'NAVIGATE', nav: { screen: 'messages' } });
-    else if (tab === 'cv') dispatch({ type: 'NAVIGATE', nav: { screen: 'cv' } });
-    else if (tab === 'hires') dispatch({ type: 'NAVIGATE', nav: { screen: 'hires' } });
+    if (!routeTo(params, dispatch)) return;
     try {
-      params.delete('chat'); params.delete('tab');
+      params.delete('chat'); params.delete('tab'); params.delete('gig');
       const rest = params.toString();
       window.history.replaceState({}, '', window.location.pathname + (rest ? '?' + rest : ''));
     } catch { /* not worth failing over */ }
@@ -543,15 +583,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     startOutbox();
     const off = onChatEvent((e) => {
       if (e.type === 'unread') dispatch({ type: 'UNREAD', count: e.count });
+      if (e.type === 'notification') dispatch({ type: 'NOTICES', count: e.unread });
       /* A message arriving means the tally moved, but only the server knows
          where to — one you sent yourself changes nothing. Ask rather than
          guess. */
       if (e.type === 'message') void refreshUnread();
-      // The connection coming back is the moment queued messages can go.
-      if (e.type === 'status' && e.live) void flushOutbox();
+      // The connection coming back is the moment queued messages can go —
+      // and the moment to catch up on anything the bell missed.
+      if (e.type === 'status' && e.live) { void flushOutbox(); void refreshNotices(); }
     });
+    void refreshNotices();
     return () => { off(); stopChatTransport(); stopOutbox(); };
-  }, [state.status, refreshUnread]);
+  }, [state.status, refreshUnread, refreshNotices]);
 
   const value = useMemo<Store>(() => ({
     state,
@@ -564,12 +607,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFeed: (feed) => dispatch({ type: 'SET_FEED', feed }),
     setCategory: (category) => dispatch({ type: 'SET_CATEGORY', category }),
     toast: (msg) => dispatch({ type: 'TOAST', msg }),
+    savePrefs, refreshNotices,
+    openLink: (url) => {
+      if (!url) return;
+      try { routeTo(new URL(url, window.location.origin).searchParams, dispatch); } catch { /* a bad link opens nothing */ }
+    },
     register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation,
     hireWorker, confirmWork, loadApplicants, loadMyHires,
     dismissCelebration: () => dispatch({ type: 'CELEBRATE', payload: null }),
     refreshUnread, loadConversations, reloadData,
     clearError: () => dispatch({ type: 'ERROR', error: null }),
-  }), [state, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, reloadData]);
+  }), [state, savePrefs, refreshNotices, register, login, demoLogin, logout, applyGig, applyFormal, setJobAlerts, useMyLocation, clearMyLocation, completeGig, postGig, reloadTalent, listMyGigs, inviteWorker, respondInvitation, hireWorker, confirmWork, loadApplicants, loadMyHires, refreshUnread, loadConversations, reloadData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

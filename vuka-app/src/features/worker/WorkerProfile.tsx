@@ -11,18 +11,17 @@ import { Icon, type IconName } from '../../components/Icon';
 import { BankingSheet, BlockedSheet, EditProfileSheet, IdentitySheet, SafetySheet, LanguageSheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { WalletSheet } from './WalletSheet';
+import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 
-type SheetKey = 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
+type SheetKey = 'notifications' | 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
 
 export function WorkerProfile() {
-  const { state, navigate, toast, setJobAlerts } = useApp();
+  const { state, navigate, toast } = useApp();
   const cv = computeCv(state.worker);
   const w = state.worker;
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
 
-  const jobAlerts = state.jobAlerts; // account-level: lives on the server
   const [dataSaver, setDataSaver] = useState(() => getPref('dataSaver', true));
-  const [alertsBusy, setAlertsBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const closeSheet = () => setSheet(null);
 
@@ -34,20 +33,6 @@ export function WorkerProfile() {
     toast(next ? onMsg : offMsg);
   };
 
-  const toggleJobAlerts = async () => {
-    if (alertsBusy) return;
-    const next = !jobAlerts;
-    setAlertsBusy(true);
-    try {
-      await setJobAlerts(next);
-      toast(next ? "Job alerts on — we'll ping you about new gigs nearby" : 'Job alerts off');
-    } catch (e) {
-      toast((e as Error).message);
-    } finally {
-      setAlertsBusy(false);
-    }
-  };
-
   const { banking } = useBanking();
   const bank = bankingSummaryText(banking);
 
@@ -57,8 +42,7 @@ export function WorkerProfile() {
 
   const rows: Row[] = [
     { kind: 'link', ic: 'ladder', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
-    { kind: 'toggle', ic: 'bell', title: 'Job alerts', sub: jobAlerts ? 'On — notified when a gig opens near you' : "Off — you won't hear about new gigs", on: jobAlerts,
-      act: toggleJobAlerts },
+    { kind: 'link', ic: 'bell', title: 'Notifications', sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
     { kind: 'toggle', ic: 'signal', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
       act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on — browsing stays light on data', 'Data saver off — richer images') },
     { kind: 'link', ic: 'edit', title: 'Edit your profile', sub: 'Name, email, education and languages — these go on your CV', go: () => setSheet('editProfile') },
@@ -108,6 +92,7 @@ export function WorkerProfile() {
 
       <div className="mt-4"><AccountBar /></div>
 
+      {sheet === 'notifications' && <NotificationSettingsSheet onClose={closeSheet} />}
       {sheet === 'editProfile' && <EditProfileSheet onClose={closeSheet} />}
       {sheet === 'wallet' && <WalletSheet onClose={closeSheet} onNeedBank={() => setSheet('banking')} />}
       {sheet === 'banking' && <BankingSheet onClose={closeSheet} />}

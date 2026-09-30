@@ -511,7 +511,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'Employers choose from the record they can see, so the things that move you up the list are the things you control:\n'
       + '• Fill in your profile and the skills you actually have, so you show up for the right work.\n'
       + '• Verify your ID under Me. Given two people, an employer takes the verified one.\n'
-      + '• Turn on Job alerts, so you hear about a gig the moment it is posted and can apply early.\n'
+      + '• Turn on New gigs near me, under Me then Notifications, so you hear about a gig the moment it is posted and can apply early.\n'
       + '• Prefer jobs showing Funds secured, and ones near you — you arrive on time, and the pay is waiting.\n'
       + '• Do each job well and mark it done. Every confirmed job and good rating lifts your Vuka Score and your tier.',
     goto: { screen: 'jobs', labelKey: 'msizi.goto.jobs' },
@@ -752,12 +752,14 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   },
   {
     id: 'notifications',
-    title: 'Job alerts and notifications',
-    asks: ['How do I get job alerts?', 'How do I turn on notifications?', 'Why am I not getting alerts?'],
-    keywords: ['alert', 'alerts', 'notification', 'notifications', 'push', 'notify', 'sms'],
+    title: 'Notifications',
+    asks: ['How do I get job alerts?', 'How do I turn on notifications?', 'How do I stop notifications?', 'Why am I not getting alerts?'],
+    keywords: ['alert', 'alerts', 'notification', 'notifications', 'push', 'notify', 'sms', 'bell', 'mute', 'quiet', 'buzz'],
     body:
-      'Turn on Job alerts under Me and your phone will notify you when new work is posted near you, when you are hired, and when someone messages you.\n'
-      + 'Your phone will ask permission the first time. If you said no and changed your mind, you have to re-allow notifications for Vuka in your browser or phone settings — the app cannot ask again once it has been refused.',
+      'Tap the bell at the top of the screen to see every update about your jobs, your pay and your account.\n'
+      + 'To choose what reaches your phone, open Me, then Notifications. Turn them on for this phone, then pick the kinds you want: messages, new gigs near you, job updates, payments and account notices.\n'
+      + 'You can hide names and messages from the lock screen, and set quiet hours so nothing buzzes at night. Anything you switch off still waits under the bell.\n'
+      + 'If you refused permission before, allow notifications for Vuka again in your phone or browser settings. The app cannot ask a second time.',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
     next: ['find-work'],
   },

@@ -81,7 +81,8 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
         <><b>Your SA ID number and full name</b>, if you choose to verify your identity — see below.</>,
         <><b>Your bank account details</b>, if you choose to add them, so you can be paid.</>,
         <><b>Your device's location</b>, only when you tap to share it — to measure how far a job actually is.</>,
-        <><b>A notification address</b> for your browser, only if you turn on job alerts.</>,
+        <><b>A notification address</b> for your browser, only if you turn on notifications for that phone.</>,
+        <><b>Your notifications</b> — the updates listed under the bell, and your choices about which reach your phone. Each update is deleted after 90 days.</>,
       ]} />
 
       <H>Your ID number is special, and treated that way</H>

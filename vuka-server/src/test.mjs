@@ -1719,6 +1719,96 @@ async function run() {
     delete process.env.VUKA_ADMIN_TOKEN;
   }
 
+  /* 12x) Notifications. Everything lands in the inbox behind the bell; what
+     reaches the phone is the person's choice, per kind. */
+  {
+    const mk = async (phone, name, role) => {
+      const r = await api('POST', '/auth/register', {
+        body: { role, name, phone, password: 'noticepass123', age: 24, location: 'Soweto', skills: ['garden'], verifyToken: await verifyPhone(phone) },
+      });
+      if (r.status !== 201) throw new Error(`could not register ${name}: ${r.status}`);
+      return { id: r.json.user.id, tok: r.json.token };
+    };
+    const settle = () => new Promise((r) => setTimeout(r, 200));
+    /* The console SMS provider logs what it would send, so the suite can see
+       whether a text went out. */
+    const texts = [];
+    const log = console.log;
+    console.log = (...a) => { if (String(a[0]).startsWith('[sms:console]')) texts.push(String(a[0])); log(...a); };
+    const postGig = async (tok, title) => (await api('POST', '/gigs', {
+      token: tok, body: { fund: true, title, category: 'garden', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Sat 09:00', description: 'x' },
+    })).json.id;
+
+    try {
+      const boss = await mk('0829994001', 'Notice Boss', 'employer');
+      const kid = await mk('0829994002', 'Notice Worker', 'worker');
+
+      const d = (await api('GET', '/me/preferences', { token: kid.tok })).json;
+      ok(d?.notify?.work === true && d?.notify?.messages === true && d?.notify?.money === true && d?.previews === true && d?.quietHours === null,
+        'every kind of notification starts on, with details shown and no quiet hours');
+
+      const g1 = await postGig(boss.tok, 'Notice job one');
+      await api('POST', `/gigs/${g1}/apply`, { token: kid.tok });
+      await settle();
+      const inbox = (await api('GET', '/notifications', { token: boss.tok })).json;
+      ok(inbox?.unread === 1 && inbox.items[0]?.type === 'new-application' && inbox.items[0].body.includes('Notice Worker'),
+        'an employer is now told when someone applies');
+
+      await api('POST', `/gigs/${g1}/hire`, { token: boss.tok, body: { workerId: kid.id } });
+      await settle();
+      ok((await api('GET', '/notifications', { token: kid.tok })).json?.items?.some((n) => n.type === 'hired' && n.category === 'work'),
+        'the worker finds the hire under the bell');
+      ok(texts.some((t) => t.includes('+27829994002') && t.includes('hired')), 'and, with no phone subscribed, gets the hire by SMS');
+
+      // A kind switched off: no phone, no SMS — but still in the inbox.
+      const off = (await api('PUT', '/me/preferences', { token: kid.tok, body: { notify: { work: false } } })).json;
+      ok(off?.notify?.work === false && off?.notify?.money === true && off?.jobAlerts === true, 'one switch changes and the others stay as they were');
+      const g2 = await postGig(boss.tok, 'Notice job two');
+      await api('POST', `/gigs/${g2}/apply`, { token: kid.tok });
+      await settle();
+      texts.length = 0;
+      await api('POST', `/gigs/${g2}/hire`, { token: boss.tok, body: { workerId: kid.id } });
+      await settle();
+      ok(!texts.some((t) => t.includes('+27829994002')), 'with job updates off, a hire sends no SMS');
+      const kin = (await api('GET', '/notifications', { token: kid.tok })).json;
+      ok(kin?.items?.filter((n) => n.type === 'hired').length === 2, 'yet it is still waiting under the bell');
+
+      // Private previews: the SMS says something happened, not what.
+      await api('PUT', '/me/preferences', { token: kid.tok, body: { notify: { work: true }, previews: false } });
+      const g3 = await postGig(boss.tok, 'Secret garden job');
+      await api('POST', `/gigs/${g3}/apply`, { token: kid.tok });
+      await settle();
+      texts.length = 0;
+      await api('POST', `/gigs/${g3}/hire`, { token: boss.tok, body: { workerId: kid.id } });
+      await settle();
+      const sent = texts.find((t) => t.includes('+27829994002'));
+      ok(!!sent && !sent.includes('Secret garden') && !sent.includes('Notice Boss'), 'with details hidden, the text names neither the job nor the employer');
+
+      // Reading.
+      const first = kin.items[0];
+      const before = (await api('GET', '/notifications', { token: kid.tok })).json.unread;
+      ok((await api('POST', '/notifications/read', { token: boss.tok, body: { id: first.id } })).json?.unread === (await api('GET', '/notifications', { token: boss.tok })).json.unread
+        && (await api('GET', '/notifications', { token: kid.tok })).json.unread === before, 'nobody can mark someone else\'s notification read');
+      ok((await api('POST', '/notifications/read', { token: kid.tok, body: { id: first.id } })).json?.unread === before - 1, 'one can be marked read');
+      ok((await api('POST', '/notifications/read', { token: kid.tok })).json?.unread === 0, 'or all of them at once');
+      ok((await api('GET', '/notifications')).status === 401, 'the inbox needs an account');
+
+      // Quiet hours and validation.
+      const q = (await api('PUT', '/me/preferences', { token: kid.tok, body: { quietHours: { start: 21, end: 7 } } })).json;
+      ok(q?.quietHours?.start === 21 && q?.quietHours?.end === 7, 'quiet hours can be set across midnight');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { quietHours: null } })).json?.quietHours === null, 'and cleared');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { quietHours: { start: 9, end: 9 } } })).status === 400, 'quiet hours that start and end together are refused');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { quietHours: { start: 25, end: 7 } } })).status === 400, 'as is an hour that does not exist');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { notify: { bogus: true } } })).status === 400, 'an unknown kind is refused');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { previews: 'no' } })).status === 400, 'a switch must be true or false');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: {} })).status === 400, 'an empty change is refused');
+      ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { jobAlerts: false } })).json?.notify?.jobs === false,
+        'the old job-alerts switch and the new one are the same setting');
+    } finally {
+      console.log = log;
+    }
+  }
+
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.
   let saw429 = false;

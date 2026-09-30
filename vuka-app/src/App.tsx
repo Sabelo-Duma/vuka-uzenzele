@@ -24,6 +24,7 @@ import { Messages, ChatThread } from './features/chat/Chat';
 import { Msizi } from './features/msizi/Msizi';
 import { PublicCv } from './features/public/PublicCv';
 import { Icon } from './components/Icon';
+import { Notifications } from './features/notifications/Notifications';
 
 /** Public share route: /cv/:id renders a read-only CV without auth. */
 function publicCvId(): string | null {
@@ -88,6 +89,8 @@ export function App() {
     /* Before the role switch: Msizi answers for both roles, and asking it a
        question should never depend on which kind of account you have. */
     content = <Msizi />;
+  } else if (screen === 'notifications') {
+    content = <Notifications />;
   } else if (screen === 'messages') {
     content = <Messages />;
   } else if (screen === 'chat') {

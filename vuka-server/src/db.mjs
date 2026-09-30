@@ -309,6 +309,22 @@ export async function initDb() {
       updated_at TEXT NOT NULL
     );
 
+    /* The in-app inbox behind the bell. Every notice lands here whatever the
+       person chose for their phone, so switching phone notifications off hides
+       the buzz, never the news. Chat messages are not copied in: Chats is
+       already their inbox. Rows older than NOTICE_KEEP_DAYS are pruned. */
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      url TEXT,
+      created_at TEXT NOT NULL,
+      read_at TEXT
+    );
+
     /* Web-push targets. One row per browser/device that granted permission —
        a person with a phone and a laptop has two. endpoint is the natural key:
        the browser reissues it, and a 404/410 from the push service means it's
@@ -431,6 +447,7 @@ export async function initDb() {
     /* Every message send checks both directions, so the reverse lookup needs
        its own index — the primary key only covers (blocker, blocked). */
     CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_formalapps_worker ON formal_applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_empratings_employer ON employer_ratings(employer_id);
     CREATE INDEX IF NOT EXISTS idx_safety_reporter ON safety_reports(reporter_id);
@@ -522,6 +539,17 @@ export async function initDb() {
   await addColumn('gigs', 'lng', 'REAL');
   await addColumn('formal_jobs', 'lat', 'REAL');
   await addColumn('formal_jobs', 'lng', 'REAL');
+  /* Notification choices, per kind (job alerts keep their original column).
+     1 = tell me on my phone. quiet_start/quiet_end are hours in South African
+     time; both NULL means no quiet hours. previews = 0 keeps names and
+     message text off the lock screen. */
+  await addColumn('user_preferences', 'notify_messages', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumn('user_preferences', 'notify_work', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumn('user_preferences', 'notify_money', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumn('user_preferences', 'notify_account', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumn('user_preferences', 'previews', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumn('user_preferences', 'quiet_start', 'INTEGER');
+  await addColumn('user_preferences', 'quiet_end', 'INTEGER');
 
   /* Carry across every verification already granted, once. Guarded by the NULL
      check so it cannot re-run and cannot clobber a later decision. */
