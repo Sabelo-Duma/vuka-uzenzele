@@ -7,7 +7,7 @@ import { useTheme } from '../providers/ThemeProvider';
 import { Icon, type IconName } from './Icon';
 import { InstallButton } from './InstallButton';
 import { SunMark } from './SunMark';
-import { MsiziOrb } from './MsiziOrb';
+import { MsiziFab } from './MsiziFab';
 
 interface NavItem { screen: Screen; labelKey: string; icon: IconName; }
 
@@ -125,55 +125,6 @@ function AccountBar() {
   );
 }
 
-/**
- * The way in to Msizi on a phone, floating over whatever you are reading.
- *
- * It floats rather than living in the tab bar because of what it is for. The
- * four tabs are places you go on purpose; Msizi is what you reach for in the
- * middle of something else — halfway down a job description, unsure whether the
- * pay is legal, or what a safety flag would do to you. Making that a
- * destination you have to navigate to means leaving the thing you were confused
- * about in order to ask about it.
- *
- * Three decisions here are deliberate and easy to undo by accident:
- *
- * **It is Msizi's orb** (components/MsiziOrb). The first version was an indigo
- * disc with an amber mark, and the screen it opened led with an amber tile —
- * reported from a phone as "not matching". Now the button and the screen are
- * the same glowing sphere at two sizes. It does not compete with the amber ＋
- * in the tab bar because it is not a flat button at all: a lit sphere with a
- * moving halo reads as a presence, the ＋ as an action. Its fills are fixed
- * values, so it looks the same in both themes.
- *
- * **It sits above the tab bar, not over it.** Anchored past the bar's own
- * height plus the home-indicator inset, so it never lands on a tab, and never
- * on the strip iOS reserves for the swipe-up gesture.
- *
- * **It gets out of the way twice.** While the keyboard is up it is hidden, for
- * the same reason the tab bar is — that space is the message being typed. And
- * on the Msizi screen itself it is hidden, because a button that reopens the
- * screen you are already on is a button that covers the answer you asked for.
- */
-function MsiziFab({ onOpen, hidden }: { onOpen: () => void; hidden: boolean }) {
-  const t = useT();
-  if (hidden) return null;
-  return (
-    <button
-      onClick={onOpen}
-      aria-label={t('msizi.open')}
-      /* Redesigned 2026-09-25: the button IS Msizi's orb, the same sphere the
-         screen opens on, so the two finally match. It glows rather than sits
-         in a disc, which is what makes it read as a presence, not a control. */
-      className="lg:hidden fixed z-40 grid place-items-center w-16 h-16 rounded-full
-        transition duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
-        right-[max(14px,env(safe-area-inset-right))]
-        bottom-[calc(74px+env(safe-area-inset-bottom))]"
-    >
-      <MsiziOrb size={52} mark />
-    </button>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   const { state, navigate, goBack, canGoBack } = useApp();
   const t = useT();
@@ -191,6 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const keyboardOpen = useKeyboardOpen();
   const nav = state.role === 'worker' ? WORKER_NAV : EMPLOYER_NAV;
   const current = activeTab(state.nav.screen);
+  const fill = state.nav.screen === 'chat';
   const fabTarget: Screen = state.role === 'worker' ? 'jobs' : 'post';
   const mobileTabs = MOBILE_TABS[state.role];
   /** Badge count for a tab: unread chats, or work waiting on the employer. */
@@ -271,10 +223,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto scroll-area">
+        {/* A conversation fills the screen instead of scrolling as a page: the
+            name stays at the top, only the messages scroll, and the message
+            box sits on the tab bar (or on the keyboard). As a page, the box
+            drifted with the thread and the floating button could land on it. */}
+        <main className={`flex-1 min-h-0 ${fill ? 'overflow-hidden' : 'overflow-y-auto scroll-area'}`}>
           {/* Deeper bottom padding below lg, so the floating button never
               comes to rest on top of the last line of a screen. */}
-          <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 py-5 pb-28 lg:pb-8">{children}</div>
+          <div className={`mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8 ${fill ? 'h-full flex flex-col pb-2 lg:py-4' : 'py-5 pb-28 lg:pb-8'}`}>{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
@@ -312,6 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <MsiziFab
         onOpen={() => navigate('msizi')}
         hidden={keyboardOpen || state.nav.screen === 'msizi'}
+        onChat={state.nav.screen === 'chat'}
       />
     </div>
   );

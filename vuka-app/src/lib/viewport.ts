@@ -87,11 +87,45 @@ function measure(): number {
   return Math.max(full, layout);
 }
 
+/* ---- while the keyboard is up ----
+
+   Everything above sizes the app to the whole window, which is right until the
+   keyboard opens. Then iOS keeps the app full height and slides the whole page
+   up to show the message box: the header goes off the top, the thread jumps,
+   and letting go of the keyboard leaves it half-scrolled. Reported from a
+   phone as "it pushes up and causes some weirdness".
+
+   So while the keyboard is up the app is sized to the visible area instead
+   (the visual viewport), the page is not allowed to scroll, and any slide iOS
+   still applies is followed with --app-offset. The header stays where it is,
+   only the messages scroll, and the message box sits on the keyboard. When
+   the keyboard goes, the measurement above takes over again.
+
+   Same threshold as useKeyboardOpen. A pinch-zoom also shrinks the visual
+   viewport, which is not a keyboard, so a zoomed page is left alone. */
+const KEYBOARD_MIN_PX = 120;
+
+function keyboardUp(): boolean {
+  /* Only inside the signed-in app, which scrolls its own panes. Sign-up, the
+     landing page and a public CV scroll as ordinary pages, and locking the
+     page would stop them scrolling while you type. */
+  if (!document.querySelector('.app-shell')) return false;
+  const vv = window.visualViewport;
+  if (!vv || Math.abs(vv.scale - 1) > 0.01) return false;
+  return document.documentElement.clientHeight - vv.height > KEYBOARD_MIN_PX;
+}
+
 function apply(): void {
-  const height = measure();
-  if (!Number.isFinite(height) || height <= 0) return;
-  const next = `${height}px`;
   const root = document.documentElement;
+  const vv = window.visualViewport;
+  const kb = keyboardUp();
+  const height = kb && vv ? Math.round(vv.height) : measure();
+  if (!Number.isFinite(height) || height <= 0) return;
+  root.classList.toggle('kb-open', kb);
+  const offset = kb && vv ? `${Math.max(0, Math.round(vv.offsetTop))}px` : '0px';
+  if (root.style.getPropertyValue('--app-offset') !== offset) root.style.setProperty('--app-offset', offset);
+  if (kb && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0);
+  const next = `${height}px`;
   if (root.style.getPropertyValue('--app-height') === next) return;
   root.style.setProperty('--app-height', next);
 }
@@ -125,6 +159,9 @@ export function trackViewportHeight(): void {
      here is safe and catches the launch case on builds where `resize` does
      not fire. */
   window.visualViewport?.addEventListener('resize', schedule, { passive: true });
+  /* iOS slides the visual viewport to keep the focused box in view, without
+     resizing it; the offset has to follow. */
+  window.visualViewport?.addEventListener('scroll', schedule, { passive: true });
 
   /* An installed app that changes display mode (standalone to fullscreen, say)
      gets a new window without necessarily firing resize first. */
