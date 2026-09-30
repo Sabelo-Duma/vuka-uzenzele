@@ -1,4 +1,5 @@
 import type { Badge, Category, Tier } from '../types';
+import { tr } from '../i18n';
 
 /**
  * National Minimum Wage reference used by the Fair-Pay meter — a FALLBACK for
@@ -54,15 +55,20 @@ export function applyServerConfig(cfg: {
   }
 }
 
+/* The words below are catalogue keys resolved on every read, not stored text:
+   a getter per field, so every screen that reads `CATEGORIES[i].label` or
+   `tier.name` shows the language chosen right now without changing. Nothing
+   copies these objects (no spreads, no JSON), which is what keeps that true —
+   a `{ ...cat }` would freeze the language it was copied in. */
 export const CATEGORIES: Category[] = [
-  { id: 'cleaning', label: 'Cleaning', icon: '🧽' },
-  { id: 'garden', label: 'Gardening', icon: '🌿' },
-  { id: 'dogs', label: 'Dog-walking', icon: '🐕' },
-  { id: 'moving', label: 'Moving help', icon: '📦' },
-  { id: 'errands', label: 'Errands', icon: '🛵' },
-  { id: 'tutoring', label: 'Tutoring', icon: '📚' },
-  { id: 'carwash', label: 'Car wash', icon: '🚗' },
-  { id: 'childcare', label: 'Childminding', icon: '🧸' },
+  { id: 'cleaning', get label() { return tr('common.cat.cleaning'); }, icon: '🧽' },
+  { id: 'garden', get label() { return tr('common.cat.garden'); }, icon: '🌿' },
+  { id: 'dogs', get label() { return tr('common.cat.dogs'); }, icon: '🐕' },
+  { id: 'moving', get label() { return tr('common.cat.moving'); }, icon: '📦' },
+  { id: 'errands', get label() { return tr('common.cat.errands'); }, icon: '🛵' },
+  { id: 'tutoring', get label() { return tr('common.cat.tutoring'); }, icon: '📚' },
+  { id: 'carwash', get label() { return tr('common.cat.carwash'); }, icon: '🚗' },
+  { id: 'childcare', get label() { return tr('common.cat.childcare'); }, icon: '🧸' },
 ];
 
 export const catById = (id: string): Category =>
@@ -77,53 +83,53 @@ export const catById = (id: string): Category =>
  * and a work history someone can be hired from, and it costs us nothing — the
  * data is already there, it was only ever labelled for the wrong reader.
  */
-const ROLE_TITLES: Record<string, string> = {
-  cleaning: 'Domestic Cleaner',
-  garden: 'Gardener',
-  dogs: 'Dog Walker',
-  moving: 'Removals Assistant',
-  errands: 'General Assistant',
-  tutoring: 'Tutor',
-  carwash: 'Car Wash Attendant',
-  childcare: 'Childminder',
+const ROLE_TITLES: Record<string, () => string> = {
+  cleaning: () => tr('common.role.cleaning'),
+  garden: () => tr('common.role.garden'),
+  dogs: () => tr('common.role.dogs'),
+  moving: () => tr('common.role.moving'),
+  errands: () => tr('common.role.errands'),
+  tutoring: () => tr('common.role.tutoring'),
+  carwash: () => tr('common.role.carwash'),
+  childcare: () => tr('common.role.childcare'),
 };
 
 export const roleTitleFor = (categoryId: string): string =>
-  ROLE_TITLES[categoryId] ?? 'General Worker';
+  ROLE_TITLES[categoryId]?.() ?? tr('common.role.general');
 
 /** The opportunity ladder — earned, not bought. */
 export const TIERS: Tier[] = [
   {
-    id: 0, name: 'Starter', tagline: 'Everyone starts here',
+    id: 0, get name() { return tr('common.tier.starter.name'); }, get tagline() { return tr('common.tier.starter.tagline'); },
     icon: '🌱',
     minJobs: 0, minRating: 0, maxFlags: 99,
-    unlocks: 'Informal gigs near you — cleaning, gardening, errands, car washing.',
+    get unlocks() { return tr('common.tier.starter.unlocks'); },
   },
   {
-    id: 1, name: 'Trusted', tagline: 'Proven & reliable',
+    id: 1, get name() { return tr('common.tier.trusted.name'); }, get tagline() { return tr('common.tier.trusted.tagline'); },
     icon: '🥉',
     minJobs: 3, minRating: 4.0, maxFlags: 0,
-    unlocks: 'Higher-paying gigs + your first FORMAL shift work: petrol attendant, general worker, warehouse.',
+    get unlocks() { return tr('common.tier.trusted.unlocks'); },
   },
   {
-    id: 2, name: 'Professional', tagline: 'Job-ready',
+    id: 2, get name() { return tr('common.tier.professional.name'); }, get tagline() { return tr('common.tier.professional.tagline'); },
     icon: '🥈',
     minJobs: 8, minRating: 4.3, maxFlags: 0,
-    unlocks: 'Formal entry-level employment: cashier, security officer, call-centre agent, retail assistant.',
+    get unlocks() { return tr('common.tier.professional.unlocks'); },
   },
   {
-    id: 3, name: 'Elite', tagline: 'Top 5% — employer favourite',
+    id: 3, get name() { return tr('common.tier.elite.name'); }, get tagline() { return tr('common.tier.elite.tagline'); },
     icon: '🥇',
     minJobs: 15, minRating: 4.6, maxFlags: 0,
-    unlocks: 'Permanent contracts, team-leader roles, and priority — employers see you first.',
+    get unlocks() { return tr('common.tier.elite.unlocks'); },
   },
 ];
 
 export const BADGES: Badge[] = [
-  { id: 'first', label: 'First Job', icon: '🌱', desc: 'Completed your very first gig', threshold: 1 },
-  { id: 'rising', label: 'Rising Star', icon: '⭐', desc: 'Reached a 4.5+ average rating', special: 'rating45' },
-  { id: 'reliable', label: 'Reliable', icon: '🛡️', desc: 'Completed 5 jobs with no safety flags', threshold: 5 },
-  { id: 'verified', label: 'ID Verified', icon: '✅', desc: 'Identity confirmed via SA ID', special: 'idverified' },
-  { id: 'hustler', label: 'Hustler', icon: '🔥', desc: 'Completed 10 jobs', threshold: 10 },
-  { id: 'multi', label: 'Multi-skilled', icon: '🎯', desc: 'Worked across 3+ categories', special: 'multiskill' },
+  { id: 'first', get label() { return tr('common.badge.first.label'); }, icon: '🌱', get desc() { return tr('common.badge.first.desc'); }, threshold: 1 },
+  { id: 'rising', get label() { return tr('common.badge.rising.label'); }, icon: '⭐', get desc() { return tr('common.badge.rising.desc'); }, special: 'rating45' },
+  { id: 'reliable', get label() { return tr('common.badge.reliable.label'); }, icon: '🛡️', get desc() { return tr('common.badge.reliable.desc'); }, threshold: 5 },
+  { id: 'verified', get label() { return tr('common.badge.verified.label'); }, icon: '✅', get desc() { return tr('common.badge.verified.desc'); }, special: 'idverified' },
+  { id: 'hustler', get label() { return tr('common.badge.hustler.label'); }, icon: '🔥', get desc() { return tr('common.badge.hustler.desc'); }, threshold: 10 },
+  { id: 'multi', get label() { return tr('common.badge.multi.label'); }, icon: '🎯', get desc() { return tr('common.badge.multi.desc'); }, special: 'multiskill' },
 ];

@@ -5,7 +5,7 @@ import { Avatar, Button, InlineError, Sheet, Skeleton } from '../../components/u
 import { Icon } from '../../components/Icon';
 import { IdScan } from './IdScan';
 import { SA_BANKS, bankById, saveBanking, clearBanking, useBanking, type BankingSummary } from '../../lib/banking';
-import { useLanguage } from '../../providers/LanguageProvider';
+import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { LANGS, coverage, langMeta, translate, type Lang } from '../../i18n';
 
 // text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
@@ -21,9 +21,10 @@ function Label({ children }: { children: React.ReactNode }) {
 /* ---------------- Banking details ---------------- */
 export function BankingSheet({ onClose }: { onClose: () => void }) {
   const { banking, loading } = useBanking();
+  const t = useT();
   if (loading) {
     return (
-      <Sheet title="Banking details" onClose={onClose}>
+      <Sheet title={t('profile.bank.title')} onClose={onClose}>
         <div className="flex flex-col gap-3" aria-busy="true">
           <Skeleton className="h-6 w-1/2" />
           <Skeleton className="h-11 w-full" />
@@ -38,6 +39,7 @@ export function BankingSheet({ onClose }: { onClose: () => void }) {
 
 function BankingForm({ existing, onClose }: { existing: BankingSummary | null; onClose: () => void }) {
   const { toast } = useApp();
+  const t = useT();
   const [holder, setHolder] = useState(existing?.holder ?? '');
   const [bank, setBank] = useState(existing?.bank ?? '');
   // Never prefilled: the server does not return the stored number. Left blank
@@ -50,14 +52,14 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
   const digits = accountNumber.replace(/\D/g, '');
 
   const save = async () => {
-    if (!holder.trim()) return toast('Enter the account holder name');
-    if (!bank) return toast('Choose your bank');
-    if (!existing && !digits) return toast('Enter your account number');
-    if (digits && (digits.length < 6 || digits.length > 13)) return toast('Enter a valid account number (6–13 digits)');
+    if (!holder.trim()) return toast(t('profile.bank.holderRequired'));
+    if (!bank) return toast(t('profile.bank.chooseBank'));
+    if (!existing && !digits) return toast(t('profile.bank.numberRequired'));
+    if (digits && (digits.length < 6 || digits.length > 13)) return toast(t('profile.bank.numberInvalid'));
     setBusy(true);
     try {
       await saveBanking({ holder: holder.trim(), bank, accountType, ...(digits ? { accountNumber: digits } : {}) });
-      toast('Banking details saved securely');
+      toast(t('profile.bank.saved'));
       onClose();
     } catch (e) {
       toast((e as Error).message);
@@ -69,7 +71,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
     setBusy(true);
     try {
       await clearBanking();
-      toast('Banking details removed');
+      toast(t('profile.bank.removed'));
       onClose();
     } catch (e) {
       toast((e as Error).message);
@@ -78,48 +80,48 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
   };
 
   return (
-    <Sheet title="Banking details" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Get paid<span className="text-brand">.</span></h3>
-      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">Where should your earnings be paid? You can update this any time.</p>
+    <Sheet title={t('profile.bank.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('profile.bank.heading')}<span className="text-brand">.</span></h3>
+      <p className="text-small text-dim mt-1 mb-4 leading-relaxed">{t('profile.bank.intro')}</p>
 
       <div className="mb-3">
-        <Label>Account holder</Label>
-        <input className={field} value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="As it appears on your ID" aria-label="Account holder" />
+        <Label>{t('profile.bank.holder')}</Label>
+        <input className={field} value={holder} onChange={(e) => setHolder(e.target.value)} placeholder={t('auth.fullNamePlaceholder')} aria-label={t('profile.bank.holder')} />
       </div>
 
       <div className="mb-3">
-        <Label>Bank</Label>
-        <select className={field} value={bank} onChange={(e) => setBank(e.target.value)} aria-label="Bank">
-          <option value="" disabled>Choose your bank</option>
+        <Label>{t('profile.bank.bank')}</Label>
+        <select className={field} value={bank} onChange={(e) => setBank(e.target.value)} aria-label={t('profile.bank.bank')}>
+          <option value="" disabled>{t('profile.bank.chooseBank')}</option>
           {SA_BANKS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        {branch && <p className="text-micro text-dim mt-1.5">Universal branch code: <b className="text-ink font-mono tnum">{branch}</b></p>}
+        {branch && <p className="text-micro text-dim mt-1.5">{t('profile.bank.branchCode')} <b className="text-ink font-mono tnum">{branch}</b></p>}
       </div>
 
       <div className="mb-3">
-        <Label>Account number</Label>
+        <Label>{t('profile.bank.number')}</Label>
         <input
           className={field}
           inputMode="numeric"
           value={accountNumber}
           onChange={(e) => setAccountNumber(e.target.value)}
-          placeholder={existing ? `•••• ${existing.last4} — leave blank to keep` : 'e.g. 1234567890'}
-          aria-label="Account number"
+          placeholder={existing ? t('profile.bank.numberKeep', { last4: existing.last4 }) : t('profile.bank.numberExample')}
+          aria-label={t('profile.bank.number')}
         />
-        {existing && <p className="text-micro text-dim mt-1.5">For your safety we never show a saved account number. Type a new one only if it changed.</p>}
+        {existing && <p className="text-micro text-dim mt-1.5">{t('profile.bank.numberHidden')}</p>}
       </div>
 
       <div className="mb-4">
-        <Label>Account type</Label>
+        <Label>{t('profile.bank.type')}</Label>
         <div className="flex gap-2">
-          {(['savings', 'cheque'] as const).map((t) => (
+          {(['savings', 'cheque'] as const).map((kind) => (
             <button
-              key={t}
-              onClick={() => setAccountType(t)}
-              aria-pressed={accountType === t}
-              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-small font-bold capitalize transition ${accountType === t ? 'border-ink bg-ink text-canvas' : 'border-line text-dim hover:border-faint'}`}
+              key={kind}
+              onClick={() => setAccountType(kind)}
+              aria-pressed={accountType === kind}
+              className={`flex-1 rounded-xl border-[1.5px] py-2.5 text-small font-bold capitalize transition ${accountType === kind ? 'border-ink bg-ink text-canvas' : 'border-line text-dim hover:border-faint'}`}
             >
-              {t}
+              {kind === 'savings' ? t('profile.bank.savings') : t('profile.bank.cheque')}
             </button>
           ))}
         </div>
@@ -127,11 +129,11 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
 
       <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
         <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-        <span className="text-small text-ink leading-snug">Encrypted and stored on Vuka's servers — never on this device. Only the last 4 digits are ever shown back to you.</span>
+        <span className="text-small text-ink leading-snug">{t('profile.bank.secure')}</span>
       </div>
 
-      <Button block disabled={busy} onClick={save}>{busy ? 'Saving…' : existing ? 'Update details' : 'Save details'}</Button>
-      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-small text-danger font-bold mt-3 disabled:opacity-50">Remove banking details</button>}
+      <Button block disabled={busy} onClick={save}>{busy ? t('action.saving') : existing ? t('profile.bank.update') : t('profile.bank.save')}</Button>
+      {existing && <button disabled={busy} onClick={remove} className="w-full text-center text-small text-danger font-bold mt-3 disabled:opacity-50">{t('profile.bank.remove')}</button>}
     </Sheet>
   );
 }
@@ -141,6 +143,7 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
    on the server — nothing here can grant it, which is the point. */
 export function IdentitySheet({ verified, onClose }: { verified: boolean; onClose: () => void }) {
   const { toast } = useApp();
+  const t = useT();
   const [submission, setSubmission] = useState<IdVerification | null>(null);
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
@@ -162,12 +165,12 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
   }, []);
 
   const submit = async () => {
-    if (fullName.trim().length < 3) return toast('Enter your full name as it appears on your ID');
-    if (idNumber.replace(/\D/g, '').length !== 13) return toast('An SA ID number has 13 digits');
+    if (fullName.trim().length < 3) return toast(t('profile.id.nameRequired'));
+    if (idNumber.replace(/\D/g, '').length !== 13) return toast(t('profile.id.numberLength'));
     setBusy(true);
     try {
       setSubmission(await api.submitIdVerification(fullName.trim(), idNumber.replace(/\D/g, '')));
-      toast("ID submitted. We'll check it and let you know.");
+      toast(t('profile.id.submittedToast'));
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -178,45 +181,45 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
   const status = verified ? 'verified' : submission?.status ?? 'none';
 
   return (
-    <Sheet title="Identity" onClose={onClose}>
+    <Sheet title={t('profile.id.title')} onClose={onClose}>
       <div className={`w-16 h-16 rounded-2xl grid place-items-center mb-3 ${status === 'verified' ? 'bg-verified-soft text-verified' : 'bg-surface-2 text-ink'}`} aria-hidden="true">
         <Icon name={status === 'verified' ? 'check' : status === 'pending' ? 'clock' : 'id'} size={30} />
       </div>
 
       {status === 'verified' && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verified with SA ID<span className="text-brand">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('profile.id.verifiedHeading')}<span className="text-brand">.</span></h3>
           <p className="text-small text-dim mt-1.5 leading-relaxed">
-            Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your Verified badge, and formal roles that require verification are open to you.
+            {submission?.last4 ? t('profile.id.confirmedLast4', { last4: submission.last4 }) : t('profile.id.confirmed')}
           </p>
-          <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
+          <Button block variant="ghost" className="mt-5" onClick={onClose}>{t('action.close')}</Button>
         </>
       )}
 
       {status === 'pending' && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">We're checking your ID<span className="text-brand">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('profile.id.checkingHeading')}<span className="text-brand">.</span></h3>
           <p className="text-small text-dim mt-1.5 leading-relaxed">
-            Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. {submission?.method === 'scan'
-              ? 'A person is comparing your selfies with your card. '
-              : ''}Checks usually finish within a day — your Verified badge appears here automatically. You can keep working in the meantime.
+            {submission?.last4 ? t('profile.id.submittedLast4', { last4: submission.last4 }) : t('profile.id.submitted')} {submission?.method === 'scan'
+              ? `${t('profile.id.scanReview')} `
+              : ''}{t('profile.id.checkTime')}
           </p>
           <p className="text-micro text-dim mt-2 leading-relaxed">
-            Home Affairs check: coming soon. It is in test mode until a verification service is connected.
+            {t('profile.id.homeAffairs')}
           </p>
-          <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
+          <Button block variant="ghost" className="mt-5" onClick={onClose}>{t('action.close')}</Button>
         </>
       )}
 
       {(status === 'none' || status === 'rejected') && (
         <>
-          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verify your identity<span className="text-brand">.</span></h3>
+          <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('profile.id.verifyHeading')}<span className="text-brand">.</span></h3>
           {status === 'rejected' && (
             <div className="bg-live-soft rounded-xl px-3.5 py-3 mt-3 text-small text-ink leading-snug">
-              <b>We couldn't verify your last submission.</b>{submission?.reason ? ` ${submission.reason}` : ' Please check the details and try again.'}
+              <b>{t('profile.id.rejected')}</b>{submission?.reason ? ` ${submission.reason}` : ` ${t('profile.id.rejectedRetry')}`}
             </div>
           )}
-          <p className="text-small text-dim mt-1.5 leading-relaxed">Verifying adds a Verified badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
+          <p className="text-small text-dim mt-1.5 leading-relaxed">{t('profile.id.why')}</p>
 
           {loading ? (
             <div className="flex flex-col gap-3 mt-4" aria-busy="true"><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>
@@ -225,39 +228,39 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
               <div className="flex gap-2.5 items-start bg-surface-2 rounded-xl px-3.5 py-3 mt-4 mb-4">
                 <span className="text-ink shrink-0"><Icon name="camera" size={16} /></span>
                 <span className="text-small text-ink leading-snug">
-                  Scan your smart ID card and take two quick selfies. It takes about two minutes, and the details fill themselves in.
+                  {t('profile.id.scanPitch')}
                 </span>
               </div>
-              <Button block icon="camera" onClick={() => setScanning(true)}>Scan my ID card</Button>
+              <Button block icon="camera" onClick={() => setScanning(true)}>{t('profile.id.scanCard')}</Button>
               <button onClick={() => setTyping(true)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">
-                Type my ID number instead
+                {t('profile.id.typeInstead')}
               </button>
             </>
           ) : (
             <>
               <div className="mt-4 mb-3">
-                <Label>Full name (as on your ID)</Label>
-                <input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Thandeka Mokoena" aria-label="Full name as on your ID" />
+                <Label>{t('profile.id.fullNameLabel')}</Label>
+                <input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('profile.id.fullNamePlaceholder')} aria-label={t('profile.id.fullNameAria')} />
               </div>
               <div className="mb-3">
-                <Label>SA ID number</Label>
+                <Label>{t('auth.idNumber')}</Label>
                 <input
                   className={field}
                   inputMode="numeric"
                   maxLength={13}
                   value={idNumber}
                   onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, ''))}
-                  placeholder="13 digits"
-                  aria-label="South African ID number"
+                  placeholder={t('profile.id.digits')}
+                  aria-label={t('profile.id.numberAria')}
                 />
-                <p className="text-micro text-dim mt-1.5">We check the number is valid, and a person at Vuka reviews it. Scanning your card is quicker to approve.</p>
+                <p className="text-micro text-dim mt-1.5">{t('profile.id.typedNote')}</p>
               </div>
               <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
                 <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-                <span className="text-small text-ink leading-snug">Your ID number is encrypted and never shown to employers — they only see the Verified badge.</span>
+                <span className="text-small text-ink leading-snug">{t('profile.id.private')}</span>
               </div>
-              <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for verification'}</Button>
-              <button onClick={() => setTyping(false)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">Scan my card instead</button>
+              <Button block disabled={busy} onClick={submit}>{busy ? t('profile.id.submitting') : t('profile.id.submit')}</Button>
+              <button onClick={() => setTyping(false)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">{t('profile.id.scanInstead')}</button>
             </>
           )}
         </>
@@ -265,7 +268,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
       {scanning && (
         <IdScan
           onClose={() => { setScanning(false); void reload(); }}
-          onDone={() => { setScanning(false); void reload(); toast('ID sent for checking. We will let you know.'); }}
+          onDone={() => { setScanning(false); void reload(); toast(t('profile.id.sentToast')); }}
         />
       )}
     </Sheet>
@@ -279,12 +282,12 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
   const [concern, setConcern] = useState('');
   const [busy, setBusy] = useState(false);
   const report = async () => {
-    if (!concern.trim()) return toast('Describe the concern so we can help');
+    if (!concern.trim()) return toast(t('profile.safety.describe'));
     setBusy(true);
     try {
       await api.reportSafety(concern.trim(), { gigId, aboutUserId });
       setConcern('');
-      toast('Report received — our safety team will look into it');
+      toast(t('profile.safety.received'));
       onClose();
     } catch (e) {
       toast((e as Error).message);
@@ -390,6 +393,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
    so the Education section of every generated CV was empty. */
 export function EditProfileSheet({ onClose }: { onClose: () => void }) {
   const { toast, reloadData } = useApp();
+  const t = useT();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ message: string; field?: string } | null>(null);
@@ -412,7 +416,7 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
         setLanguages(d.profile?.languages ?? []);
         setOffered(d.languages ?? []);
       })
-      .catch((e) => { if (!cancelled) setErr({ message: e instanceof Error ? e.message : 'Could not load your profile.' }); })
+      .catch((e) => { if (!cancelled) setErr({ message: e instanceof Error ? e.message : t('profile.edit.loadFailed') }); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -427,7 +431,7 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
     try {
       await api.saveProfile({ ...f, languages });
       await reloadData();
-      toast('Profile saved — your CV is up to date');
+      toast(t('profile.edit.saved'));
       onClose();
     } catch (e) {
       const ae = e as ApiError;
@@ -440,33 +444,34 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
   const bad = (field: string) => (err?.field === field ? 'border-danger' : '');
 
   return (
-    <Sheet title="Edit your profile" onClose={onClose}>
+    <Sheet title={t('profile.edit.title')} onClose={onClose}>
       <p className="text-small text-dim mt-1 mb-4 leading-relaxed">
-        These details go on your CV. Employers see them when you apply.
+        {t('profile.edit.intro')}
       </p>
 
       {loading ? <Skeleton className="h-56" /> : (
         <>
-          <SheetLabel>Full name</SheetLabel>
-          <input className={`${fieldCls} ${bad('name')}`} value={f.name} onChange={(e) => set('name')(e.target.value)} aria-label="Full name" />
+          <SheetLabel>{t('auth.fullName')}</SheetLabel>
+          <input className={`${fieldCls} ${bad('name')}`} value={f.name} onChange={(e) => set('name')(e.target.value)} aria-label={t('auth.fullName')} />
 
-          <SheetLabel>Where you live</SheetLabel>
-          <input className={`${fieldCls} ${bad('location')}`} value={f.location} onChange={(e) => set('location')(e.target.value)} placeholder="Suburb, City" aria-label="Where you live" />
+          <SheetLabel>{t('profile.edit.location')}</SheetLabel>
+          <input className={`${fieldCls} ${bad('location')}`} value={f.location} onChange={(e) => set('location')(e.target.value)} placeholder={t('profile.edit.locationPlaceholder')} aria-label={t('profile.edit.location')} />
 
-          <SheetLabel>Email address <span className="font-normal text-faint">(optional)</span></SheetLabel>
+          <SheetLabel>{t('profile.edit.email')} <span className="font-normal text-faint">{t('profile.edit.optional')}</span></SheetLabel>
           <input
             className={`${fieldCls} ${bad('email')}`} value={f.email} type="email" inputMode="email"
+            // i18n-ignore: an example email address, the same in every language
             autoCapitalize="none" spellCheck={false} placeholder="you@example.co.za"
-            onChange={(e) => set('email')(e.target.value)} aria-label="Email address"
+            onChange={(e) => set('email')(e.target.value)} aria-label={t('profile.edit.email')}
           />
           <p className="text-micro text-faint mt-1 mb-1 leading-relaxed">
-            Employers expect one on a CV, and you can use it to sign in as well as your number.
+            {t('profile.edit.emailHint')}
           </p>
 
-          <SheetLabel>Education <span className="font-normal text-faint">(optional)</span></SheetLabel>
-          <input className={fieldCls} value={f.education} onChange={(e) => set('education')(e.target.value)} placeholder="e.g. Matric, Morris Isaacson High School, 2021" aria-label="Education" />
+          <SheetLabel>{t('record.education')} <span className="font-normal text-faint">{t('profile.edit.optional')}</span></SheetLabel>
+          <input className={fieldCls} value={f.education} onChange={(e) => set('education')(e.target.value)} placeholder={t('profile.edit.educationPlaceholder')} aria-label={t('record.education')} />
 
-          <SheetLabel>Languages you speak</SheetLabel>
+          <SheetLabel>{t('profile.edit.languages')}</SheetLabel>
           <div className="flex flex-wrap gap-1.5 mb-1">
             {offered.map((l) => {
               const on = languages.includes(l);
@@ -482,20 +487,20 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
             })}
           </div>
 
-          <SheetLabel>About you <span className="font-normal text-faint">(optional)</span></SheetLabel>
+          <SheetLabel>{t('profile.edit.about')} <span className="font-normal text-faint">{t('profile.edit.optional')}</span></SheetLabel>
           <textarea
             className={`${fieldCls} min-h-[88px] resize-none`} value={f.bio} maxLength={600}
-            onChange={(e) => set('bio')(e.target.value)} placeholder="A sentence or two about how you work."
-            aria-label="About you"
+            onChange={(e) => set('bio')(e.target.value)} placeholder={t('profile.edit.aboutPlaceholder')}
+            aria-label={t('profile.edit.about')}
           />
           <p className="text-micro text-faint mt-1 mb-3 leading-relaxed">
-            Leave this blank and we write it for you from the jobs you have completed.
+            {t('profile.edit.aboutHint')}
           </p>
 
           {err && <InlineError>{err.message}</InlineError>}
 
           <Button block className="mt-4" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save profile'}
+            {busy ? t('action.saving') : t('profile.edit.save')}
           </Button>
         </>
       )}
@@ -518,6 +523,8 @@ const fieldCls = 'w-full border-[1.5px] border-line rounded-xl px-3.5 py-2.5 tex
  */
 export function BlockedSheet({ onClose }: { onClose: () => void }) {
   const { toast } = useApp();
+  const { lang, t } = useLanguage();
+  const tag = langMeta(lang).tag;
   const [people, setPeople] = useState<BlockedUser[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -532,7 +539,7 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
     try {
       await api.unblockUser(u.id);
       setPeople((prev) => (prev ?? []).filter((p) => p.id !== u.id));
-      toast(`${u.name.split(' ')[0]} is unblocked.`);
+      toast(t('profile.blocked.unblocked', { name: u.name.split(' ')[0] }));
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -541,11 +548,10 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet title="Blocked people" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Blocked people<span className="text-brand">.</span></h3>
+    <Sheet title={t('profile.blocked.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{t('profile.blocked.title')}<span className="text-brand">.</span></h3>
       <p className="text-small text-dim mt-1 mb-4 leading-relaxed">
-        A blocked person can't message you and can't invite you to a job — and you can't message
-        them either, until you unblock. Nothing either of you said is deleted.
+        {t('profile.blocked.intro')}
       </p>
 
       {people === null ? (
@@ -553,8 +559,8 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
       ) : people.length === 0 ? (
         <div className="text-center py-8">
           <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="shield" size={26} /></div>
-          <p className="text-dim text-small m-0">You haven't blocked anyone.</p>
-          <p className="text-faint text-small mt-1 mb-0">You can block someone from inside a conversation.</p>
+          <p className="text-dim text-small m-0">{t('profile.blocked.none')}</p>
+          <p className="text-faint text-small mt-1 mb-0">{t('profile.blocked.noneHint')}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
@@ -563,7 +569,7 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
               <Avatar initials={u.initials} size="sm" />
               <div className="flex-1 min-w-0">
                 <b className="block text-small font-extrabold text-ink truncate">{u.name}</b>
-                <span className="text-micro text-faint">Blocked {shortDate(u.blockedAt)}</span>
+                <span className="text-micro text-faint">{t('profile.blocked.on', { date: shortDate(u.blockedAt, tag) })}</span>
               </div>
               <button
                 type="button"
@@ -571,7 +577,7 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
                 disabled={busy === u.id}
                 className="shrink-0 inline-flex items-center min-h-[44px] px-3.5 rounded-pill border border-line bg-surface text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95 disabled:opacity-50"
               >
-                {busy === u.id ? 'Unblocking…' : 'Unblock'}
+                {busy === u.id ? t('profile.blocked.unblocking') : t('chat.unblock')}
               </button>
             </div>
           ))}
@@ -582,6 +588,6 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
 }
 
 /** "12 Sep 2026" — enough to remember the occasion by. */
-function shortDate(iso: string): string {
-  try { return new Date(iso).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; }
+function shortDate(iso: string, tag: string): string {
+  try { return new Date(iso).toLocaleDateString(tag, { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; }
 }

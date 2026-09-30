@@ -59,7 +59,7 @@ export const xh = {
   'landing.subStrong': 'irekhodi eliqinisekisiweyo',
   'landing.free':
     'Ukujoyina simahla · isebenzisa idatha encinci, kwaye ivuleka nokuba akukho mqondiso.',
-  'landing.yourScore': 'Amanqaku akho e-Vuka',
+  'landing.yourScore': 'I-Vuka Score yakho',
   'landing.jobsToTier_one': 'Kusele umsebenzi ongu-{count} ukuze ufikelele ku-{tier}',
   'landing.jobsToTier_other': 'Kusele imisebenzi engu-{count} ukuze ufikelele ku-{tier}',
   'landing.previewLabel': 'Umzekelo',
@@ -143,7 +143,7 @@ export const xh = {
 
   'post.title': 'Faka umsebenzi',
   'post.what': 'Yintoni efuna ukwenziwa?',
-  'post.whatPlaceholder': 'Hlamba iimoto ezimbini',
+  'post.whatPlaceholder': 'Hlamba iimoto ezi-2',
   'post.details': 'Baxelele okungakumbi',
   'post.detailsPlaceholder': 'Ukuba umsebenzi ubandakanya ntoni, nokuba mabaze nantoni…',
   'post.pay': 'Uhlawula malini?',
@@ -197,7 +197,7 @@ export const xh = {
   'chat.queued_other': 'Imiyalezo engu-{count} ilindele ukuthunyelwa',
 
   'record.title': 'Irekhodi lam',
-  'record.score': 'Amanqaku e-Vuka',
+  'record.score': 'Vuka Score',
   'record.tier': 'Inqanaba',
   'record.jobsDone_one': 'Umsebenzi ongu-{count} owenziweyo',
   'record.jobsDone_other': 'Imisebenzi engu-{count} eyenziweyo',
@@ -234,7 +234,7 @@ export const xh = {
   'lang.applied': 'I-Vuka ngoku isesi-{language}',
   'lang.partial': 'Iguqulelwe nge-{percent}%',
   'lang.partialHint':
-    'I-Vuka iyaguqulelwa isikrini ngesikrini. Nantoni na engekagqitywa ihlala isesiNgesini, ukuze kungabikho ndawo ingenanto.',
+    'Zonke izikrini zeVuka ziguqulelwe. Iinguqulelo azikajongwa ngabantu abathetha olu lwimi njengolwimi lwabo lokuqala, ngoko ukuba into ayifundeki kakuhle, nceda usixelele ngezantsi.',
   'lang.legalNote':
     'ISaziso sabucala neMigaqo yokuSebenzisa zihlala zisesiNgesini. Zingamaxwebhu asemthethweni, kwaye inguqulelo inokukulahlekisa.',
 

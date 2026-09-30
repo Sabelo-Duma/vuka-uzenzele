@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { money } from '../lib/format';
+import { useT } from '../providers/LanguageProvider';
 import { Icon, type IconName } from './Icon';
+
+/* ---------------- Translated sentences with a styled part ----------------
+   A translation keeps the whole sentence, so the bold part can sit wherever
+   that language puts it. `<b>…</b>` in the string marks it. */
+export function BoldText({ text }: { text: string }) {
+  const parts = text.split(/<b>(.*?)<\/b>/);
+  return <>{parts.map((p, i) => (i % 2 === 1 ? <b key={i}>{p}</b> : p))}</>;
+}
+
+/** Put `node` where `{token}` stands in an already-translated sentence. */
+export function withSlot(text: string, token: string, node: ReactNode): ReactNode {
+  const at = text.indexOf(token);
+  if (at === -1) return text;
+  return <>{text.slice(0, at)}{node}{text.slice(at + token.length)}</>;
+}
 
 /* ---------------- useCountUp ----------------
    Animates a number from `from` to `target` (easeOutCubic). Jumps straight to
@@ -279,9 +295,10 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
    and four for 4.5, so the picture read up to half a point away from the
    number beside it — on the one measurement this whole product sells. */
 export function Stars({ rating, size = 14, className = '' }: { rating: number; size?: number; className?: string }) {
+  const t = useT();
   const pct = Math.max(0, Math.min(5, rating)) / 5 * 100;
   return (
-    <span className={`relative inline-flex align-middle ${className}`} role="img" aria-label={`${rating.toFixed(1)} out of 5`}>
+    <span className={`relative inline-flex align-middle ${className}`} role="img" aria-label={t('common.stars.outOf5', { rating: rating.toFixed(1) })}>
       <span className="inline-flex text-line" aria-hidden="true">
         {[0, 1, 2, 3, 4].map((i) => <Icon key={i} name="star" size={size} />)}
       </span>
@@ -301,15 +318,16 @@ export function Stars({ rating, size = 14, className = '' }: { rating: number; s
    way out being to accept it, which quietly turned every rating nobody
    thought about into the highest one. */
 export function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const t = useT();
   return (
-    <div className="flex justify-center gap-2 my-2" role="radiogroup" aria-label="Rating out of 5">
+    <div className="flex justify-center gap-2 my-2" role="radiogroup" aria-label={t('common.stars.ratingOutOf5')}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           type="button"
           role="radio"
           aria-checked={value === n}
-          aria-label={`${n} star${n > 1 ? 's' : ''}`}
+          aria-label={t('common.stars.count', { count: n })}
           onClick={() => onChange(n)}
           className={`grid place-items-center w-12 h-12 rounded-chip transition active:scale-90
             ${n <= value ? 'text-brand' : 'text-line hover:text-dim'}`}
@@ -338,6 +356,7 @@ export function EmptyState({ icon, title, hint, action }: { icon: IconName; titl
    back to whatever opened it. A dialog that keeps focus behind itself is one
    a keyboard or screen-reader user cannot get out of. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const t = useT();
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
 
@@ -411,7 +430,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
           <button
             type="button"
             onClick={onClose}
-            aria-label={`Close ${title}`}
+            aria-label={t('common.closeNamed', { title })}
             className="grid place-items-center w-11 h-11 -mr-2 shrink-0 rounded-chip text-dim hover:bg-surface-2 hover:text-ink transition active:scale-95"
           >
             <Icon name="x" size={20} />

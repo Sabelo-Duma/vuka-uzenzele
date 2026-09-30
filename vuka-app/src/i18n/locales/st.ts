@@ -59,7 +59,7 @@ export const st = {
   'landing.subStrong': 'rekoto e netefaditsweng',
   'landing.free':
     'Ho ngodisa ke mahala · e sebedisa data e nyane, mme e bulega le ha ho se na letshwao.',
-  'landing.yourScore': 'Dintlha tsa hao tsa Vuka',
+  'landing.yourScore': 'Vuka Score ya hao',
   'landing.jobsToTier_one': 'Ho setse mosebetsi o le {count} hore o fihle ho {tier}',
   'landing.jobsToTier_other': 'Ho setse mesebetsi e {count} hore o fihle ho {tier}',
   'landing.previewLabel': 'Mohlala',
@@ -143,7 +143,7 @@ export const st = {
 
   'post.title': 'Kenya mosebetsi',
   'post.what': 'Ke eng e hlokang ho etswa?',
-  'post.whatPlaceholder': 'Hlatswa dikoloi tse pedi',
+  'post.whatPlaceholder': 'Hlatswa dikoloi tse 2',
   'post.details': 'Ba bolelle ho feta',
   'post.detailsPlaceholder': 'Hore mosebetsi o akaretsa eng, le seo ba lokelang ho tla le sona…',
   'post.pay': 'O lefa bokae?',
@@ -197,7 +197,7 @@ export const st = {
   'chat.queued_other': 'Melaetsa e {count} e emetse ho romelwa',
 
   'record.title': 'Rekoto ya ka',
-  'record.score': 'Dintlha tsa Vuka',
+  'record.score': 'Vuka Score',
   'record.tier': 'Boemo',
   'record.jobsDone_one': 'Mosebetsi o le {count} o entsweng',
   'record.jobsDone_other': 'Mesebetsi e {count} e entsweng',
@@ -234,7 +234,7 @@ export const st = {
   'lang.applied': 'Vuka jwale e ka {language}',
   'lang.partial': 'E fetoletswe ka {percent}%',
   'lang.partialHint':
-    'Vuka e fetolelwa skrine ka skrine. Ntho e ngwe le e ngwe e e-song phethwe e sala e le Senyesemane, hore ho se be le sebaka se se nang letho.',
+    'Diskrine tsohle tsa Vuka di fetoletswe. Diphetolelo ha di so hlahlojwe ke batho ba buang puo ena e le puo ya bona ya pele, kahoo haeba ho hong ho sa bale hantle, ka kopo re bolelle ka tlase.',
   'lang.legalNote':
     'Tsebiso ya Lekunutu le Melawana ya Tshebediso di dula di le Senyesemaneng. Ke ditokomane tsa molao, mme phetolelo e ka o thetsa.',
 

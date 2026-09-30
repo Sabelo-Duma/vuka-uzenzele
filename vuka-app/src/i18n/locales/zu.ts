@@ -59,7 +59,7 @@ export const zu = {
   'landing.subStrong': 'irekhodi eliqinisekisiwe',
   'landing.free':
     'Ukujoyina kumahhala · isebenzisa idatha encane, futhi ivuleka noma ungenalo uphawu.',
-  'landing.yourScore': 'Amaphuzu akho e-Vuka',
+  'landing.yourScore': 'I-Vuka Score yakho',
   'landing.jobsToTier_one': 'Kusasele umsebenzi ongu-{count} ukuze ufinyelele ku-{tier}',
   'landing.jobsToTier_other': 'Kusasele imisebenzi engu-{count} ukuze ufinyelele ku-{tier}',
   'landing.previewLabel': 'Isibonelo',
@@ -143,7 +143,7 @@ export const zu = {
 
   'post.title': 'Faka umsebenzi',
   'post.what': 'Yini edinga ukwenziwa?',
-  'post.whatPlaceholder': 'Washa izimoto ezimbili',
+  'post.whatPlaceholder': 'Washa izimoto ezi-2',
   'post.details': 'Batshele okwengeziwe',
   'post.detailsPlaceholder': 'Ukuthi umsebenzi uhlanganisani, nokumele bakulethe…',
   'post.pay': 'Ukhokha malini?',
@@ -197,7 +197,7 @@ export const zu = {
   'chat.queued_other': 'Imiyalezo engu-{count} ilindele ukuthunyelwa',
 
   'record.title': 'Irekhodi lami',
-  'record.score': 'Amaphuzu e-Vuka',
+  'record.score': 'Vuka Score',
   'record.tier': 'Izinga',
   'record.jobsDone_one': 'Umsebenzi ongu-{count} owenziwe',
   'record.jobsDone_other': 'Imisebenzi engu-{count} eyenziwe',
@@ -234,7 +234,7 @@ export const zu = {
   'lang.applied': 'I-Vuka manje isesilimini se-{language}',
   'lang.partial': 'Kuhunyushwe ngo-{percent}%',
   'lang.partialHint':
-    'I-Vuka ihunyushwa isikrini nesikrini. Noma yini engakenziwa ihlala isesiNgisini, ukuze kungabikho indawo engenalutho.',
+    'Zonke izikrini ze-Vuka zihunyushiwe. Ukuhumusha akukahlolwa ngabantu abakhuluma lolu limi njengolimi lwabo lokuqala, ngakho uma okuthile kungazwakali kahle, sicela usitshele ngezansi.',
   'lang.legalNote':
     'Isaziso Sobumfihlo neMigomo Yokusebenzisa kuhlala kusesiNgisini. Kuyimibhalo esemthethweni, futhi inguqulo yayo ingakudukisa.',
 

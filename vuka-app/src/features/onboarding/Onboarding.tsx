@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CATEGORIES } from '../../data/catalog';
 import { useApp } from '../../store/appStore';
 import { useT } from '../../providers/LanguageProvider';
@@ -9,6 +9,7 @@ import type { CategoryId, Role } from '../../types';
 import { Button, InlineError } from '../../components/ui';
 import { Icon, type IconName } from '../../components/Icon';
 import { SunMark } from '../../components/SunMark';
+import { LanguagePicker } from '../../components/LanguagePicker';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
 
@@ -29,7 +30,23 @@ const stepsFor = (role: Role): string[] =>
     ? ['phone', 'otp', 'about', 'skills', 'password', 'id', 'done']
     : ['phone', 'otp', 'org', 'password', 'done'];
 
+/**
+ * A translated sentence with {placeholders} filled by JSX (a bold number, a
+ * link). One key per sentence, so word order can move in every language.
+ */
+function Rich({ text, parts }: { text: string; parts: Record<string, ReactNode> }) {
+  return (
+    <>
+      {text.split(/(\{\w+\})/).map((seg, i) => {
+        const name = /^\{(\w+)\}$/.exec(seg)?.[1];
+        return <Fragment key={i}>{name && name in parts ? parts[name] : seg}</Fragment>;
+      })}
+    </>
+  );
+}
+
 export function Onboarding() {
+  const t = useT();
   const { register, login, demoLogin, toast } = useApp();
 
   const [view, setView] = useState<OBView>('landing');
@@ -38,16 +55,17 @@ export function Onboarding() {
   const [busy, setBusy] = useState(false);
   /** Last sign-in failure, kept on the form until the user changes something. */
   const [loginError, setLoginError] = useState<{ message: string; reason?: string } | null>(null);
+  // i18n-ignore: a prefilled place name, the same in every language
   const [data, setData] = useState<OBData>({ phone: '', otp: '', name: '', age: '', location: 'Soweto, Gauteng', skills: [], password: '', verifyToken: '' });
 
   const steps = stepsFor(role);
   const key = steps[step];
 
   const validate = (): boolean => {
-    if (key === 'about' && !data.name.trim()) { toast('Please enter your name'); return false; }
-    if (key === 'skills' && data.skills.length === 0) { toast('Pick at least one skill'); return false; }
-    if (key === 'org' && !data.name.trim()) { toast('Enter your name or business'); return false; }
-    if (key === 'password' && data.password.length < 8) { toast('Choose a password of at least 8 characters'); return false; }
+    if (key === 'about' && !data.name.trim()) { toast(t('onboarding.err.name')); return false; }
+    if (key === 'skills' && data.skills.length === 0) { toast(t('onboarding.err.skills')); return false; }
+    if (key === 'org' && !data.name.trim()) { toast(t('onboarding.err.org')); return false; }
+    if (key === 'password' && data.password.length < 8) { toast(t('onboarding.err.password')); return false; }
     return true;
   };
 
@@ -86,7 +104,7 @@ export function Onboarding() {
         onClearError={() => setLoginError(null)}
         onLogin={async (phone, password) => {
           if (!phone.trim() || !password) {
-            setLoginError({ message: 'Enter your mobile number and password to sign in.' });
+            setLoginError({ message: t('onboarding.login.missing') });
             return;
           }
           setBusy(true);
@@ -133,17 +151,17 @@ function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative max-w-md">
           <span className="ob-rise inline-flex items-center gap-2 rounded-pill bg-white/10 border border-white/15 px-3 py-1.5 text-small font-bold text-on-feature-dim mb-6">
-            <span className="w-2 h-2 rounded-full bg-brand-solid floaty" />Youth work, reimagined for South Africa
+            <span className="w-2 h-2 rounded-full bg-brand-solid floaty" />{t('landing.badge')}
           </span>
-          <h1 className="font-display ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">Start with no CV.<br />Let your work write it<span className="text-brand">.</span></h1>
-          <p className="ob-rise-2 text-on-feature-dim mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
+          <h1 className="font-display ob-rise text-hero font-extrabold leading-[1.05] tracking-[-0.02em]">{t('onboarding.aside.headline1')}<br />{t('onboarding.aside.headline2')}<span className="text-brand">.</span></h1>
+          <p className="ob-rise-2 text-on-feature-dim mt-5 text-body leading-relaxed">{t('onboarding.aside.body')}</p>
           <ul className="ob-rise-3 mt-9 space-y-4">
             {[
-              { icon: 'ladder' as const, t: 'The Ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
-              { icon: 'doc' as const, t: 'A CV that builds itself', s: 'Real, verified references from every job you complete.' },
-              { icon: 'shield' as const, t: 'Safe & fair by design', s: 'ID verification, two-way reviews, minimum-wage checks.' },
+              { icon: 'ladder' as const, t: t('onboarding.aside.ladderTitle'), s: t('onboarding.aside.ladderBody') },
+              { icon: 'doc' as const, t: t('onboarding.aside.cvTitle'), s: t('onboarding.aside.cvBody') },
+              { icon: 'shield' as const, t: t('onboarding.aside.safeTitle'), s: t('onboarding.aside.safeBody') },
             ].map((f) => (
-              <li key={f.t} className="flex gap-3.5 items-start">
+              <li key={f.icon} className="flex gap-3.5 items-start">
                 <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 shrink-0" aria-hidden="true"><Icon name={f.icon} size={20} /></span>
                 <span><span className="block font-bold text-body">{f.t}</span><span className="block text-on-feature-dim text-small leading-snug mt-0.5">{f.s}</span></span>
               </li>
@@ -152,8 +170,9 @@ function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative text-on-feature-dim text-micro leading-relaxed">
+          {/* i18n-ignore: brand name and year */}
           <span className="text-on-feature-dim font-semibold">Vuka Uzenzele · 2026</span><br />
-          Built to help close South Africa's youth unemployment gap — nearly 60% for ages 15–24.
+          {t('onboarding.aside.gap')}
         </div>
       </aside>
 
@@ -181,9 +200,14 @@ function AuthLayout({ children }: { children: ReactNode }) {
             <span aria-hidden="true" className="sm:hidden">Vuka</span>
             <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>
           </div>
-          <button onClick={toggle} aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface transition active:scale-95">
-            <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Language first, before anything is typed: someone signing up
+                should be able to do all of it in their own language. */}
+            <LanguagePicker hover="hover:bg-surface" />
+            <button onClick={toggle} aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface transition active:scale-95">
+              <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto scroll-area flex">
           <div className="ob-rise m-auto w-full max-w-[420px] px-6 sm:px-10 py-8">{children}</div>
@@ -200,10 +224,10 @@ function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; on
     <div>
       <BackRow onBack={onBack} />
       <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">{t('auth.createAccount')}<span className="text-brand">.</span></h2>
-      <p className="text-small text-dim mb-6">How will you use Vuka?</p>
+      <p className="text-small text-dim mb-6">{t('onboarding.role.question')}</p>
       <div className="grid gap-3.5">
-        <RoleOption icon="user" bg="var(--v-info-soft)" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
-        <RoleOption icon="briefcase" bg="var(--v-brand-soft)" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
+        <RoleOption icon="user" bg="var(--v-info-soft)" title={t('onboarding.role.work')} sub={t('onboarding.role.workSub')} onClick={() => onPick('worker')} />
+        <RoleOption icon="briefcase" bg="var(--v-brand-soft)" title={t('onboarding.role.hire')} sub={t('onboarding.role.hireSub')} onClick={() => onPick('employer')} />
       </div>
       <div className="text-center mt-6"><button onClick={onLogin} className="text-small text-dim font-semibold hover:text-ink">{t('auth.hasAccount')} <b className="text-brand">{t('action.logIn')}</b></button></div>
     </div>
@@ -245,9 +269,9 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
     <div>
       <BackRow onBack={onBack} />
       <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">{t('auth.welcomeBack')}<span className="text-brand">.</span></h2>
-      <p className="text-small text-dim mb-6">Sign in to pick up where you left off.</p>
+      <p className="text-small text-dim mb-6">{t('onboarding.login.sub')}</p>
       <div className="mb-3.5">
-        <Label htmlFor="signin-identifier">Mobile number or email</Label>
+        <Label htmlFor="signin-identifier">{t('onboarding.login.identifier')}</Label>
         {/* The field takes either, so the example shows both — a lone phone
             number reads as an instruction. Kept short enough to survive a
             320px screen without the browser truncating it. */}
@@ -259,6 +283,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
+          // i18n-ignore: an example number and address, the same in every language
           placeholder="072 000 0000 / you@mail.com"
           value={identifier}
           onChange={(e) => edit(setIdentifier)(e.target.value)}
@@ -273,7 +298,7 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           className={error ? inputErrCls : inputCls}
           type="password"
           autoComplete="current-password"
-          placeholder="Your password"
+          placeholder={t('onboarding.login.passwordPlaceholder')}
           value={password}
           onChange={(e) => edit(setPassword)(e.target.value)}
           aria-invalid={error ? true : undefined}
@@ -281,19 +306,19 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           onKeyDown={(e) => { if (e.key === 'Enter') onLogin(identifier, password); }}
         />
       </div>
-      <div className="flex justify-end mb-4"><button type="button" onClick={onForgot} className="inline-flex items-center min-h-[44px] px-2 -mr-2 rounded-chip text-small font-bold text-ink hover:bg-surface-2 hover:text-brand transition">Forgot password?</button></div>
+      <div className="flex justify-end mb-4"><button type="button" onClick={onForgot} className="inline-flex items-center min-h-[44px] px-2 -mr-2 rounded-chip text-small font-bold text-ink hover:bg-surface-2 hover:text-brand transition">{t('auth.forgotPassword')}</button></div>
 
       {error && (
         <div role="alert" id="signin-error" className="mb-4 rounded-2xl border border-danger bg-danger-soft px-4 py-3">
           <p className="text-small font-semibold text-danger leading-snug m-0">{error.message}</p>
           {error.reason === 'no_account' && (
             <button type="button" onClick={onSignUp} className="mt-2 text-small font-extrabold text-ink underline underline-offset-2">
-              Create an account →
+              {t('onboarding.login.createAccount')}
             </button>
           )}
           {error.reason === 'wrong_password' && (
             <button type="button" onClick={onForgot} className="mt-2 text-small font-extrabold text-ink underline underline-offset-2">
-              Reset my password →
+              {t('onboarding.login.resetPassword')}
             </button>
           )}
         </div>
@@ -307,10 +332,10 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
           them back in a build, for a demonstration. */}
       {SHOW_DEMO && (
         <>
-          <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
+          <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">{t('onboarding.login.orExplore')}</span><span className="flex-1 h-px bg-line" /></div>
           <div className="grid grid-cols-2 gap-2.5">
-            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>Demo worker</Button>
-            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>Demo employer</Button>
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>{t('onboarding.login.demoWorker')}</Button>
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>{t('onboarding.login.demoEmployer')}</Button>
           </div>
         </>
       )}
@@ -335,7 +360,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
 
   const request = async () => {
     if (phone.replace(/\D/g, '').length < 9) {
-      setError("That doesn't look like a full mobile number. Enter all 10 digits, e.g. 072 000 0000.");
+      setError(t('onboarding.err.phoneShort'));
       return;
     }
     setBusy(true);
@@ -343,7 +368,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
     try {
       const res = await api.requestPasswordReset(phone);
       setDevCode(res.devCode ?? null);
-      toast(res.devCode ? `Test mode — your code is ${res.devCode}` : res.message);
+      toast(res.devCode ? t('onboarding.testCode', { code: res.devCode }) : res.message);
       setPhase('code');
     } catch (e) {
       setError((e as Error).message);
@@ -354,11 +379,11 @@ function ResetView({ onBack }: { onBack: () => void }) {
 
   const confirm = async () => {
     if (code.replace(/\D/g, '').length < 6) {
-      setError('Enter all six digits of the code from your SMS.');
+      setError(t('onboarding.reset.codeShort'));
       return;
     }
     if (password.length < 8) {
-      setError('Choose a password of at least 8 characters.');
+      setError(t('onboarding.reset.passwordShort'));
       return;
     }
     setBusy(true);
@@ -366,7 +391,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
     try {
       // Confirming signs the account straight in, so there's no second login step.
       await api.confirmPasswordReset(phone, code, password).then(async () => { await login(phone, password); });
-      toast('Password changed. Welcome back!');
+      toast(t('onboarding.reset.done'));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -376,30 +401,30 @@ function ResetView({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackRow onBack={onBack} />
-      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">Reset your password<span className="text-brand">.</span></h2>
+      <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">{t('onboarding.reset.title')}<span className="text-brand">.</span></h2>
       {phase === 'phone' ? (
         <>
-          <p className="text-small text-dim mb-6">Enter the mobile number on your account and we'll SMS you a code.</p>
+          <p className="text-small text-dim mb-6">{t('onboarding.reset.intro')}</p>
           <div className="mb-5"><Label>{t('auth.mobile')}</Label>
             <input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={phone} aria-invalid={!!error} onChange={(e) => { setError(null); setPhone(e.target.value); }} aria-label={t('auth.mobile')} onKeyDown={(e) => { if (e.key === 'Enter') request(); }} />
           </div>
           {error && <InlineError>{error}</InlineError>}
-          <Button block disabled={busy} onClick={request}>{busy ? 'Sending…' : 'Send reset code'}</Button>
+          <Button block disabled={busy} onClick={request}>{busy ? t('action.sending') : t('onboarding.reset.send')}</Button>
         </>
       ) : (
         <>
-          <p className="text-small text-dim mb-6">If <b className="text-ink">{phone}</b> has a Vuka account, a 6-digit code is on its way. Enter it with your new password.</p>
-          <div className="mb-3.5"><Label>Reset code</Label>
-            <input className={error ? inputErrCls : inputCls} inputMode="numeric" maxLength={6} placeholder="6-digit code" value={code} aria-invalid={!!error} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '')); }} aria-label="Reset code" />
+          <p className="text-small text-dim mb-6"><Rich text={t('onboarding.reset.sent')} parts={{ phone: <b className="text-ink">{phone}</b> }} /></p>
+          <div className="mb-3.5"><Label>{t('onboarding.reset.code')}</Label>
+            <input className={error ? inputErrCls : inputCls} inputMode="numeric" maxLength={6} placeholder={t('onboarding.reset.codePlaceholder')} value={code} aria-invalid={!!error} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '')); }} aria-label={t('onboarding.reset.code')} />
           </div>
-          <div className="mb-2"><Label>New password</Label>
-            <input className={inputCls} type="password" placeholder={t('auth.passwordHint')} value={password} onChange={(e) => { setError(null); setPassword(e.target.value); }} aria-label="New password" onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
+          <div className="mb-2"><Label>{t('onboarding.reset.newPassword')}</Label>
+            <input className={inputCls} type="password" placeholder={t('auth.passwordHint')} value={password} onChange={(e) => { setError(null); setPassword(e.target.value); }} aria-label={t('onboarding.reset.newPassword')} onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }} />
           </div>
-          {error && <InlineError action={{ label: 'Start again', onClick: () => { setError(null); setCode(''); setPhase('phone'); } }}>{error}</InlineError>}
-          {devCode && <p className="text-small text-dim mb-3">Test mode — your code is <b className="text-ink font-mono tnum tracking-widest">{devCode}</b></p>}
-          <Trust>Changing your password signs out anyone else who was using your account.</Trust>
-          <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : 'Set new password & sign in'}</Button>
-          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-small text-dim font-semibold mt-3 hover:text-ink">Use a different number</button>
+          {error && <InlineError action={{ label: t('onboarding.reset.startAgain'), onClick: () => { setError(null); setCode(''); setPhase('phone'); } }}>{error}</InlineError>}
+          {devCode && <p className="text-small text-dim mb-3"><Rich text={t('onboarding.testCode')} parts={{ code: <b className="text-ink font-mono tnum tracking-widest">{devCode}</b> }} /></p>}
+          <Trust>{t('onboarding.reset.trust')}</Trust>
+          <Button block className="mt-6" disabled={busy} onClick={confirm}>{busy ? t('action.saving') : t('onboarding.reset.submit')}</Button>
+          <button type="button" onClick={() => setPhase('phone')} className="w-full text-center text-small text-dim font-semibold mt-3 hover:text-ink">{t('onboarding.reset.otherNumber')}</button>
         </>
       )}
     </div>
@@ -417,14 +442,14 @@ export const MIN_AGE = 18;
  * and is then refused has given us their name, their number and an SMS code
  * for nothing. Better to say it on the step where it is asked.
  */
-function blockedReason(stepKey: string, data: OBData, role: Role): string | null {
+function blockedReason(stepKey: string, data: OBData, role: Role, t: (key: string, vars?: Record<string, string | number>) => string): string | null {
   if (stepKey !== 'about') return null;
-  if (!data.name.trim()) return 'Please enter your name.';
+  if (!data.name.trim()) return t('onboarding.about.nameMissing');
   if (role !== 'worker') return null;
   const age = Number(data.age);
-  if (!data.age.trim() || !Number.isFinite(age)) return 'Please enter your age.';
-  if (age < MIN_AGE) return `You need to be ${MIN_AGE} or older to work through Vuka.`;
-  if (age > 99) return 'Please enter a valid age.';
+  if (!data.age.trim() || !Number.isFinite(age)) return t('onboarding.about.ageMissing');
+  if (age < MIN_AGE) return t('onboarding.about.tooYoung', { age: MIN_AGE });
+  if (age > 99) return t('onboarding.about.ageInvalid');
   return null;
 }
 
@@ -437,7 +462,7 @@ function RegStep({ stepKey, steps, step, role, data, setData, onBack, onNext, on
   onSignIn: () => void;
 }) {
   const t = useT();
-  const blocked = blockedReason(stepKey, data, role);
+  const blocked = blockedReason(stepKey, data, role, t);
   const total = steps.length - 1;
   const progress = (
     <div className="flex gap-1.5 mb-6">{steps.slice(0, total).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-brand-solid' : 'bg-line'}`} />)}</div>
@@ -471,8 +496,11 @@ function BackRow({ onBack }: { onBack: () => void }) {
   const t = useT();
   return <button onClick={onBack} aria-label={t('action.back')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line bg-surface text-ink mb-5 hover:bg-surface-2 transition active:scale-95"><Icon name="back" size={20} /></button>;
 }
-function Head({ h, sub }: { h: string; sub: string }) {
-  return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight" dangerouslySetInnerHTML={{ __html: h }} /><p className="text-small text-dim mb-6 leading-relaxed">{sub}</p></>);
+/** A step title, ending in a brand-coloured mark ("." or "?"). The words come
+    translated; the mark is punctuation, drawn separately so it can be coloured
+    without putting translated text through innerHTML. */
+function Head({ h, mark, sub }: { h: string; mark: '.' | '?'; sub: string }) {
+  return (<><h2 className="font-display text-head font-extrabold text-ink mb-1.5 leading-tight tracking-tight">{h}<span className="text-brand">{mark}</span></h2><p className="text-small text-dim mb-6 leading-relaxed">{sub}</p></>);
 }
 function Label({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
   return <label htmlFor={htmlFor} className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5">{children}</label>;
@@ -489,7 +517,7 @@ function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData:
 
   const send = async () => {
     if (data.phone.replace(/\D/g, '').length < 9) {
-      setError({ message: "That doesn't look like a full mobile number. Enter all 10 digits, e.g. 072 000 0000." });
+      setError({ message: t('onboarding.err.phoneShort') });
       return;
     }
     setBusy(true);
@@ -500,7 +528,7 @@ function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData:
       // In a pilot without an SMS contract the server may hand the code back so
       // sign-up still works; say so plainly rather than pretending it was sent.
       lastDevCode.value = res.devCode ?? null;
-      toast(res.sent ? 'Code sent. Check your SMS.' : `Test mode — your code is ${res.devCode}`);
+      toast(res.sent ? t('onboarding.phone.sent') : t('onboarding.testCode', { code: String(res.devCode) }));
       onSent();
     } catch (e) {
       const err = e as ApiError;
@@ -510,15 +538,15 @@ function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData:
     }
   };
 
-  return (<><Head h="What's your number<span class='text-brand'>?</span>" sub="We'll send an SMS code to confirm it's you. Your number is never shown to others." />
+  return (<><Head h={t('onboarding.phone.title')} mark="?" sub={t('onboarding.phone.sub')} />
     <div><Label>{t('auth.mobile')}</Label><input className={error ? inputErrCls : inputCls} type="tel" inputMode="numeric" placeholder="072 000 0000" value={data.phone} aria-invalid={!!error} onChange={(e) => { setError(null); setData({ ...data, phone: e.target.value }); }} aria-label={t('auth.mobile')} onKeyDown={(e) => { if (e.key === 'Enter') send(); }} /></div>
     {error && (
-      <InlineError action={error.reason === 'already_registered' ? { label: 'Sign in instead', onClick: onSignIn } : undefined}>
+      <InlineError action={error.reason === 'already_registered' ? { label: t('onboarding.phone.signInInstead'), onClick: onSignIn } : undefined}>
         {error.message}
       </InlineError>
     )}
-    <Trust>Your number is how employers reach you about work — and how you get back in if you forget your password.</Trust>
-    <Button block className="mt-7" disabled={busy} onClick={send}>{busy ? 'Sending code…' : 'Send me the code'}</Button></>);
+    <Trust>{t('onboarding.phone.trust')}</Trust>
+    <Button block className="mt-7" disabled={busy} onClick={send}>{busy ? t('onboarding.phone.sending') : t('onboarding.phone.send')}</Button></>);
 }
 
 /** Test-mode code from the last send, so the OTP screen can show it. */
@@ -527,6 +555,7 @@ const lastDevCode: { value: string | null } = { value: null };
 function OtpStep({ data, setData, onVerified }: {
   data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>>; onVerified: (token: string) => void;
 }) {
+  const t = useT();
   const { toast } = useApp();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const [busy, setBusy] = useState(false);
@@ -540,7 +569,7 @@ function OtpStep({ data, setData, onVerified }: {
 
   const submit = async (code: string) => {
     if (code.replace(/\D/g, '').length < 4) {
-      setError('Enter all four digits of the code.');
+      setError(t('onboarding.otp.short'));
       return;
     }
     setBusy(true);
@@ -576,7 +605,7 @@ function OtpStep({ data, setData, onVerified }: {
       lastDevCode.value = res.devCode ?? null;
       setData((d) => ({ ...d, otp: '' }));
       refs.current[0]?.focus();
-      toast(res.sent ? 'New code sent' : `Test mode — your code is ${res.devCode}`);
+      toast(res.sent ? t('onboarding.otp.newSent') : t('onboarding.testCode', { code: String(res.devCode) }));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -584,9 +613,9 @@ function OtpStep({ data, setData, onVerified }: {
     }
   };
 
-  return (<><Head h="Enter your code<span class='text-brand'>.</span>" sub={`We sent a 4-digit code to ${data.phone || 'your phone'}.`} />
+  return (<><Head h={t('onboarding.otp.title')} mark="." sub={t('onboarding.otp.sub', { phone: data.phone || t('onboarding.otp.yourPhone') })} />
     <div className="flex gap-3 justify-center">
-      {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={`Digit ${i + 1}`} placeholder="•"
+      {[0, 1, 2, 3].map((i) => (<input key={i} ref={(el) => { refs.current[i] = el; }} maxLength={1} inputMode="numeric" aria-label={t('onboarding.otp.digit', { n: i + 1 })} placeholder="•"
         value={data.otp[i] ?? ''}
         disabled={busy}
         aria-invalid={!!error}
@@ -596,29 +625,30 @@ function OtpStep({ data, setData, onVerified }: {
         onChange={(e) => setDigit(i, e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Backspace' && !(data.otp[i] ?? '') && i > 0) refs.current[i - 1]?.focus(); }} />))}
     </div>
-    {error && <InlineError action={{ label: 'Send a new code', onClick: resend }}>{error}</InlineError>}
-    {devCode && <p className="text-center text-small text-dim mt-3">Test mode — your code is <b className="text-ink font-mono tnum tracking-widest">{devCode}</b></p>}
+    {error && <InlineError action={{ label: t('onboarding.otp.sendNew'), onClick: resend }}>{error}</InlineError>}
+    {devCode && <p className="text-center text-small text-dim mt-3"><Rich text={t('onboarding.testCode')} parts={{ code: <b className="text-ink font-mono tnum tracking-widest">{devCode}</b> }} /></p>}
     <p className="text-center text-small text-dim mt-4">
-      Didn't get it? <button type="button" disabled={busy} onClick={resend} className="text-ink font-bold underline underline-offset-2 hover:text-brand transition disabled:opacity-50">Resend</button>
+      {t('onboarding.otp.didntGet')} <button type="button" disabled={busy} onClick={resend} className="text-ink font-bold underline underline-offset-2 hover:text-brand transition disabled:opacity-50">{t('onboarding.otp.resend')}</button>
     </p>
-    <Button block className="mt-7" disabled={busy} onClick={() => submit(data.otp)}>{busy ? 'Checking…' : 'Confirm my number'}</Button></>);
+    <Button block className="mt-7" disabled={busy} onClick={() => submit(data.otp)}>{busy ? t('auth.verifying') : t('onboarding.otp.confirm')}</Button></>);
 }
 function AboutStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   const t = useT();
-  return (<><Head h="Tell us about you<span class='text-brand'>.</span>" sub="This starts your profile. Keep it simple and honest." />
-    <div className="mb-3.5"><Label>{t('auth.fullName')}</Label><input className={inputCls} placeholder="e.g. Thandeka Mokoena" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label={t('auth.fullName')} /></div>
+  return (<><Head h={t('onboarding.about.title')} mark="." sub={t('onboarding.about.sub')} />
+    <div className="mb-3.5"><Label>{t('auth.fullName')}</Label><input className={inputCls} placeholder={t('onboarding.about.namePlaceholder')} value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label={t('auth.fullName')} /></div>
     <div className="flex gap-2.5">
       {/* min was 16. The terms have always said 18 and over, and POPIA s34
           makes a child's personal information unlawful to process here at all,
           so the field was inviting exactly the sign-ups the product must
           refuse — and the refusal only came later, if at all. */}
-      <div className="flex-1"><Label>Age</Label><input className={inputCls} type="number" min={MIN_AGE} max={99} placeholder="21" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })} aria-label="Age" inputMode="numeric" /></div>
-      <div className="flex-[2]"><Label>Where you live</Label><input className={inputCls} placeholder="Suburb, City" value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label="Location" /></div>
+      <div className="flex-1"><Label>{t('onboarding.about.age')}</Label><input className={inputCls} type="number" min={MIN_AGE} max={99} placeholder="21" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })} aria-label={t('onboarding.about.age')} inputMode="numeric" /></div>
+      <div className="flex-[2]"><Label>{t('onboarding.about.where')}</Label><input className={inputCls} placeholder={t('onboarding.about.wherePlaceholder')} value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label={t('onboarding.about.location')} /></div>
     </div></>);
 }
 function SkillsStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
+  const t = useT();
   const toggleSkill = (id: CategoryId) => setData((d) => ({ ...d, skills: d.skills.includes(id) ? d.skills.filter((s) => s !== id) : [...d.skills, id] }));
-  return (<><Head h="What are you good at<span class='text-brand'>?</span>" sub="Pick everything you can do — no experience or papers needed. Choose at least one." />
+  return (<><Head h={t('onboarding.skills.title')} mark="?" sub={t('onboarding.skills.sub')} />
     <div className="grid grid-cols-2 gap-2.5">
       {CATEGORIES.map((c) => { const sel = data.skills.includes(c.id); return (
         <button key={c.id} onClick={() => toggleSkill(c.id)} aria-pressed={sel} className={`relative flex gap-2.5 items-center border-[1.5px] rounded-2xl px-3 py-3.5 bg-surface transition ${sel ? 'border-brand-solid bg-brand-soft' : 'border-line hover:border-faint'}`}>
@@ -629,9 +659,9 @@ function SkillsStep({ data, setData }: { data: OBData; setData: React.Dispatch<R
 }
 function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
   const t = useT();
-  return (<><Head h="Create a password<span class='text-brand'>.</span>" sub="You'll use your mobile number and this password to sign in next time." />
+  return (<><Head h={t('onboarding.password.title')} mark="." sub={t('onboarding.password.sub')} />
     <div><Label>{t('auth.password')}</Label><input className={inputCls} type="password" placeholder={t('auth.passwordHint')} value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} aria-label={t('auth.password')} /></div>
-    <Trust>Your password is stored securely (hashed) — never in plain text.</Trust></>);
+    <Trust>{t('onboarding.password.trust')}</Trust></>);
 }
 /**
  * Verification is explained here but done from the profile, after sign-up — it
@@ -639,46 +669,50 @@ function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch
  * and nothing to tick on this screen.
  */
 function IdStep() {
-  return (<><Head h="Verify your identity<span class='text-brand'>.</span>" sub="Optional — but verified workers get the Verified badge, more employer trust, and access to formal roles that require it." />
+  const t = useT();
+  return (<><Head h={t('onboarding.id.title')} mark="." sub={t('onboarding.id.sub')} />
     <div className="border-[1.5px] border-dashed border-line bg-surface-2 rounded-[20px] p-6 text-center">
       <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-ink bg-info-soft dark:bg-surface" aria-hidden="true"><Icon name="id" size={32} /></div>
-      <h4 className="font-display m-0 mb-1 text-lead text-ink font-bold">Do this from your profile</h4>
-      <p className="m-0 text-small text-dim leading-relaxed">Finish signing up, then open <b className="text-ink">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
+      <h4 className="font-display m-0 mb-1 text-lead text-ink font-bold">{t('onboarding.id.boxTitle')}</h4>
+      <p className="m-0 text-small text-dim leading-relaxed"><Rich text={t('onboarding.id.boxBody')} parts={{ path: <b className="text-ink">{t('onboarding.id.path')}</b> }} /></p>
     </div>
     <ul className="mt-4 space-y-2 text-small text-ink">
-      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="lock" size={16} /></span> Your ID number is encrypted and never shown to employers</li>
-      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="clock" size={16} /></span> Takes under a minute, once</li>
-      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="ladder" size={16} /></span> Unlocks formal roles that require verification</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="lock" size={16} /></span> {t('onboarding.id.encrypted')}</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="clock" size={16} /></span> {t('onboarding.id.quick')}</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="ladder" size={16} /></span> {t('onboarding.id.unlocks')}</li>
     </ul>
-    <Trust>You can start applying for gigs straight away — verification is not needed first.</Trust></>);
+    <Trust>{t('onboarding.id.trust')}</Trust></>);
 }
 function OrgStep({ data, setData }: { data: OBData; setData: React.Dispatch<React.SetStateAction<OBData>> }) {
-  return (<><Head h="Your details<span class='text-brand'>.</span>" sub="So workers know who they're dealing with." />
-    <div className="mb-3.5"><Label>Your name or business</Label><input className={inputCls} placeholder="e.g. Sipho Dlamini / Zanele Beauty Bar" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label="Name or business" /></div>
-    <div><Label>Where are you</Label><input className={inputCls} placeholder="Suburb, City" value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label="Location" /></div></>);
+  const t = useT();
+  return (<><Head h={t('onboarding.org.title')} mark="." sub={t('onboarding.org.sub')} />
+    <div className="mb-3.5"><Label>{t('onboarding.org.name')}</Label><input className={inputCls} placeholder={t('onboarding.org.namePlaceholder')} value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} aria-label={t('onboarding.org.nameAria')} /></div>
+    <div><Label>{t('onboarding.org.where')}</Label><input className={inputCls} placeholder={t('onboarding.about.wherePlaceholder')} value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} aria-label={t('onboarding.about.location')} /></div></>);
 }
 
 /* ---------------- Success ---------------- */
 function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: string; busy: boolean; onEnter: () => void; onBack: () => void }) {
+  const t = useT();
   const worker = role === 'worker';
+  const first = name ? name.split(' ')[0] : '';
   return (
     <div className="text-center">
       <BackRow onBack={onBack} />
       <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-on-feature feature-band" aria-hidden="true">{worker ? '🎉' : <Icon name="briefcase" size={48} />}</div>
-      <h2 className="font-display text-head font-extrabold text-ink mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
-      <p className="text-small text-dim leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
+      <h2 className="font-display text-head font-extrabold text-ink mt-5 mb-2 tracking-tight">{name ? t('onboarding.done.titleNamed', { name: first }) : t('onboarding.done.title')}</h2>
+      <p className="text-small text-dim leading-relaxed">{worker ? t('onboarding.done.worker') : t('onboarding.done.employer')}</p>
       {/* An inverted block: `ink` and `canvas` swap between themes, so the
           secondary lines have to recede from the block's own text colour
           rather than pick a fixed grey. */}
       {worker && (
         <div className="text-left bg-ink text-canvas rounded-card p-4 mt-5">
-          <b className="text-small">Your first 3 steps</b>
-          <div className="text-small opacity-85 mt-2.5">1. Apply to a gig near you (it's free)</div>
-          <div className="text-small opacity-85 mt-2">2. Do a great job & get reviewed</div>
-          <div className="text-small opacity-85 mt-2">3. Watch your CV grow and unlock formal jobs</div>
+          <b className="text-small">{t('onboarding.done.steps')}</b>
+          <div className="text-small opacity-85 mt-2.5">{t('onboarding.done.step1')}</div>
+          <div className="text-small opacity-85 mt-2">{t('onboarding.done.step2')}</div>
+          <div className="text-small opacity-85 mt-2">{t('onboarding.done.step3')}</div>
         </div>
       )}
-      <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? 'Creating your account…' : worker ? 'Create account & start' : 'Create account'}</Button>
+      <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? t('onboarding.done.creating') : worker ? t('onboarding.done.createStart') : t('onboarding.done.create')}</Button>
       <Consent />
     </div>
   );
@@ -686,15 +720,18 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
 
 /** Consent, in the one place where it actually means something. */
 function Consent() {
+  const t = useT();
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
   return (
     <>
       <p className="text-micro text-dim leading-relaxed mt-3">
-        By creating an account you agree to our{' '}
-        <button onClick={() => setLegal('terms')} className="font-bold text-ink underline underline-offset-2">Terms of use</button>
-        {' '}and to us handling your information as set out in the{' '}
-        <button onClick={() => setLegal('privacy')} className="font-bold text-ink underline underline-offset-2">Privacy notice</button>.
-        You must be 18 or older.
+        <Rich
+          text={t('onboarding.consent.text')}
+          parts={{
+            terms: <button onClick={() => setLegal('terms')} className="font-bold text-ink underline underline-offset-2">{t('onboarding.legal.terms')}</button>,
+            privacy: <button onClick={() => setLegal('privacy')} className="font-bold text-ink underline underline-offset-2">{t('onboarding.legal.privacyNotice')}</button>,
+          }}
+        />
       </p>
       {legal === 'privacy' && <PrivacySheet onClose={() => setLegal(null)} />}
       {legal === 'terms' && <TermsSheet onClose={() => setLegal(null)} />}

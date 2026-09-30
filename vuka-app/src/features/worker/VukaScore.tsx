@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { CvSnapshot } from '../../types';
 import { Ring, Sheet, useCountUp } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { tr } from '../../i18n';
+import { useT } from '../../providers/LanguageProvider';
 
 /**
  * The Vuka Score, and what it is made of.
@@ -41,28 +43,28 @@ export function scoreParts(cv: CvSnapshot): Part[] {
 
   return [
     {
-      label: 'Your rating',
+      label: tr('worker.score.yourRating'),
       detail: started
-        ? `${cv.avg.toFixed(1)} out of 5, averaged over every job an employer rated`
-        : 'No ratings yet',
+        ? tr('worker.score.ratingDetail', { avg: cv.avg.toFixed(1) })
+        : tr('worker.score.noRatings'),
       earned: started ? Math.max(0, rating) : 0,
       outOf: 60,
     },
     {
-      label: 'Jobs completed',
+      label: tr('worker.score.jobsCompleted'),
       detail: cv.jobsDone >= MAX_JOBS_COUNTED
-        ? `${cv.jobsDone} jobs — this part is full at ${MAX_JOBS_COUNTED}`
-        : `${cv.jobsDone} of ${MAX_JOBS_COUNTED} jobs counted`,
+        ? tr('worker.score.jobsFull', { jobs: cv.jobsDone, max: MAX_JOBS_COUNTED })
+        : tr('worker.score.jobsCounted', { jobs: cv.jobsDone, max: MAX_JOBS_COUNTED }),
       earned: started ? jobs : 0,
       outOf: 30,
     },
     {
-      label: 'Safety record',
+      label: tr('worker.score.safetyRecord'),
       detail: !started
-        ? 'Clean so far — worth 10 once your first job is confirmed'
+        ? tr('worker.score.cleanSoFar')
         : cv.flags === 0
-          ? 'No safety flags'
-          : `${cv.flags} safety flag${cv.flags === 1 ? '' : 's'} on your record`,
+          ? tr('worker.score.noFlags')
+          : tr('worker.score.flags', { count: cv.flags }),
       earned: started ? safety : 0,
       outOf: 10,
     },
@@ -77,6 +79,7 @@ export function scoreParts(cv: CvSnapshot): Part[] {
  * caption crossed the ring at every size. A dial holds one number.
  */
 export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; size?: number; stroke?: number }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const animated = useCountUp(cv.rep);
 
@@ -86,7 +89,7 @@ export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; siz
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex flex-col items-center gap-2 rounded-card px-2 py-1 transition active:scale-95 hover:bg-surface-2"
-        aria-label={`Vuka Score ${Math.round(cv.rep)} out of 100. See how it is worked out.`}
+        aria-label={t('worker.score.aria', { score: Math.round(cv.rep) })}
       >
         <Ring pct={animated} size={size} stroke={stroke}>
           <b
@@ -97,7 +100,7 @@ export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; siz
           </b>
         </Ring>
         <span className="inline-flex items-center gap-1 text-micro text-dim font-bold uppercase tracking-wide">
-          Vuka Score <Icon name="chev" size={11} />
+          {t('worker.score.label')} <Icon name="chev" size={11} />
         </span>
       </button>
       {open && <ScoreSheet cv={cv} onClose={() => setOpen(false)} />}
@@ -106,13 +109,13 @@ export function ScoreDial({ cv, size = 132, stroke = 11 }: { cv: CvSnapshot; siz
 }
 
 function ScoreSheet({ cv, onClose }: { cv: CvSnapshot; onClose: () => void }) {
+  const t = useT();
   const parts = scoreParts(cv);
   return (
-    <Sheet title="How your Vuka Score works" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">Your Vuka Score</h3>
+    <Sheet title={t('worker.score.sheetTitle')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">{t('worker.score.yourScore')}</h3>
       <p className="text-dim text-small leading-relaxed mb-4">
-        One number out of 100, built from work employers confirmed. Nothing here is set by hand,
-        and nothing can be bought.
+        {t('worker.score.intro')}
       </p>
 
       <div className="rounded-2xl border border-line overflow-hidden">
@@ -131,15 +134,13 @@ function ScoreSheet({ cv, onClose }: { cv: CvSnapshot; onClose: () => void }) {
           </div>
         ))}
         <div className="flex items-baseline justify-between gap-3 p-3.5 bg-surface-2">
-          <b className="text-small text-ink">Total</b>
+          <b className="text-small text-ink">{t('worker.score.total')}</b>
           <span className="font-mono tnum text-lead font-extrabold text-ink">{cv.rep}<span className="text-faint"> / 100</span></span>
         </div>
       </div>
 
       <p className="text-micro text-dim leading-relaxed mt-4 mb-0">
-        The fastest way up is a good rating on the next job — it is worth more than any other part.
-        Your score is separate from your tier: the tier sets which jobs you can apply for, the score
-        is how employers compare people who can already apply.
+        {t('worker.score.foot')}
       </p>
     </Sheet>
   );

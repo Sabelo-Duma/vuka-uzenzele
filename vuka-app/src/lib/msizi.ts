@@ -42,6 +42,8 @@ import { HEADLINE_STATS } from '../data/stats';
 import { money } from './format';
 import type { CvSnapshot, Role } from '../types';
 import type { Screen } from '../store/appStore';
+import { MSIZI_LANGS } from '../data/msizi-lang';
+import { langMeta, type Lang } from '../i18n';
 
 /* ------------------------------------------------------------------
    What Msizi is allowed to know about the person asking.
@@ -49,6 +51,9 @@ import type { Screen } from '../store/appStore';
 
 export interface MsiziContext {
   role: Role;
+  /** The app's language. Answers come back in it wherever a translation
+      exists, and in English (marked as such on the reply) where one does not. */
+  lang?: Lang;
   /** First name, for reading a figure back. Empty is fine. */
   name: string;
   /** The worker's own record. Null for employers, or before it has loaded. */
@@ -80,45 +85,76 @@ export interface MsiziContext {
    stops Msizi becoming another constant that quietly goes stale each March.
    ------------------------------------------------------------------ */
 
-function tierLines(): string {
+/* ---- Msizi's own sentences, in the asker's language ---- */
+
+const pluralCache = new Map<string, Intl.PluralRules>();
+function pluralOf(lang: Lang, n: number): string {
+  const tag = langMeta(lang).tag;
+  let rules = pluralCache.get(tag);
+  if (!rules) {
+    try { rules = new Intl.PluralRules(tag); } catch { rules = new Intl.PluralRules('en'); }
+    pluralCache.set(tag, rules);
+  }
+  return rules.select(n);
+}
+
+/**
+ * One of the sentences live answers are made of, in `lang`, falling back to
+ * English. With `count`, picks key_one / key_other through Intl.PluralRules.
+ */
+export function say(lang: Lang, key: string, vars: Record<string, string | number> = {}): string {
+  const tables = [MSIZI_LANGS[lang]?.text ?? {}, MSIZI_LANGS.en.text];
+  const keys = typeof vars.count === 'number'
+    ? [`${key}_${pluralOf(lang, vars.count)}`, `${key}_other`, key]
+    : [key];
+  for (const table of tables) {
+    for (const k of keys) {
+      const hit = table[k];
+      if (typeof hit === 'string' && hit.trim()) {
+        return hit.replace(/\{(\w+)\}/g, (whole, name: string) => (name in vars ? String(vars[name]) : whole));
+      }
+    }
+  }
+  return key;
+}
+
+function tierLines(lang: Lang): string {
   return TIERS.map((t) => {
     const entry = t.minJobs === 0
-      ? 'the tier everyone starts on'
-      : `${t.minJobs} completed jobs, ${t.minRating.toFixed(1)} stars or better, no safety flags`;
-    return `• ${t.icon} ${t.name} — ${entry}. Unlocks: ${t.unlocks}`;
+      ? say(lang, 'fill.tierFirst')
+      : say(lang, 'fill.tierReqs', { jobs: t.minJobs, rating: t.minRating.toFixed(1) });
+    return say(lang, 'fill.tierLine', { icon: t.icon, name: t.name, entry, unlocks: t.unlocks });
   }).join('\n');
 }
 
-function categoryLine(): string {
-  return `• ${CATEGORIES.map((c) => c.label).join(', ')}.`;
+function categoryLine(lang: Lang): string {
+  return say(lang, 'fill.categoryLine', { list: CATEGORIES.map((c) => c.label).join(say(lang, 'fill.listSep')) });
 }
 
-function badgeLines(): string {
-  return BADGES.map((b) => `• ${b.icon} ${b.label} — ${b.desc}.`).join('\n');
+function badgeLines(lang: Lang): string {
+  return BADGES.map((b) => say(lang, 'fill.badgeLine', { icon: b.icon, label: b.label, desc: b.desc })).join('\n');
 }
 
 function youthFigure(): string {
-  const stat = HEADLINE_STATS.find((s) => s.label.toLowerCase().includes('unemployment'));
+  const stat = HEADLINE_STATS.find((s) => s.id === 'youthUnemployment');
   return stat ? stat.value : '';
 }
 
 /** Turn "{autoReleaseHours} hours" into something a person would say. */
-function hoursPhrase(hours: number): string {
-  if (hours % 24 === 0 && hours >= 24) {
-    const days = hours / 24;
-    return `${days} day${days === 1 ? '' : 's'}`;
-  }
-  return `${hours} hour${hours === 1 ? '' : 's'}`;
+function hoursPhrase(hours: number, lang: Lang): string {
+  if (hours % 24 === 0 && hours >= 24) return say(lang, 'fill.days', { count: hours / 24 });
+  return say(lang, 'fill.hours', { count: hours });
 }
 
 /** Resolve every {placeholder} in an answer body. */
 export function fill(text: string, ctx: MsiziContext): string {
+  const lang = ctx.lang ?? 'en';
   return text
     .replace(/\{minWage\}/g, money(ctx.minWage))
-    .replace(/\{autoReleaseHours\}/g, hoursPhrase(ctx.autoReleaseHours))
-    .replace(/\{tiers\}/g, tierLines())
-    .replace(/\{categories\}/g, categoryLine())
-    .replace(/\{badges\}/g, badgeLines())
+    .replace(/\{autoReleaseHours\}/g, hoursPhrase(ctx.autoReleaseHours, lang))
+    .replace(/\{tiers\}/g, tierLines(lang))
+    .replace(/\{categories\}/g, categoryLine(lang))
+    .replace(/\{badges\}/g, badgeLines(lang))
     .replace(/\{hosting\}/g, OPERATOR.hostingRegion)
     .replace(/\{youthUnemployment\}/g, youthFigure());
 }
@@ -137,9 +173,8 @@ export interface LiveIntent {
   resolve: (ctx: MsiziContext) => string | null;
 }
 
-const NO_RECORD =
-  'You have not completed a job yet, so there is nothing on your record to read out. '
-  + 'Your first completed gig starts it — after that this fills in by itself.';
+const L = (ctx: MsiziContext): Lang => ctx.lang ?? 'en';
+const NO_RECORD = (ctx: MsiziContext) => say(L(ctx), 'noRecord');
 
 export const LIVE_INTENTS: LiveIntent[] = [
   {
@@ -149,12 +184,17 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my score', 'my rep', 'my reputation', 'my points', 'how am i doing'],
     role: 'worker',
     resolve: (ctx) => {
-      if (!ctx.cv || ctx.cv.jobsDone === 0) return NO_RECORD;
+      if (!ctx.cv || ctx.cv.jobsDone === 0) return NO_RECORD(ctx);
+      const lang = L(ctx);
       const { rep, avg, jobsDone, flags } = ctx.cv;
-      const parts = [`Your Vuka Score is ${rep} out of 100.`];
-      parts.push(`That is built from ${jobsDone} completed job${jobsDone === 1 ? '' : 's'}, an average of ${avg.toFixed(1)} stars, and ${flags === 0 ? 'a clean safety record' : `${flags} safety flag${flags === 1 ? '' : 's'}`}.`);
-      if (flags > 0) parts.push('The flag is what is holding it back, and it is also blocking your next tier.');
-      else if (rep >= 85) parts.push('That is a strong record. Employers browsing talent will see you near the top.');
+      const parts = [say(lang, 'score.value', { rep })];
+      parts.push(say(lang, 'score.built', {
+        jobs: say(lang, 'score.jobs', { count: jobsDone }),
+        avg: avg.toFixed(1),
+        safety: flags === 0 ? say(lang, 'score.clean') : say(lang, 'score.flags', { count: flags }),
+      }));
+      if (flags > 0) parts.push(say(lang, 'score.flagHolding'));
+      else if (rep >= 85) parts.push(say(lang, 'score.strong'));
       return parts.join('\n');
     },
   },
@@ -165,22 +205,23 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my tier', 'my level', 'my rank', 'next tier', 'how far', 'my ladder'],
     role: 'worker',
     resolve: (ctx) => {
-      if (!ctx.cv) return NO_RECORD;
+      if (!ctx.cv) return NO_RECORD(ctx);
+      const lang = L(ctx);
       const { tier, nextTier, jobsToGo, ratingMet, flagBlocked, avg } = ctx.cv;
-      const parts = [`You are ${tier.icon} ${tier.name} — ${tier.tagline}.`];
-      parts.push(`That unlocks: ${tier.unlocks}`);
+      const parts = [say(lang, 'tier.youAre', { icon: tier.icon, name: tier.name, tagline: tier.tagline })];
+      parts.push(say(lang, 'tier.unlocks', { unlocks: tier.unlocks }));
       if (!nextTier) {
-        parts.push('That is the top of The Ladder. There is nothing above it.');
+        parts.push(say(lang, 'tier.top'));
         return parts.join('\n');
       }
-      parts.push(`Next is ${nextTier.icon} ${nextTier.name}.`);
+      parts.push(say(lang, 'tier.next', { icon: nextTier.icon, name: nextTier.name }));
       const blocking: string[] = [];
-      if (jobsToGo > 0) blocking.push(`${jobsToGo} more completed job${jobsToGo === 1 ? '' : 's'}`);
-      if (!ratingMet) blocking.push(`an average of ${nextTier.minRating.toFixed(1)} stars or better — yours is ${avg.toFixed(1)}`);
-      if (flagBlocked) blocking.push('a clean record — a safety flag is blocking it');
+      if (jobsToGo > 0) blocking.push(say(lang, 'tier.needJobs', { count: jobsToGo }));
+      if (!ratingMet) blocking.push(say(lang, 'tier.needRating', { rating: nextTier.minRating.toFixed(1), avg: avg.toFixed(1) }));
+      if (flagBlocked) blocking.push(say(lang, 'tier.needClean'));
       parts.push(blocking.length === 0
-        ? 'You meet every condition for it.'
-        : `You still need ${blocking.join(', and ')}.`);
+        ? say(lang, 'tier.allMet')
+        : say(lang, 'tier.stillNeed', { list: blocking.join(say(lang, 'tier.and')) }));
       return parts.join('\n');
     },
   },
@@ -191,11 +232,11 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my jobs', 'jobs done', 'how many jobs', 'completed jobs', 'jobs completed'],
     role: 'worker',
     resolve: (ctx) => {
-      if (!ctx.cv) return NO_RECORD;
+      if (!ctx.cv) return NO_RECORD(ctx);
+      const lang = L(ctx);
       const { jobsDone, categoriesWorked, avg } = ctx.cv;
-      if (jobsDone === 0) return NO_RECORD;
-      return `You have completed ${jobsDone} job${jobsDone === 1 ? '' : 's'} on Vuka, across ${categoriesWorked} `
-        + `kind${categoriesWorked === 1 ? '' : 's'} of work, at an average of ${avg.toFixed(1)} stars.`;
+      if (jobsDone === 0) return NO_RECORD(ctx);
+      return say(lang, 'jobs.done', { count: jobsDone, kinds: say(lang, 'jobs.kinds', { count: categoriesWorked }), avg: avg.toFixed(1) });
     },
   },
   {
@@ -205,10 +246,8 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my earnings', 'earned', 'how much have i', 'total earned', 'my money'],
     role: 'worker',
     resolve: (ctx) => {
-      if (!ctx.cv || ctx.cv.jobsDone === 0) return NO_RECORD;
-      return `You have earned ${money(ctx.cv.totalEarned)} from ${ctx.cv.jobsDone} completed `
-        + `job${ctx.cv.jobsDone === 1 ? '' : 's'}, counted from the pay each job listed. `
-        + 'What is in your wallet right now is a separate figure — ask me "how much is in my wallet".';
+      if (!ctx.cv || ctx.cv.jobsDone === 0) return NO_RECORD(ctx);
+      return say(L(ctx), 'earn.total', { amount: money(ctx.cv.totalEarned), count: ctx.cv.jobsDone });
     },
   },
   {
@@ -218,14 +257,20 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my badges', 'my awards', 'badges earned', 'which badges'],
     role: 'worker',
     resolve: (ctx) => {
-      if (!ctx.cv) return NO_RECORD;
+      if (!ctx.cv) return NO_RECORD(ctx);
+      const lang = L(ctx);
       const earned = BADGES.filter((b) => ctx.cv?.earnedBadges.has(b.id));
-      if (earned.length === 0) {
-        return 'You have not earned a badge yet. The first one, First Job, arrives the moment your first gig is confirmed.';
-      }
+      if (earned.length === 0) return say(lang, 'badges.none');
       const missing = BADGES.filter((b) => !ctx.cv?.earnedBadges.has(b.id));
-      const lines = [`You have earned ${earned.length} of ${BADGES.length} badges: ${earned.map((b) => `${b.icon} ${b.label}`).join(', ')}.`];
-      if (missing.length > 0) lines.push(`Still to come: ${missing.map((b) => `${b.label} (${b.desc.toLowerCase()})`).join('; ')}.`);
+      const lines = [say(lang, 'badges.earned', {
+        earned: earned.length, total: BADGES.length,
+        list: earned.map((b) => say(lang, 'badges.item', { icon: b.icon, label: b.label })).join(say(lang, 'fill.listSep')),
+      })];
+      if (missing.length > 0) {
+        lines.push(say(lang, 'badges.missing', {
+          list: missing.map((b) => say(lang, 'badges.missingItem', { label: b.label, desc: b.desc.toLowerCase() })).join(say(lang, 'badges.missingSep')),
+        }));
+      }
       return lines.join(' ');
     },
   },
@@ -236,15 +281,14 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my wallet', 'my balance', 'in my wallet', 'can i withdraw', 'wallet balance'],
     role: 'worker',
     resolve: (ctx) => {
-      if (ctx.wallet === undefined) return 'Your wallet is still loading. Ask me again in a moment, or open Me, then My wallet.';
-      if (ctx.wallet === null) return 'I could not read your wallet just now. Open Me, then My wallet, to see it.';
+      const lang = L(ctx);
+      if (ctx.wallet === undefined) return say(lang, 'wallet.loading');
+      if (ctx.wallet === null) return say(lang, 'wallet.error');
       const { balance, pending, mode } = ctx.wallet;
-      const parts = [balance > 0
-        ? `You have ${money(balance)} in your wallet, ready to withdraw to your bank.`
-        : 'Your wallet is empty right now.'];
-      if (pending > 0) parts.push(`Another ${money(pending)} is secured on jobs you are doing. It arrives when each one is confirmed.`);
-      if (balance <= 0 && pending <= 0) parts.push('Pay lands here when an employer confirms a job you did.');
-      if (mode !== 'live') parts.push('Payments are in test mode for now, so no real money has moved yet.');
+      const parts = [balance > 0 ? say(lang, 'wallet.balance', { amount: money(balance) }) : say(lang, 'wallet.empty')];
+      if (pending > 0) parts.push(say(lang, 'wallet.pending', { amount: money(pending) }));
+      if (balance <= 0 && pending <= 0) parts.push(say(lang, 'wallet.howLands'));
+      if (mode !== 'live') parts.push(say(lang, 'wallet.test'));
       return parts.join('\n');
     },
   },
@@ -255,20 +299,14 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my applications', 'applied for', 'how many applied', 'my applies'],
     role: 'worker',
     resolve: (ctx) =>
-      ctx.applied === 0
-        ? 'You have not applied for anything yet. Find work shows the gigs near you, and applying is one tap.'
-        : `You have applied for ${ctx.applied} gig${ctx.applied === 1 ? '' : 's'}. `
-          + 'Employers see everyone who applied and choose from them, so not hearing back on one is normal — keep applying.',
+      ctx.applied === 0 ? say(L(ctx), 'apps.none') : say(L(ctx), 'apps.some', { count: ctx.applied }),
   },
   {
     id: 'my-verification',
     title: 'Whether your ID is verified',
     asks: ['Am I verified?', 'Is my ID verified?'],
     keywords: ['am i verified', 'my verification', 'my id verified'],
-    resolve: (ctx) =>
-      ctx.idVerified
-        ? 'Yes — your identity is verified, and the verified mark shows on your profile. That is one of the first things the other side looks at.'
-        : 'Not yet. You can submit your South African ID number under Me to be verified. It is optional, but an employer choosing between two people will take the verified one.',
+    resolve: (ctx) => say(L(ctx), ctx.idVerified ? 'verified.yes' : 'verified.no'),
   },
   {
     id: 'jobs-near-me',
@@ -277,9 +315,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['jobs near', 'work near me', 'any jobs', 'whats available', 'jobs right now'],
     role: 'worker',
     resolve: (ctx) =>
-      ctx.gigsNearby === 0
-        ? 'There is nothing in your feed at the moment. New gigs are posted through the day — turn on New gigs near me under Me, then Notifications, and your phone will tell you instead of you having to check.'
-        : `There ${ctx.gigsNearby === 1 ? 'is' : 'are'} ${ctx.gigsNearby} gig${ctx.gigsNearby === 1 ? '' : 's'} in your feed right now, sorted nearest first. Open Find work to see them.`,
+      ctx.gigsNearby === 0 ? say(L(ctx), 'near.none') : say(L(ctx), 'near.some', { count: ctx.gigsNearby }),
   },
   {
     id: 'my-messages',
@@ -287,9 +323,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
     asks: ['Do I have any messages?', 'Any unread messages?'],
     keywords: ['my messages', 'unread', 'new messages', 'anyone message'],
     resolve: (ctx) =>
-      ctx.unread === 0
-        ? 'You have no unread messages. Anything new from an employer will show up in Chats, and your phone can tell you if Messages is on under Me, then Notifications.'
-        : `You have ${ctx.unread} unread message${ctx.unread === 1 ? '' : 's'} waiting in Chats.`,
+      ctx.unread === 0 ? say(L(ctx), 'messages.none') : say(L(ctx), 'messages.some', { count: ctx.unread }),
   },
 ];
 
@@ -443,8 +477,15 @@ function addField(weights: Map<string, number>, text: string, weight: number) {
   }
 }
 
-function buildIndex(): { docs: Indexed[]; idf: Map<string, number> } {
+/**
+ * One index per app language. Each document holds its English fields AND the
+ * same entry's fields in that language, so an isiZulu question matches the
+ * isiZulu phrasings while the English words (and the alias table) still count.
+ * Built the first time a language is asked, then kept.
+ */
+function buildIndex(lang: Lang): { docs: Indexed[]; idf: Map<string, number> } {
   const docs: Indexed[] = [];
+  const own = lang === 'en' ? null : MSIZI_LANGS[lang];
 
   for (const e of KNOWLEDGE) {
     const weights = new Map<string, number>();
@@ -452,7 +493,14 @@ function buildIndex(): { docs: Indexed[]; idf: Map<string, number> } {
     for (const a of e.asks) addField(weights, a, FIELD.ask);
     for (const k of e.keywords ?? []) addField(weights, k, FIELD.keyword);
     addField(weights, e.body, FIELD.body);
-    docs.push({ id: e.id, title: e.title, weights, phrasings: e.asks.map(normalise), role: e.role, live: false });
+    const x = own?.entries[e.id];
+    if (x) {
+      addField(weights, x.title, FIELD.title);
+      for (const a of x.asks) addField(weights, a, FIELD.ask);
+      for (const k of x.keywords ?? []) addField(weights, k, FIELD.keyword);
+      addField(weights, x.body, FIELD.body);
+    }
+    docs.push({ id: e.id, title: e.title, weights, phrasings: [...e.asks, ...(x?.asks ?? [])].map(normalise), role: e.role, live: false });
   }
 
   for (const i of LIVE_INTENTS) {
@@ -460,7 +508,13 @@ function buildIndex(): { docs: Indexed[]; idf: Map<string, number> } {
     addField(weights, i.title, FIELD.title);
     for (const a of i.asks) addField(weights, a, FIELD.ask);
     for (const k of i.keywords ?? []) addField(weights, k, FIELD.keyword);
-    docs.push({ id: i.id, title: i.title, weights, phrasings: i.asks.map(normalise), role: i.role, live: true });
+    const x = own?.live[i.id];
+    if (x) {
+      addField(weights, x.title, FIELD.title);
+      for (const a of x.asks) addField(weights, a, FIELD.ask);
+      for (const k of x.keywords ?? []) addField(weights, k, FIELD.keyword);
+    }
+    docs.push({ id: i.id, title: i.title, weights, phrasings: [...i.asks, ...(x?.asks ?? [])].map(normalise), role: i.role, live: true });
   }
 
   /* Inverse document frequency. A token in nearly every entry ("job", "work")
@@ -474,7 +528,12 @@ function buildIndex(): { docs: Indexed[]; idf: Map<string, number> } {
   return { docs, idf };
 }
 
-const INDEX = buildIndex();
+const INDEXES = new Map<Lang, { docs: Indexed[]; idf: Map<string, number> }>();
+function indexFor(lang: Lang) {
+  let index = INDEXES.get(lang);
+  if (!index) { index = buildIndex(lang); INDEXES.set(lang, index); }
+  return index;
+}
 
 /**
  * Answers written for the other role are not hidden, only pushed down.
@@ -518,7 +577,8 @@ export interface Scored { id: string; score: number; live: boolean }
  * whichever happened to sit earliest in the array. Every symptom looked like a
  * matching bug and none of them was.
  */
-export function rank(query: string, role: Role): Scored[] {
+export function rank(query: string, role: Role, lang: Lang = 'en'): Scored[] {
+  const INDEX = indexFor(lang);
   /* Nothing to go on at all — an empty box, or pure punctuation. Note this is
      a check on the normalised text rather than on the tokens: a question can
      tokenise to nothing and still be perfectly answerable ("Who are you?" is
@@ -638,14 +698,24 @@ export interface MsiziReply {
   /** A miss because the question is not about Vuka at all (sport, news,
       homework…), as opposed to a Vuka question Msizi cannot answer. */
   offTopic?: boolean;
+  /** The language the title and body are actually written in. An entry not
+      yet translated comes back in English, and the voice has to know. */
+  lang?: Lang;
 }
 
 /** Title and canonical phrasing for a chip, whichever kind of entry it is. */
-export function lookup(id: string): { id: string; title: string; ask: string } | null {
+export function lookup(id: string, lang: Lang = 'en'): { id: string; title: string; ask: string } | null {
+  const own = lang === 'en' ? null : MSIZI_LANGS[lang];
   const k = KNOWLEDGE.find((e) => e.id === id);
-  if (k) return { id, title: k.title, ask: k.asks[0] };
+  if (k) {
+    const x = own?.entries[id];
+    return { id, title: x?.title ?? k.title, ask: x?.asks[0] ?? k.asks[0] };
+  }
   const l = LIVE_BY_ID.get(id);
-  if (l) return { id, title: l.title, ask: l.asks[0] };
+  if (l) {
+    const x = own?.live[id];
+    return { id, title: x?.title ?? l.title, ask: x?.asks[0] ?? l.asks[0] };
+  }
   return null;
 }
 
@@ -656,18 +726,21 @@ export function lookup(id: string): { id: string; title: string; ask: string } |
  */
 export function groundingFor(query: string, ctx: MsiziContext, max = 4): { title: string; body: string }[] {
   const out: { title: string; body: string }[] = [];
-  for (const r of rank(query, ctx.role)) {
+  /* In English whatever the app's language: these are the checked answers the
+     model works from, and it replies in the asker's language itself. */
+  const en: MsiziContext = { ...ctx, lang: 'en' };
+  for (const r of rank(query, ctx.role, ctx.lang ?? 'en')) {
     if (out.length >= max) break;
     if (r.live || r.score < 0.05) continue;
     const e = KNOWLEDGE.find((k) => k.id === r.id);
-    if (e) out.push({ title: e.title, body: fill(e.body, ctx) });
+    if (e) out.push({ title: e.title, body: fill(e.body, en) });
   }
   /* Nothing near at all: give it the basics, so "what is this app" in words
      the index has never seen still gets a grounded answer. */
   if (out.length === 0) {
     for (const id of ['what-is-vuka', 'how-payment-works', 'is-it-safe']) {
       const e = KNOWLEDGE.find((k) => k.id === id);
-      if (e) out.push({ title: e.title, body: fill(e.body, ctx) });
+      if (e) out.push({ title: e.title, body: fill(e.body, en) });
     }
   }
   return out;
@@ -686,14 +759,30 @@ function entryReply(entry: KnowledgeEntry, ctx: MsiziContext, score: number): Ms
        ask for it, so there is no confusion to be generous about. */
     return !target.role || target.role === ctx.role;
   });
+  const lang = ctx.lang ?? 'en';
+  const x = lang === 'en' ? undefined : MSIZI_LANGS[lang].entries[entry.id];
   return {
     kind: 'answer',
     id: entry.id,
-    title: entry.title,
-    body: fill(entry.body, ctx),
+    title: x?.title ?? entry.title,
+    body: fill(x?.body ?? entry.body, x ? ctx : { ...ctx, lang: 'en' }),
     goto: entry.goto,
     suggestions,
     score,
+    lang: x ? lang : 'en',
+  };
+}
+
+/** A live answer, headed and worded in the asker's language where it can be. */
+function liveReply(intent: LiveIntent, body: string, ctx: MsiziContext, score: number): MsiziReply {
+  const lang = ctx.lang ?? 'en';
+  const own = MSIZI_LANGS[lang];
+  const translated = lang !== 'en' && Object.keys(own.text).length > 0;
+  const related = KNOWLEDGE.filter((e) => (e.next ?? []).includes(intent.id)).slice(0, 2).map((e) => e.id);
+  return {
+    kind: 'live', id: intent.id,
+    title: (lang !== 'en' && own.live[intent.id]?.title) || intent.title,
+    body, suggestions: related, score, lang: translated ? lang : 'en',
   };
 }
 
@@ -705,7 +794,7 @@ function entryReply(entry: KnowledgeEntry, ctx: MsiziContext, score: number): Ms
  * nearest things it does know, so the user has somewhere to go.
  */
 export function ask(query: string, ctx: MsiziContext): MsiziReply {
-  const ranked = rank(query, ctx.role);
+  const ranked = rank(query, ctx.role, ctx.lang ?? 'en');
   const best = ranked[0];
 
   if (!best || best.score < CONFIDENCE_FLOOR) {
@@ -737,14 +826,8 @@ export function ask(query: string, ctx: MsiziContext): MsiziReply {
     const intent = LIVE_BY_ID.get(best.id);
     if (intent) {
       const body = intent.resolve(ctx);
-      if (body) {
-        /* Alongside a figure, offer the written answer that explains it. */
-        const related = KNOWLEDGE
-          .filter((e) => (e.next ?? []).includes(intent.id))
-          .slice(0, 2)
-          .map((e) => e.id);
-        return { kind: 'live', id: intent.id, title: intent.title, body, suggestions: related, score: best.score };
-      }
+      /* Alongside a figure, liveReply offers the written answer that explains it. */
+      if (body) return liveReply(intent, body, ctx, best.score);
     }
   }
 
@@ -761,10 +844,7 @@ export function askById(id: string, ctx: MsiziContext): MsiziReply | null {
   const intent = LIVE_BY_ID.get(id);
   if (intent) {
     const body = intent.resolve(ctx);
-    if (body) {
-      const related = KNOWLEDGE.filter((e) => (e.next ?? []).includes(intent.id)).slice(0, 2).map((e) => e.id);
-      return { kind: 'live', id: intent.id, title: intent.title, body, suggestions: related, score: 1 };
-    }
+    if (body) return liveReply(intent, body, ctx, 1);
   }
   return null;
 }

@@ -51,6 +51,39 @@ const files = readdirSync(localeDir).filter((f) => f.endsWith('.ts')).sort();
 const catalogs = new Map();
 for (const file of files) catalogs.set(file.replace(/\.ts$/, ''), loadCatalog(file));
 
+/* Area files (src/i18n/areas/*.ts) hold one part of the app in all five
+   languages: { en: {...}, zu: {...}, ... }. Merged in exactly as the app
+   merges them, after checking each area is complete in itself and its keys
+   belong to it alone. */
+const areaDir = join(root, 'src', 'i18n', 'areas');
+const seenAreaKey = new Map();
+for (const file of readdirSync(areaDir).filter((f) => f.endsWith('.ts') && f !== 'index.ts').sort()) {
+  const area = loadCatalog(join('..', 'areas', file));
+  const name = file.replace(/\.ts$/, '');
+  for (const lang of catalogs.keys()) {
+    ok(area[lang] && typeof area[lang] === 'object', `area ${name}: has a ${lang} block`);
+  }
+  for (const [lang, block] of Object.entries(area)) {
+    ok(catalogs.has(lang), `area ${name}: ${lang} is a language the app ships`);
+    const target = catalogs.get(lang);
+    if (!target) continue;
+    for (const [key, value] of Object.entries(block)) {
+      if (lang === 'en') {
+        ok(!(key in target), `area ${name}: ${key} does not redefine a key from en.ts`);
+        const other = seenAreaKey.get(key);
+        ok(!other, `area ${name}: ${key} is not also defined in area ${other}`);
+        seenAreaKey.set(key, name);
+      }
+      target[key] = value;
+    }
+  }
+}
+const areaSource = readFileSync(join(areaDir, 'index.ts'), 'utf8');
+for (const file of readdirSync(areaDir).filter((f) => f.endsWith('.ts') && f !== 'index.ts')) {
+  const name = file.replace(/\.ts$/, '');
+  ok(areaSource.includes(`from './${name}'`), `area ${name} is registered in areas/index.ts`);
+}
+
 const en = catalogs.get('en');
 ok(Boolean(en), 'en.ts loads');
 if (!en) process.exit(1);

@@ -10,9 +10,11 @@ import { ReputationPanel } from './ReputationPanel';
 import { locationSupported } from '../../lib/geo';
 import { applyToFormal, applyToGigs, EMPTY_FILTER, FilterBar, type JobFilter } from './JobFilters';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 export function JobsFeed() {
   const { state, setFeed, setCategory, navigate, useMyLocation, clearMyLocation } = useApp();
+  const t = useT();
   const cv = computeCv(state.worker);
   const isGigs = state.feed === 'gigs';
   const cat = state.categoryFilter;
@@ -30,19 +32,27 @@ export function JobsFeed() {
       <header className="mb-3">
         <small className="text-faint text-micro font-semibold uppercase tracking-wide">
           {isGigs
-            ? `${gigs.length} gig${gigs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : state.coords ? ' · nearest first' : ` near ${(state.worker.location || 'you').split(',')[0]}`}`
-            : `${formalJobs.length} formal role${formalJobs.length !== 1 ? 's' : ''}${catLabel ? ` · ${catLabel}` : ''}`}
+            ? catLabel
+              ? t('worker.feed.gigsCat', { count: gigs.length, category: catLabel })
+              : state.coords
+                ? t('worker.feed.gigsNearest', { count: gigs.length })
+                : state.worker.location
+                  ? t('worker.feed.gigsNear', { count: gigs.length, place: state.worker.location.split(',')[0] })
+                  : t('worker.feed.gigsNearYou', { count: gigs.length })
+            : catLabel
+              ? t('worker.feed.formalCat', { count: formalJobs.length, category: catLabel })
+              : t('worker.feed.formal', { count: formalJobs.length })}
         </small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Find work<span className="text-brand">.</span></h1>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('jobs.title')}<span className="text-brand">.</span></h1>
       </header>
 
       <Segmented
-        label="Kind of work"
+        label={t('worker.feed.kindOfWork')}
         value={state.feed}
         onChange={setFeed}
         options={[
-          { value: 'gigs', label: <>Gigs <Cnt n={state.gigs.length} /></> },
-          { value: 'formal', label: <>Formal jobs <Cnt n={state.formalJobs.length} /></> },
+          { value: 'gigs', label: <>{t('worker.feed.gigs')} <Cnt n={state.gigs.length} /></> },
+          { value: 'formal', label: <>{t('worker.formalJobs')} <Cnt n={state.formalJobs.length} /></> },
         ]}
       />
 
@@ -75,10 +85,10 @@ export function JobsFeed() {
         {state.coords ? (
           <>
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5">
-              <Icon name="pin" size={15} /> Sorted by real distance
+              <Icon name="pin" size={15} /> {t('worker.feed.sortedReal')}
             </span>
             <button onClick={clearMyLocation} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">
-              Turn off
+              {t('worker.feed.turnOff')}
             </button>
           </>
         ) : (
@@ -88,9 +98,9 @@ export function JobsFeed() {
               disabled={state.locating}
               className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
             >
-              <Icon name="pin" size={16} /> {state.locating ? 'Finding you…' : 'Show gigs nearest me'}
+              <Icon name="pin" size={16} /> {state.locating ? t('worker.feed.finding') : t('worker.showNearest')}
             </button>
-            <span className="text-faint">Distances below are estimates</span>
+            <span className="text-faint">{t('worker.feed.estimates')}</span>
           </>
         )}
       </div>
@@ -101,13 +111,13 @@ export function JobsFeed() {
     if (state.dataLoading && state.gigs.length === 0) return <CardSkeletonGrid count={4} />;
     if (list.length === 0) {
       return cat
-        ? <EmptyState icon="search" title={`No ${catLabel} gigs right now`} hint="Nothing open in this category yet. Try another category, or see everything." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all gigs</Button>} />
-        : <EmptyState icon="check" title="No open gigs right now" hint="You've applied to or completed everything available. Switch to Formal jobs to see what your tier unlocked." />;
+        ? <EmptyState icon="search" title={t('worker.feed.noCatGigs', { category: catLabel ?? '' })} hint={t('worker.feed.noCatGigsHint')} action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>{t('worker.feed.showAllGigs')}</Button>} />
+        : <EmptyState icon="check" title={t('worker.feed.noGigs')} hint={t('worker.feed.noGigsHint')} />;
     }
     return (
       <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{list.map((g) => <GigCard key={g.id} gig={g} onClick={() => navigate('gigDetail', g.id)} />)}</div>
-        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">New gigs are posted every day. Every completed gig builds your CV and pushes you up the ladder.</p>
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">{t('worker.feed.gigsFoot')}</p>
       </>
     );
   }
@@ -115,7 +125,7 @@ export function JobsFeed() {
   function Formal({ cv, list }: { cv: ReturnType<typeof computeCv>; list: FormalJob[] }) {
     if (state.dataLoading && state.formalJobs.length === 0) return <CardSkeletonGrid count={4} />;
     if (list.length === 0) {
-      return <EmptyState icon="search" title={`No ${catLabel ?? ''} formal roles`} hint="Nothing in this category right now. See all formal roles instead." action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>Show all roles</Button>} />;
+      return <EmptyState icon="search" title={t('worker.feed.noCatFormal', { category: catLabel ?? '' })} hint={t('worker.feed.noCatFormalHint')} action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>{t('worker.feed.showAllRoles')}</Button>} />;
     }
     const unlocked = list.filter((f) => f.minTier <= cv.tier.id);
     const locked = list.filter((f) => f.minTier > cv.tier.id);
@@ -124,12 +134,14 @@ export function JobsFeed() {
         <Card className="p-3.5 mb-3 flex gap-2.5 items-center bg-info-soft border-info dark:border-info">
           <span className="text-info shrink-0" aria-hidden="true"><Icon name="ladder" size={22} /></span>
           <div className="text-small text-ink leading-snug">
-            <b>You're {cv.tier.name} {cv.tier.icon}.</b> {unlocked.length} formal job{unlocked.length !== 1 ? 's' : ''} open to you now{locked.length ? ` · ${locked.length} more unlock as you rise` : ''}.
+            <b>{t('worker.feed.youAre', { tier: cv.tier.name, icon: cv.tier.icon })}</b> {locked.length
+              ? t('worker.feed.openNowMore', { count: unlocked.length, locked: locked.length })
+              : t('worker.feed.openNow', { count: unlocked.length })}
           </div>
         </Card>
-        {unlocked.length > 0 && <><SectionTitle>Open to you now</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        {locked.length > 0 && <><SectionTitle>Unlock as you rise</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
-        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Formal employers hire straight from Vuka's higher tiers — your verified record is your application. All pay is fair-pay checked.</p>
+        {unlocked.length > 0 && <><SectionTitle>{t('worker.feed.openToYou')}</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{unlocked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
+        {locked.length > 0 && <><SectionTitle>{t('worker.feed.unlockAsRise')}</SectionTitle><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{locked.map((f) => <FormalCard key={f.id} job={f} cv={cv} onClick={() => navigate('formalDetail', f.id)} />)}</div></>}
+        <p className="text-center text-small text-dim leading-relaxed px-4 py-2">{t('worker.feed.formalFoot')}</p>
       </>
     );
   }
@@ -137,13 +149,14 @@ export function JobsFeed() {
 
 /** Horizontal, scrollable category filter. "All" clears the filter. */
 function CategoryBar({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  const t = useT();
   const pill = (active: boolean) =>
     `shrink-0 inline-flex items-center gap-1.5 rounded-pill border px-4 min-h-[44px] text-small font-bold transition active:scale-95 ${
       active ? 'bg-ink text-canvas border-ink' : 'bg-surface text-dim border-line hover:border-faint hover:text-ink'
     }`;
   return (
     <div className="flex gap-2 overflow-x-auto no-scrollbar pt-3 -mx-1 px-1">
-      <button onClick={() => onChange(null)} className={pill(value === null)}>All</button>
+      <button onClick={() => onChange(null)} className={pill(value === null)}>{t('worker.feed.all')}</button>
       {CATEGORIES.map((c) => (
         <button key={c.id} onClick={() => onChange(c.id)} className={pill(value === c.id)}>
           <span aria-hidden="true">{c.icon}</span> {c.label}

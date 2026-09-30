@@ -44,10 +44,10 @@ const BASE = 'http://localhost:3999/api';
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.log('  ✗ FAIL: ' + msg); } };
 
-async function api(method, path, { token, body } = {}) {
+async function api(method, path, { token, body, headers = {} } = {}) {
   const res = await fetch(BASE + path, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   let json = null; try { json = await res.json(); } catch { /* no body */ }
@@ -1804,6 +1804,91 @@ async function run() {
       ok((await api('PUT', '/me/preferences', { token: kid.tok, body: {} })).status === 400, 'an empty change is refused');
       ok((await api('PUT', '/me/preferences', { token: kid.tok, body: { jobAlerts: false } })).json?.notify?.jobs === false,
         'the old job-alerts switch and the new one are the same setting');
+    } finally {
+      console.log = log;
+    }
+  }
+
+  /* 12y) The server speaks the app's language: errors in the language of the
+     screen that asked, notices and SMS in the language of the person they
+     are for. */
+  {
+    const { readFileSync: readSrc, readdirSync } = await import('node:fs');
+    const { MESSAGES } = await import('./i18n/messages.mjs');
+    const { localize } = await import('./i18n/index.mjs');
+    const tables = {
+      zu: (await import('./i18n/zu.mjs')).zu, xh: (await import('./i18n/xh.mjs')).xh,
+      st: (await import('./i18n/st.mjs')).st, af: (await import('./i18n/af.mjs')).af,
+    };
+
+    /* Every user-facing error in the server's code is on the list, so a new
+       one cannot ship untranslated without this failing. Admin and
+       developer-only messages stay English on purpose. */
+    const DEV = ['status must be one of', 'must be true or false', 'There is no notification setting', 'push service responded',
+      'Nothing to change', 'notify must be an object'];
+    const shape = (s) => s.replace(/\$\{[^}]*\}/g, '{x}').replace(/\{\w+\}/g, '{x}');
+    const listed = new Set(MESSAGES.map(shape));
+    const unlisted = [];
+    for (const f of readdirSync(here).filter((n) => n.endsWith('.mjs') && !['test.mjs', 'seed.mjs', 'smstest.mjs', 'vapid.mjs'].includes(n))) {
+      const src = readSrc(join(here, f), 'utf8');
+      const found = [
+        ...[...src.matchAll(/error:\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1].replace(/\\'/g, "'")),
+        ...[...src.matchAll(/error:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\"/g, '"')),
+        ...[...src.matchAll(/error:\s*`([^`]*)`/g)].map((m) => m[1]),
+      ];
+      for (const msg of found) if (!DEV.some((d) => msg.includes(d)) && !listed.has(shape(msg))) unlisted.push(`${f}: ${msg}`);
+    }
+    ok(unlisted.length === 0, `every error the server can send is in i18n/messages.mjs${unlisted.length ? ` — missing: ${unlisted.slice(0, 3).join(' | ')}` : ''}`);
+
+    const names = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join();
+    for (const [lang, table] of Object.entries(tables)) {
+      const missing = MESSAGES.filter((m) => !table[m]?.trim());
+      const broken = MESSAGES.filter((m) => table[m] && names(table[m]) !== names(m));
+      const extra = Object.keys(table).filter((k) => !MESSAGES.includes(k));
+      ok(missing.length === 0, `${lang}: every server message is translated (${missing.length} missing${missing.length ? `, e.g. "${missing[0]}"` : ''})`);
+      ok(broken.length === 0, `${lang}: every server translation keeps its placeholders${broken.length ? ` — "${broken[0]}"` : ''}`);
+      ok(extra.length === 0, `${lang}: no translation for a message the server no longer says${extra.length ? ` — "${extra[0]}"` : ''}`);
+    }
+
+    // The matcher: literal, templated, a value that is itself a phrase, and the unknown.
+    const code = "That code isn't right. Please check and try again.";
+    ok(localize('zu', code) === tables.zu[code] && localize('zu', code) !== code, 'a fixed message is translated');
+    const chose = localize('zu', 'Sipho Dlamini chose you for "Wash my car".');
+    ok(chose.includes('Sipho Dlamini') && chose.includes('Wash my car') && chose !== 'Sipho Dlamini chose you for "Wash my car".',
+      'a templated message is translated with its names carried across');
+    ok(localize('af', 'A worker applied for "Paint".').includes(tables.af['A worker']), 'and a value that is itself a known phrase is translated too');
+    ok(localize('zu', 'Something the server never says.') === 'Something the server never says.', 'anything unknown stays exactly as it was');
+    ok(localize('en', code) === code, 'English is untouched');
+
+    // Over the wire.
+    const wrongEn = await api('POST', '/auth/login', { body: { phone: '0829990001', password: 'not-the-password' } });
+    const wrongZu = await api('POST', '/auth/login', { body: { phone: '0829990001', password: 'not-the-password' }, headers: { 'X-Vuka-Lang': 'zu' } });
+    ok(wrongZu.status === wrongEn.status && wrongZu.json?.error === tables.zu[wrongEn.json?.error] && wrongZu.json?.reason === wrongEn.json?.reason,
+      'an error goes back in the language the app asked in, with the same status and reason');
+
+    const texts = [];
+    const log = console.log;
+    console.log = (...a) => { if (String(a[0]).startsWith('[sms:console]')) texts.push(String(a[0])); log(...a); };
+    try {
+      const otp = await api('POST', '/auth/otp', { body: { phone: '0829995001' }, headers: { 'X-Vuka-Lang': 'af' } });
+      const want = tables.af['Your Vuka Uzenzele code is {code}. It expires in 10 minutes.'].replace('{code}', otp.json?.devCode);
+      ok(texts.some((t) => t.includes(want)), 'the sign-up code SMS is written in the language of the screen that asked for it');
+
+      const r1 = await api('POST', '/auth/register', {
+        body: { role: 'employer', name: 'Taal Werkgewer', phone: '0829995002', password: 'taalpass123', verifyToken: await verifyPhone('0829995002') },
+      });
+      const r2 = await api('POST', '/auth/register', {
+        body: { role: 'worker', name: 'Taal Werker', phone: '0829995003', password: 'taalpass123', age: 22, location: 'Soweto', skills: ['garden'], verifyToken: await verifyPhone('0829995003') },
+      });
+      await api('GET', '/me/preferences', { token: r1.json.token, headers: { 'X-Vuka-Lang': 'af' } });
+      const gig = (await api('POST', '/gigs', {
+        token: r1.json.token, body: { fund: true, title: 'Tuinwerk', category: 'garden', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Sat 09:00', description: 'x' },
+      })).json.id;
+      await api('POST', `/gigs/${gig}/apply`, { token: r2.json.token }); // the worker's app is in English
+      await new Promise((r) => setTimeout(r, 250));
+      const n = (await api('GET', '/notifications', { token: r1.json.token })).json?.items?.[0];
+      ok(n?.title === tables.af['New applicant'] && n?.body.includes('Taal Werker') && n?.body.includes('Tuinwerk'),
+        "a notice is written in the recipient's language, not the sender's");
     } finally {
       console.log = log;
     }

@@ -8,6 +8,8 @@ import { FairMeter } from '../../components/bits';
 import { TestModeNote } from '../../components/Funding';
 import { money } from '../../lib/format';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
+import { useRichT } from './EmployerRail';
 
 // text-base (16px), not text-small: iOS Safari zooms the viewport on focus for
 // anything smaller, hiding the Post button behind the keyboard.
@@ -22,12 +24,15 @@ const fieldCls = (error?: string) =>
 
 export function PostJob() {
   const { navigate, toast, postGig } = useApp();
+  const t = useT();
+  const rt = useRichT();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<CategoryId>('carwash');
   const [hours, setHours] = useState('2');
   const [rate, setRate] = useState('50');
+  // i18n-ignore: a place name, the same in every language
   const [loc, setLoc] = useState('Soweto');
-  const [when, setWhen] = useState('This week');
+  const [when, setWhen] = useState(() => t('employer.post.defaultWhen'));
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   /* Escrow: secure the pay now, or later — but before hiring either way. On by
@@ -42,7 +47,7 @@ export function PostJob() {
     setPinning(true);
     try {
       setPin(await requestCoords());
-      toast('Job pinned to this spot — workers will see the real distance');
+      toast(t('employer.post.pinned'));
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -65,13 +70,13 @@ export function PostJob() {
   const problems = (): Record<string, string> => {
     const p: Record<string, string> = {};
     const hoursNum = Number(hours);
-    if (!title.trim()) p.title = 'Give the job a title so workers know what it is.';
-    else if (title.trim().length > 120) p.title = 'Keep the title under 120 characters.';
-    if (!Number.isFinite(hoursNum) || hoursNum <= 0) p.hours = 'Enter how many hours the job takes.';
-    else if (hoursNum > 24) p.hours = "A single job can't run longer than 24 hours — split it into more than one booking.";
-    if (!Number.isFinite(rateNum) || rateNum <= 0) p.rate = 'Enter what the job pays per hour.';
-    else if (rateNum < minWage) p.rate = `R${rateNum.toFixed(2)}/hr is below the national minimum wage of R${minWage.toFixed(2)}. Raise it to post this job.`;
-    if (!loc.trim()) p.loc = 'Add a location — workers are shown how far the job is from them.';
+    if (!title.trim()) p.title = t('employer.post.errTitle');
+    else if (title.trim().length > 120) p.title = t('employer.post.errTitleLong');
+    if (!Number.isFinite(hoursNum) || hoursNum <= 0) p.hours = t('employer.post.errHours');
+    else if (hoursNum > 24) p.hours = t('employer.post.errHoursLong');
+    if (!Number.isFinite(rateNum) || rateNum <= 0) p.rate = t('employer.post.errRate');
+    else if (rateNum < minWage) p.rate = t('employer.post.errRateLow', { rate: rateNum.toFixed(2), min: minWage.toFixed(2) });
+    if (!loc.trim()) p.loc = t('employer.post.errLoc');
     return p;
   };
 
@@ -84,15 +89,15 @@ export function PostJob() {
     if (Object.keys(found).length) {
       // Say how many, so a problem scrolled off-screen isn't invisible.
       const n = Object.keys(found).length;
-      toast(n === 1 ? 'One thing needs fixing before posting' : `${n} things need fixing before posting`);
+      toast(n === 1 ? t('employer.post.fixOne') : t('employer.post.fixMany', { count: n }));
       return;
     }
     setBusy(true);
     try {
       await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, fund: fundNow, ...(pin ?? {}) });
       toast(fundNow
-        ? `Job posted and ${money(total)} secured — workers will see "Funds secured"`
-        : 'Job posted! Add the funds before you hire someone.');
+        ? t('employer.post.postedFunded', { amount: money(total) })
+        : t('employer.post.postedUnfunded'));
       navigate('home');
     } catch (e) {
       // The server names the field it rejected; put the message there.
@@ -106,15 +111,15 @@ export function PostJob() {
   return (
     <>
       <header className="mb-4">
-        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Reach verified youth nearby</small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Post a job<span className="text-brand">.</span></h1>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('employer.post.eyebrow')}</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('post.title')}<span className="text-brand">.</span></h1>
       </header>
 
-      <Field label="What do you need?" error={errors.title}>
-        {(f) => <input {...f} className={fieldCls(errors.title)} placeholder="e.g. Wash my car this Saturday" value={title} onChange={(e) => { clearError('title'); setTitle(e.target.value); }} />}
+      <Field label={t('employer.post.what')} error={errors.title}>
+        {(f) => <input {...f} className={fieldCls(errors.title)} placeholder={t('employer.post.whatPlaceholder')} value={title} onChange={(e) => { clearError('title'); setTitle(e.target.value); }} />}
       </Field>
 
-      <Field label="Category">
+      <Field label={t('employer.post.category')}>
         {(f) => (
           <select {...f} className={inputCls} value={category} onChange={(e) => setCategory(e.target.value as CategoryId)}>
             {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
@@ -123,19 +128,19 @@ export function PostJob() {
       </Field>
 
       <div className="flex gap-2.5 mb-3.5">
-        <div className="flex-1"><Field label="Hours" error={errors.hours}>{(f) => <input {...f} className={fieldCls(errors.hours)} type="number" min={1} value={hours} onChange={(e) => { clearError('hours'); setHours(e.target.value); }} />}</Field></div>
-        <div className="flex-1"><Field label="Rate / hr" error={errors.rate}>{(f) => <input {...f} className={fieldCls(errors.rate)} type="number" min={1} value={rate} onChange={(e) => { clearError('rate'); setRate(e.target.value); }} />}</Field></div>
+        <div className="flex-1"><Field label={t('employer.post.hours')} error={errors.hours}>{(f) => <input {...f} className={fieldCls(errors.hours)} type="number" min={1} value={hours} onChange={(e) => { clearError('hours'); setHours(e.target.value); }} />}</Field></div>
+        <div className="flex-1"><Field label={t('employer.post.rate')} error={errors.rate}>{(f) => <input {...f} className={fieldCls(errors.rate)} type="number" min={1} value={rate} onChange={(e) => { clearError('rate'); setRate(e.target.value); }} />}</Field></div>
       </div>
 
-      <Field label="Where" error={errors.loc}>
+      <Field label={t('jobs.whereLabel')} error={errors.loc}>
         {(f) => (<>
-        <input {...f} className={fieldCls(errors.loc)} placeholder="Suburb, e.g. Diepkloof" value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} />
+        <input {...f} className={fieldCls(errors.loc)} placeholder={t('employer.post.wherePlaceholder')} value={loc} onChange={(e) => { clearError('loc'); setLoc(e.target.value); }} />
         {locationSupported() && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-small">
             {pin ? (
               <>
-                <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5"><Icon name="pin" size={15} /> Pinned to this spot</span>
-                <button type="button" onClick={() => setPin(null)} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">Remove pin</button>
+                <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-3 text-ink border border-line font-bold px-3 py-1.5"><Icon name="pin" size={15} /> {t('employer.post.pinnedChip')}</span>
+                <button type="button" onClick={() => setPin(null)} className="inline-flex items-center min-h-[44px] px-2 -mx-2 text-dim font-semibold underline underline-offset-2 hover:text-ink transition">{t('employer.post.removePin')}</button>
               </>
             ) : (
               <>
@@ -145,9 +150,9 @@ export function PostJob() {
                   disabled={pinning}
                   className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line text-ink font-bold px-4 min-h-[44px] hover:bg-surface-2 transition active:scale-95 disabled:opacity-60"
                 >
-                  <Icon name="pin" size={16} /> {pinning ? 'Getting location…' : 'Pin my exact location'}
+                  <Icon name="pin" size={16} /> {pinning ? t('employer.post.locating') : t('employer.post.pinMe')}
                 </button>
-                <span className="text-faint">Optional — helps nearby workers find you</span>
+                <span className="text-faint">{t('employer.post.pinHint')}</span>
               </>
             )}
           </div>
@@ -155,16 +160,16 @@ export function PostJob() {
         </>)}
       </Field>
 
-      <Field label="When">{(f) => <input {...f} className={inputCls} placeholder="e.g. Sat, 09:00" value={when} onChange={(e) => setWhen(e.target.value)} />}</Field>
+      <Field label={t('jobs.whenLabel')}>{(f) => <input {...f} className={inputCls} placeholder={t('employer.post.whenPlaceholder')} value={when} onChange={(e) => setWhen(e.target.value)} />}</Field>
 
-      <Field label="Details" hint="What should they know before they arrive? Tools, access, anything heavy.">
+      <Field label={t('employer.post.details')} hint={t('employer.post.detailsHint')}>
         {(f) => (
           <textarea
             {...f}
             className={areaCls}
             rows={4}
             maxLength={600}
-            placeholder="e.g. Two cars, bucket and soap provided. Gate code on arrival."
+            placeholder={t('employer.post.detailsPlaceholder')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -181,18 +186,18 @@ export function PostJob() {
         <label className="flex gap-3 items-start cursor-pointer min-h-[44px]">
           <input type="checkbox" className="mt-1 w-5 h-5 accent-[var(--v-brand)] shrink-0" checked={fundNow} onChange={(e) => setFundNow(e.target.checked)} />
           <span className="text-small text-ink leading-relaxed">
-            <b>Secure the pay now — <span className="font-mono tnum">{money(total)}</span></b><br />
-            Workers see <b>Funds secured</b> on your job. You can take it back for free until you hire someone; after that it is locked for them and paid into their wallet when you confirm the work.
-            {!fundNow && <><br /><span className="text-dim">You can add it later — but you will need to before you hire.</span></>}
+            <b>{rt('employer.post.secureNow', { amount: <span className="font-mono tnum">{money(total)}</span> })}</b><br />
+            {rt('employer.post.secureExplain', { funds: <b>{t('employer.fundsSecured')}</b> })}
+            {!fundNow && <><br /><span className="text-dim">{t('employer.post.addLater')}</span></>}
           </span>
         </label>
         <TestModeNote className="mt-3" />
       </div>
 
       <Button block variant="primary" disabled={busy} onClick={submit}>
-        {busy ? 'Posting…' : fundNow ? `Post job & secure ${money(total)}` : 'Post job without funds'}
+        {busy ? t('post.publishing') : fundNow ? t('employer.post.submitFunded', { amount: money(total) }) : t('employer.post.submitUnfunded')}
       </Button>
-      <p className="text-center text-small text-dim leading-relaxed px-4 py-3">We auto-check your rate against SA minimum wage so youth are always paid fairly.</p>
+      <p className="text-center text-small text-dim leading-relaxed px-4 py-3">{t('employer.post.fairPayNote')}</p>
     </>
   );
 }

@@ -3,10 +3,13 @@ import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import { Button, Card, ProgressBar } from '../../components/ui';
 import { ScoreDial } from './VukaScore';
+import { useT } from '../../providers/LanguageProvider';
+import { fill } from './fill';
 
 /** Desktop side-rail: reputation ring, stats, tier progress and ladder link. */
 export function ReputationPanel() {
   const { state, navigate } = useApp();
+  const t = useT();
   const cv = computeCv(state.worker);
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
 
@@ -17,9 +20,9 @@ export function ReputationPanel() {
           <ScoreDial cv={cv} size={116} stroke={9} />
         </div>
         <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line-soft">
-          <Stat value={String(cv.jobsDone)} label="Jobs" />
-          <Stat value={`${cv.avg.toFixed(1)}★`} label="Rating" />
-          <Stat value={money(cv.totalEarned)} label="Earned" />
+          <Stat value={String(cv.jobsDone)} label={t('worker.jobs')} />
+          <Stat value={`${cv.avg.toFixed(1)}★`} label={t('record.rating')} />
+          <Stat value={money(cv.totalEarned)} label={t('record.earned')} />
         </div>
       </Card>
 
@@ -27,23 +30,26 @@ export function ReputationPanel() {
         <div className="flex items-center gap-2.5">
           <span className="grid place-items-center w-9 h-9 rounded-xl bg-white/15 text-lead" aria-hidden="true">{cv.tier.icon}</span>
           <div className="flex-1 min-w-0">
-            <div className="text-micro text-on-feature-dim uppercase tracking-wide font-bold">Your tier</div>
+            <div className="text-micro text-on-feature-dim uppercase tracking-wide font-bold">{t('worker.yourTier')}</div>
             <div className="font-bold">{cv.tier.name}</div>
           </div>
-          <div className="text-right"><div className="text-lead font-bold leading-none">{unlockedCount}</div><div className="text-micro text-on-feature-dim">unlocked</div></div>
+          <div className="text-right"><div className="text-lead font-bold leading-none">{unlockedCount}</div><div className="text-micro text-on-feature-dim">{t('worker.rep.unlocked')}</div></div>
         </div>
         <div className="text-small text-on-feature-dim my-2.5 leading-snug">
           {cv.nextTier
-            ? <>{cv.jobsToGo > 0 ? <><b>{cv.jobsToGo} more job{cv.jobsToGo > 1 ? 's' : ''}</b></> : <><b>Lift your rating</b></>} to reach <b>{cv.nextTier.name}</b> {cv.nextTier.icon}</>
-            : <>Top tier reached — employers see you first</>}
+            ? <>{fill(t('worker.toReach'), {
+                what: cv.jobsToGo > 0 ? <b>{t('worker.moreJobs', { count: cv.jobsToGo })}</b> : <b>{t('worker.rep.liftRating')}</b>,
+                tier: <b>{cv.nextTier.name}</b>,
+              })} {cv.nextTier.icon}</>
+            : <>{t('worker.rep.topReached')}</>}
         </div>
-        {cv.nextTier && <ProgressBar pct={cv.tierProgress} label={`Progress to ${cv.nextTier.name}`} />}
-        <Button block variant="primary" className="mt-3.5" icon="ladder" onClick={() => navigate('cv')}>Open My Record</Button>
+        {cv.nextTier && <ProgressBar pct={cv.tierProgress} label={t('worker.progressTo', { tier: cv.nextTier.name })} />}
+        <Button block variant="primary" className="mt-3.5" icon="ladder" onClick={() => navigate('cv')}>{t('msizi.goto.cv')}</Button>
       </Card>
 
       <Card className="p-4">
-        <div className="text-small font-bold text-ink mb-1.5">How The Ladder works</div>
-        <p className="text-small text-dim leading-relaxed m-0">Complete gigs and earn good ratings to climb tiers. Each tier unlocks better, more formal jobs — cashier, security, call-centre — no matric needed.</p>
+        <div className="text-small font-bold text-ink mb-1.5">{t('worker.rep.howLadder')}</div>
+        <p className="text-small text-dim leading-relaxed m-0">{t('worker.rep.howLadderBody')}</p>
       </Card>
     </>
   );

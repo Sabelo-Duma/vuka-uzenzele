@@ -70,7 +70,9 @@ async function run() {
     for (const [directive, value] of REQUIRED) {
       ok(header.includes(`${directive} ${value}`), `${directive} is ${value}`);
     }
-    ok(!/unsafe-eval/.test(header), "the policy does not allow 'unsafe-eval'");
+    /* Quoted, so 'wasm-unsafe-eval' (which the ID scanner needs, and which
+       allows only WebAssembly compilation) is not mistaken for it. */
+    ok(!/'unsafe-eval'/.test(header), "the policy does not allow 'unsafe-eval'");
     ok(!/script-src[^;]*unsafe-inline/.test(header), "the policy does not allow inline scripts wholesale");
     ok(/script-src[^;]*sha256-/.test(header), 'the inline theme bootstrap is allowed by hash, not by exception');
 

@@ -22,6 +22,7 @@ import { zu } from './locales/zu';
 import { xh } from './locales/xh';
 import { st } from './locales/st';
 import { af } from './locales/af';
+import { AREAS } from './areas';
 
 export type Catalog = Record<string, string>;
 export type Lang = 'en' | 'zu' | 'xh' | 'st' | 'af';
@@ -45,7 +46,16 @@ export const LANGS: LangMeta[] = [
   { id: 'af', label: 'Afrikaans', english: 'Afrikaans', tag: 'af-ZA' },
 ];
 
-export const CATALOGS: Record<Lang, Catalog> = { en, zu, xh, st, af };
+/* The base catalogues plus one file per area of the app (src/i18n/areas),
+   each holding all five languages for that area. Areas exist so one part of
+   the app can be translated without touching every other part's file. */
+const merge = (lang: Lang, base: Catalog): Catalog =>
+  Object.assign({}, base, ...AREAS.map((a) => a[lang] ?? {}));
+
+export const CATALOGS: Record<Lang, Catalog> = {
+  en: merge('en', en), zu: merge('zu', zu), xh: merge('xh', xh), st: merge('st', st), af: merge('af', af),
+};
+const EN: Catalog = CATALOGS.en;
 
 export const DEFAULT_LANG: Lang = 'en';
 const STORAGE_KEY = 'vuka-lang';
@@ -94,7 +104,7 @@ export function persistLang(lang: Lang): void {
 /** Keys present in English but absent (or blank) in `lang`. */
 export function missingKeys(lang: Lang): string[] {
   const target = CATALOGS[lang];
-  return Object.keys(en).filter((k) => {
+  return Object.keys(EN).filter((k) => {
     const v = target[k];
     return typeof v !== 'string' || v.trim() === '';
   });
@@ -102,7 +112,7 @@ export function missingKeys(lang: Lang): string[] {
 
 /** 0–100, rounded. What the Language screen shows next to each option. */
 export function coverage(lang: Lang): number {
-  const total = Object.keys(en).length;
+  const total = Object.keys(EN).length;
   if (total === 0) return 100;
   return Math.round(((total - missingKeys(lang).length) / total) * 100);
 }
@@ -145,7 +155,7 @@ function interpolate(template: string, vars?: Vars): string {
  * changing.
  */
 export function translate(lang: Lang, key: string, vars?: Vars): string {
-  const primary = CATALOGS[lang] ?? en;
+  const primary = CATALOGS[lang] ?? EN;
   const candidates: string[] = [];
 
   if (vars && typeof vars.count === 'number') {
@@ -162,7 +172,7 @@ export function translate(lang: Lang, key: string, vars?: Vars): string {
   }
   /* `en` is a literal type so its keys are known — good for callers, but it
      cannot be indexed by an arbitrary string. The catalogue view of it can. */
-  const fallback: Catalog = en;
+  const fallback: Catalog = EN;
   for (const candidate of candidates) {
     const hit = fallback[candidate];
     if (typeof hit === 'string' && hit.trim() !== '') return interpolate(hit, vars);
@@ -170,3 +180,12 @@ export function translate(lang: Lang, key: string, vars?: Vars): string {
   /* Nothing at all: show the key. Visible, greppable, and never blank. */
   return key;
 }
+
+/* ---- outside React ----
+   The store raises toasts and some lib code builds sentences; neither can use
+   the useT() hook. LanguageProvider keeps this in step with the chosen
+   language, so tr() always answers in it. */
+let active: Lang = DEFAULT_LANG;
+export function setActiveLang(lang: Lang): void { active = lang; }
+export function activeLang(): Lang { return active; }
+export function tr(key: string, vars?: Vars): string { return translate(active, key, vars); }

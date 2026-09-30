@@ -3,8 +3,9 @@ import { useT } from '../../providers/LanguageProvider';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from '../../components/Icon';
 import { SunMark } from '../../components/SunMark';
+import { LanguagePicker } from '../../components/LanguagePicker';
 import { TIERS } from '../../data/catalog';
-import { HEADLINE_STATS, SOURCES, YOUTH_UNEMPLOYMENT_SENTENCE } from '../../data/stats';
+import { HEADLINE_STATS, SOURCES, youthUnemploymentSentence } from '../../data/stats';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 
 /**
@@ -60,10 +61,13 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           <div className="flex items-center gap-2 font-extrabold text-ink tracking-tight text-lead whitespace-nowrap min-w-0">
             <SunMark size={26} className="text-brand-solid" />
             <span className="sr-only">Vuka Uzenzele</span>
-            <span aria-hidden="true" className="sm:hidden">Vuka</span>
+            {/* Below 400px the language button takes the wordmark's room; the
+                mark stays, and the name is still read out (sr-only above). */}
+            <span aria-hidden="true" className="hidden min-[400px]:inline sm:hidden">Vuka</span>
             <span aria-hidden="true" className="hidden sm:inline">Vuka Uzenzele</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <LanguagePicker compact align="left" />
             <button onClick={toggle} aria-label={t(resolved === 'dark' ? 'nav.themeToggleToLight' : 'nav.themeToggleToDark')} className="grid place-items-center w-11 h-11 shrink-0 rounded-chip border border-line text-ink hover:bg-surface-2 transition active:scale-95">
               <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
             </button>
@@ -110,7 +114,7 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
                   </div>
                   <div>
                     <div className="text-lead font-extrabold">{shown.name} {shown.icon}</div>
-                    <div className="text-small text-on-feature-dim font-mono tnum">{PREVIEW.jobs} jobs · {PREVIEW.rating}★ · R{PREVIEW.earned}</div>
+                    <div className="text-small text-on-feature-dim font-mono tnum">{t('onboarding.landing.previewStats', { count: PREVIEW.jobs, rating: PREVIEW.rating, earned: PREVIEW.earned })}</div>
                   </div>
                 </div>
                 <div className="mt-5">
@@ -127,14 +131,15 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
               <div className="flex items-center gap-2.5">
                 <span className="grid place-items-center w-10 h-10 rounded-xl text-lead shrink-0" style={{ background: 'var(--v-brand-soft)', color: 'var(--v-brand)' }}>🚗</span>
                 <div className="min-w-0 flex-1">
-                  <b className="text-small text-ink block leading-tight">Wash 2 cars</b>
+                  <b className="text-small text-ink block leading-tight">{t('onboarding.landing.gigTitle')}</b>
+                  {/* i18n-ignore: a place name and a distance, the same in every language */}
                   <span className="text-micro text-dim">Diepkloof · 1.2 km</span>
                 </div>
                 <b className="text-body font-extrabold text-ink font-mono tnum">R100</b>
               </div>
               <div className="flex gap-1.5 mt-2.5">
-                <span className="text-micro font-bold rounded-pill px-2 py-0.5 bg-live-soft text-brand">Urgent</span>
-                <span className="text-micro font-bold rounded-pill px-2 py-0.5 bg-verified-soft text-verified">Fair pay</span>
+                <span className="text-micro font-bold rounded-pill px-2 py-0.5 bg-live-soft text-brand">{t('jobs.urgent')}</span>
+                <span className="text-micro font-bold rounded-pill px-2 py-0.5 bg-verified-soft text-verified">{t('jobs.fairPay')}</span>
               </div>
             </div>
           </div>
@@ -209,16 +214,16 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
       {/* How it works */}
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 py-16">
         <div className="text-center mb-10">
-          <p className="text-small font-bold uppercase tracking-widest text-brand">How it works</p>
-          <h2 className="font-display text-[clamp(1.6rem,3.6vw,2.3rem)] font-extrabold text-ink tracking-tight mt-2">Start today. Rise as you go.</h2>
+          <p className="text-small font-bold uppercase tracking-widest text-brand">{t('onboarding.landing.howEyebrow')}</p>
+          <h2 className="font-display text-[clamp(1.6rem,3.6vw,2.3rem)] font-extrabold text-ink tracking-tight mt-2">{t('onboarding.landing.howTitle')}</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { ic: 'pin' as const, t: 'Find work near you', p: 'Browse gigs in your area and apply in one tap — cleaning, moving, tutoring, car washes and more.' },
-            { ic: 'star' as const, t: 'Do the job, get rated', p: 'Finish a gig and the person who hired you leaves a verified review. That reference is yours forever.' },
-            { ic: 'ladder' as const, t: 'Rise to bigger jobs', p: 'Your track record lifts your tier — unlocking cashier, security & call-centre roles. No matric needed.' },
+            { ic: 'pin' as const, t: t('onboarding.landing.step1Title'), p: t('onboarding.landing.step1Body') },
+            { ic: 'star' as const, t: t('onboarding.landing.step2Title'), p: t('onboarding.landing.step2Body') },
+            { ic: 'ladder' as const, t: t('onboarding.landing.step3Title'), p: t('onboarding.landing.step3Body') },
           ].map((s, i) => (
-            <div key={s.t} className="rounded-[20px] border border-line bg-surface p-6 shadow-e1">
+            <div key={s.ic} className="rounded-[20px] border border-line bg-surface p-6 shadow-e1">
               <div className="flex items-center justify-between">
                 <span className="grid place-items-center w-12 h-12 rounded-2xl bg-surface-2 border border-line text-ink"><Icon name={s.ic} size={22} /></span>
                 <span className="text-small font-extrabold text-faint font-mono tnum">0{i + 1}</span>
@@ -236,46 +241,50 @@ export function Landing({ onGetStarted, onLogin }: { onGetStarted: () => void; o
           <span aria-hidden="true" className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,176,31,.20), transparent 70%)' }} />
           <div className="relative">
             <div aria-hidden="true"><Icon name="user" size={28} /></div>
-            <h3 className="font-display text-title font-extrabold mt-2">Looking for work?</h3>
-            <p className="text-on-feature-dim text-body leading-relaxed mt-2">Build a verified CV from real jobs, get paid fairly, and unlock formal employment — starting from zero.</p>
-            <button onClick={onGetStarted} className="mt-5 rounded-pill bg-on-feature text-feature font-bold text-body px-5 py-3 hover:opacity-90 transition active:scale-95">Start earning →</button>
+            <h3 className="font-display text-title font-extrabold mt-2">{t('onboarding.landing.seekerTitle')}</h3>
+            <p className="text-on-feature-dim text-body leading-relaxed mt-2">{t('onboarding.landing.seekerBody')}</p>
+            <button onClick={onGetStarted} className="mt-5 rounded-pill bg-on-feature text-feature font-bold text-body px-5 py-3 hover:opacity-90 transition active:scale-95">{t('onboarding.landing.seekerCta')}</button>
           </div>
         </div>
         <div className="rounded-[24px] p-7 bg-surface border border-line shadow-e2">
           <div className="text-ink" aria-hidden="true"><Icon name="briefcase" size={28} /></div>
-          <h3 className="font-display text-title font-extrabold text-ink mt-2 tracking-tight">Need to hire?</h3>
-          <p className="text-dim text-body leading-relaxed mt-2">Find ID-verified youth nearby with real reviews and earned tiers. Post a job, invite, and chat directly.</p>
-          <button onClick={onGetStarted} className="mt-5 rounded-pill bg-ink text-canvas font-bold text-body px-5 py-3 hover:bg-ink transition active:scale-95">Post a job →</button>
+          <h3 className="font-display text-title font-extrabold text-ink mt-2 tracking-tight">{t('onboarding.landing.hireTitle')}</h3>
+          <p className="text-dim text-body leading-relaxed mt-2">{t('onboarding.landing.hireBody')}</p>
+          <button onClick={onGetStarted} className="mt-5 rounded-pill bg-ink text-canvas font-bold text-body px-5 py-3 hover:bg-ink transition active:scale-95">{t('onboarding.landing.hireCta')}</button>
         </div>
       </section>
 
       {/* Trust strip */}
       <section className="bg-surface-2 border-y border-line">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-small font-bold text-ink">
-          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="id" size={16} /></span>ID-verified</span>
-          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="scale" size={16} /></span>Fair-pay checked</span>
-          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="star" size={16} /></span>Two-way reviews</span>
-          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="signal" size={16} /></span>Light on data</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="id" size={16} /></span>{t('onboarding.landing.trustId')}</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="scale" size={16} /></span>{t('onboarding.landing.trustPay')}</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="star" size={16} /></span>{t('onboarding.landing.trustReviews')}</span>
+          <span className="inline-flex items-center gap-2"><span className="text-verified" aria-hidden="true"><Icon name="signal" size={16} /></span>{t('onboarding.landing.trustData')}</span>
         </div>
       </section>
 
       {/* Final CTA */}
       <section className="max-w-[1080px] mx-auto px-4 sm:px-6 py-16 text-center">
-        <h2 className="font-display text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-ink tracking-tight max-w-[18ch] mx-auto">Rise up &amp; Do it Yourself<span className="text-brand">.</span></h2>
-        <p className="text-dim text-body mt-4 max-w-[44ch] mx-auto">Join young South Africans turning everyday work into a career. It's free, and it starts now.</p>
+        <h2 className="font-display text-[clamp(1.7rem,4vw,2.6rem)] font-extrabold text-ink tracking-tight max-w-[18ch] mx-auto">
+          {/* i18n-ignore: the product's name-line, English in every language (as on the launch screen) */}
+          Rise up &amp; Do it Yourself<span className="text-brand">.</span>
+        </h2>
+        <p className="text-dim text-body mt-4 max-w-[44ch] mx-auto">{t('onboarding.landing.finalBody')}</p>
         <div className="flex flex-wrap gap-3 justify-center mt-7">
-          <button onClick={onGetStarted} className="rounded-pill bg-brand-solid text-brand-on font-bold text-body px-7 py-3.5 hover:bg-brand-hover transition active:scale-95 shadow-e2">Get started free</button>
+          <button onClick={onGetStarted} className="rounded-pill bg-brand-solid text-brand-on font-bold text-body px-7 py-3.5 hover:bg-brand-hover transition active:scale-95 shadow-e2">{t('onboarding.landing.finalCta')}</button>
           <button onClick={onLogin} className="rounded-pill border border-line text-ink font-bold text-body px-7 py-3.5 hover:bg-surface-2 transition active:scale-95">{t('action.logIn')}</button>
         </div>
       </section>
 
       <footer className="border-t border-line">
         <div className="max-w-[1080px] mx-auto px-4 sm:px-6 py-8 text-center text-small text-dim leading-relaxed">
+          {/* i18n-ignore: brand name and year */}
           <b className="text-ink">Vuka Uzenzele · 2026</b><br />
-          {YOUTH_UNEMPLOYMENT_SENTENCE}
+          {youthUnemploymentSentence()}
           <div className="flex items-center justify-center gap-4 mt-3">
-            <button onClick={() => setLegal('privacy')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">Privacy &amp; your data</button>
-            <button onClick={() => setLegal('terms')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">Terms of use</button>
+            <button onClick={() => setLegal('privacy')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">{t('onboarding.legal.privacyData')}</button>
+            <button onClick={() => setLegal('terms')} className="inline-flex items-center min-h-[44px] px-2 font-semibold underline underline-offset-2 hover:text-ink transition">{t('onboarding.legal.terms')}</button>
           </div>
         </div>
       </footer>

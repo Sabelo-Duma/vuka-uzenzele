@@ -18,9 +18,11 @@
      turning it on isn't wasted when the browser catches up.
    ============================================================ */
 import { api } from './api';
+import { tr } from '../i18n';
 
 /** Can this browser receive push at all? */
 export const pushSupported = (): boolean =>
+  // i18n-ignore: 'Notification' is the browser API name, not text
   typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
 /**
@@ -66,12 +68,12 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
  * @throws an Error whose message is safe to show the user
  */
 export async function enablePush(vapidPublicKey: string): Promise<void> {
-  if (!pushSupported()) throw new Error("This browser can't show notifications.");
-  if (!vapidPublicKey) throw new Error('Notifications are not switched on for this server yet.');
-  if (pushNeedsInstall()) throw new Error('On iPhone, add Vuka to your Home Screen first — then notifications can be switched on.');
+  if (!pushSupported()) throw new Error(tr('common.push.unsupported'));
+  if (!vapidPublicKey) throw new Error(tr('common.push.serverOff'));
+  if (pushNeedsInstall()) throw new Error(tr('common.push.iosInstall'));
 
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Notifications are blocked. You can allow them in your browser settings.');
+  if (permission !== 'granted') throw new Error(tr('common.push.blocked'));
 
   const reg = await readySw();
   // An existing subscription is reused. Re-subscribing with a different key
@@ -90,7 +92,7 @@ export async function enablePush(vapidPublicKey: string): Promise<void> {
   }
 
   const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error("This browser didn't return a usable subscription.");
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error(tr('common.push.badSubscription'));
   await api.subscribePush({ endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } });
 }
 

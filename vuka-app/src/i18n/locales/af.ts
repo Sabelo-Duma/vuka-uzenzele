@@ -57,7 +57,7 @@ export const af = {
     'Vuka Uzenzele verander regte werk — motors was, trek, onderrig, skoonmaak — in ’n geverifieerde rekord wat die deur na formele werk oopmaak. Geen matriek of ondervinding nodig om te begin nie.',
   'landing.subStrong': 'geverifieerde rekord',
   'landing.free': 'Gratis om aan te sluit · lig op data, en dit maak selfs sonder sein oop.',
-  'landing.yourScore': 'Jou Vuka-telling',
+  'landing.yourScore': 'Jou Vuka Score',
   'landing.jobsToTier_one': 'Nog {count} werk tot {tier}',
   'landing.jobsToTier_other': 'Nog {count} werke tot {tier}',
   'landing.previewLabel': 'Voorskou',
@@ -194,7 +194,7 @@ export const af = {
   'chat.queued_other': '{count} boodskappe wag om gestuur te word',
 
   'record.title': 'My rekord',
-  'record.score': 'Vuka-telling',
+  'record.score': 'Vuka Score',
   'record.tier': 'Vlak',
   'record.jobsDone_one': '{count} werk gedoen',
   'record.jobsDone_other': '{count} werke gedoen',
@@ -231,7 +231,7 @@ export const af = {
   'lang.applied': 'Vuka is nou in {language}',
   'lang.partial': '{percent}% vertaal',
   'lang.partialHint':
-    'Vuka word skerm vir skerm vertaal. Enigiets wat nog nie klaar is nie, bly in Engels, sodat niks leeg is nie.',
+    'Elke skerm van Vuka is vertaal. Die vertalings is nog nie deur moedertaalsprekers nagegaan nie, so as iets verkeerd lees, laat weet ons asseblief hieronder.',
   'lang.legalNote':
     'Die Privaatheidskennisgewing en Gebruiksbepalings bly in Engels. Dit is regsdokumente en ’n vertaling daarvan kan jou mislei.',
 

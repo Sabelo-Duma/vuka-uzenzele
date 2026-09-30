@@ -9,6 +9,8 @@
    does not exist.
    ============================================================ */
 
+import { tr } from '../i18n';
+
 export type Facing = 'environment' | 'user';
 
 export class CameraError extends Error {
@@ -18,7 +20,7 @@ export class CameraError extends Error {
 /** Open a camera stream into a <video>. Resolves once frames are flowing. */
 export async function openCamera(video: HTMLVideoElement, facing: Facing): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    throw new CameraError('unavailable', 'This phone does not let the browser use the camera.');
+    throw new CameraError('unavailable', tr('common.camera.unavailable'));
   }
   let stream: MediaStream;
   try {
@@ -35,12 +37,12 @@ export async function openCamera(video: HTMLVideoElement, facing: Facing): Promi
   } catch (e) {
     const name = (e as { name?: string }).name ?? '';
     if (name === 'NotAllowedError' || name === 'SecurityError') {
-      throw new CameraError('denied', 'Vuka needs permission to use the camera. Allow it in your phone settings, then try again.');
+      throw new CameraError('denied', tr('common.camera.denied'));
     }
     if (name === 'NotFoundError' || name === 'OverconstrainedError') {
-      throw new CameraError('unavailable', 'No camera could be found on this phone.');
+      throw new CameraError('unavailable', tr('common.camera.notFound'));
     }
-    throw new CameraError('failed', 'The camera could not be started. Please try again.');
+    throw new CameraError('failed', tr('common.camera.failed'));
   }
   /* iOS will not play a camera stream inline without these three. */
   video.setAttribute('playsinline', 'true');

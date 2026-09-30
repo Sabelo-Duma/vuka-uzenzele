@@ -16,12 +16,14 @@ import { encryptField, hasEncryptionKey, encryptBytes, decryptBytes, fingerprint
 import { pickChallenge, crossCheck, cleanScan, homeAffairsCheck, HOME_AFFAIRS_MODE } from './idcheck.mjs';
 import { sendSms, smsConfigured, otpEcho } from './notify.mjs';
 import { sendPush, pushConfigured, vapidPublicKey } from './push.mjs';
+import { localize, localizeErrors, langOf, isLang } from './i18n/index.mjs';
 import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mjs';
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
 import { synthesize, voiceStats, voiceCacheStats, canSpeakAll, warmProgress, startVoiceWarmer } from './voice.mjs';
+import { transcribe, sttConfigured, sttStats, STT_LANGS, STT_MAX_BYTES } from './transcribe.mjs';
 import {
   PAYMENTS_MODE, EscrowError, fund, reverse, release, wallet, withdraw, fundingFor, escrowFor, gigTotalCents,
 } from './escrow.mjs';
@@ -79,6 +81,16 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
 const corsOrigin = process.env.VUKA_CORS_ORIGIN;
 app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((s) => s.trim()) } : {}));
 app.use(express.json({ limit: '64kb' }));
+/* Errors go back in the language of the screen that asked (X-Vuka-Lang). */
+app.use(localizeErrors);
+/* And the language a signed-in person uses is remembered, so a notification
+   sent to them later — when they are not asking anything — is in it too. */
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (req.user?.id && req.headers['x-vuka-lang']) void rememberLang(req.user.id, langOf(req)).catch(() => {});
+  });
+  next();
+});
 
 // Rate limiting (free, in-memory — fine for a single instance). A generous
 // backstop protects the whole API from abuse without tripping normal use
@@ -410,6 +422,28 @@ async function notifyUser(userId, payload) {
   return deliverAll(await all('SELECT * FROM push_subscriptions WHERE user_id = ?', [userId]), payload);
 }
 
+/* ---- which language to write to somebody in ----
+   Cached, because it is read for every notice and changes about never. */
+const LANG_CACHE = new Map();
+async function rememberLang(userId, lang) {
+  if (!isLang(lang) || LANG_CACHE.get(userId) === lang) return;
+  LANG_CACHE.set(userId, lang);
+  const now = new Date().toISOString();
+  const existing = await get('SELECT user_id FROM user_preferences WHERE user_id = ?', [userId]);
+  if (existing) await run('UPDATE user_preferences SET lang = ? WHERE user_id = ?', [lang, userId]);
+  else await run('INSERT INTO user_preferences (user_id, job_alerts, updated_at, lang) VALUES (?,1,?,?)', [userId, now, lang]);
+}
+async function userLang(userId) {
+  if (LANG_CACHE.has(userId)) return LANG_CACHE.get(userId);
+  let lang = 'en';
+  try {
+    const row = await get('SELECT lang FROM user_preferences WHERE user_id = ?', [userId]);
+    if (isLang(row?.lang)) lang = row.lang;
+  } catch { /* English */ }
+  LANG_CACHE.set(userId, lang);
+  return lang;
+}
+
 /* ---- what each notice is, and what the person chose ----
 
    People differ: some want every buzz, some want none, most want the ones
@@ -479,6 +513,10 @@ function reach(user, payload, smsText) {
   if (!user?.id) return;
   const category = CATEGORY[payload.type] ?? 'work';
   void (async () => {
+    /* In the recipient's language, not the sender's. */
+    const lang = await userLang(user.id);
+    payload = { ...payload, title: localize(lang, payload.title), body: localize(lang, payload.body) };
+    smsText = smsText ? localize(lang, smsText) : smsText;
     /* The inbox first, and whatever the person chose: hiding a kind of
        notification from the phone must never mean missing the news. */
     if (INBOX.has(category)) {
@@ -488,7 +526,7 @@ function reach(user, payload, smsText) {
     try { prefs = await get('SELECT * FROM user_preferences WHERE user_id = ?', [user.id]); } catch { /* defaults */ }
     if (!wants(prefs, category) || inQuietHours(prefs)) return;
     const open = showsPreviews(prefs);
-    const shown = open ? payload : { ...payload, title: PRIVATE_TITLE[category], body: 'Open Vuka to see it.' };
+    const shown = open ? payload : { ...payload, title: localize(lang, PRIVATE_TITLE[category]), body: localize(lang, 'Open Vuka to see it.') };
 
     let devices = 0;
     try {
@@ -498,7 +536,7 @@ function reach(user, payload, smsText) {
     }
     if (devices > 0) return;              // the free channel did the job
     if (!smsText || !user.phone) return;  // not every notice is worth a paid SMS
-    const sms = await sendSms(user.phone, open ? smsText : 'You have a new update on Vuka Uzenzele. Open the app to see it.');
+    const sms = await sendSms(user.phone, open ? smsText : localize(lang, 'You have a new update on Vuka Uzenzele. Open the app to see it.'));
     if (!sms.delivered && sms.provider !== 'console') {
       captureError(
         new Error(`"${payload.type}" notice reached neither push nor SMS: ${sms.error ?? sms.provider}`),
@@ -554,13 +592,23 @@ async function alertNearbyWorkers(gig) {
   const subs = nearby.length
     ? await all(`SELECT * FROM push_subscriptions WHERE user_id IN (${placeholders})`, nearby.map((w) => w.id))
     : [];
-  const sent = await deliverAll(subs, {
-    type: 'job-alert',
-    title: 'New gig near you',
-    body: `${gig.title} · R${gig.pay_per_hour}/hr · ${gig.location}`,
-    url: `/?gig=${gig.id}`,
-    tag: `gig-${gig.id}`,
-  });
+  /* One encrypted payload per language rather than one for everybody. */
+  const byLang = new Map();
+  for (const sub of subs) {
+    const lang = await userLang(sub.user_id);
+    if (!byLang.has(lang)) byLang.set(lang, []);
+    byLang.get(lang).push(sub);
+  }
+  let sent = 0;
+  for (const [lang, group] of byLang) {
+    sent += await deliverAll(group, {
+      type: 'job-alert',
+      title: localize(lang, 'New gig near you'),
+      body: localize(lang, `${gig.title} · R${gig.pay_per_hour}/hr · ${gig.location}`),
+      url: `/?gig=${gig.id}`,
+      tag: `gig-${gig.id}`,
+    });
+  }
   console.log(`Job alert for gig ${gig.id}: ${sent} device(s) notified of ${nearby.length} nearby worker(s).`);
   return { sent, matched: nearby.length };
 }
@@ -718,6 +766,9 @@ app.get('/api/config', (_req, res) => res.json({
   // Public by design (RFC 8292): the browser needs it to create a subscription.
   // Empty string means push is off, and the app hides the notification prompt.
   vapidPublicKey,
+  // The languages Msizi can listen in by recording (server transcription).
+  // Empty when transcription is off; the app then relies on the phone alone.
+  sttLangs: sttConfigured() ? STT_LANGS : [],
 }));
 
 // ---- phone verification (OTP) ----
@@ -764,7 +815,7 @@ app.post('/api/auth/otp', asyncH(async (req, res) => {
   await run('INSERT INTO phone_verifications (id, phone, purpose, code_hash, expires_at, created_at) VALUES (?,?,?,?,?,?)',
     [uuid(), phone, 'register', hashCode(code), new Date(Date.now() + OTP_TTL_MS).toISOString(), new Date().toISOString()]);
 
-  const sms = await sendSms(phone, `Your Vuka Uzenzele code is ${code}. It expires in 10 minutes.`);
+  const sms = await sendSms(phone, localize(langOf(req), `Your Vuka Uzenzele code is ${code}. It expires in 10 minutes.`));
 
   /* A code that was never delivered must not be reported as sent. This answered
      200 regardless, so the app said "check your SMS" and the person waited for
@@ -949,7 +1000,7 @@ app.post('/api/auth/password/request', asyncH(async (req, res) => {
   const code = randomDigits(6);
   await run('INSERT INTO password_resets (id, user_id, code_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
     [uuid(), user.id, hashCode(code), new Date(Date.now() + RESET_TTL_MS).toISOString(), new Date().toISOString()]);
-  await sendSms(phone, `Your Vuka Uzenzele password reset code is ${code}. It expires in 15 minutes. If this wasn't you, ignore this message.`);
+  await sendSms(phone, localize(langOf(req), `Your Vuka Uzenzele password reset code is ${code}. It expires in 15 minutes. If this wasn't you, ignore this message.`));
 
   res.json({ ...generic, ...echoCode(code) });
 }));
@@ -1275,7 +1326,7 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
       tag: `hired-${g.id}`,
     }, `Good news! ${g.employer_name} hired you for "${g.title}" on Vuka Uzenzele. Open the app for the details.`);
     await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
-      [uuid(), req.user.id, worker.id, `You're hired for "${g.title}" 🎉 Let's arrange the details.`, now]);
+      [uuid(), req.user.id, worker.id, localize(await userLang(worker.id), `You're hired for "${g.title}" 🎉 Let's arrange the details.`), now]);
   }
   res.json({ ok: true, applicationId: app_.id });
 }));
@@ -1319,7 +1370,7 @@ app.post('/api/gigs/:id/complete', requireAuth, requireRole('worker'), asyncH(as
         tag: `done-${g.id}`,
       }, `${worker?.name ?? 'Your worker'} marked "${g.title}" as done on Vuka Uzenzele. Confirm it in the app to release their reference.`);
       await run('INSERT INTO messages (id, sender_id, recipient_id, body, created_at) VALUES (?,?,?,?,?)',
-        [uuid(), req.user.id, employer.id, `I've marked "${g.title}" as done. Please confirm when you're happy.`, now]);
+        [uuid(), req.user.id, employer.id, localize(await userLang(employer.id), `I've marked "${g.title}" as done. Please confirm when you're happy.`), now]);
     }
   }
   if (safetyFlag) {
@@ -2084,6 +2135,35 @@ const voiceLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Slow down a little.', reason: 'slow_down' },
 });
+
+/* Speech to text for the languages the phone cannot listen in (see
+   transcribe.mjs). The recording is passed straight to the transcriber and
+   not stored. Its own limiter: a question is a few seconds of audio, and
+   twenty a minute is far beyond anyone actually talking. */
+const sttLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip,
+  message: { error: 'Slow down a little.', reason: 'slow_down' },
+});
+app.post('/api/assistant/transcribe', requireAuth, sttLimiter,
+  express.raw({ type: () => true, limit: STT_MAX_BYTES }),
+  asyncH(async (req, res) => {
+    const lang = String(req.query.lang ?? 'en');
+    try {
+      const text = await transcribe(req.body, req.headers['content-type'], lang);
+      res.json({ text });
+    } catch (e) {
+      if (e.code === 'unsupported_language') return res.status(400).json({ error: 'Msizi cannot listen in that language yet.', reason: e.code });
+      if (e.code === 'empty' || e.code === 'too_large') return res.status(400).json({ error: 'That recording was empty or too long. Please try again.', reason: e.code });
+      if (e.code === 'not_configured') return res.status(503).json({ error: 'Voice questions are not set up yet.', reason: e.code });
+      if (e.code === 'over_budget') return res.status(429).json({ error: 'Msizi has listened a lot today. Please type your question instead.', reason: e.code });
+      captureError(e, 'assistant:transcribe');
+      res.status(503).json({ error: 'Msizi could not hear that right now. Please try again, or type.', reason: 'unavailable' });
+    }
+  }));
 
 /* Before an answer starts: can ALL of it be read in the natural voice? */
 app.post('/api/assistant/voice/check', requireAuth, voiceLimiter, asyncH(async (req, res) => {

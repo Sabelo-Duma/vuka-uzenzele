@@ -5,6 +5,7 @@ import { ratingLabel, isUnrated } from '../../lib/format';
 import { Card } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { SunMark } from '../../components/SunMark';
+import { useT } from '../../providers/LanguageProvider';
 
 /**
  * Public, read-only CV page — resolves the "Copy share link" URL (/cv/:id).
@@ -13,6 +14,7 @@ import { SunMark } from '../../components/SunMark';
 export function PublicCv({ id }: { id: string }) {
   const [data, setData] = useState<PublicCvResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -20,15 +22,16 @@ export function PublicCv({ id }: { id: string }) {
     setError(null);
     api.getPublicCv(id)
       .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : 'This CV could not be loaded.'); });
+      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : t('profile.cv.loadFailed')); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   return (
     <div className="min-h-screen bg-surface-2 text-ink">
       <TopBar showCta={!error} />
       <div className="max-w-[760px] mx-auto px-4 sm:px-6 py-6">
-        {error ? <Notice title="This CV link isn't available" body={error} />
+        {error ? <Notice title={t('profile.cv.unavailable')} body={error} />
           : !data ? <LoadingCv />
           : <CvBody data={data} />}
       </div>
@@ -38,13 +41,14 @@ export function PublicCv({ id }: { id: string }) {
 }
 
 function TopBar({ showCta = true }: { showCta?: boolean }) {
+  const t = useT();
   return (
     <header className="sticky top-0 z-10 bg-surface-veil backdrop-blur border-b border-line pt-[env(safe-area-inset-top)]">
       <div className="max-w-[760px] mx-auto px-4 sm:px-6 min-h-14 flex items-center justify-between gap-2">
         <a href="/" className="flex items-center gap-2 font-extrabold text-ink tracking-tight">
           <SunMark size={24} className="text-brand-solid" /><span className="whitespace-nowrap">Vuka Uzenzele</span>
         </a>
-        {showCta && <a href="/" className="rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 py-2 hover:bg-brand-hover transition active:scale-95">Create your free CV</a>}
+        {showCta && <a href="/" className="rounded-pill bg-brand-solid text-brand-on text-small font-bold px-4 py-2 hover:bg-brand-hover transition active:scale-95">{t('profile.cv.create')}</a>}
       </div>
     </header>
   );
@@ -52,6 +56,7 @@ function TopBar({ showCta = true }: { showCta?: boolean }) {
 
 function CvBody({ data }: { data: PublicCvResult }) {
   const { name, cv, profile, history } = data;
+  const t = useT();
   const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
   const ordered = [...(history ?? [])].reverse();
   // CV-shaped evidence, computed from the same confirmed jobs.
@@ -68,7 +73,7 @@ function CvBody({ data }: { data: PublicCvResult }) {
     <>
       <div className="text-center mb-4">
         <span className="inline-flex items-center gap-1.5 rounded-pill bg-verified-soft text-verified text-micro font-bold px-3 py-1">
-          <Icon name="shield" size={13} /> Verified Vuka CV
+          <Icon name="shield" size={13} /> {t('profile.cv.badge')}
         </span>
       </div>
 
@@ -91,23 +96,23 @@ function CvBody({ data }: { data: PublicCvResult }) {
               someone inside this marketplace and mean nothing to an employer,
               which is who opens this link. */}
           <div className="relative flex flex-wrap gap-2 mt-4">
-            {profile?.idVerified && <Badge tone="verified"><Icon name="shield" size={12} /> Identity verified</Badge>}
-            {typeof data.followers === 'number' && data.followers > 0 && <Badge>{data.followers} follower{data.followers === 1 ? '' : 's'}</Badge>}
+            {profile?.idVerified && <Badge tone="verified"><Icon name="shield" size={12} /> {t('profile.cv.idVerified')}</Badge>}
+            {typeof data.followers === 'number' && data.followers > 0 && <Badge>{t('profile.cv.followers', { count: data.followers })}</Badge>}
           </div>
         </div>
         {/* Evidence of work, not a scoreboard — and deliberately not earnings.
             This page is public, and telling whoever is about to make an offer
             exactly what this person has accepted before bargains against them. */}
         <div className="p-4 grid grid-cols-3 gap-2">
-          <Stat value={String(cv.jobsDone)} label="Jobs completed" />
-          <Stat value={String(hoursWorked)} label="Hours worked" />
-          <Stat value={String(verifiedRefs)} label="References" />
+          <Stat value={String(cv.jobsDone)} label={t('profile.cv.jobsCompleted')} />
+          <Stat value={String(hoursWorked)} label={t('profile.cv.hoursWorked')} />
+          <Stat value={String(verifiedRefs)} label={t('record.references')} />
         </div>
       </Card>
 
       {profile?.bio && (
         <Card className="p-5 mb-3.5">
-          <H>About</H>
+          <H>{t('profile.cv.about')}</H>
           <p className="m-0 text-small text-ink leading-relaxed">{profile.bio}</p>
         </Card>
       )}
@@ -119,14 +124,14 @@ function CvBody({ data }: { data: PublicCvResult }) {
           CV instead, which the worker hands over on purpose. */}
       {profile?.languages && profile.languages.length > 0 && (
         <Card className="p-5 mb-3.5">
-          <H>Languages</H>
+          <H>{t('profile.cv.languages')}</H>
           <p className="m-0 text-small text-ink">{profile.languages.join(', ')}</p>
         </Card>
       )}
 
       {profile?.skills && profile.skills.length > 0 && (
         <Card className="p-5 mb-3.5">
-          <H>Skills</H>
+          <H>{t('record.skills')}</H>
           <div className="flex flex-wrap gap-1.5">
             {profile.skills.map((s) => <span key={s} className="bg-info-soft text-info text-small font-bold px-3 py-1 rounded-full">{catById(s).label}</span>)}
           </div>
@@ -134,9 +139,9 @@ function CvBody({ data }: { data: PublicCvResult }) {
       )}
 
       <Card className="p-5">
-        <H>Verified work history · {cv.jobsDone}</H>
+        <H>{t('profile.cv.history', { jobs: cv.jobsDone })}</H>
         {ordered.length === 0
-          ? <p className="text-small text-dim m-0">No completed jobs yet.</p>
+          ? <p className="text-small text-dim m-0">{t('profile.cv.noJobs')}</p>
           : ordered.map((h) => {
               return (
                 <div key={h.id} className="border-l-2 border-line pl-3.5 ml-1 pb-3.5 last:pb-0 relative">
@@ -148,17 +153,17 @@ function CvBody({ data }: { data: PublicCvResult }) {
                   <div className="text-small text-dim mt-0.5">{h.jobTitle} · {h.hours}h · <span className={isUnrated(h.rating) ? undefined : 'text-brand'}>{ratingLabel(h.rating)}</span></div>
                   <div className="text-small text-ink italic my-1.5 leading-snug">“{h.review}”</div>
                   {isUnrated(h.rating)
-                    ? <div className="text-micro text-dim flex items-center gap-1.5"><Icon name="shield" size={13} /> Work confirmed — {h.employer} did not leave a rating</div>
-                    : <div className="text-micro text-dim flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> Verified reference — {h.employer}</div>}
+                    ? <div className="text-micro text-dim flex items-center gap-1.5"><Icon name="shield" size={13} /> {t('profile.cv.unrated', { employer: h.employer })}</div>
+                    : <div className="text-micro text-dim flex items-center gap-1.5"><span className="text-info"><Icon name="shield" size={13} /></span> {t('profile.cv.reference', { employer: h.employer })}</div>}
                 </div>
               );
             })}
       </Card>
 
       <div className="text-center mt-6 mb-2">
-        <p className="text-small text-dim leading-relaxed mb-3">Every reference above is verified by Vuka — built automatically from real, completed jobs. No self-written claims.</p>
+        <p className="text-small text-dim leading-relaxed mb-3">{t('profile.cv.footnote')}</p>
         <a href="/" className="inline-flex items-center gap-2 rounded-pill bg-ink text-canvas font-bold text-small px-5 py-3 hover:bg-ink transition active:scale-95">
-          Build your own verified CV — free →
+          {t('profile.cv.buildOwn')}
         </a>
       </div>
     </>
@@ -189,15 +194,17 @@ function LoadingCv() {
   );
 }
 function Notice({ title, body }: { title: string; body: string }) {
+  const t = useT();
   return (
     <Card className="p-8 text-center">
       <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="search" size={26} /></div>
       <h2 className="font-display text-ink font-extrabold text-lead m-0">{title}</h2>
       <p className="text-dim text-small leading-relaxed mt-1.5 mb-4">{body}</p>
-      <a href="/" className="inline-flex rounded-pill bg-brand-solid text-brand-on font-bold text-small px-5 py-3 hover:bg-brand-hover transition">Go to Vuka Uzenzele</a>
+      <a href="/" className="inline-flex rounded-pill bg-brand-solid text-brand-on font-bold text-small px-5 py-3 hover:bg-brand-hover transition">{t('profile.cv.goHome')}</a>
     </Card>
   );
 }
 function Footer() {
-  return <p className="text-center text-micro text-faint pb-8 px-4">Vuka Uzenzele · Rise up &amp; Do it Yourself</p>;
+  const t = useT();
+  return <p className="text-center text-micro text-faint pb-8 px-4">{t('profile.cv.tagline')}</p>;
 }

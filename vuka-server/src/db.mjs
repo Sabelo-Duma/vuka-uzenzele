@@ -550,6 +550,8 @@ export async function initDb() {
   await addColumn('user_preferences', 'previews', 'INTEGER NOT NULL DEFAULT 1');
   await addColumn('user_preferences', 'quiet_start', 'INTEGER');
   await addColumn('user_preferences', 'quiet_end', 'INTEGER');
+  /* The language this person's app last used — notices to them are written in it. */
+  await addColumn('user_preferences', 'lang', 'TEXT');
 
   /* Carry across every verification already granted, once. Guarded by the NULL
      check so it cannot re-run and cannot clobber a later decision. */

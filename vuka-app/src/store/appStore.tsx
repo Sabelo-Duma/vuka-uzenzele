@@ -10,6 +10,8 @@ import { applyServerConfig, minWagePerHour } from '../data/catalog';
 import { resetBanking } from '../lib/banking';
 import { cachedCoords, forgetCoords, requestCoords, type Coords } from '../lib/geo';
 import { disablePush, enablePush, pushSupported } from '../lib/push';
+import { setTranscribeLangs } from '../lib/recordListener';
+import { tr } from '../i18n';
 
 export type Screen =
   | 'home' | 'jobs' | 'cv' | 'me'
@@ -284,7 +286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       else await loadEmployerData();
       dispatch({ type: 'ERROR', error: null });
     } catch {
-      dispatch({ type: 'ERROR', error: "We couldn't load your latest data. Check your connection and retry." });
+      dispatch({ type: 'ERROR', error: tr('common.store.loadFailed') });
     } finally {
       dispatch({ type: 'DATA_LOADING', loading: false });
     }
@@ -311,6 +313,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         applyServerConfig(cfg);
         dispatch({ type: 'CONFIG', minWage: minWagePerHour(), vapidKey: cfg.vapidPublicKey ?? '' });
+        setTranscribeLangs(cfg.sttLangs);
       } catch { /* bundled defaults stand in */ }
     })();
     return () => { cancelled = true; };
@@ -486,7 +489,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const coords = await requestCoords();
       dispatch({ type: 'COORDS', coords });
       await loadFor(stateRef.current.role);
-      dispatch({ type: 'TOAST', msg: 'Using your location — distances are exact now' });
+      dispatch({ type: 'TOAST', msg: tr('common.store.locationOn') });
     } catch (e) {
       dispatch({ type: 'TOAST', msg: (e as Error).message });
     } finally {
@@ -498,7 +501,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     forgetCoords();
     dispatch({ type: 'COORDS', coords: null });
     void loadFor(stateRef.current.role);
-    dispatch({ type: 'TOAST', msg: 'Location off — showing estimated distances' });
+    dispatch({ type: 'TOAST', msg: tr('common.store.locationOff') });
   }, [loadFor]);
 
   /**
@@ -625,6 +628,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useApp(): Store {
   const ctx = useContext(AppContext);
+  // i18n-ignore: developer error, never reaches a user
   if (!ctx) throw new Error('useApp must be used within <AppProvider>');
   return ctx;
 }

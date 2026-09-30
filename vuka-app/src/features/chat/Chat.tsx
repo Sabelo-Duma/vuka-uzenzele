@@ -21,20 +21,22 @@ import { Composer } from './Composer';
 import { VoiceNote } from './VoiceNote';
 import { PhotoLightbox, PhotoNote } from './PhotoNote';
 
-function timeShort(iso: string): string {
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function timeShort(iso: string, tag: string): string {
   try {
     const d = new Date(iso);
     const now = new Date();
     const sameDay = d.toDateString() === now.toDateString();
     return sameDay
-      ? d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
-      : d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+      ? d.toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString(tag, { day: 'numeric', month: 'short' });
   } catch { return ''; }
 }
 
 /** Just the clock — used inside a thread, where the day is a separator above. */
-function clockOnly(iso: string): string {
-  try { return new Date(iso).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+function clockOnly(iso: string, tag: string): string {
+  try { return new Date(iso).toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
 }
 
 /** "Today", "Yesterday", or a date. What the separator between days says.
@@ -57,7 +59,7 @@ const sameDay = (a: string, b: string) => {
   try { return new Date(a).toDateString() === new Date(b).toDateString(); } catch { return false; }
 };
 
-const roleLabel = (r: ChatUser['role']) => (r === 'employer' ? 'Employer' : 'Worker');
+const roleLabel = (r: ChatUser['role'], t: Translate) => (r === 'employer' ? t('chat.x.roleEmployer') : t('chat.x.roleWorker'));
 
 /** Can this still be edited? Mirrors the server's window, which owns the rule. */
 function withinEditWindow(m: Message, windowMinutes: number): boolean {
@@ -113,27 +115,28 @@ function MessageActions({ mine, canEdit, canCopy, onReply, onEdit, onDelete, onC
   mine: boolean; canEdit: boolean; canCopy: boolean;
   onReply: () => void; onEdit: () => void; onDelete: () => void; onCopy: () => void; onClose: () => void;
 }) {
+  const t = useT();
   const item = 'w-full text-left px-4 py-3 text-body font-semibold hover:bg-surface-2 transition flex items-center gap-3';
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label="Message actions">
-      <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={t('chat.x.messageActions')}>
+      <button className="absolute inset-0 bg-black/40" aria-label={t('action.close')} onClick={onClose} />
       <div className="relative w-full sm:w-[320px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
-        <button className={`${item} text-ink`} onClick={onReply}><Icon name="reply" size={16} /> Reply</button>
-        {canCopy && <button className={`${item} text-ink`} onClick={onCopy}><Icon name="copy" size={16} /> Copy text</button>}
-        {mine && canEdit && <button className={`${item} text-ink`} onClick={onEdit}><Icon name="edit" size={16} /> Edit</button>}
-        {mine && <button className={`${item} text-danger`} onClick={onDelete}><Icon name="trash" size={16} /> Delete for everyone</button>}
-        <button className={`${item} text-dim border-t border-line`} onClick={onClose}>Cancel</button>
+        <button className={`${item} text-ink`} onClick={onReply}><Icon name="reply" size={16} /> {t('chat.x.reply')}</button>
+        {canCopy && <button className={`${item} text-ink`} onClick={onCopy}><Icon name="copy" size={16} /> {t('chat.x.copyText')}</button>}
+        {mine && canEdit && <button className={`${item} text-ink`} onClick={onEdit}><Icon name="edit" size={16} /> {t('action.edit')}</button>}
+        {mine && <button className={`${item} text-danger`} onClick={onDelete}><Icon name="trash" size={16} /> {t('chat.x.deleteForEveryone')}</button>}
+        <button className={`${item} text-dim border-t border-line`} onClick={onClose}>{t('action.cancel')}</button>
       </div>
     </div>
   );
 }
 
 /** What a quoted message says when it has no words of its own. */
-const quoteText = (kind: string, body: string, deleted: boolean) => {
-  if (deleted) return 'Message deleted';
+const quoteText = (kind: string, body: string, deleted: boolean, t: Translate) => {
+  if (deleted) return t('chat.x.messageDeleted');
   if (body) return body;
-  if (kind === 'voice') return 'Voice note';
-  if (kind === 'image') return 'Photo';
+  if (kind === 'voice') return t('chat.voiceNote');
+  if (kind === 'image') return t('chat.photo');
   return '';
 };
 
@@ -183,6 +186,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
   m: Message; mine: boolean; meId: string | undefined; otherFirstName: string;
   onMenu: () => void; onReply: () => void; onOpenPhoto: (url: string) => void;
 }) {
+  const tr = useT();
   const [dragX, setDragX] = useState(0);
   const start = useRef({ x: 0, y: 0 });
   const drag = useRef(0);
@@ -250,7 +254,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
   if (m.deleted) {
     return (
       <div className={`px-3.5 py-2.5 text-small italic rounded-2xl border border-dashed border-line text-faint inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
-        <Icon name="trash" size={12} /> This message was deleted
+        <Icon name="trash" size={12} /> {tr('chat.x.thisDeleted')}
       </div>
     );
   }
@@ -293,8 +297,8 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
         {m.replyTo && (
           <QuotedBlock
             tone={mine ? 'mine' : 'theirs'}
-            label={m.replyTo.senderId === meId ? 'You' : otherFirstName}
-            body={quoteText(m.replyTo.kind, m.replyTo.body, m.replyTo.deleted)}
+            label={m.replyTo.senderId === meId ? tr('nav.you') : otherFirstName}
+            body={quoteText(m.replyTo.kind, m.replyTo.body, m.replyTo.deleted, tr)}
           />
         )}
 
@@ -310,7 +314,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
       <button
         type="button"
         onClick={onMenu}
-        aria-label="Message actions"
+        aria-label={tr('chat.x.messageActions')}
         className={`hidden [@media(pointer:fine)]:grid place-items-center absolute top-1 w-7 h-7 rounded-full bg-surface border border-line text-dim opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition ${mine ? '-left-9' : '-right-9'}`}
       >
         <Icon name="chev" size={14} />
@@ -323,7 +327,8 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
 function PendingBubble({ p, onRetry, onDiscard }: {
   p: Pending; onRetry: () => void; onDiscard: () => void;
 }) {
-  const label = p.kind === 'voice' ? 'Voice note' : p.kind === 'image' ? (p.body || 'Photo') : p.body;
+  const t = useT();
+  const label = p.kind === 'voice' ? t('chat.voiceNote') : p.kind === 'image' ? (p.body || t('chat.photo')) : p.body;
   return (
     <div>
       <div
@@ -333,12 +338,12 @@ function PendingBubble({ p, onRetry, onDiscard }: {
       </div>
       {p.failed && (
         <div className="flex items-center justify-end gap-2 mt-1">
-          <span className="text-micro text-danger">{p.error ?? "Couldn't send"}</span>
+          <span className="text-micro text-danger">{p.error ?? t('chat.x.couldntSend')}</span>
           <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 min-h-[32px] px-2 rounded-chip text-micro font-bold text-brand hover:bg-surface-2 transition">
-            <Icon name="retry" size={12} /> Try again
+            <Icon name="retry" size={12} /> {t('action.retry')}
           </button>
           <button type="button" onClick={onDiscard} className="inline-flex items-center min-h-[32px] px-2 rounded-chip text-micro font-bold text-dim hover:bg-surface-2 transition">
-            Discard
+            {t('chat.x.discard')}
           </button>
         </div>
       )}
@@ -350,6 +355,7 @@ function PendingBubble({ p, onRetry, onDiscard }: {
 export function Messages() {
   const { navigate, loadConversations } = useApp();
   const t = useT();
+  const { meta } = useLanguage();
   const [convos, setConvos] = useState<Conversation[] | null>(null);
   const [finding, setFinding] = useState(false);
 
@@ -376,14 +382,14 @@ export function Messages() {
     <div className="max-w-[720px] mx-auto">
       <header className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Direct messages</small>
-          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Chats<span className="text-brand">.</span></h1>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('chat.x.directMessages')}</small>
+          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('chat.title')}<span className="text-brand">.</span></h1>
         </div>
         <button
           onClick={() => setFinding(true)}
           className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-pill border border-line text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95"
         >
-          <Icon name="search" size={16} /> Find people
+          <Icon name="search" size={16} /> {t('chat.x.findPeople')}
         </button>
       </header>
       {finding && <FindPeopleSheet onClose={() => setFinding(false)} />}
@@ -396,7 +402,7 @@ export function Messages() {
           </Card>
         ))}</div>
       ) : convos.length === 0 ? (
-        <EmptyState icon="chat" title="No messages yet" hint="When you invite, apply or get hired, start a conversation here, or find someone you know. Chat by text, voice note or photo." action={<Button size="sm" onClick={() => setFinding(true)}>Find people</Button>} />
+        <EmptyState icon="chat" title={t('chat.x.emptyTitle')} hint={t('chat.x.emptyHint')} action={<Button size="sm" onClick={() => setFinding(true)}>{t('chat.x.findPeople')}</Button>} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {convos.map((c) => (
@@ -413,7 +419,7 @@ export function Messages() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <b className="text-body font-extrabold text-ink truncate tracking-tight">{c.user.name}</b>
-                    <span className="text-micro font-bold uppercase tracking-wide text-faint shrink-0">{roleLabel(c.user.role)}</span>
+                    <span className="text-micro font-bold uppercase tracking-wide text-faint shrink-0">{roleLabel(c.user.role, t)}</span>
                   </div>
                   <div className={`text-small truncate mt-0.5 flex items-center gap-1 ${c.unread ? 'text-ink font-semibold' : 'text-dim'}`}>
                     {c.lastFromMe && (
@@ -423,7 +429,7 @@ export function Messages() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-micro text-faint">{timeShort(c.lastAt)}</span>
+                  <span className="text-micro text-faint">{timeShort(c.lastAt, meta.tag)}</span>
                   {c.unread > 0 && <span className="grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full bg-brand-solid text-brand-on text-micro font-bold font-mono tnum">{c.unread}</span>}
                 </div>
               </Card>
@@ -447,6 +453,7 @@ const TYPING_PING_MS = 3000;
 export function ChatThread({ id }: { id: string }) {
   const { state, toast, refreshUnread } = useApp();
   const t = useT();
+  const { meta } = useLanguage();
   const me = state.user?.id;
 
   const [other, setOther] = useState<ChatUser | null>(null);
@@ -659,7 +666,7 @@ export function ChatThread({ id }: { id: string }) {
   const cancelComposing = () => { setReplyingTo(null); setEditingId(null); setDraft(''); };
 
   const replyContext = () => (replyingTo
-    ? { id: replyingTo.id, body: quoteText(replyingTo.kind, replyingTo.body, replyingTo.deleted), senderId: replyingTo.senderId }
+    ? { id: replyingTo.id, body: quoteText(replyingTo.kind, replyingTo.body, replyingTo.deleted, t), senderId: replyingTo.senderId }
     : null);
 
   const sendText = async () => {
@@ -753,8 +760,8 @@ export function ChatThread({ id }: { id: string }) {
       const res = blocked ? await api.unblockUser(id) : await api.blockUser(id);
       setBlocked(res.blocked);
       toast(res.blocked
-        ? `${otherFirstName} is blocked. They can't message you, and you can't message them.`
-        : `${otherFirstName} is unblocked.`);
+        ? t('chat.x.blockedToast', { name: otherFirstName })
+        : t('chat.x.unblockedToast', { name: otherFirstName }));
       if (res.blocked) { setReplyingTo(null); setEditingId(null); setDraft(''); }
     } catch (e) {
       toast((e as Error).message);
@@ -765,17 +772,17 @@ export function ChatThread({ id }: { id: string }) {
     setMenuFor(null);
     try {
       await navigator.clipboard.writeText(m.body);
-      toast('Copied');
+      toast(t('action.copied'));
     } catch {
-      toast("Your browser wouldn't allow copying.");
+      toast(t('chat.x.copyFailed'));
     }
-  }, [toast]);
+  }, [toast, t]);
 
   if (notFound) {
-    return <div className="max-w-[720px] mx-auto"><EmptyState icon="search" title="Conversation unavailable" hint="This person is no longer on Vuka." /></div>;
+    return <div className="max-w-[720px] mx-auto"><EmptyState icon="search" title={t('chat.x.unavailableTitle')} hint={t('chat.x.unavailableHint')} /></div>;
   }
 
-  const otherFirstName = other?.name?.split(' ')[0] ?? 'them';
+  const otherFirstName = other?.name?.split(' ')[0] ?? t('chat.x.them');
 
   return (
     <div className="max-w-[720px] w-full mx-auto flex flex-col flex-1 min-h-0">
@@ -788,7 +795,7 @@ export function ChatThread({ id }: { id: string }) {
           thing it should have been all along: a name and a status.
 
           Sticky, so both stay visible however far down the thread you are. */}
-      <div className="shrink-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-2 bg-canvas">
+      <div data-chat-header className="shrink-0 z-20 flex items-center gap-3 py-3 border-b border-line mb-2 bg-canvas">
         {other ? (
           <>
             <div className="relative shrink-0">
@@ -817,7 +824,7 @@ export function ChatThread({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setThreadMenu(true)}
-              aria-label={`More options for ${other.name}`}
+              aria-label={t('chat.x.moreOptions', { name: other.name })}
               className="grid place-items-center w-11 h-11 -mr-2 shrink-0 rounded-chip text-dim hover:bg-surface-2 hover:text-ink transition active:scale-95"
             >
               <Icon name="more" size={20} />
@@ -838,10 +845,10 @@ export function ChatThread({ id }: { id: string }) {
           <div className="flex-1 grid place-items-center text-center py-8">
             <div>
               <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="chat" size={26} /></div>
-              <p className="text-dim text-small">Say hello and sort out the details — start, pay, and where to meet.</p>
+              <p className="text-dim text-small">{t('chat.x.threadEmpty')}</p>
               {/* Gestures are invisible by definition, so say them once, here,
                   where there is nothing else competing for the space. */}
-              <p className="text-faint text-small mt-2">Tap the mic to record · swipe a message to reply · hold it for more</p>
+              <p className="text-faint text-small mt-2">{t('chat.x.gestureHint')}</p>
             </div>
           </div>
         ) : (
@@ -853,7 +860,7 @@ export function ChatThread({ id }: { id: string }) {
                 disabled={loadingMore}
                 className="self-center min-h-[44px] px-4 rounded-pill border border-line bg-surface text-small font-bold text-dim hover:text-ink hover:bg-surface-2 transition disabled:opacity-50"
               >
-                {loadingMore ? 'Loading…' : 'Load earlier messages'}
+                {loadingMore ? t('action.loading') : t('chat.loadEarlier')}
               </button>
             )}
 
@@ -872,7 +879,7 @@ export function ChatThread({ id }: { id: string }) {
                       onDiscard={() => discard(row.pending.clientId)}
                     />
                     <div className="flex items-center gap-1 text-micro text-faint mt-1 justify-end">
-                      <span>{clockOnly(row.at)}</span>
+                      <span>{clockOnly(row.at, meta.tag)}</span>
                       <Ticks state={row.pending.failed ? 'failed' : 'queued'} />
                     </div>
                     </div>
@@ -896,8 +903,8 @@ export function ChatThread({ id }: { id: string }) {
                     onOpenPhoto={setLightbox}
                   />
                   <div className={`flex items-center gap-1 text-micro text-faint mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
-                    <span>{clockOnly(m.createdAt)}</span>
-                    {m.editedAt && !m.deleted && <span>· edited</span>}
+                    <span>{clockOnly(m.createdAt, meta.tag)}</span>
+                    {m.editedAt && !m.deleted && <span>· {t('chat.x.edited')}</span>}
                     {/* Delivery state only means something on your own messages. */}
                     {mine && !m.deleted && <Ticks state={m.read ? 'read' : m.delivered ? 'delivered' : 'sent'} />}
                   </div>
@@ -916,7 +923,7 @@ export function ChatThread({ id }: { id: string }) {
           onClick={jumpToLatest}
           className="sticky bottom-2 self-center z-10 inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-pill bg-ink text-canvas text-small font-bold shadow-e2 transition active:scale-95"
         >
-          New messages <Icon name="chev" size={14} className="rotate-90" />
+          {t('chat.x.newMessages')} <Icon name="chev" size={14} className="rotate-90" />
         </button>
       )}
 
@@ -924,7 +931,7 @@ export function ChatThread({ id }: { id: string }) {
         <div className="mt-2" aria-live="polite">
           <div className="flex items-center gap-2 text-micro text-dim">
             <span className="block w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-            Sending… <span className="font-mono tnum">{Math.round(uploading * 100)}%</span>
+            {t('action.sending')} <span className="font-mono tnum">{Math.round(uploading * 100)}%</span>
           </div>
           <div className="h-1 mt-1 rounded-pill bg-surface-3 overflow-hidden">
             <div className="h-full bg-brand-solid transition-[width]" style={{ width: `${Math.round(uploading * 100)}%` }} />
@@ -938,13 +945,13 @@ export function ChatThread({ id }: { id: string }) {
           <span className="text-ink mt-0.5 shrink-0"><Icon name={editingId ? 'edit' : 'reply'} size={14} /></span>
           <div className="flex-1 min-w-0">
             <span className="block text-micro font-bold uppercase tracking-wide text-dim">
-              {editingId ? 'Editing your message' : `Replying to ${replyingTo?.senderId === me ? 'yourself' : otherFirstName}`}
+              {editingId ? t('chat.x.editing') : replyingTo?.senderId === me ? t('chat.x.replyingToSelf') : t('chat.x.replyingTo', { name: otherFirstName })}
             </span>
             <span className="block text-small text-ink truncate">
-              {editingId ? draft : quoteText(replyingTo?.kind ?? 'text', replyingTo?.body ?? '', false)}
+              {editingId ? draft : quoteText(replyingTo?.kind ?? 'text', replyingTo?.body ?? '', false, t)}
             </span>
           </div>
-          <button onClick={cancelComposing} aria-label="Cancel" className="shrink-0 text-dim hover:text-ink transition p-1">
+          <button onClick={cancelComposing} aria-label={t('action.cancel')} className="shrink-0 text-dim hover:text-ink transition p-1">
             <Icon name="x" size={15} />
           </button>
         </div>
@@ -958,9 +965,9 @@ export function ChatThread({ id }: { id: string }) {
           <div className="flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-3.5 py-3">
             <span className="text-dim mt-0.5 shrink-0"><Icon name="shield" size={16} /></span>
             <div className="flex-1 min-w-0">
-              <b className="block text-small text-ink">You blocked {otherFirstName}.</b>
+              <b className="block text-small text-ink">{t('chat.x.youBlocked', { name: otherFirstName })}</b>
               <span className="block text-micro text-dim leading-snug mt-0.5">
-                They can't message you, and you can't message them. Everything you both said is still here.
+                {t('chat.x.blockedBody')}
               </span>
             </div>
             <button
@@ -968,7 +975,7 @@ export function ChatThread({ id }: { id: string }) {
               onClick={toggleBlock}
               className="shrink-0 inline-flex items-center min-h-[44px] px-3 rounded-pill border border-line bg-surface text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95"
             >
-              Unblock
+              {t('chat.unblock')}
             </button>
           </div>
         </div>
@@ -1001,32 +1008,32 @@ export function ChatThread({ id }: { id: string }) {
       )}
 
       {threadMenu && other && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={`Options for ${other.name}`}>
-          <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={() => setThreadMenu(false)} />
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={t('chat.x.optionsFor', { name: other.name })}>
+          <button className="absolute inset-0 bg-black/40" aria-label={t('action.close')} onClick={() => setThreadMenu(false)} />
           <div className="relative w-full sm:w-[340px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
             <div className="px-4 pt-4 pb-2">
               <b className="block text-body font-extrabold text-ink tracking-tight">{other.name}</b>
-              <span className="text-micro text-dim">{roleLabel(other.role)}</span>
+              <span className="text-micro text-dim">{roleLabel(other.role, t)}</span>
             </div>
             <button
               className="w-full text-left px-4 py-3 text-body font-semibold text-ink hover:bg-surface-2 transition flex items-center gap-3 border-t border-line"
               onClick={() => { setThreadMenu(false); setReporting(true); }}
             >
-              <Icon name="alert" size={16} /> Report a safety concern
+              <Icon name="alert" size={16} /> {t('chat.x.reportSafety')}
             </button>
             <button
               className={`w-full text-left px-4 py-3 text-body font-semibold hover:bg-surface-2 transition flex items-center gap-3 ${blocked ? 'text-ink' : 'text-danger'}`}
               onClick={toggleBlock}
             >
-              <Icon name="shield" size={16} /> {blocked ? `Unblock ${otherFirstName}` : `Block ${otherFirstName}`}
+              <Icon name="shield" size={16} /> {blocked ? t('chat.x.unblockName', { name: otherFirstName }) : t('chat.x.blockName', { name: otherFirstName })}
             </button>
             {!blocked && (
               <p className="px-4 pb-3 pt-0 text-micro text-faint leading-snug m-0">
-                Blocking stops messages both ways straight away. Reporting sends it to us to look at — do both if you need to.
+                {t('chat.x.blockExplain')}
               </p>
             )}
             <button className="w-full text-left px-4 py-3 text-body font-semibold text-dim hover:bg-surface-2 transition border-t border-line" onClick={() => setThreadMenu(false)}>
-              Cancel
+              {t('action.cancel')}
             </button>
           </div>
         </div>

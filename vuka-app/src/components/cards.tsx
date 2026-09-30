@@ -2,7 +2,8 @@ import { catById, minWagePerHour, TIERS } from '../data/catalog';
 import { money } from '../lib/format';
 import { distanceLabel } from '../lib/geo';
 import type { CvSnapshot, FormalJob, Gig, TalentWorker } from '../types';
-import { Avatar, Card, Chip, Skeleton, Stars, TierBadge, Tile } from './ui';
+import { Avatar, Card, Chip, Skeleton, Stars, TierBadge, Tile, withSlot } from './ui';
+import { useT } from '../providers/LanguageProvider';
 import { Icon } from './Icon';
 import { FundingChip } from './Funding';
 
@@ -61,6 +62,7 @@ export function CardSkeletonGrid({ count = 4, talent = false }: { count?: number
 }
 
 export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick: () => void }) {
+  const tl = useT();
   const t = TIERS[worker.tier];
   return (
     <button onClick={onClick} className="w-full text-left min-w-0 mb-3 active:scale-[.985] hover:-translate-y-[2px] transition-transform duration-200">
@@ -82,7 +84,7 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
             <Stars rating={worker.rating} size={13} />
             <b className="text-small font-mono tnum text-ink">{worker.rating.toFixed(1)}</b>
           </span>
-          <small className="block text-micro text-dim">{worker.jobsDone} jobs</small>
+          <small className="block text-micro text-dim">{tl('common.card.jobs', { jobs: worker.jobsDone })}</small>
         </div>
       </Card>
     </button>
@@ -90,6 +92,7 @@ export function TalentCard({ worker, onClick }: { worker: TalentWorker; onClick:
 }
 
 export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
+  const t = useT();
   const c = catById(gig.category);
   const total = gig.hours * gig.payPerHour;
   const fair = gig.payPerHour >= minWagePerHour();
@@ -106,13 +109,13 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
           </div>
           <div className="text-right shrink-0">
             <b className="font-display text-title font-extrabold text-ink font-mono tnum leading-none">{money(total)}</b>
-            <small className="block text-micro text-dim font-mono tnum mt-1">{money(gig.payPerHour)}/hr · {gig.hours}h</small>
+            <small className="block text-micro text-dim font-mono tnum mt-1">{t('common.card.rateHours', { rate: money(gig.payPerHour), hours: gig.hours })}</small>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
           <FundingChip gig={gig} />
-          {gig.urgent && <Chip tone="live" icon="bolt">Urgent</Chip>}
-          {fair && <Chip tone="verified" icon="shield">Fair pay</Chip>}
+          {gig.urgent && <Chip tone="live" icon="bolt">{t('jobs.urgent')}</Chip>}
+          {fair && <Chip tone="verified" icon="shield">{t('jobs.fairPay')}</Chip>}
           <Chip tone="neutral" icon="calendar">{gig.when}</Chip>
         </div>
       </Card>
@@ -121,6 +124,7 @@ export function GigCard({ gig, onClick }: { gig: Gig; onClick: () => void }) {
 }
 
 export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapshot; onClick: () => void }) {
+  const t = useT();
   const c = catById(job.category);
   const unlocked = job.minTier <= cv.tier.id;
   const reqTier = TIERS[job.minTier];
@@ -147,7 +151,7 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
         <Card className="p-4 transition-shadow duration-200 hover:shadow-e2">
           {head}
           <div className="flex items-center gap-2 flex-wrap pt-2.5 mt-2.5 border-t border-dashed border-line">
-            <Chip tone="solid" icon="shield">Formal</Chip>
+            <Chip tone="solid" icon="shield">{t('common.card.formal')}</Chip>
             <Chip tone="neutral" icon="cap">{job.education.split('·')[0].trim()}</Chip>
           </div>
         </Card>
@@ -165,7 +169,11 @@ export function FormalCard({ job, cv, onClick }: { job: FormalJob; cv: CvSnapsho
         <div className="flex items-center gap-2.5 bg-ink text-canvas -mx-4 mt-2.5 px-4 py-3 rounded-b-card">
           <Icon name="lock" size={16} />
           <div className="flex-1 text-micro leading-snug">
-            Unlocks at <b className="text-brand">{reqTier.name} {reqTier.icon}</b> — {jobsNeeded > 0 ? `${jobsNeeded} more good job${jobsNeeded > 1 ? 's' : ''}` : 'raise your rating'} to go
+            {withSlot(
+              jobsNeeded > 0 ? t('common.card.unlocksJobs', { count: jobsNeeded }) : t('common.card.unlocksRating'),
+              '{tier}',
+              <b className="text-brand">{reqTier.name} {reqTier.icon}</b>,
+            )}
             <div className="h-1.5 bg-white/20 rounded-full mt-1.5 overflow-hidden">
               <div className="h-full bg-brand-solid rounded-full" style={{ width: `${prog}%` }} />
             </div>

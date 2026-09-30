@@ -3,6 +3,7 @@ import { attachmentUrl } from '../../lib/api';
 import type { Attachment } from '../../lib/api';
 import { formatDuration, waveformBars } from '../../lib/voice';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 /**
  * The clip that is playing, anywhere in the app.
@@ -39,6 +40,7 @@ let nowPlaying: HTMLAudioElement | null = null;
  * reimplementing all four, worse.
  */
 export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 'mine' | 'theirs' }) {
+  const t = useT();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -93,7 +95,7 @@ export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 
         el.pause();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That clip wouldn't play.");
+      setError(e instanceof Error ? e.message : t('chat.x.clipFailed'));
       setPlaying(false);
     }
   };
@@ -124,7 +126,7 @@ export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause voice note' : 'Play voice note'}
+        aria-label={playing ? t('chat.x.pauseVoice') : t('chat.x.playVoice')}
         className={`grid place-items-center w-11 h-11 shrink-0 rounded-full transition active:scale-95 ${
           mine ? 'bg-canvas text-ink' : 'bg-brand-solid text-brand-on'
         }`}
@@ -159,11 +161,11 @@ export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 
               is the correct association; the aria-label is what survives
               useId() producing an id with colons in it, which is legal in HTML
               and awkward everywhere that treats an id as a selector. */}
-          <label htmlFor={labelId} className="sr-only">Voice note position</label>
+          <label htmlFor={labelId} className="sr-only">{t('chat.x.position')}</label>
           <input
             id={labelId}
             type="range"
-            aria-label="Voice note position"
+            aria-label={t('chat.x.position')}
             min={0}
             max={total}
             step={0.05}
@@ -172,7 +174,7 @@ export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 
             onPointerDown={() => setScrubbing(true)}
             onPointerUp={() => setScrubbing(false)}
             onPointerCancel={() => setScrubbing(false)}
-            aria-valuetext={`${formatDuration(position * 1000)} of ${formatDuration(total * 1000)}`}
+            aria-valuetext={t('chat.x.positionOf', { position: formatDuration(position * 1000), total: formatDuration(total * 1000) })}
             className="relative w-full h-11 appearance-none bg-transparent cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
               [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-current
@@ -190,7 +192,7 @@ export function VoiceNote({ attachment, tone }: { attachment: Attachment; tone: 
           <button
             type="button"
             onClick={cycleRate}
-            aria-label={`Playback speed ${rate} times. Tap to change.`}
+            aria-label={t('chat.x.speed', { rate })}
             className="grid place-items-center min-w-[44px] h-11 -my-1.5 -mr-2 shrink-0 transition active:scale-95"
           >
             <span

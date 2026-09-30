@@ -72,12 +72,12 @@ export function Composer({
   const startRecording = async () => {
     setNotice(null);
     if (!canRecord()) {
-      setNotice("This browser can't record audio. You can still type, or send a photo.");
+      setNotice(t('chat.x.cantRecord'));
       return;
     }
     const s = new VoiceSession(voiceMaxMs, {
       onTick: (elapsed, level) => setPhase({ kind: 'recording', elapsed, level }),
-      onMaxReached: () => setNotice(`A voice note can be up to ${Math.round(voiceMaxMs / 1000)} seconds.`),
+      onMaxReached: () => setNotice(t('chat.x.maxLength', { seconds: Math.round(voiceMaxMs / 1000) })),
     });
     try {
       setPhase({ kind: 'recording', elapsed: 0, level: 0 });
@@ -91,10 +91,10 @@ export function Composer({
          tapping a button that was never going to work. */
       setNotice(
         name === 'NotAllowedError' || name === 'SecurityError'
-          ? 'Vuka needs permission to use your microphone. Allow it in your browser settings and try again.'
+          ? t('chat.x.micPermission')
           : name === 'NotFoundError'
-            ? "No microphone was found on this device."
-            : "Recording couldn't start. Please try again.",
+            ? t('chat.x.noMic')
+            : t('chat.x.recordStartFailed'),
       );
     }
   };
@@ -108,13 +108,13 @@ export function Composer({
       const recording = await s.stop();
       setPhase({ kind: 'idle' });
       if (recording.durationMs < 500) {
-        setNotice('That was too short to send. Hold on a little longer.');
+        setNotice(t('chat.x.tooShort'));
         return;
       }
       onSendVoice(recording);
     } catch (e) {
       setPhase({ kind: 'idle' });
-      setNotice(e instanceof Error ? e.message : 'That recording failed.');
+      setNotice(e instanceof Error ? e.message : t('chat.x.recordingFailed'));
     }
   };
 
@@ -128,7 +128,7 @@ export function Composer({
     if (!file) return;
     setNotice(null);
     if (!isSupportedImage(file)) {
-      setNotice("That file isn't a photo Vuka can send.");
+      setNotice(t('chat.x.notAPhoto'));
       return;
     }
     setPhase({ kind: 'preparing' });
@@ -139,7 +139,7 @@ export function Composer({
       onDraftChange('');
     } catch (e) {
       setPhase({ kind: 'idle' });
-      setNotice(e instanceof Error ? e.message : "That photo couldn't be prepared.");
+      setNotice(e instanceof Error ? e.message : t('chat.x.photoPrepFailed'));
     }
   };
 
@@ -173,7 +173,7 @@ export function Composer({
           </span>
         </div>
 
-        <p className="sr-only" aria-live="polite">Recording a voice note. {formatDuration(phase.elapsed)} so far.</p>
+        <p className="sr-only" aria-live="polite">{t('chat.x.recordingSr', { time: formatDuration(phase.elapsed) })}</p>
 
         <div className="flex items-center gap-2 mt-2">
           <button
@@ -181,14 +181,14 @@ export function Composer({
             onClick={cancelRecording}
             className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-pill border-[1.5px] border-line bg-surface text-dim font-bold text-small transition active:scale-95 hover:text-ink"
           >
-            <Icon name="trash" size={16} /> Discard
+            <Icon name="trash" size={16} /> {t('chat.x.discard')}
           </button>
           <button
             type="button"
             onClick={stopAndSend}
             className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-pill bg-brand-solid text-brand-on font-bold text-small transition active:scale-95 hover:bg-brand-hover"
           >
-            <Icon name="send" size={16} /> Send voice note
+            <Icon name="send" size={16} /> {t('chat.x.sendVoice')}
           </button>
         </div>
 

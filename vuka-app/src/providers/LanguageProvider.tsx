@@ -12,6 +12,7 @@ import {
   detectLang,
   langMeta,
   persistLang,
+  setActiveLang,
   translate,
   type Lang,
   type LangMeta,
@@ -41,7 +42,7 @@ const LanguageContext = createContext<LanguageValue | null>(null);
  * accent.
  */
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => detectLang());
+  const [lang, setLangState] = useState<Lang>(() => { const l = detectLang(); setActiveLang(l); return l; });
 
   useEffect(() => {
     const meta = langMeta(lang);
@@ -49,6 +50,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
+    setActiveLang(next);
     setLangState(next);
     persistLang(next);
   }, []);

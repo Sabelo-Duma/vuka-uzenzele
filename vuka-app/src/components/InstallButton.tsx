@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { useT } from '../providers/LanguageProvider';
 import { Button, Sheet } from './ui';
 import { SunMark } from './SunMark';
 import { getInstallPrompt, isInstalled, onInstallChange, promptInstall } from '../lib/pwaInstall';
@@ -25,6 +26,7 @@ function detectPlatform(): Platform {
  * - Renders nothing once installed (running standalone).
  */
 export function InstallButton({ className = '' }: { className?: string }) {
+  const t = useT();
   const [, force] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -47,7 +49,7 @@ export function InstallButton({ className = '' }: { className?: string }) {
         onClick={onClick}
         className={`inline-flex items-center justify-center gap-2 rounded-pill bg-ink text-canvas font-bold text-small min-h-[44px] px-4 py-2.5 hover:bg-ink transition active:scale-95 ${className}`}
       >
-        <Icon name="plus" size={16} /> Install app
+        <Icon name="plus" size={16} /> {t('onboarding.install.button')}
       </button>
       {showHelp && <InstallHelpSheet onClose={() => setShowHelp(false)} />}
     </>
@@ -80,47 +82,82 @@ function Steps({ items }: { items: React.ReactNode[] }) {
   );
 }
 
+/**
+ * A translated sentence with {placeholders} filled by JSX (bold labels, the
+ * glyph). One key per sentence, so word order can move in every language.
+ */
+function Rich({ text, parts }: { text: string; parts: Record<string, ReactNode> }) {
+  return (
+    <>
+      {text.split(/(\{\w+\})/).map((seg, i) => {
+        const name = /^\{(\w+)\}$/.exec(seg)?.[1];
+        return <Fragment key={i}>{name && name in parts ? parts[name] : seg}</Fragment>;
+      })}
+    </>
+  );
+}
+
+/* Labels printed by the browser itself, quoted so people can find them. They
+   are the browser's words, not ours, so they stay as the browser shows them. */
+const BROWSER_LABEL = {
+  share: 'Share', // i18n-ignore: Safari's own button label
+  addHomeIos: '“Add to Home Screen”', // i18n-ignore: Safari's own menu label
+  add: 'Add', // i18n-ignore: Safari's own button label
+  installApp: '“Install app”', // i18n-ignore: Chrome's own menu label
+  addHomeAndroid: '“Add to Home screen”', // i18n-ignore: Chrome's own menu label
+  install: 'Install', // i18n-ignore: the browser's own button label
+  edgePath: '⋯ → Apps → Install this site as an app', // i18n-ignore: Edge's own menu path
+  chromePath: '⋮ → Cast, save and share → Install page as app', // i18n-ignore: Chrome's own menu path
+};
+
 function InstallHelpSheet({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const p = detectPlatform();
+  const b = (s: ReactNode) => <b>{s}</b>;
+  const desktopStep = (
+    <Rich
+      text={t('onboarding.install.desktopStep')}
+      parts={{ icon: b(t('onboarding.install.installIcon')), glyph: <InstallGlyph />, install: b(BROWSER_LABEL.install) }}
+    />
+  );
 
   const content: Record<Platform, { title: string; steps: React.ReactNode[]; note?: React.ReactNode }> = {
     ios: {
-      title: 'Add Vuka to your iPhone',
+      title: t('onboarding.install.iosTitle'),
       steps: [
-        <>Tap the <b>Share</b> button (the box with an ↑ arrow) at the bottom of Safari.</>,
-        <>Scroll down and tap <b>“Add to Home Screen”</b>.</>,
-        <>Tap <b>Add</b> — Vuka appears on your home screen like an app.</>,
+        <Rich text={t('onboarding.install.iosStep1')} parts={{ share: b(BROWSER_LABEL.share) }} />,
+        <Rich text={t('onboarding.install.iosStep2')} parts={{ addHome: b(BROWSER_LABEL.addHomeIos) }} />,
+        <Rich text={t('onboarding.install.iosStep3')} parts={{ add: b(BROWSER_LABEL.add) }} />,
       ],
-      note: <>iPhone installs only work in <b>Safari</b> (not Chrome). Apple doesn’t allow one-tap install.</>,
+      note: <Rich text={t('onboarding.install.iosNote')} parts={{ safari: b('Safari') }} />,
     },
     android: {
-      title: 'Add Vuka to your phone',
+      title: t('onboarding.install.androidTitle'),
       steps: [
-        <>Tap the <b>⋮</b> menu (top-right of the browser).</>,
-        <>Tap <b>“Install app”</b> or <b>“Add to Home screen”</b>.</>,
-        <>Tap <b>Install</b> — Vuka is added like a normal app.</>,
+        <Rich text={t('onboarding.install.androidStep1')} parts={{ menu: b('⋮') }} />,
+        <Rich text={t('onboarding.install.androidStep2')} parts={{ installApp: b(BROWSER_LABEL.installApp), addHome: b(BROWSER_LABEL.addHomeAndroid) }} />,
+        <Rich text={t('onboarding.install.androidStep3')} parts={{ install: b(BROWSER_LABEL.install) }} />,
       ],
     },
     edge: {
-      title: 'Install Vuka on your computer',
-      steps: [
-        <>Click the <b>install icon</b> <InstallGlyph /> at the right of the address bar, then <b>Install</b>.</>,
-      ],
-      note: <>No icon there? Open <b>⋯ → Apps → Install this site as an app</b>.</>,
+      title: t('onboarding.install.desktopTitle'),
+      steps: [desktopStep],
+      note: <Rich text={t('onboarding.install.noIcon')} parts={{ path: b(BROWSER_LABEL.edgePath) }} />,
     },
     desktop: {
-      title: 'Install Vuka on your computer',
-      steps: [
-        <>Click the <b>install icon</b> <InstallGlyph /> at the right of the address bar, then <b>Install</b>.</>,
-      ],
-      note: <>No icon there? Open <b>⋮ → Cast, save and share → Install page as app</b>.</>,
+      title: t('onboarding.install.desktopTitle'),
+      steps: [desktopStep],
+      note: <Rich text={t('onboarding.install.noIcon')} parts={{ path: b(BROWSER_LABEL.chromePath) }} />,
     },
     firefox: {
-      title: 'Installing Vuka',
+      title: t('onboarding.install.firefoxTitle'),
       steps: [
-        <>Firefox can’t install web apps directly.</>,
-        <>Open <b>vuka-uzenzele.onrender.com</b> in <b>Chrome, Edge (computer)</b> or <b>Safari (iPhone)</b>.</>,
-        <>Then use that browser’s <b>Install</b> option.</>,
+        <>{t('onboarding.install.firefoxStep1')}</>,
+        <Rich
+          text={t('onboarding.install.firefoxStep2')}
+          parts={{ site: b('vuka-uzenzele.onrender.com'), desktop: b(t('onboarding.install.browsersDesktop')), iphone: b(t('onboarding.install.browsersIphone')) }}
+        />,
+        <Rich text={t('onboarding.install.firefoxStep3')} parts={{ install: b(BROWSER_LABEL.install) }} />,
       ],
     },
   };
@@ -128,12 +165,12 @@ function InstallHelpSheet({ onClose }: { onClose: () => void }) {
   const { title, steps, note } = content[p];
 
   return (
-    <Sheet title="Install Vuka" onClose={onClose}>
+    <Sheet title={t('onboarding.install.sheetTitle')} onClose={onClose}>
       <div className="flex items-center gap-3 mb-3">
         <SunMark size={48} variant="tile" />
         <div>
           <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">{title}</h3>
-          <p className="text-small text-dim m-0 mt-0.5">Opens with no signal · no app store needed · free</p>
+          <p className="text-small text-dim m-0 mt-0.5">{t('onboarding.install.tagline')}</p>
         </div>
       </div>
       <Steps items={steps} />
@@ -143,11 +180,10 @@ function InstallHelpSheet({ onClose }: { onClose: () => void }) {
           beats leaving someone to wonder why the button gave instructions. */}
       {(p === 'desktop' || p === 'edge') && (
         <p className="text-micro text-faint leading-snug mt-3">
-          Browsers only let a site offer one-click install once, and not at all if it is already
-          installed. That is why this is a manual step rather than a button.
+          {t('onboarding.install.manualNote')}
         </p>
       )}
-      <Button block variant="ghost" className="mt-5" onClick={onClose}>Got it</Button>
+      <Button block variant="ghost" className="mt-5" onClick={onClose}>{t('onboarding.install.gotIt')}</Button>
     </Sheet>
   );
 }

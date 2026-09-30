@@ -6,6 +6,8 @@ import { useApp } from '../../store/appStore';
 import { Card, EmptyState, Skeleton } from '../../components/ui';
 import { Icon, type IconName } from '../../components/Icon';
 import { NotificationSettingsSheet } from '../../components/NotificationSettings';
+import { useLanguage } from '../../providers/LanguageProvider';
+import { langMeta, type Vars } from '../../i18n';
 
 /**
  * What the bell opens: every notice about your work, your pay and your
@@ -14,19 +16,20 @@ import { NotificationSettingsSheet } from '../../components/NotificationSettings
  */
 const KIND_ICON: Record<NoticeKind, IconName> = { messages: 'chat', jobs: 'pin', work: 'briefcase', money: 'wallet', account: 'id' };
 
-function when(iso: string): string {
+function when(iso: string, t: (key: string, vars?: Vars) => string, tag: string): string {
   const d = new Date(iso);
   const mins = Math.round((Date.now() - d.getTime()) / 60_000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t('profile.inbox.justNow');
+  if (mins < 60) return t('profile.inbox.minAgo', { count: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} h ago`;
-  if (hours < 48) return 'Yesterday';
-  return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+  if (hours < 24) return t('profile.inbox.hoursAgo', { count: hours });
+  if (hours < 48) return t('chat.yesterday');
+  return d.toLocaleDateString(tag, { day: 'numeric', month: 'short' });
 }
 
 export function Notifications() {
   const { openLink, refreshNotices } = useApp();
+  const { t } = useLanguage();
   const [items, setItems] = useState<Notice[] | null>(null);
   const [settings, setSettings] = useState(false);
   const [phoneOff, setPhoneOff] = useState(false);
@@ -65,14 +68,14 @@ export function Notifications() {
     <div className="max-w-[720px] mx-auto">
       <header className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Updates</small>
-          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Notifications<span className="text-brand">.</span></h1>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('profile.inbox.updates')}</small>
+          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('me.notifications')}<span className="text-brand">.</span></h1>
         </div>
         <button
           onClick={() => setSettings(true)}
           className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-pill border border-line text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95"
         >
-          <Icon name="filter" size={16} /> Settings
+          <Icon name="filter" size={16} /> {t('me.settings')}
         </button>
       </header>
 
@@ -81,8 +84,8 @@ export function Notifications() {
           <Card className="p-3.5 flex items-center gap-3 hover:bg-surface-2 transition">
             <span className="grid place-items-center w-10 h-10 rounded-xl bg-surface-2 text-ink shrink-0" aria-hidden="true"><Icon name="bell" size={20} /></span>
             <div className="flex-1 min-w-0">
-              <b className="text-small text-ink block">Get these on your phone</b>
-              <span className="text-small text-dim">Notifications are off for this phone. You choose which kinds.</span>
+              <b className="text-small text-ink block">{t('profile.inbox.getOnPhone')}</b>
+              <span className="text-small text-dim">{t('profile.inbox.phoneOff')}</span>
             </div>
             <span className="text-faint"><Icon name="chev" size={18} /></span>
           </Card>
@@ -94,18 +97,18 @@ export function Notifications() {
           <Card key={i} className="p-3.5 flex gap-3 items-center"><Skeleton className="w-10 h-10 rounded-xl" /><div className="flex-1 flex flex-col gap-2"><Skeleton className="h-3.5 w-1/2" /><Skeleton className="h-3 w-3/4" /></div></Card>
         ))}</div>
       ) : items.length === 0 ? (
-        <EmptyState icon="bell" title="Nothing yet" hint="Updates about your jobs, your pay and your account will appear here." />
+        <EmptyState icon="bell" title={t('profile.inbox.empty')} hint={t('profile.inbox.emptyHint')} />
       ) : (
         <>
           {unread.length > 0 && (
-            <Group title="New" action={<button onClick={readAll} className="min-h-[44px] px-2 -mr-2 text-small font-bold text-brand hover:underline">Mark all as read</button>}>
+            <Group title={t('profile.inbox.new')} action={<button onClick={readAll} className="min-h-[44px] px-2 -mr-2 text-small font-bold text-brand hover:underline">{t('profile.inbox.markAll')}</button>}>
               {unread.map((n) => <Row key={n.id} n={n} onOpen={open} />)}
             </Group>
           )}
           {earlier.length > 0 && (
-            <Group title="Earlier">{earlier.map((n) => <Row key={n.id} n={n} onOpen={open} />)}</Group>
+            <Group title={t('profile.inbox.earlier')}>{earlier.map((n) => <Row key={n.id} n={n} onOpen={open} />)}</Group>
           )}
-          <p className="text-center text-micro text-faint mt-4">Notifications are kept for 90 days.</p>
+          <p className="text-center text-micro text-faint mt-4">{t('profile.inbox.kept')}</p>
         </>
       )}
 
@@ -127,6 +130,7 @@ function Group({ title, action, children }: { title: string; action?: React.Reac
 }
 
 function Row({ n, onOpen }: { n: Notice; onOpen: (n: Notice) => void }) {
+  const { lang, t } = useLanguage();
   return (
     <button onClick={() => onOpen(n)} className="w-full text-left active:scale-[.99] transition">
       <Card className={`p-3.5 flex gap-3 items-start hover:bg-surface-2 transition ${n.read ? '' : 'border-brand'}`}>
@@ -136,11 +140,11 @@ function Row({ n, onOpen }: { n: Notice; onOpen: (n: Notice) => void }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <b className={`text-small block truncate flex-1 ${n.read ? 'text-dim' : 'text-ink'}`}>{n.title}</b>
-            <span className="text-micro text-faint shrink-0">{when(n.createdAt)}</span>
+            <span className="text-micro text-faint shrink-0">{when(n.createdAt, t, langMeta(lang).tag)}</span>
           </div>
           {n.body && <p className="text-small text-dim m-0 mt-0.5 leading-snug">{n.body}</p>}
         </div>
-        {!n.read && <span className="w-2.5 h-2.5 rounded-full bg-brand-solid shrink-0 mt-1.5" aria-label="Unread" />}
+        {!n.read && <span className="w-2.5 h-2.5 rounded-full bg-brand-solid shrink-0 mt-1.5" aria-label={t('profile.inbox.unread')} />}
       </Card>
     </button>
   );

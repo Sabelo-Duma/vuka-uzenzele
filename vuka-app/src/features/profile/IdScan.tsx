@@ -31,6 +31,7 @@ import {
 } from '../../lib/camera';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 type Step = 'intro' | 'front' | 'back' | 'details' | 'selfie' | 'challenge' | 'sending' | 'done';
 const STEPS: Step[] = ['intro', 'front', 'back', 'details', 'selfie', 'challenge'];
@@ -39,6 +40,18 @@ const STEPS: Step[] = ['intro', 'front', 'back', 'details', 'selfie', 'challenge
 const SCAN_HELP_AFTER_MS = 20_000;
 /** Having read only the ID number, keep looking this long for the details barcode. */
 const WAIT_FOR_DETAILS_MS = 4_000;
+
+/* The server picks the liveness instruction and sends it in English (that is
+   what the reviewer sees). Known ones are shown in the chosen language; an
+   instruction the app does not know yet is shown as the server sent it. */
+const CHALLENGE_KEYS: Record<string, string> = {
+  'Turn your head to your left': 'profile.scan.challenge.left',
+  'Turn your head to your right': 'profile.scan.challenge.right',
+  'Look up': 'profile.scan.challenge.up',
+  'Smile with your teeth showing': 'profile.scan.challenge.smile',
+  'Close your eyes': 'profile.scan.challenge.eyes',
+  'Tilt your head to one side': 'profile.scan.challenge.tilt',
+};
 
 /* ------------------------------------------------------------------
    The live camera, with a guide drawn over it.
@@ -51,6 +64,7 @@ function CameraView({ facing, guide, onReady, onError }: {
   onError: (message: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const t = useT();
   useEffect(() => {
     let stream: MediaStream | null = null;
     let live = true;
@@ -58,7 +72,7 @@ function CameraView({ facing, guide, onReady, onError }: {
     if (!video) return undefined;
     openCamera(video, facing)
       .then((s) => { if (!live) { closeCamera(s); return; } stream = s; onReady(video); })
-      .catch((e) => { if (live) onError(e instanceof CameraError ? e.message : 'The camera could not be started.'); });
+      .catch((e) => { if (live) onError(e instanceof CameraError ? e.message : t('profile.scan.cameraFailed')); });
     /* The camera is released on every way out of the step. */
     return () => { live = false; closeCamera(stream); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,6 +115,7 @@ function Preview({ blob, mirror = false }: { blob: Blob; mirror?: boolean }) {
    ------------------------------------------------------------------ */
 
 export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const t = useT();
   const [step, setStep] = useState<Step>('intro');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +176,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
             /* The reader failed to load: most likely the app updated while
                open and the old reader file is gone. A reload fixes it. */
             if (Date.now() - started > 2000) {
-              setError('The scanner could not start. Close this and open it again — if it keeps happening, reload Vuka.');
+              setError(t('profile.scan.scannerFailed'));
               return;
             }
             void e;
@@ -173,6 +188,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
     };
     void loop();
     return () => { stop = true; window.clearTimeout(helpTimer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, cameraReady, barcode, typing]);
 
   /* Pre-fill the name from the card when there is one. */
@@ -193,9 +209,9 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         .filter((x): x is IdBarcode => !!x);
       const best = found.find((x) => x.surname || x.names) ?? found[0];
       if (best) setBarcode(best);
-      else setError('No ID barcode could be read in that photo. Try again in good light, or type your ID number.');
+      else setError(t('profile.scan.noBarcode'));
     } catch {
-      setError('That photo could not be read. Try again, or type your ID number.');
+      setError(t('profile.scan.photoUnreadable'));
     } finally {
       setBusy(false);
     }
@@ -205,7 +221,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
     const v = videoRef.current;
     if (!v) return;
     const blob = await capturePhoto(v);
-    if (!blob) { setError('The photo did not come out. Please try again.'); return; }
+    if (!blob) { setError(t('profile.scan.photoFailed')); return; }
     void mirror;
     setter(blob);
   };
@@ -223,6 +239,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         scan: barcode ? { ...barcode } : { source: 'typed' },
       });
       setVerificationId(res.id ?? null);
+      // i18n-ignore: the server's English instruction; shown translated through CHALLENGE_KEYS below
       setChallenge(res.challenge ?? 'Turn your head to your left');
       setChecks(res.checks);
       if (front && res.id) await api.uploadIdDocument(res.id, 'card_front', front);
@@ -268,16 +285,16 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
      inside a transformed parent is positioned against that parent, not the
      screen. */
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label="Verify your ID" className="fixed inset-0 z-[70] bg-canvas overflow-y-auto">
+    <div role="dialog" aria-modal="true" aria-label={t('me.verifyId')} className="fixed inset-0 z-[70] bg-canvas overflow-y-auto">
       <div className="max-w-md mx-auto px-4 pt-[max(12px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))] min-h-full flex flex-col">
         {/* Header: where you are, and a way out. */}
         <div className="flex items-center justify-between py-2">
           <p className="m-0 text-small font-bold text-dim">
-            {stepNo >= 0 ? `Step ${stepNo + 1} of ${STEPS.length}` : step === 'done' ? 'Done' : 'Sending'}
+            {stepNo >= 0 ? t('profile.scan.step', { step: stepNo + 1, total: STEPS.length }) : step === 'done' ? t('action.done') : t('chat.sending')}
           </p>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('action.close')}
             className="grid place-items-center w-11 h-11 rounded-full border border-line bg-surface text-ink active:scale-95 transition"
           >
             <Icon name="x" size={18} />
@@ -300,16 +317,15 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {/* 1. What happens, and consent */}
         {step === 'intro' && (
           <div className="flex flex-col gap-4">
-            <h1 className="m-0 font-display text-head font-extrabold text-ink tracking-tight">Verify your ID</h1>
+            <h1 className="m-0 font-display text-head font-extrabold text-ink tracking-tight">{t('me.verifyId')}</h1>
             <p className="m-0 text-body text-dim leading-relaxed">
-              A verified ID tells the other person you are who you say you are. It takes about two minutes. You will need your
-              smart ID card (or green ID book) and good light.
+              {t('profile.scan.intro')}
             </p>
             <ol className="m-0 pl-0 list-none flex flex-col gap-3">
               {[
-                ['camera', 'A photo of the front of your card'],
-                ['search', 'A scan of the back — the details fill themselves in'],
-                ['user', 'Two quick selfies, so we know the card is yours'],
+                ['camera', t('profile.scan.listFront')],
+                ['search', t('profile.scan.listBack')],
+                ['user', t('profile.scan.listSelfies')],
               ].map(([icon, text]) => (
                 <li key={text} className="flex gap-3 items-center rounded-2xl border border-line bg-surface px-4 py-3">
                   <span className="grid place-items-center w-10 h-10 rounded-full bg-brand-soft text-brand shrink-0">
@@ -320,16 +336,13 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
               ))}
             </ol>
             <div className="rounded-2xl border border-line bg-surface-2 px-4 py-3 text-small text-ink leading-relaxed">
-              <b>How your photos are used.</b> A person at Vuka compares your selfies with your card. Later your ID will also be
-              checked against Home Affairs through a verification service. Your ID number is stored encrypted and only its last
-              four digits are ever shown. The photos are deleted as soon as the check is done. Verifying is optional — you can
-              use Vuka without it.
+              <b>{t('profile.scan.photosTitle')}</b> {t('profile.scan.photosBody')}
             </div>
             <label className="flex gap-3 items-start min-h-[44px] cursor-pointer">
               <input type="checkbox" className="mt-1 w-5 h-5 accent-[var(--v-brand)] shrink-0" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span className="text-body text-ink leading-snug">I agree to Vuka using my ID and photos this way.</span>
+              <span className="text-body text-ink leading-snug">{t('profile.scan.consent')}</span>
             </label>
-            <Button block disabled={!consent} icon="camera" onClick={() => go('front')}>Start</Button>
+            <Button block disabled={!consent} icon="camera" onClick={() => go('front')}>{t('profile.scan.start')}</Button>
           </div>
         )}
 
@@ -337,19 +350,19 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'front' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="m-0 font-display text-title font-extrabold text-ink">Front of your card</h1>
-              <p className="m-0 mt-1 text-small text-dim">Fit the whole card inside the frame. Avoid glare on the photo.</p>
+              <h1 className="m-0 font-display text-title font-extrabold text-ink">{t('profile.scan.frontTitle')}</h1>
+              <p className="m-0 mt-1 text-small text-dim">{t('profile.scan.frontHint')}</p>
             </div>
             {front ? <Preview blob={front} /> : (
               <CameraView facing="environment" guide="card" onReady={onCameraReady} onError={setError} />
             )}
             {front ? (
               <div className="flex gap-2.5">
-                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setFront(null); setCameraReady(false); }}>Retake</Button>
-                <Button className="flex-1" onClick={() => go('back')}>Use this photo</Button>
+                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setFront(null); setCameraReady(false); }}>{t('profile.scan.retake')}</Button>
+                <Button className="flex-1" onClick={() => go('back')}>{t('profile.scan.usePhoto')}</Button>
               </div>
             ) : (
-              <Button block icon="camera" disabled={!cameraReady} onClick={() => take(setFront)}>Take photo</Button>
+              <Button block icon="camera" disabled={!cameraReady} onClick={() => take(setFront)}>{t('profile.scan.takePhoto')}</Button>
             )}
           </div>
         )}
@@ -358,24 +371,24 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'back' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="m-0 font-display text-title font-extrabold text-ink">Back of your card</h1>
+              <h1 className="m-0 font-display text-title font-extrabold text-ink">{t('profile.scan.backTitle')}</h1>
               <p className="m-0 mt-1 text-small text-dim">
-                Hold the back of the card inside the frame. It reads the barcodes by itself — keep it still for a moment.
+                {t('profile.scan.backHint')}
               </p>
             </div>
 
             {barcode ? (
               <div className="rounded-3xl border border-line bg-surface p-4">
-                <p className="m-0 flex items-center gap-2 text-body font-bold text-verified"><Icon name="check" size={18} />Card read</p>
+                <p className="m-0 flex items-center gap-2 text-body font-bold text-verified"><Icon name="check" size={18} />{t('profile.scan.cardRead')}</p>
                 <dl className="m-0 mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-small">
-                  {barcode.surname && <><dt className="text-dim">Name</dt><dd className="m-0 text-ink font-semibold">{displayName(barcode)}</dd></>}
-                  <dt className="text-dim">ID number</dt><dd className="m-0 text-ink font-semibold font-mono tnum">•••••••••{barcode.idNumber.slice(-4)}</dd>
-                  {idInfo.dateOfBirth && <><dt className="text-dim">Date of birth</dt><dd className="m-0 text-ink font-semibold">{idInfo.dateOfBirth}</dd></>}
+                  {barcode.surname && <><dt className="text-dim">{t('profile.scan.name')}</dt><dd className="m-0 text-ink font-semibold">{displayName(barcode)}</dd></>}
+                  <dt className="text-dim">{t('profile.scan.idNumber')}</dt><dd className="m-0 text-ink font-semibold font-mono tnum">•••••••••{barcode.idNumber.slice(-4)}</dd>
+                  {idInfo.dateOfBirth && <><dt className="text-dim">{t('auth.dateOfBirth')}</dt><dd className="m-0 text-ink font-semibold">{idInfo.dateOfBirth}</dd></>}
                 </dl>
               </div>
             ) : typing ? (
               <div className="flex flex-col gap-2">
-                <label className="text-micro font-bold uppercase tracking-wide text-dim" htmlFor="idnum">ID number</label>
+                <label className="text-micro font-bold uppercase tracking-wide text-dim" htmlFor="idnum">{t('profile.scan.idNumber')}</label>
                 <input
                   id="idnum"
                   inputMode="numeric"
@@ -384,7 +397,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
                   value={typedId}
                   onChange={(e) => setTypedId(e.target.value.replace(/\D/g, ''))}
                   className="w-full border-[1.5px] border-line rounded-pill px-4 py-3 text-base bg-surface text-ink font-mono tnum focus:outline-none focus:border-ink"
-                  placeholder="13 digits"
+                  placeholder={t('profile.id.digits')}
                 />
                 {typedId.length === 13 && !idInfo.ok && <p className="m-0 text-small text-danger">{idInfo.reason}</p>}
               </div>
@@ -393,11 +406,11 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
             )}
 
             {!barcode && !typing && (
-              <p role="status" className="m-0 text-small text-dim text-center">{cameraReady ? 'Looking for the barcode…' : 'Starting the camera…'}</p>
+              <p role="status" className="m-0 text-small text-dim text-center">{cameraReady ? t('profile.scan.looking') : t('profile.scan.starting')}</p>
             )}
 
             {barcode || (typing && idInfo.ok) ? (
-              <Button block onClick={() => go('details')}>Continue</Button>
+              <Button block onClick={() => go('details')}>{t('action.continue')}</Button>
             ) : null}
 
             {/* The other ways in are always offered — a card that will not scan
@@ -409,17 +422,17 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
                   <label className={`inline-flex items-center justify-center gap-2 min-h-[48px] rounded-pill border text-body font-bold cursor-pointer active:scale-[.975] transition
                     ${scanHelp ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink'}`}>
                     <Icon name="image" size={18} />
-                    {busy ? 'Reading…' : 'Take a photo of the back instead'}
+                    {busy ? t('profile.scan.reading') : t('profile.scan.photoBack')}
                     <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => scanPhotoOfBack(e.target.files?.[0])} />
                   </label>
                 )}
                 <Button variant="ghost" block onClick={() => setTyping((x) => !x)}>
-                  {typing ? 'Scan the card instead' : 'Type my ID number instead'}
+                  {typing ? t('profile.scan.scanInstead') : t('profile.id.typeInstead')}
                 </Button>
               </div>
             )}
             {barcode && (
-              <Button variant="ghost" block onClick={() => { setBarcode(null); setFullName(''); setCameraReady(false); }}>Scan again</Button>
+              <Button variant="ghost" block onClick={() => { setBarcode(null); setFullName(''); setCameraReady(false); }}>{t('profile.scan.scanAgain')}</Button>
             )}
           </div>
         )}
@@ -428,19 +441,19 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'details' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="m-0 font-display text-title font-extrabold text-ink">Your full name</h1>
-              <p className="m-0 mt-1 text-small text-dim">Exactly as it is on your ID{barcode?.surname ? ' — we filled it in from your card.' : '.'}</p>
+              <h1 className="m-0 font-display text-title font-extrabold text-ink">{t('profile.scan.nameTitle')}</h1>
+              <p className="m-0 mt-1 text-small text-dim">{barcode?.surname ? t('profile.scan.nameFromCard') : t('profile.scan.nameExact')}</p>
             </div>
             <input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               autoComplete="name"
               className="w-full border-[1.5px] border-line rounded-pill px-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-ink"
-              placeholder="First names and surname"
-              aria-label="Full name"
+              placeholder={t('profile.scan.namePlaceholder')}
+              aria-label={t('auth.fullName')}
             />
             <Button block disabled={busy || fullName.trim().length < 3 || !idInfo.ok} onClick={start}>
-              {busy ? 'Checking…' : 'Continue to selfies'}
+              {busy ? t('auth.verifying') : t('profile.scan.toSelfies')}
             </Button>
           </div>
         )}
@@ -449,12 +462,12 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'selfie' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="m-0 font-display text-title font-extrabold text-ink">A selfie</h1>
-              <p className="m-0 mt-1 text-small text-dim">Face the camera with your whole face in the oval. No hat or sunglasses.</p>
+              <h1 className="m-0 font-display text-title font-extrabold text-ink">{t('profile.scan.selfieTitle')}</h1>
+              <p className="m-0 mt-1 text-small text-dim">{t('profile.scan.selfieHint')}</p>
             </div>
             {checks && checks.mismatches.length > 0 && (
               <p className="m-0 rounded-2xl border border-line bg-surface-2 px-3.5 py-2.5 text-small text-ink leading-snug">
-                Some details did not match your card ({checks.mismatches.join(', ')}). You can carry on — the person reviewing it will check.
+                {t('profile.scan.mismatch', { fields: checks.mismatches.join(', ') })}
               </p>
             )}
             {selfie ? <Preview blob={selfie} mirror /> : (
@@ -462,11 +475,11 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
             )}
             {selfie ? (
               <div className="flex gap-2.5">
-                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setSelfie(null); setCameraReady(false); }}>Retake</Button>
-                <Button className="flex-1" onClick={() => go('challenge')}>Use this photo</Button>
+                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setSelfie(null); setCameraReady(false); }}>{t('profile.scan.retake')}</Button>
+                <Button className="flex-1" onClick={() => go('challenge')}>{t('profile.scan.usePhoto')}</Button>
               </div>
             ) : (
-              <Button block icon="camera" disabled={!cameraReady} onClick={() => take(setSelfie, true)}>Take selfie</Button>
+              <Button block icon="camera" disabled={!cameraReady} onClick={() => take(setSelfie, true)}>{t('profile.scan.takeSelfie')}</Button>
             )}
           </div>
         )}
@@ -475,9 +488,9 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'challenge' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="m-0 font-display text-title font-extrabold text-ink">One more</h1>
+              <h1 className="m-0 font-display text-title font-extrabold text-ink">{t('profile.scan.challengeTitle')}</h1>
               <p className="m-0 mt-1 text-body text-ink">
-                When the count reaches zero: <b className="text-brand">{challenge}</b>
+                {t('profile.scan.challengeWhen')} <b className="text-brand">{CHALLENGE_KEYS[challenge] ? t(CHALLENGE_KEYS[challenge]) : challenge}</b>
               </p>
             </div>
             {challengeShot ? <Preview blob={challengeShot} mirror /> : (
@@ -492,12 +505,12 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
             )}
             {challengeShot ? (
               <div className="flex gap-2.5">
-                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setChallengeShot(null); setCameraReady(false); }}>Retake</Button>
-                <Button className="flex-1" onClick={send}>Send for checking</Button>
+                <Button variant="ghost" className="flex-1" icon="retry" onClick={() => { setChallengeShot(null); setCameraReady(false); }}>{t('profile.scan.retake')}</Button>
+                <Button className="flex-1" onClick={send}>{t('profile.scan.send')}</Button>
               </div>
             ) : (
               <Button block icon="camera" disabled={!cameraReady || countdown !== null} onClick={takeChallenge}>
-                {countdown !== null ? 'Get ready…' : 'Start the count'}
+                {countdown !== null ? t('profile.scan.getReady') : t('profile.scan.startCount')}
               </Button>
             )}
           </div>
@@ -507,7 +520,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
           <div className="flex-1 grid place-items-center text-center">
             <div>
               <span className="inline-block w-10 h-10 rounded-full border-4 border-surface-3 border-t-brand-solid animate-spin" aria-hidden="true" />
-              <p role="status" className="mt-4 text-body font-semibold text-ink">Sending your ID securely…</p>
+              <p role="status" className="mt-4 text-body font-semibold text-ink">{t('profile.scan.sending')}</p>
             </div>
           </div>
         )}
@@ -516,15 +529,14 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
         {step === 'done' && (
           <div className="flex flex-col gap-4 text-center items-center pt-6">
             <span className="grid place-items-center w-16 h-16 rounded-full bg-verified-soft text-verified"><Icon name="check" size={30} /></span>
-            <h1 className="m-0 font-display text-head font-extrabold text-ink">Sent for checking</h1>
+            <h1 className="m-0 font-display text-head font-extrabold text-ink">{t('profile.scan.sentTitle')}</h1>
             <p className="m-0 text-body text-dim leading-relaxed max-w-sm">
-              A person at Vuka will compare your selfies with your card. We will let you know as soon as it is done. Your photos
-              are deleted once the check is complete.
+              {t('profile.scan.sentBody')}
             </p>
             <p className="m-0 rounded-2xl border border-line bg-info-soft px-3.5 py-2.5 text-small text-ink leading-snug max-w-sm">
-              <b>Home Affairs check:</b> coming soon. It is in test mode until a verification service is connected.
+              <b>{t('profile.scan.homeAffairsLabel')}</b> {t('profile.scan.homeAffairsBody')}
             </p>
-            <Button block onClick={onDone}>Done</Button>
+            <Button block onClick={onDone}>{t('action.done')}</Button>
           </div>
         )}
       </div>

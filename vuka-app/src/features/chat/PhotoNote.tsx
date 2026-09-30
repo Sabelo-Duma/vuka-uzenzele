@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { attachmentUrl } from '../../lib/api';
 import type { Attachment } from '../../lib/api';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 /**
  * A photo in the thread.
@@ -20,6 +21,7 @@ export function PhotoNote({ attachment, caption, onOpen }: {
   caption?: string;
   onOpen: (url: string) => void;
 }) {
+  const t = useT();
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -59,15 +61,15 @@ export function PhotoNote({ attachment, caption, onOpen }: {
           <button
             type="button"
             onClick={() => onOpen(url)}
-            aria-label={caption ? `Open photo: ${caption}` : 'Open photo'}
+            aria-label={caption ? t('chat.x.openPhotoCaption', { caption }) : t('chat.x.openPhoto')}
             className="absolute inset-0 w-full h-full"
           >
-            <img src={url} alt={caption || 'Photo sent in this conversation'} className="w-full h-full object-cover" />
+            <img src={url} alt={caption || t('chat.x.photoAlt')} className="w-full h-full object-cover" />
           </button>
         ) : (
           <div className="absolute inset-0 grid place-items-center text-faint">
             {failed
-              ? <span className="text-micro px-3 text-center">This photo is no longer available.</span>
+              ? <span className="text-micro px-3 text-center">{t('chat.x.photoGone')}</span>
               : <span className="block w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />}
           </div>
         )}
@@ -86,6 +88,7 @@ export function PhotoNote({ attachment, caption, onOpen }: {
  * platform, and is the one people already know.
  */
 export function PhotoLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -93,13 +96,13 @@ export function PhotoLightbox({ url, onClose }: { url: string; onClose: () => vo
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Photo">
-      <button className="absolute inset-0 w-full h-full" aria-label="Close photo" onClick={onClose} />
+    <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={t('chat.photo')}>
+      <button className="absolute inset-0 w-full h-full" aria-label={t('chat.x.closePhoto')} onClick={onClose} />
       <img src={url} alt="" className="relative max-w-[94vw] max-h-[86vh] object-contain rounded-lg" />
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close photo"
+        aria-label={t('chat.x.closePhoto')}
         className="absolute top-[max(12px,env(safe-area-inset-top))] right-3 grid place-items-center w-11 h-11 rounded-full bg-white/15 text-white backdrop-blur transition active:scale-95"
       >
         <Icon name="x" size={22} />

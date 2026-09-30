@@ -82,12 +82,13 @@ function BrandMark({ compact }: { compact?: boolean }) {
 /** The bell: notices about work, pay and your account. Chats has its own count. */
 function Bell() {
   const { state, navigate } = useApp();
+  const t = useT();
   const n = state.notices;
   const here = state.nav.screen === 'notifications';
   return (
     <button
       onClick={() => navigate('notifications')}
-      aria-label={n > 0 ? `Notifications, ${n} unread` : 'Notifications'}
+      aria-label={n > 0 ? t('common.notificationsUnread', { count: n }) : t('me.notifications')}
       aria-current={here ? 'page' : undefined}
       className={`relative grid place-items-center w-11 h-11 shrink-0 rounded-chip border transition active:scale-95
         ${here ? 'border-ink bg-surface-2 text-ink' : 'border-line bg-surface text-ink hover:bg-surface-2'}`}
@@ -201,7 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-micro text-faint font-semibold">Appearance</span>
+            <span className="text-micro text-faint font-semibold">{t('me.theme')}</span>
             <div className="flex items-center gap-2"><Bell /><ThemeToggle /></div>
           </div>
           <InstallButton className="w-full" />

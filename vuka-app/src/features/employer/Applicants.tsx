@@ -16,9 +16,13 @@ import { CardSkeletonGrid } from '../../components/cards';
 import { DetailHeader } from '../../components/bits';
 import { Icon } from '../../components/Icon';
 import { FundingChip, TestModeNote, gigTotal } from '../../components/Funding';
+import { useT } from '../../providers/LanguageProvider';
+import { useRichT } from './EmployerRail';
 
 export function Applicants({ id }: { id: string }) {
   const { navigate, goBack, toast, loadApplicants, hireWorker, confirmWork } = useApp();
+  const t = useT();
+  const rt = useRichT();
   const [gig, setGig] = useState<Gig | null>(null);
   const [applicants, setApplicants] = useState<Applicant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ export function Applicants({ id }: { id: string }) {
     setBusyId(a.applicationId);
     try {
       await hireWorker(id, a.worker.id);
-      toast(`${a.worker.name.split(' ')[0]} is hired. We've let them know.`);
+      toast(t('employer.applicants.hired', { name: a.worker.name.split(' ')[0] }));
       await load();
     } catch (e) {
       toast((e as Error).message);
@@ -60,7 +64,7 @@ export function Applicants({ id }: { id: string }) {
     setFunding(true);
     try {
       const res = await api.fundGig(gig.id);
-      toast(`${money(res.amount)} secured. Workers now see "Funds secured", and you can hire.`);
+      toast(t('employer.applicants.secured', { amount: money(res.amount) }));
       await load();
     } catch (e) {
       toast((e as Error).message);
@@ -74,7 +78,7 @@ export function Applicants({ id }: { id: string }) {
     setFunding(true);
     try {
       const res = await api.unfundGig(gig.id);
-      toast(`${money(res.refunded)} returned to you — no fee.`);
+      toast(t('employer.applicants.returned', { amount: money(res.refunded) }));
       await load();
     } catch (e) {
       toast((e as Error).message);
@@ -89,8 +93,8 @@ export function Applicants({ id }: { id: string }) {
       await confirmWork(a.applicationId, rating, review);
       const first = a.worker.name.split(' ')[0];
       toast(gig?.funding === 'held'
-        ? `Confirmed — ${money(gigTotal(gig))} is in ${first}'s wallet, and the reference is on their CV`
-        : `Confirmed — ${first}'s reference is on their CV`);
+        ? t('employer.applicants.confirmedPaid', { amount: money(gigTotal(gig)), name: first })
+        : t('employer.applicants.confirmed', { name: first }));
       setConfirming(null);
       await load();
     } catch (e) {
@@ -103,8 +107,8 @@ export function Applicants({ id }: { id: string }) {
   if (error) {
     return (
       <>
-        <DetailHeader title="Applicants" onBack={() => goBack('hires')} />
-        <EmptyState icon="alert" title="Couldn't load applicants" hint={error} action={<Button onClick={load}>Try again</Button>} />
+        <DetailHeader title={t('employer.applicants.title')} onBack={() => goBack('hires')} />
+        <EmptyState icon="alert" title={t('employer.applicants.loadFailed')} hint={error} action={<Button onClick={load}>{t('action.retry')}</Button>} />
       </>
     );
   }
@@ -116,7 +120,7 @@ export function Applicants({ id }: { id: string }) {
 
   return (
     <>
-      <DetailHeader title="Applicants" onBack={() => goBack('hires')} />
+      <DetailHeader title={t('employer.applicants.title')} onBack={() => goBack('hires')} />
 
       {gig && (
         <Card className="p-4 mb-4">
@@ -136,26 +140,26 @@ export function Applicants({ id }: { id: string }) {
               {gig.funding === 'none' && (
                 <>
                   <p className="text-small text-ink leading-relaxed m-0 mb-2.5">
-                    Secure the <b className="font-mono tnum">{money(gigTotal(gig))}</b> to hire someone. Workers see "Funds secured" on your job, and you can take it back for free until you hire.
+                    {rt('employer.applicants.secureIntro', { amount: <b className="font-mono tnum">{money(gigTotal(gig))}</b> })}
                   </p>
                   <Button block size="sm" icon="lock" disabled={funding} onClick={secure}>
-                    {funding ? 'Securing…' : `Secure ${money(gigTotal(gig))} now`}
+                    {funding ? t('employer.applicants.securing') : t('employer.applicants.secureNow', { amount: money(gigTotal(gig)) })}
                   </Button>
                 </>
               )}
               {gig.funding === 'held' && !hired && (
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <p className="text-small text-dim leading-relaxed m-0 flex-1 min-w-[12rem]">The pay is waiting. You can take it back for free until you hire.</p>
-                  <Button size="sm" variant="ghost" disabled={funding} onClick={takeBack}>{funding ? 'Returning…' : 'Take funds back'}</Button>
+                  <p className="text-small text-dim leading-relaxed m-0 flex-1 min-w-[12rem]">{t('employer.applicants.payWaiting')}</p>
+                  <Button size="sm" variant="ghost" disabled={funding} onClick={takeBack}>{funding ? t('employer.applicants.returning') : t('employer.applicants.takeBack')}</Button>
                 </div>
               )}
               {gig.funding === 'held' && hired && (
                 <p className="text-small text-dim leading-relaxed m-0">
-                  Locked for {hired.worker.name.split(' ')[0]}. It is paid into their wallet when you confirm the work — or automatically if you don't respond in time.
+                  {t('employer.applicants.locked', { name: hired.worker.name.split(' ')[0] })}
                 </p>
               )}
               {gig.funding === 'released' && (
-                <p className="text-small text-dim leading-relaxed m-0">Paid into {hired ? hired.worker.name.split(' ')[0] : 'the worker'}'s wallet.</p>
+                <p className="text-small text-dim leading-relaxed m-0">{hired ? t('employer.applicants.paidTo', { name: hired.worker.name.split(' ')[0] }) : t('employer.applicants.paidToWorker')}</p>
               )}
               {gig.paymentsMode !== 'live' && <TestModeNote className="mt-3" />}
             </div>
@@ -164,7 +168,7 @@ export function Applicants({ id }: { id: string }) {
               someone is hired this is their pay, and the server refuses. */}
           {!hired && (
             <div className="flex justify-end mt-3 pt-3 border-t border-line-soft">
-              <Button size="sm" variant="danger" icon="trash" onClick={() => setWithdrawing(true)}>Withdraw this job</Button>
+              <Button size="sm" variant="danger" icon="trash" onClick={() => setWithdrawing(true)}>{t('employer.withdraw.title')}</Button>
             </div>
           )}
         </Card>
@@ -184,15 +188,15 @@ export function Applicants({ id }: { id: string }) {
       ) : applicants.length === 0 ? (
         <EmptyState
           icon="talent"
-          title="No applications yet"
-          hint="Verified youth nearby can see this job. You can also invite someone directly from Talent."
-          action={<Button onClick={() => navigate('talent')}>Browse talent</Button>}
+          title={t('employer.noApplications')}
+          hint={t('employer.applicants.noneHint')}
+          action={<Button onClick={() => navigate('talent')}>{t('employer.talent.title')}</Button>}
         />
       ) : (
         <>
           {hired && (
             <>
-              <h3 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2.5 mt-1">Working on this job</h3>
+              <h3 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2.5 mt-1">{t('employer.applicants.working')}</h3>
               <ApplicantCard
                 a={hired}
                 busy={busyId === hired.applicationId}
@@ -206,7 +210,7 @@ export function Applicants({ id }: { id: string }) {
           {waiting.length > 0 && (
             <>
               <h3 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2.5 mt-4">
-                {hired ? 'Also applied' : `${waiting.length} ${waiting.length === 1 ? 'person' : 'people'} applied`}
+                {hired ? t('employer.applicants.alsoApplied') : t('employer.applicants.applied', { count: waiting.length })}
               </h3>
               {waiting.map((a) => (
                 <ApplicantCard
@@ -219,13 +223,13 @@ export function Applicants({ id }: { id: string }) {
                   needsFunds={gig?.funding === 'none'}
                 />
               ))}
-              {hired && <p className="text-small text-dim leading-relaxed px-1 mt-1">These applicants have been told the job is taken. Invite them to your next one from Talent.</p>}
+              {hired && <p className="text-small text-dim leading-relaxed px-1 mt-1">{t('employer.applicants.toldTaken')}</p>}
             </>
           )}
 
           {passedOver.length > 0 && (
             <p className="text-small text-dim leading-relaxed px-1 mt-3">
-              {passedOver.length} other {passedOver.length === 1 ? 'applicant was' : 'applicants were'} told this job is filled.
+              {t('employer.applicants.passedOver', { count: passedOver.length })}
             </p>
           )}
         </>
@@ -234,7 +238,7 @@ export function Applicants({ id }: { id: string }) {
       {confirming && (
         <ConfirmSheet
           a={confirming}
-          gigTitle={gig?.title ?? 'this job'}
+          gigTitle={gig?.title ?? t('employer.applicants.thisJob')}
           busy={busyId === confirming.applicationId}
           onClose={() => setConfirming(null)}
           onConfirm={(rating, review) => confirm(confirming, rating, review)}
@@ -250,6 +254,8 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm, needsFun
   /** The job is not funded yet, so hiring is not possible — say why. */
   needsFunds?: boolean;
 }) {
+  const tr = useT();
+  const rt = useRichT();
   const t = TIERS[a.worker.tier.id] ?? TIERS[0];
   const autoConfirm = timeToAutoConfirm(a.workerDoneAt, autoReleaseHours());
   return (
@@ -272,32 +278,32 @@ function ApplicantCard({ a, busy, onOpen, onMessage, onHire, onConfirm, needsFun
             <Stars rating={a.worker.rating} size={13} />
             <b className="text-small font-mono tnum text-ink">{a.worker.rating.toFixed(1)}</b>
           </span>
-          <small className="block text-micro text-dim">{a.worker.jobsDone} jobs</small>
+          <small className="block text-micro text-dim">{tr('employer.applicants.jobs', { count: a.worker.jobsDone })}</small>
         </div>
       </button>
 
       <div className="flex items-center gap-2 flex-wrap mt-3">
-        {a.status === 'hired' && <Chip tone="info" icon="check">Hired — work in progress</Chip>}
-        {a.status === 'worker_done' && <Chip tone="live" icon="bolt">Marked done — needs your confirmation</Chip>}
+        {a.status === 'hired' && <Chip tone="info" icon="check">{tr('employer.applicants.statusHired')}</Chip>}
+        {a.status === 'worker_done' && <Chip tone="live" icon="bolt">{tr('employer.markedDone')}</Chip>}
         {a.status === 'worker_done' && autoConfirm && (
           <div className="text-micro text-dim mt-1">
             {autoConfirm.expired
-              ? <>This is <b className="text-ink">counting automatically now</b> — it will be recorded as work done, without your rating.</>
-              : <>Confirm within <b className="text-ink">{autoConfirm.remaining}</b> — after that it counts automatically, without your rating.</>}
+              ? <>{rt('employer.applicants.autoNow', { bold: <b className="text-ink">{tr('employer.applicants.autoNowBold')}</b> })}</>
+              : <>{rt('employer.applicants.autoIn', { time: <b className="text-ink">{autoConfirm.remaining}</b> })}</>}
           </div>
         )}
-        {a.status === 'completed' && <Chip tone="verified" icon="check">Completed & reviewed</Chip>}
-        {a.status === 'not_selected' && <Chip tone="neutral">Not selected</Chip>}
+        {a.status === 'completed' && <Chip tone="verified" icon="check">{tr('employer.applicants.statusDone')}</Chip>}
+        {a.status === 'not_selected' && <Chip tone="neutral">{tr('employer.applicants.statusNotSelected')}</Chip>}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2.5 mt-3 [&>*]:flex-1">
         {onHire && (
           <Button size="sm" disabled={busy || needsFunds} onClick={onHire}>
-            {busy ? 'Hiring…' : needsFunds ? 'Secure the pay to hire' : 'Hire for this job'}
+            {busy ? tr('employer.applicants.hiring') : needsFunds ? tr('employer.applicants.needFunds') : tr('employer.applicants.hire')}
           </Button>
         )}
-        {onConfirm && <Button size="sm" variant="primary" disabled={busy} onClick={onConfirm}>Confirm & rate</Button>}
-        <Button size="sm" variant="ghost" icon="chat" onClick={onMessage}>Message</Button>
+        {onConfirm && <Button size="sm" variant="primary" disabled={busy} onClick={onConfirm}>{tr('employer.confirmRate')}</Button>}
+        <Button size="sm" variant="ghost" icon="chat" onClick={onMessage}>{tr('employer.message')}</Button>
       </div>
     </Card>
   );
@@ -319,6 +325,8 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
   onDone: () => void;
 }) {
   const { toast, listMyGigs } = useApp();
+  const t = useT();
+  const rt = useRichT();
   const [busy, setBusy] = useState(false);
 
   const withdraw = async () => {
@@ -326,11 +334,11 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
     try {
       const res = await api.deleteGig(gig.id);
       await listMyGigs().catch(() => { /* the list refreshes on its own next time */ });
-      const told = res.applicantsNotified > 0
-        ? ` — ${res.applicantsNotified} applicant${res.applicantsNotified === 1 ? ' was' : 's were'} told`
-        : '';
-      const back = res.refunded ? ` ${money(res.refunded)} returned to you, no fee.` : '';
-      toast(`Job withdrawn${told}.${back}`);
+      const done = res.applicantsNotified > 0
+        ? t('employer.withdraw.doneTold', { count: res.applicantsNotified })
+        : t('employer.withdraw.done');
+      const back = res.refunded ? ` ${t('employer.withdraw.refunded', { amount: money(res.refunded) })}` : '';
+      toast(`${done}${back}`);
       onDone();
     } catch (e) {
       toast((e as Error).message);
@@ -339,17 +347,18 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
   };
 
   return (
-    <Sheet title="Withdraw this job" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">Withdraw this job?</h3>
+    <Sheet title={t('employer.withdraw.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">{t('employer.withdraw.question')}</h3>
       <p className="text-small text-dim leading-relaxed mb-4">
-        <b className="text-ink">“{gig.title}”</b> will be removed from the feed. This cannot be undone
-        {waiting > 0 && <>, and <b className="text-ink font-mono tnum">{waiting}</b> {waiting === 1 ? 'person who applied' : 'people who applied'} will be told</>}.
-        {gig.funding === 'held' && <> The <b className="text-ink font-mono tnum">{money(gigTotal(gig))}</b> you secured comes back to you, with no fee.</>}
+        {waiting > 0
+          ? rt('employer.withdraw.bodyTold', { title: <b className="text-ink">“{gig.title}”</b>, count: <b className="text-ink font-mono tnum">{waiting}</b> }, waiting)
+          : rt('employer.withdraw.body', { title: <b className="text-ink">“{gig.title}”</b> })}
+        {gig.funding === 'held' && <> {rt('employer.withdraw.bodyRefund', { amount: <b className="text-ink font-mono tnum">{money(gigTotal(gig))}</b> })}</>}
       </p>
       <Button block variant="danger" disabled={busy} onClick={withdraw}>
-        {busy ? 'Withdrawing…' : 'Yes, withdraw it'}
+        {busy ? t('employer.withdraw.withdrawing') : t('employer.withdraw.yes')}
       </Button>
-      <Button block variant="ghost" className="mt-2" disabled={busy} onClick={onClose}>Keep it posted</Button>
+      <Button block variant="ghost" className="mt-2" disabled={busy} onClick={onClose}>{t('employer.withdraw.keep')}</Button>
     </Sheet>
   );
 }
@@ -362,15 +371,16 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
   // the one people accept without deciding.
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
+  const t = useT();
   const first = a.worker.name.split(' ')[0];
   return (
-    <Sheet title="Confirm the work" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">How did {first} do?</h3>
+    <Sheet title={t('employer.confirm.title')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">{t('employer.confirm.question', { name: first })}</h3>
       <p className="text-dim text-small leading-relaxed mb-4">
-        Confirming “{gigTitle}” releases {first}'s pay into their Vuka wallet and writes your review onto their CV as a verified reference. Please be fair — it's the record employers after you will read.
+        {t('employer.confirm.body', { title: gigTitle, name: first })}
       </p>
       <StarRating value={rating} onChange={setRating} />
-      <label className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5 mt-4">Your review (optional)</label>
+      <label className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5 mt-4">{t('employer.confirm.reviewLabel')}</label>
       {/* text-base (16px): smaller zooms the viewport on iOS, and this one sits
           in a sheet, so the Confirm button ends up off-screen. */}
       <textarea
@@ -379,12 +389,12 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
         maxLength={600}
         value={review}
         onChange={(e) => setReview(e.target.value)}
-        placeholder={`e.g. ${first} arrived on time and did a thorough job.`}
-        aria-label="Your review"
+        placeholder={t('employer.confirm.reviewPlaceholder', { name: first })}
+        aria-label={t('employer.confirm.reviewAria')}
       />
-      <p className="text-micro text-dim mt-1.5">Leave it blank and we'll write a short note from your star rating.</p>
+      <p className="text-micro text-dim mt-1.5">{t('employer.confirm.blankHint')}</p>
       <Button block className="mt-4" disabled={busy || rating === 0} onClick={() => onConfirm(rating, review.trim())}>
-        {busy ? 'Confirming…' : rating === 0 ? 'Choose a rating first' : `Confirm & rate ${rating}★`}
+        {busy ? t('employer.confirm.confirming') : rating === 0 ? t('employer.confirm.chooseRating') : t('employer.confirm.submit', { rating })}
       </Button>
     </Sheet>
   );
