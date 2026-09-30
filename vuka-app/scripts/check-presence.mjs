@@ -64,7 +64,7 @@ async function openFirstChat(page) {
 
 /** The status line under the other person's name in the chat header. */
 function statusLine(page) {
-  return page.locator('header, .sticky').getByText(/^(Online|Offline|typing…|Blocked)$/).first();
+  return page.locator('header, .sticky, [data-chat-header]').getByText(/^(Online|Offline|typing…|Blocked)$/).first();
 }
 
 /** Poll the status line until it reads `want`, or give up. */

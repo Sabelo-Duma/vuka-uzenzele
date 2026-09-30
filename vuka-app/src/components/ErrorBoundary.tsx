@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { tr } from '../i18n';
 
 interface Props { children: ReactNode; onReset?: () => void; }
 interface State { hasError: boolean; }
@@ -30,12 +31,12 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="p-8 text-center" role="alert">
         <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="alert" size={26} /></div>
-        <h2 className="font-display text-ink text-lead font-bold m-0">This screen ran into a problem</h2>
+        <h2 className="font-display text-ink text-lead font-bold m-0">{tr('common.error.title')}</h2>
         <p className="text-dim text-small leading-relaxed mt-2 mb-5">
-          Something on this page didn't load correctly. Your saved profile is safe. Go back to the home screen and try again.
+          {tr('common.error.body')}
         </p>
         <button onClick={this.reset} className="inline-flex items-center justify-center rounded-pill bg-brand-solid text-brand-on font-bold text-small px-6 py-3">
-          Back to home
+          {tr('common.error.backHome')}
         </button>
       </div>
     );

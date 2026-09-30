@@ -16,10 +16,15 @@
  * every March when the wage is gazetted.
  */
 
+import { tr } from '../i18n';
+
 export interface Stat {
+  /** Stable name, for code that needs one figure (Msizi's {youthUnemployment}). */
+  id: string;
   /** As displayed. South African convention: comma for the decimal. */
   value: string;
-  label: string;
+  /** In the app's language, read at render (a getter, so it follows a change). */
+  readonly label: string;
   /** Which entry in SOURCES this figure comes from. Rendered as a superscript
    *  beside the label, so a reader can trace any number on the page. */
   ref?: number;
@@ -31,11 +36,16 @@ export const STATS_SOURCE = 'Statistics South Africa, Quarterly Labour Force Sur
 /** The release these figures are taken from, for the "as at" line. */
 export const STATS_AS_AT = 'Q2 2026';
 
+const stat = (id: string, value: string, ref: number): Stat => ({
+  id, value, ref,
+  get label() { return tr(`common.stat.${id}`); },
+});
+
 export const HEADLINE_STATS: Stat[] = [
-  { value: '62,8%', label: 'Unemployment, ages 15–24', ref: 1 },
-  { value: '3,8 m', label: 'Aged 15–24 not in work, education or training', ref: 1 },
-  { value: 'R30,23', label: 'National minimum wage per hour', ref: 2 },
-  { value: 'R1 469', label: 'What a young person spends a month looking for work', ref: 3 },
+  stat('youthUnemployment', '62,8%', 1),
+  stat('neet', '3,8 m', 1),
+  stat('minWage', 'R30,23', 2),
+  stat('searchCost', 'R1 469', 3),
 ];
 
 /**
@@ -55,6 +65,8 @@ export const SOURCES: string[] = [
   'Youth Capital with JOBJACK, February 2024 — young job-seekers spend an average of R1 469 a month looking for work: R700 transport, R441 data, R328 applications.',
 ];
 
-/** The same headline figure in a sentence, for the footer. */
-export const YOUTH_UNEMPLOYMENT_SENTENCE =
-  'Built to help close South Africa’s youth unemployment gap — 62,8% for ages 15–24.';
+/** The same headline figure in a sentence, for the footer, in the app's language.
+ *  The sources above stay in English: they cite English publications by title. */
+export function youthUnemploymentSentence(): string {
+  return tr('common.stat.footer', { rate: HEADLINE_STATS[0].value });
+}

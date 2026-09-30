@@ -1,3 +1,5 @@
+import { tr } from '../i18n';
+
 /** Currency formatter — South African Rand. */
 export function money(n: number): string {
   return 'R' + (Math.round(n * 100) / 100).toLocaleString('en-ZA');
@@ -17,7 +19,7 @@ export function isUnrated(rating: number): boolean {
 
 /** Stars for a rated job, or an honest label when there is no rating. */
 export function ratingLabel(rating: number): string {
-  return isUnrated(rating) ? 'Not rated' : stars(rating);
+  return isUnrated(rating) ? tr('common.notRated') : stars(rating);
 }
 
 /**
@@ -46,20 +48,20 @@ export function timeToAutoConfirm(
 
   const msLeft = started + windowHours * 3_600_000 - Date.now();
   if (msLeft <= 0) {
-    return { text: 'counting automatically now', remaining: '', expired: true, soon: true };
+    return { text: tr('common.time.autoNow'), remaining: '', expired: true, soon: true };
   }
 
   const hoursLeft = msLeft / 3_600_000;
   let remaining: string;
   if (hoursLeft < 1) {
     const mins = Math.max(1, Math.round(msLeft / 60_000));
-    remaining = `${mins} min`;
+    remaining = tr('common.time.min', { count: mins });
   } else if (hoursLeft < 24) {
     const h = Math.round(hoursLeft);
-    remaining = `${h} hour${h === 1 ? '' : 's'}`;
+    remaining = tr('common.time.hours', { count: h });
   } else {
     const d = Math.round(hoursLeft / 24);
-    remaining = `${d} day${d === 1 ? '' : 's'}`;
+    remaining = tr('common.time.days', { count: d });
   }
-  return { text: `${remaining} left`, remaining, expired: false, soon: hoursLeft < 24 };
+  return { text: tr('common.time.left', { time: remaining }), remaining, expired: false, soon: hoursLeft < 24 };
 }

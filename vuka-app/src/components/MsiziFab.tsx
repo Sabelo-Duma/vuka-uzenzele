@@ -114,7 +114,7 @@ export function MsiziFab({ onOpen, hidden, onChat }: { onOpen: () => void; hidde
   return (
     <button
       aria-label={t('msizi.open')}
-      title="Tap to ask Msizi. Hold and drag to move."
+      title={t('common.msiziFab.hint')}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}

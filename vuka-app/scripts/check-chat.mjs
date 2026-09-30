@@ -207,13 +207,13 @@ async function run() {
       const header = worker.page.getByRole('button', { name: /back to chats/i });
       ok((await header.count()) === 0, 'there is no back arrow sitting where the name should be');
 
-      const name = await worker.page.locator('.sticky b').first().textContent();
+      const name = await worker.page.locator('[data-chat-header] b').first().textContent();
       ok(!!name && name.trim().length > 0, `the header leads with who you are talking to (${name?.trim()})`);
 
       /* Online or Offline, never the person's role. The role used to be the
          fallback, so "not here right now" and "is an employer" shared one line
          and neither read as the other's absence. */
-      const status = await worker.page.locator('.sticky').first().getByText(/^(Online|Offline|typing…)$/).first()
+      const status = await worker.page.locator('[data-chat-header]').first().getByText(/^(Online|Offline|typing…)$/).first()
         .textContent().catch(() => null);
       ok(status !== null, `and says whether they are there (${status})`);
 

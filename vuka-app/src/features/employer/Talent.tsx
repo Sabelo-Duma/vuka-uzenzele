@@ -6,9 +6,11 @@ import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { EmployerStats, PostJobCard } from './EmployerRail';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
 
 export function Talent() {
   const { state, navigate } = useApp();
+  const t = useT();
   const [cat, setCat] = useState<string | null>(null);
 
   // Real filtering: match workers who list the selected skill/category.
@@ -24,19 +26,21 @@ export function Talent() {
     <Dashboard aside={<><PostJobCard /><EmployerStats /></>}>
       <header className="mb-3">
         <small className="text-faint text-micro font-semibold uppercase tracking-wide">
-          {workers.length} verified worker{workers.length !== 1 ? 's' : ''}{catLabel ? ` · ${catLabel}` : ' nearby'}
+          {catLabel
+            ? t('employer.talent.countIn', { count: workers.length, category: catLabel })
+            : t('employer.talent.countNearby', { count: workers.length })}
         </small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Browse talent<span className="text-brand">.</span></h1>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('employer.talent.title')}<span className="text-brand">.</span></h1>
       </header>
 
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5 mb-3">
-        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-ink`} aria-label="All workers" aria-pressed={cat === null}><Icon name="talent" size={20} /></button>
+        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-ink`} aria-label={t('employer.talent.all')} aria-pressed={cat === null}><Icon name="talent" size={20} /></button>
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
             onClick={() => setCat((v) => (v === c.id ? null : c.id))}
             className={railBtn(cat === c.id)}
-            aria-label={`Filter by ${c.label}`}
+            aria-label={t('employer.talent.filterBy', { category: c.label })}
             aria-pressed={cat === c.id}
             title={c.label}
           >
@@ -50,8 +54,8 @@ export function Talent() {
         : workers.length > 0
         ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{workers.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : cat
-        ? <EmptyState icon="search" title={`No ${catLabel} workers yet`} hint="No verified workers list this skill right now. Try another category or view everyone." action={<Button size="sm" variant="ghost" onClick={() => setCat(null)}>Show all talent</Button>} />
-        : <EmptyState icon="talent" title="No workers yet" hint="Verified youth near you will show up here as they join and complete jobs." />}
+        ? <EmptyState icon="search" title={t('employer.talent.noneIn', { category: catLabel ?? '' })} hint={t('employer.talent.noneInHint')} action={<Button size="sm" variant="ghost" onClick={() => setCat(null)}>{t('employer.talent.showAll')}</Button>} />
+        : <EmptyState icon="talent" title={t('employer.talent.none')} hint={t('employer.talent.noneHint')} />}
     </Dashboard>
   );
 }

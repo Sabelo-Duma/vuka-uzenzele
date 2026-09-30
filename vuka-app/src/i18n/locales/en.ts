@@ -251,7 +251,7 @@ export const en = {
   'lang.applied': 'Vuka is now in {language}',
   'lang.partial': '{percent}% translated',
   'lang.partialHint':
-    'Vuka is being translated screen by screen. Anything not done yet stays in English, so nothing goes blank.',
+    'Every screen of Vuka is translated. The translations have not yet been checked by first-language speakers, so if something reads wrong, please tell us below.',
   'lang.legalNote':
     'The Privacy Notice and Terms of Use stay in English. They are legal documents and a translation of one could mislead you.',
 

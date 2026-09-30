@@ -11,9 +11,12 @@ import { useApp } from '../../store/appStore';
 import type { CvSnapshot } from '../../types';
 import { Button, Card, Ring, Sheet, useCountUp } from '../../components/ui';
 import { Confetti } from '../../components/Confetti';
+import { useT } from '../../providers/LanguageProvider';
+import { fill } from './fill';
 
 export function CelebrationSheet() {
   const { state, dismissCelebration, setFeed, navigate } = useApp();
+  const t = useT();
   const celebrate = state.celebrate;
   if (!celebrate) return null;
 
@@ -31,7 +34,7 @@ export function CelebrationSheet() {
   };
 
   return (
-    <Sheet title="Job confirmed" onClose={dismissCelebration}>
+    <Sheet title={t('worker.jobConfirmed')} onClose={dismissCelebration}>
       <Confetti />
       <Celebrate
         before={before}
@@ -51,6 +54,7 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
   before: CvSnapshot; after: CvSnapshot; jobTitle: string; tieredUp: boolean;
   newlyUnlocked: number; newBadges: { icon: string; label: string }[]; onGo: () => void;
 }) {
+  const t = useT();
   const rep = useCountUp(after.rep, before.rep);
   const shownRep = Math.round(rep);
   const gained = after.rep - before.rep;
@@ -61,17 +65,20 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
           <span aria-hidden="true" className="absolute inset-0" style={{ background: 'radial-gradient(60% 60% at 50% 0%, rgba(242,0,35,.35), transparent 70%)' }} />
           <div className="relative">
             <div className="text-jumbo animate-pop" aria-hidden="true">{after.tier.icon}</div>
-            <h4 className="font-display m-0 mt-1.5 text-lead font-extrabold tracking-tight">TIER UP — you're now {after.tier.name}!</h4>
+            <h4 className="font-display m-0 mt-1.5 text-lead font-extrabold tracking-tight">{t('worker.celebrate.tierUp', { tier: after.tier.name })}</h4>
             <p className="m-0 text-small text-on-feature-dim leading-snug mt-1">{after.tier.unlocks}</p>
-            {newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-small font-bold bg-brand-solid rounded-full px-3 py-1 animate-pop">{newlyUnlocked} new formal job{newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
+            {newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-small font-bold bg-brand-solid rounded-full px-3 py-1 animate-pop">{t('worker.celebrate.newFormal', { count: newlyUnlocked })}</div>}
           </div>
         </div>
       ) : (
         <div className="text-center">
           <div className="text-mega animate-pop" aria-hidden="true">🎉</div>
-          <h3 className="font-display text-title font-extrabold text-ink mt-2 mb-1 tracking-tight">Confirmed — CV updated!</h3>
+          <h3 className="font-display text-title font-extrabold text-ink mt-2 mb-1 tracking-tight">{t('worker.celebrate.confirmed')}</h3>
           <p className="text-dim text-small leading-relaxed mb-4">
-            The employer confirmed <b className="text-ink">“{jobTitle}”</b> and left you a verified reference. Reputation now <b className="font-mono tnum">{shownRep}/100</b>.
+            {fill(t('worker.celebrate.body'), {
+              job: <b className="text-ink">“{jobTitle}”</b>,
+              score: <b className="font-mono tnum">{shownRep}/100</b>,
+            })}
           </p>
         </div>
       )}
@@ -82,22 +89,24 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
           {gained > 0 && <span className="absolute -top-1 -right-1 bg-verified text-canvas text-micro font-extrabold px-1.5 py-0.5 rounded-full shadow-e1 animate-pop">+{gained}</span>}
         </div>
         <div className="flex-1">
-          <b className="text-small text-ink font-mono tnum">{after.jobsDone} jobs · {after.avg.toFixed(1)}★ · {after.tier.icon} {after.tier.name}</b>
+          <b className="text-small text-ink font-mono tnum">{t('worker.celebrate.summary', { count: after.jobsDone, rating: after.avg.toFixed(1), icon: after.tier.icon, tier: after.tier.name })}</b>
           <div className="text-small text-dim">
-            {money(after.totalEarned)} earned · {after.nextTier
-              ? `${after.jobsToGo > 0 ? `${after.jobsToGo} job${after.jobsToGo > 1 ? 's' : ''}` : 'rating'} to ${after.nextTier.name}`
-              : 'top tier reached'}
+            {after.nextTier
+              ? after.jobsToGo > 0
+                ? t('worker.celebrate.earnedJobsTo', { amount: money(after.totalEarned), count: after.jobsToGo, tier: after.nextTier.name })
+                : t('worker.celebrate.earnedRatingTo', { amount: money(after.totalEarned), tier: after.nextTier.name })
+              : t('worker.celebrate.earnedTop', { amount: money(after.totalEarned) })}
           </div>
         </div>
       </Card>
 
       {newBadges.length > 0 && (
         <div className="text-center mb-3">
-          <b className="text-small text-ink">🏅 New badge{newBadges.length > 1 ? 's' : ''} unlocked!</b>
+          <b className="text-small text-ink">{newBadges.length > 1 ? t('worker.celebrate.newBadges') : t('worker.celebrate.newBadge')}</b>
           <div className="grid gap-2.5 mt-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(newBadges.length, 3)},1fr)` }}>
             {newBadges.map((b) => (
               <div key={b.label} className="relative border border-line rounded-[15px] p-3 text-center bg-surface animate-pop">
-                <span className="absolute -top-2 -right-1.5 bg-brand-solid text-brand-on text-micro font-extrabold px-1.5 py-0.5 rounded-full">NEW</span>
+                <span className="absolute -top-2 -right-1.5 bg-brand-solid text-brand-on text-micro font-extrabold px-1.5 py-0.5 rounded-full">{t('worker.celebrate.new')}</span>
                 <div className="text-display" aria-hidden="true">{b.icon}</div>
                 <b className="block text-micro mt-1 text-ink">{b.label}</b>
               </div>
@@ -107,7 +116,7 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
       )}
 
       <Button block variant="primary" onClick={onGo}>
-        {tieredUp ? 'See what I unlocked →' : 'See my updated CV →'}
+        {tieredUp ? t('worker.celebrate.seeUnlocked') : t('worker.celebrate.seeCv')}
       </Button>
     </>
   );

@@ -118,8 +118,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['language', 'isizulu', 'zulu', 'xhosa', 'isixhosa', 'sesotho', 'sotho', 'afrikaans', 'english', 'speak', 'translate'],
     body:
       'You can ask me questions in isiZulu, isiXhosa, Sesotho, Afrikaans or English, and I will understand common words in all of them.\n'
-      + 'My answers are written in English for now. That is honest rather than ideal — the app is being translated screen by screen, and I would rather give you a correct English answer than a rough translation of something about your money or your safety.\n'
-      + 'Talking out loud is a separate problem. Your phone does the listening and the speaking, not Vuka, and most phones can only do that in English and Afrikaans. isiZulu, isiXhosa and Sesotho voices mostly do not exist yet on phones. If yours cannot manage your language, I will tell you on the screen instead of quietly doing nothing.',
+      + 'I answer in the language the app is set to. My answers were translated with care, but not yet checked by a first-language speaker, so if something reads wrong, please tell us on the Language screen.\n'
+      + 'Talking out loud depends on your language and your phone. In English and Afrikaans I can listen to you on most phones. isiZulu, isiXhosa and Sesotho voices mostly do not exist yet on phones, so in those I may only be able to answer in writing. If yours cannot manage your language, I will tell you on the screen instead of quietly doing nothing.',
     next: ['change-language', 'who-is-msizi'],
   },
 

@@ -12,11 +12,13 @@ import { BankingSheet, BlockedSheet, EditProfileSheet, IdentitySheet, SafetyShee
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { WalletSheet } from './WalletSheet';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
+import { useT } from '../../providers/LanguageProvider';
 
 type SheetKey = 'notifications' | 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
 
 export function WorkerProfile() {
   const { state, navigate, toast } = useApp();
+  const t = useT();
   const cv = computeCv(state.worker);
   const w = state.worker;
   const unlockedCount = state.formalJobs.filter((f) => f.minTier <= cv.tier.id).length;
@@ -41,36 +43,36 @@ export function WorkerProfile() {
     | { kind: 'toggle'; ic: IconName; title: string; sub: string; on: boolean; act: () => void };
 
   const rows: Row[] = [
-    { kind: 'link', ic: 'ladder', title: 'My opportunity ladder', sub: `${cv.tier.name} · ${unlockedCount} formal jobs unlocked`, go: () => navigate('cv') },
-    { kind: 'link', ic: 'bell', title: 'Notifications', sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
-    { kind: 'toggle', ic: 'signal', title: 'Data saver', sub: dataSaver ? 'On — lighter images, less data' : 'Off — full-quality images', on: dataSaver,
-      act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, 'Data saver on — browsing stays light on data', 'Data saver off — richer images') },
-    { kind: 'link', ic: 'edit', title: 'Edit your profile', sub: 'Name, email, education and languages — these go on your CV', go: () => setSheet('editProfile') },
-    { kind: 'link', ic: 'wallet', title: 'My wallet', sub: 'Pay from confirmed jobs — withdraw it to your bank', go: () => setSheet('wallet') },
-    { kind: 'link', ic: 'card', title: 'Get paid', sub: bank ? `${bank} · tap to edit` : 'Add your bank details', go: () => setSheet('banking') },
-    { kind: 'link', ic: 'id', title: 'Identity', sub: w.idVerified ? 'Verified with SA ID' : 'Not verified yet — tap to learn how', go: () => setSheet('identity') },
-    { kind: 'link', ic: 'shield', title: 'Safety centre', sub: 'Tips, reporting & emergency contacts', go: () => setSheet('safety') },
-    { kind: 'link', ic: 'ban', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
-    { kind: 'link', ic: 'globe', title: 'Language', sub: 'Choose your preferred language', go: () => setSheet('language') },
-    { kind: 'link', ic: 'lock', title: 'Privacy & your data', sub: 'What we collect, and what you can make us delete', go: () => setSheet('privacy') },
-    { kind: 'link', ic: 'doc', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
+    { kind: 'link', ic: 'ladder', title: t('worker.profile.ladder'), sub: `${cv.tier.name} · ${t('worker.unlockedFormal', { count: unlockedCount })}`, go: () => navigate('cv') },
+    { kind: 'link', ic: 'bell', title: t('me.notifications'), sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
+    { kind: 'toggle', ic: 'signal', title: t('me.dataSaver'), sub: dataSaver ? t('worker.profile.dataOn') : t('worker.profile.dataOff'), on: dataSaver,
+      act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, t('worker.profile.dataOnToast'), t('worker.profile.dataOffToast')) },
+    { kind: 'link', ic: 'edit', title: t('worker.profile.edit'), sub: t('worker.profile.editSub'), go: () => setSheet('editProfile') },
+    { kind: 'link', ic: 'wallet', title: t('worker.myWallet'), sub: t('worker.profile.walletSub'), go: () => setSheet('wallet') },
+    { kind: 'link', ic: 'card', title: t('worker.getPaid'), sub: bank ? t('worker.profile.bankEdit', { bank }) : t('worker.profile.addBank'), go: () => setSheet('banking') },
+    { kind: 'link', ic: 'id', title: t('worker.profile.identity'), sub: w.idVerified ? t('worker.profile.verifiedSaId') : t('worker.profile.notVerified'), go: () => setSheet('identity') },
+    { kind: 'link', ic: 'shield', title: t('me.safety'), sub: t('worker.profile.safetySub'), go: () => setSheet('safety') },
+    { kind: 'link', ic: 'ban', title: t('worker.profile.blocked'), sub: t('worker.profile.blockedSub'), go: () => setSheet('blocked') },
+    { kind: 'link', ic: 'globe', title: t('me.language'), sub: t('worker.profile.languageSub'), go: () => setSheet('language') },
+    { kind: 'link', ic: 'lock', title: t('worker.profile.privacy'), sub: t('worker.profile.privacySub'), go: () => setSheet('privacy') },
+    { kind: 'link', ic: 'doc', title: t('worker.profile.terms'), sub: t('worker.profile.termsSub'), go: () => setSheet('terms') },
   ];
 
   return (
     <>
       <header className="mb-3">
-        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Your account</small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-brand">.</span></h1>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('worker.profile.yourAccount')}</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('worker.profile.title')}<span className="text-brand">.</span></h1>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
         <div className="flex justify-center mb-2.5"><Avatar initials={w.initials} size="lg" verified={w.idVerified} tier={cv.tier.icon} /></div>
         <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{w.name}</h3>
-        <p className="m-0 mt-1 text-small text-dim flex items-center justify-center gap-1.5"><Icon name="pin" size={13} /> {w.location} · Age {w.age}</p>
+        <p className="m-0 mt-1 text-small text-dim flex items-center justify-center gap-1.5"><Icon name="pin" size={13} /> {w.location} · {t('worker.age', { age: w.age })}</p>
         <div className="flex justify-center gap-2 flex-wrap mt-2.5">
           <TierBadge icon={cv.tier.icon} name={cv.tier.name} />
-          {w.idVerified && <Chip tone="verified" icon="shield">ID Verified</Chip>}
-          <Chip tone="neutral" icon="star">{cv.avg.toFixed(1)} rating</Chip>
+          {w.idVerified && <Chip tone="verified" icon="shield">{t('worker.profile.idVerified')}</Chip>}
+          <Chip tone="neutral" icon="star">{t('worker.profile.rating', { rating: cv.avg.toFixed(1) })}</Chip>
         </div>
       </Card>
 

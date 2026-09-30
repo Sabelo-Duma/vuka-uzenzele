@@ -37,9 +37,10 @@ import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
 import {
   Listener, canListen, canSpeak, onSpeechLevel, onVoicesChanged, pickVoice, primeSpeech, setNeuralCheck, setNeuralVoice,
-  speak, stopSpeaking, voicesReady, type ListenError,
+  speak, stopSpeaking, voicesReady, type ListenError, type ListenEvents,
 } from '../../lib/speech';
 import { langMeta } from '../../i18n';
+import { RecordListener, canTranscribe } from '../../lib/recordListener';
 import { Icon } from '../../components/Icon';
 import { MsiziOrb, type OrbState } from '../../components/MsiziOrb';
 
@@ -102,7 +103,8 @@ function AnswerBody({ text }: { text: string }) {
 
 /** A question offered as a tappable chip. */
 function AskChip({ id, onPick, onFeature = false }: { id: string; onPick: (id: string) => void; onFeature?: boolean }) {
-  const entry = lookup(id);
+  const { lang } = useLanguage();
+  const entry = lookup(id, lang);
   if (!entry) return null;
   return (
     <button
@@ -147,7 +149,7 @@ export function Msizi() {
   /** The worker's wallet, for "how much is in my wallet". Undefined = loading. */
   const [wallet, setWallet] = useState<MsiziContext['wallet']>(undefined);
 
-  const listenerRef = useRef<Listener | null>(null);
+  const listenerRef = useRef<Listener | RecordListener | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(1);
   const orbRef = useRef<HTMLSpanElement | null>(null);
@@ -160,7 +162,7 @@ export function Msizi() {
   /** What a screen reader is told, for answers the app is not reading aloud. */
   const [announce, setAnnounce] = useState('');
   /** Set below; lets the reply path restart listening without a hook cycle. */
-  const listenRef = useRef<(retry?: number) => void>(() => {});
+  const listenRef = useRef<(retry?: number, record?: boolean) => void>(() => {});
 
   const setConversation = useCallback((on: boolean) => {
     convoRef.current = on;
@@ -176,6 +178,7 @@ export function Msizi() {
      can never disagree with the screen the user just came from. */
   const ctx = useMemo<MsiziContext>(() => ({
     role: state.role,
+    lang,
     name: state.user?.name ?? '',
     cv: state.role === 'worker' ? computeCv(state.worker) : null,
     minWage: state.minWage,
@@ -186,7 +189,7 @@ export function Msizi() {
     idVerified: state.worker.idVerified,
     wallet,
   }), [state.role, state.user, state.worker, state.minWage, state.appliedGigIds,
-       state.appliedFormalIds, state.gigs, state.unread, wallet]);
+       state.appliedFormalIds, state.gigs, state.unread, wallet, lang]);
 
   /* The wallet is read once when the screen opens, for workers only. It is
      the person's own money, so it is only ever read back to them — it is not
@@ -286,11 +289,20 @@ export function Msizi() {
       ? `${t(r.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}.\n${t('msizi.missBody')}`
       : r.title ? `${r.title}.\n${r.body}` : r.body;
     setSpeakingTurn(turn.id);
-    /* The language of the TEXT picks the voice: written answers are English
-       whatever the app is set to; small talk, AI answers and the refusal come
-       back in the app's language. A live answer is the person's own record,
-       so it is read on the phone, never by a voice that sends it away. */
-    const textLang = r.kind === 'chat' || r.kind === 'ai' || r.kind === 'miss' ? lang : 'en';
+    /* The language of the TEXT picks the voice. Written and live answers say
+       which language they came back in (an entry not yet translated is still
+       English); small talk, AI answers and the refusal are in the app's
+       language. A live answer is the person's own record, so it is read on
+       the phone, never by a voice that sends it away. */
+    const textLang = r.kind === 'chat' || r.kind === 'ai' || r.kind === 'miss' ? lang : (r.lang ?? 'en');
+    /* No voice on this phone for the language the answer is written in: it is
+       not read at all. An English voice spelling out isiZulu is worse than
+       silence, and the answer is already on the screen. */
+    if (textLang !== 'en' && pickVoice(textLang).coverage !== 'native') {
+      setSpeakingTurn(null);
+      onDone?.();
+      return;
+    }
     speak(text, textLang, () => {
       setSpeakingTurn((cur) => (cur === turn.id ? null : cur));
       onDone?.();
@@ -385,7 +397,7 @@ export function Msizi() {
   }, [ctx, put, settleTurn, lang, firstName, setConversation]);
 
   const pick = useCallback((id: string) => {
-    const entry = lookup(id);
+    const entry = lookup(id, lang);
     const reply = askById(id, ctx);
     if (!entry || !reply) return;
     stopSpeaking();
@@ -408,14 +420,19 @@ export function Msizi() {
   }, [t, lang]);
 
   /** One listening turn. Used for the first tap and for every re-listen. */
-  const listen = useCallback((retry = 0) => {
+  const listen = useCallback((retry = 0, record = false) => {
     if (listenerRef.current) return;
     setVoiceNote(null);
+    /* Afrikaans goes straight to recording where the server can transcribe
+       it: iPhone has no Afrikaans recogniser, and Android's is not certain.
+       Everything else asks the phone first, and falls back to recording if
+       the phone says it cannot (English on an installed iPhone app). */
+    const recording = record || (lang === 'af' && canTranscribe(lang));
     /* The words appear in the question box as they are recognised, the same
        box typing uses, so the person sees exactly what was heard. */
     const prefix = draft.trim() ? `${draft.trim()} ` : '';
     let failed: ListenError | null = null;
-    const listener = new Listener(lang, {
+    const events: ListenEvents = {
       onPartial: (text) => { setDraft(prefix + text); },
       onFinal: (text) => submit(prefix + text, true),
       onError: (err) => { failed = err; setDraft(prefix.trim()); },
@@ -426,22 +443,36 @@ export function Msizi() {
         /* A microphone still held by the audio that just played: try once
            more, a moment later, before bothering the person with it. */
         if (failed === 'busy' && retry < 1 && convoRef.current) {
-          relistenTimer.current = window.setTimeout(() => listenRef.current(retry + 1), 600);
+          relistenTimer.current = window.setTimeout(() => listenRef.current(retry + 1, recording), 600);
+          return;
+        }
+        /* The phone cannot listen in this language, but the server can:
+           record instead, straight away. This is where the microphone
+           permission prompt appears on an iPhone. */
+        if (failed === 'no-language' && !recording && canTranscribe(lang)) {
+          listenRef.current(retry, true);
           return;
         }
         /* Going quiet in a conversation is how it ends — said gently, not as
            an error. Anything else is explained, and the conversation stops. */
         const wasConvo = convoRef.current;
         setConversation(false);
-        setVoiceNote(failed === 'no-speech' && wasConvo ? t('msizi.convoEnded') : voiceMessage(failed));
+        /* Nothing recognised in a language most phones cannot listen in is
+           more likely the phone than the person — say so, instead of "I did
+           not hear anything". */
+        const notHeard = failed === 'no-speech' && !recording && (lang === 'zu' || lang === 'xh' || lang === 'st');
+        setVoiceNote(failed === 'no-speech' && wasConvo && !notHeard ? t('msizi.convoEnded')
+          : notHeard ? t('msizi.x.noSpeechLang', { language: langMeta(lang).label })
+            : voiceMessage(failed));
       },
-    });
+    };
+    const listener = recording ? new RecordListener(lang, events) : new Listener(lang, events);
     listenerRef.current = listener;
     if (listener.start()) setListening(true);
     else { listenerRef.current = null; setConversation(false); }
   }, [draft, lang, submit, voiceMessage, setConversation, t]);
 
-  listenRef.current = (retry = 0) => listen(retry);
+  listenRef.current = (retry = 0, record = false) => listen(retry, record);
 
   /** The big button: start a conversation, interrupt Msizi, or stop. */
   const onTalk = useCallback(() => {
@@ -467,10 +498,17 @@ export function Msizi() {
 
   /* ---- what this device can actually do ---- */
 
-  const listenSupported = canListen();
+  const listenSupported = canListen() || canTranscribe(lang);
   /* Having the API is not the same as being able to use it: a browser can
      expose speechSynthesis and ship no voices. */
   const speakSupported = canSpeak() && speechCoverage !== 'none';
+  /* Offer "read aloud" only where it will actually read: an answer written
+     in a language this phone has no voice for is left to the screen. */
+  const canRead = (r: MsiziReply): boolean => {
+    if (!speakSupported) return false;
+    const textLang = r.kind === 'chat' || r.kind === 'ai' || r.kind === 'miss' ? lang : (r.lang ?? 'en');
+    return textLang === 'en' || pickVoice(textLang).coverage === 'native';
+  };
 
   const capabilityNote = !listenSupported
     ? t('msizi.voiceUnsupported')
@@ -478,7 +516,7 @@ export function Msizi() {
       ? t('msizi.speakUnsupported')
       /* Only worth saying to somebody whose language it actually is. */
       : speechCoverage === 'fallback' && lang !== 'en'
-        ? t('msizi.speakFallback', { language: langMeta(lang).label })
+        ? t('msizi.x.noVoiceOut', { language: langMeta(lang).label })
         : null;
 
   const thinking = turns.some((x) => x.reply.kind === 'thinking');
@@ -624,7 +662,7 @@ export function Msizi() {
 
                 {turn.reply.kind !== 'thinking' && (speakSupported || turn.reply.goto) && (
                   <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                    {speakSupported && turn.reply.kind !== 'miss' && (
+                    {canRead(turn.reply) && turn.reply.kind !== 'miss' && (
                       <button
                         onClick={() => {
                           if (speakingTurn === turn.id) { stopSpeaking(); setSpeakingTurn(null); }

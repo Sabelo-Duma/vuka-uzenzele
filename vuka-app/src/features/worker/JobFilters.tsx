@@ -4,6 +4,8 @@ import { money } from '../../lib/format';
 import type { FormalJob, Gig } from '../../types';
 import { Button, Sheet } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
+import { withCount } from './fill';
 
 /**
  * Narrowing the feed down to the job you can actually take.
@@ -66,6 +68,7 @@ export function FilterBar({ value, onChange, hasCoords, results }: {
   hasCoords: boolean;
   results: number;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const searchId = useId();
   const active = activeCount(value);
@@ -74,7 +77,7 @@ export function FilterBar({ value, onChange, hasCoords, results }: {
     <div className="mt-3">
       <div className="flex gap-2">
         <div className="relative flex-1 min-w-0">
-          <label htmlFor={searchId} className="sr-only">Search jobs</label>
+          <label htmlFor={searchId} className="sr-only">{t('worker.filter.search')}</label>
           <span aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint">
             <Icon name="search" size={18} />
           </span>
@@ -83,19 +86,19 @@ export function FilterBar({ value, onChange, hasCoords, results }: {
             type="search"
             value={value.query}
             onChange={(e) => onChange({ ...value, query: e.target.value })}
-            placeholder="Search jobs"
+            placeholder={t('worker.filter.search')}
             className="w-full min-h-[44px] border-[1.5px] border-line rounded-pill pl-10 pr-4 py-2.5 text-base bg-surface text-ink focus:outline-none focus:border-ink"
           />
         </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label={active > 0 ? `Filters, ${active} applied` : 'Filters'}
+          aria-label={active > 0 ? t('worker.filter.appliedLabel', { n: active }) : t('jobs.filters')}
           className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap min-h-[44px] px-3.5 rounded-pill border text-small font-bold transition active:scale-95
             ${active > 0 ? 'bg-brand-soft border-brand text-brand' : 'bg-surface border-line text-ink hover:bg-surface-2'}`}
         >
           <Icon name="filter" size={16} />
-          Filters
+          {t('jobs.filters')}
           {active > 0 && <span className="font-mono tnum">{active}</span>}
         </button>
       </div>
@@ -103,14 +106,14 @@ export function FilterBar({ value, onChange, hasCoords, results }: {
       {active > 0 && (
         <div className="flex items-center justify-between gap-3 mt-2">
           <span className="text-micro text-dim">
-            <span className="font-mono tnum font-bold text-ink">{results}</span> {results === 1 ? 'match' : 'matches'}
+            {withCount(t('worker.filter.matches', { count: results }), results, (n) => <span className="font-mono tnum font-bold text-ink">{n}</span>)}
           </span>
           <button
             type="button"
             onClick={() => onChange(EMPTY_FILTER)}
             className="inline-flex items-center min-h-[44px] px-2 -mr-2 rounded-chip text-micro font-bold text-brand hover:bg-surface-2 transition"
           >
-            Clear filters
+            {t('jobs.clearFilters')}
           </button>
         </div>
       )}
@@ -135,6 +138,7 @@ function FilterSheet({ value, hasCoords, results, onChange, onClose }: {
   onChange: (f: JobFilter) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const minWage = minWagePerHour();
   /* Rate steps start at the legal floor, because "at least minimum wage" is
      the filter this product exists to make possible. */
@@ -142,42 +146,42 @@ function FilterSheet({ value, hasCoords, results, onChange, onClose }: {
   const distances: (number | null)[] = [null, 2, 5, 10, 20];
 
   return (
-    <Sheet title="Filters" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">Filters</h3>
+    <Sheet title={t('jobs.filters')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1">{t('jobs.filters')}</h3>
       <p className="text-small text-dim mb-4">
-        <span className="font-mono tnum font-bold text-ink">{results}</span> {results === 1 ? 'job matches' : 'jobs match'} right now.
+        {withCount(t('worker.filter.jobsMatch', { count: results }), results, (n) => <span className="font-mono tnum font-bold text-ink">{n}</span>)}
       </p>
 
-      <Group label="Pays at least">
+      <Group label={t('worker.filter.paysAtLeast')}>
         <Choices
-          options={rates.map((r) => ({ value: r, label: r === 0 ? 'Any rate' : `${money(r)}/hr` }))}
+          options={rates.map((r) => ({ value: r, label: r === 0 ? t('worker.filter.anyRate') : t('worker.perHour', { amount: money(r) }) }))}
           selected={value.minRate}
           onSelect={(r) => onChange({ ...value, minRate: r })}
         />
-        <Note>The legal minimum is {money(minWage)} an hour.</Note>
+        <Note>{t('worker.filter.legalMin', { amount: money(minWage) })}</Note>
       </Group>
 
-      <Group label="Within">
+      <Group label={t('worker.filter.within')}>
         {hasCoords ? (
           <>
             <Choices
-              options={distances.map((d) => ({ value: d, label: d === null ? 'Any distance' : `${d} km` }))}
+              options={distances.map((d) => ({ value: d, label: d === null ? t('worker.filter.anyDistance') : t('jobs.distanceKm', { km: d }) }))}
               selected={value.maxKm}
               onSelect={(d) => onChange({ ...value, maxKm: d })}
             />
-            <Note>Listings without a measured distance are always shown.</Note>
+            <Note>{t('worker.filter.unmeasured')}</Note>
           </>
         ) : (
-          <Note>Turn on “Show gigs nearest me” to filter by distance.</Note>
+          <Note>{t('worker.filter.turnOnNearest', { button: t('worker.showNearest') })}</Note>
         )}
       </Group>
 
-      <Group label="Show first">
+      <Group label={t('worker.filter.showFirst')}>
         <Choices
           options={[
-            { value: 'best' as const, label: 'Best match' },
-            { value: 'pay' as const, label: 'Best paid' },
-            { value: 'near' as const, label: 'Nearest' },
+            { value: 'best' as const, label: t('worker.filter.bestMatch') },
+            { value: 'pay' as const, label: t('worker.filter.bestPaid') },
+            { value: 'near' as const, label: t('worker.filter.nearest') },
           ]}
           selected={value.sort}
           onSelect={(sort) => onChange({ ...value, sort })}
@@ -185,10 +189,10 @@ function FilterSheet({ value, hasCoords, results, onChange, onClose }: {
       </Group>
 
       <Button block className="mt-5" onClick={onClose}>
-        Show {results} {results === 1 ? 'job' : 'jobs'}
+        {t('worker.filter.showJobs', { count: results })}
       </Button>
       <Button block variant="ghost" className="mt-2" onClick={() => { onChange(EMPTY_FILTER); onClose(); }}>
-        Clear everything
+        {t('worker.filter.clearAll')}
       </Button>
     </Sheet>
   );

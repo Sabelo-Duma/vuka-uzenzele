@@ -8,6 +8,7 @@
    A 13-digit ID is YYMMDD SSSS C A Z: date of birth, sequence (0000–4999
    female, 5000–9999 male), citizenship, a legacy digit, and a Luhn check.
    ============================================================ */
+import { tr } from '../i18n';
 
 export interface IdNumberInfo {
   ok: boolean;
@@ -32,7 +33,7 @@ function luhn(digits: string): boolean {
 /** Is this a well-formed South African ID number? */
 export function checkIdNumber(raw: string, today = new Date()): IdNumberInfo {
   const id = String(raw ?? '').replace(/\D/g, '');
-  if (id.length !== 13) return { ok: false, reason: 'A South African ID number has 13 digits.' };
+  if (id.length !== 13) return { ok: false, reason: tr('profile.idcheck.len') };
   const yy = Number(id.slice(0, 2));
   const mm = Number(id.slice(2, 4));
   const dd = Number(id.slice(4, 6));
@@ -40,9 +41,9 @@ export function checkIdNumber(raw: string, today = new Date()): IdNumberInfo {
   const thisYY = today.getFullYear() % 100;
   const year = yy <= thisYY ? 2000 + yy : 1900 + yy;
   const date = new Date(Date.UTC(year, mm - 1, dd));
-  if (mm < 1 || mm > 12 || date.getUTCDate() !== dd) return { ok: false, reason: 'The first six digits must be a real date of birth.' };
-  if (!['0', '1'].includes(id[10])) return { ok: false, reason: 'That ID number does not look right. Please check it.' };
-  if (!luhn(id)) return { ok: false, reason: 'That ID number does not add up. Please check each digit.' };
+  if (mm < 1 || mm > 12 || date.getUTCDate() !== dd) return { ok: false, reason: tr('profile.idcheck.date') };
+  if (!['0', '1'].includes(id[10])) return { ok: false, reason: tr('profile.idcheck.shape') };
+  if (!luhn(id)) return { ok: false, reason: tr('profile.idcheck.luhn') };
   return {
     ok: true,
     dateOfBirth: `${year}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`,

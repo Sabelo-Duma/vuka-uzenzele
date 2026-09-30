@@ -14,7 +14,8 @@
    ============================================================ */
 import type { Gig } from '../types';
 import { money } from '../lib/format';
-import { Chip } from './ui';
+import { BoldText, Chip } from './ui';
+import { useT } from '../providers/LanguageProvider';
 import { Icon } from './Icon';
 
 /** The pay for a gig, as the server computed it (falls back for old data). */
@@ -23,24 +24,27 @@ export function gigTotal(gig: Gig): number {
 }
 
 export function FundingChip({ gig }: { gig: Gig }) {
-  if (gig.funding === 'held') return <Chip tone="verified" icon="lock">Funds secured</Chip>;
-  if (gig.funding === 'released') return <Chip tone="verified" icon="check">Paid out</Chip>;
-  if (gig.funding === 'none') return <Chip tone="neutral" icon="clock">Awaiting funds</Chip>;
+  const t = useT();
+  if (gig.funding === 'held') return <Chip tone="verified" icon="lock">{t('common.funding.held')}</Chip>;
+  if (gig.funding === 'released') return <Chip tone="verified" icon="check">{t('common.funding.released')}</Chip>;
+  if (gig.funding === 'none') return <Chip tone="neutral" icon="clock">{t('common.funding.none')}</Chip>;
   return null;
 }
 
 /** Said on every money screen while payments are a practice run. */
 export function TestModeNote({ className = '' }: { className?: string }) {
+  const t = useT();
   return (
     <p className={`flex gap-2 items-start rounded-2xl border border-line bg-info-soft px-3.5 py-2.5 text-small text-ink leading-snug ${className}`}>
       <Icon name="alert" size={16} />
-      <span><b>Test mode.</b> Payments are a practice run for now — no real money moves yet.</span>
+      <span><BoldText text={t('common.funding.testMode')} /></span>
     </p>
   );
 }
 
 /** What a worker is told about a gig's pay before and after applying. */
 export function WorkerFundingPanel({ gig }: { gig: Gig }) {
+  const t = useT();
   if (!gig.funding) return null;
   const total = money(gigTotal(gig));
   return (
@@ -48,19 +52,19 @@ export function WorkerFundingPanel({ gig }: { gig: Gig }) {
       {gig.funding === 'held' && (
         <p className="flex gap-2.5 m-0 text-small text-ink leading-relaxed">
           <span className="text-verified shrink-0"><Icon name="lock" size={18} /></span>
-          <span><b>{total} is secured for this job.</b> The employer has already put the pay in. It goes into your Vuka wallet when the job is confirmed, and you withdraw it to your bank.</span>
+          <span><BoldText text={t('common.funding.heldBody', { total })} /></span>
         </p>
       )}
       {gig.funding === 'none' && (
         <p className="flex gap-2.5 m-0 text-small text-ink leading-relaxed">
           <span className="text-dim shrink-0"><Icon name="clock" size={18} /></span>
-          <span><b>The employer has not secured the pay yet.</b> You can apply now — but nobody can be hired or start work until the {total} is in.</span>
+          <span><BoldText text={t('common.funding.noneBody', { total })} /></span>
         </p>
       )}
       {gig.funding === 'released' && (
         <p className="flex gap-2.5 m-0 text-small text-ink leading-relaxed">
           <span className="text-verified shrink-0"><Icon name="check" size={18} /></span>
-          <span><b>{total} was paid into the wallet</b> when this job was confirmed.</span>
+          <span><BoldText text={t('common.funding.releasedBody', { total })} /></span>
         </p>
       )}
       {gig.paymentsMode !== 'live' && <TestModeNote className="mt-3" />}

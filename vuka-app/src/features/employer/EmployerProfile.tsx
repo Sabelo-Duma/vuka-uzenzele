@@ -10,11 +10,13 @@ import { Icon } from '../../components/Icon';
 import { BankingSheet, BlockedSheet, IdentitySheet, SafetySheet } from '../profile/SettingsSheets';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
+import { useT } from '../../providers/LanguageProvider';
 
 type SheetKey = 'notifications' | 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
 
 export function EmployerProfile() {
   const { state, toast, navigate } = useApp();
+  const t = useT();
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const closeSheet = () => setSheet(null);
 
@@ -30,41 +32,41 @@ export function EmployerProfile() {
   }, []);
 
   const ratingSub = rating === null
-    ? 'Loading…'
+    ? t('action.loading')
     : rating.rating === null
-      ? 'No reviews yet — workers rate you after each job'
-      : `${rating.rating.toFixed(1)}★ from ${rating.count} worker review${rating.count === 1 ? '' : 's'}`;
+      ? t('employer.profile.noReviews')
+      : t('employer.profile.ratingSub', { rating: rating.rating.toFixed(1), count: rating.count });
 
   const rows = [
-    { ic: 'card' as const, title: 'Banking details', sub: bank ? `${bank} · tap to edit` : 'Add your payment details', go: () => setSheet('banking') },
-    { ic: 'id' as const, title: 'Verify your identity', sub: 'Builds trust with workers', go: () => setSheet('identity') },
+    { ic: 'card' as const, title: t('employer.profile.banking'), sub: bank ? t('employer.profile.bankingSub', { bank }) : t('employer.profile.bankingAdd'), go: () => setSheet('banking') },
+    { ic: 'id' as const, title: t('employer.profile.verify'), sub: t('employer.profile.verifySub'), go: () => setSheet('identity') },
     {
       ic: 'jobs' as const,
-      title: 'My jobs & applicants',
+      title: t('employer.profile.myJobs'),
       sub: state.pendingConfirmations > 0
-        ? `${state.pendingConfirmations} job${state.pendingConfirmations === 1 ? '' : 's'} waiting on your confirmation`
-        : 'See your open jobs and who applied',
+        ? t('employer.profile.myJobsWaiting', { count: state.pendingConfirmations })
+        : t('employer.profile.myJobsSub'),
       go: () => navigate('hires'),
     },
-    { ic: 'star' as const, title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)}★ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
-    { ic: 'bell' as const, title: 'Notifications', sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
-    { ic: 'shield' as const, title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
-    { ic: 'ban' as const, title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
-    { ic: 'lock' as const, title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
-    { ic: 'doc' as const, title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
+    { ic: 'star' as const, title: t('employer.profile.rating'), sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? t('employer.profile.ratingNone') : t('employer.profile.ratingToast', { rating: rating.rating.toFixed(1), count: rating.count })) },
+    { ic: 'bell' as const, title: t('me.notifications'), sub: notifySummary(state.prefs, state.role), go: () => setSheet('notifications') },
+    { ic: 'shield' as const, title: t('me.safety'), sub: t('employer.profile.safetySub'), go: () => setSheet('safety') },
+    { ic: 'ban' as const, title: t('employer.profile.blocked'), sub: t('employer.profile.blockedSub'), go: () => setSheet('blocked') },
+    { ic: 'lock' as const, title: t('employer.profile.privacy'), sub: t('employer.profile.privacySub'), go: () => setSheet('privacy') },
+    { ic: 'doc' as const, title: t('employer.profile.terms'), sub: t('employer.profile.termsSub'), go: () => setSheet('terms') },
   ];
 
   return (
     <>
       <header className="mb-3">
-        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Your account</small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Profile<span className="text-brand">.</span></h1>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('employer.profile.eyebrow')}</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('employer.profile.title')}<span className="text-brand">.</span></h1>
       </header>
 
       <Card className="p-5 text-center mb-3.5">
-        <div className="flex justify-center mb-2.5"><Avatar initials="You" size="lg" /></div>
-        <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{state.user?.name ?? 'Employer account'}</h3>
-        <p className="m-0 mt-1 text-small text-dim">Post jobs · hire verified youth</p>
+        <div className="flex justify-center mb-2.5"><Avatar initials={t('nav.you')} size="lg" /></div>
+        <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{state.user?.name ?? t('nav.accountEmployer')}</h3>
+        <p className="m-0 mt-1 text-small text-dim">{t('employer.profile.tagline')}</p>
       </Card>
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
@@ -81,7 +83,7 @@ export function EmployerProfile() {
         </button>
       ))}
 
-      <p className="text-center text-small text-dim leading-relaxed px-4 py-2">Two-way reviews keep everyone accountable — workers rate employers too.</p>
+      <p className="text-center text-small text-dim leading-relaxed px-4 py-2">{t('employer.profile.twoWay')}</p>
       <div className="mt-2"><AccountBar /></div>
 
       {sheet === 'notifications' && <NotificationSettingsSheet onClose={closeSheet} />}

@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+import { useT } from '../providers/LanguageProvider';
+import { withSlot } from './ui';
 
 /** Back header used by detail screens. */
 export function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-3 mb-3">
       <button
         onClick={onBack}
-        aria-label="Go back"
+        aria-label={t('common.goBack')}
         className="grid place-items-center w-11 h-11 rounded-chip border border-line bg-surface text-ink hover:bg-surface-2 transition active:scale-95"
       >
         <Icon name="back" size={22} />
@@ -75,6 +78,7 @@ export function KV({ k, children }: { k: string; children: ReactNode }) {
  * offer is, so the claim can be verified by looking at it.
  */
 export function FairMeter({ ratePerHour, minWage }: { ratePerHour: number; minWage: number }) {
+  const t = useT();
   const ceiling = minWage * 2.5;              // the bar's full width
   const markerPct = (minWage / ceiling) * 100; // where the legal floor sits
   const fillPct = Math.min(100, (ratePerHour / ceiling) * 100);
@@ -86,10 +90,10 @@ export function FairMeter({ ratePerHour, minWage }: { ratePerHour: number; minWa
     <div className="my-3.5">
       <div className="flex justify-between items-center gap-3 mb-2">
         <b className="text-small text-ink flex items-center gap-1.5">
-          <Icon name="shield" size={14} /> Fair-pay check
+          <Icon name="shield" size={14} /> {t('common.fair.title')}
         </b>
         <span className={`text-micro font-bold rounded-pill px-2.5 py-1 ${above ? 'bg-verified-soft text-verified' : 'bg-danger-soft text-danger'}`}>
-          {above ? `${asMultiple}× the minimum` : 'Below the legal minimum'}
+          {above ? t('common.fair.multiple', { multiple: asMultiple }) : t('common.fair.below')}
         </span>
       </div>
 
@@ -108,10 +112,10 @@ export function FairMeter({ ratePerHour, minWage }: { ratePerHour: number; minWa
 
       <div className="flex justify-between text-micro text-dim font-semibold mt-1.5">
         <span>
-          Legal minimum <span className="font-mono tnum">R{minWage}</span>/hr
+          {withSlot(t('common.fair.legalMin'), '{amount}', <span className="font-mono tnum">R{minWage}</span>)}
         </span>
         <span>
-          This job <span className="font-mono tnum font-bold text-ink">R{ratePerHour}</span>/hr
+          {withSlot(t('common.fair.thisJob'), '{amount}', <span className="font-mono tnum font-bold text-ink">R{ratePerHour}</span>)}
         </span>
       </div>
     </div>
@@ -134,10 +138,11 @@ export function PerkList({ perks }: { perks: string[] }) {
 /** Reusable trust strip — the three safety pillars, shown on home screens
  *  (visible on mobile too, where the desktop rails are hidden). */
 export function TrustStrip() {
+  const t = useT();
   const pillars: { icon: IconName; label: string }[] = [
-    { icon: 'id', label: 'ID-verified' },
-    { icon: 'scale', label: 'Fair-pay checked' },
-    { icon: 'star', label: 'Two-way reviews' },
+    { icon: 'id', label: t('common.trust.idVerified') },
+    { icon: 'scale', label: t('common.trust.fairPay') },
+    { icon: 'star', label: t('common.trust.reviews') },
   ];
   return (
     <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap rounded-2xl border border-line bg-surface px-4 py-2.5 mb-3">

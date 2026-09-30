@@ -1,3 +1,5 @@
+import { useT } from '../providers/LanguageProvider';
+
 /**
  * The launch screen.
  *
@@ -10,6 +12,7 @@
  * be the whole page with the light floating on it.
  */
 export function Splash() {
+  const t = useT();
   return (
     <div
       className="fixed inset-0 z-[9999] grid place-items-center"
@@ -44,6 +47,7 @@ export function Splash() {
         {/* The tagline is not translated, and should not be: it is the product's
             name-line, the way "Just do it" stays English on every store page. */}
         <div style={{ marginTop: 7, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.58)' }}>
+          {/* i18n-ignore: the product's name-line, English in every language (see above) */}
           Rise up &amp; Do it Yourself
         </div>
 
@@ -51,7 +55,7 @@ export function Splash() {
             and a bar needs no language. */}
         <div
           role="progressbar"
-          aria-label="Loading"
+          aria-label={t('onboarding.splash.loading')}
           className="mx-auto overflow-hidden"
           style={{ marginTop: 26, width: 132, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.14)' }}
         >

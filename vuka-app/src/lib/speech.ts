@@ -1130,8 +1130,13 @@ export class Listener {
 
 function classify(code: string): ListenError {
   switch (code) {
-    case 'not-allowed':
-    case 'service-not-allowed': return 'denied';
+    case 'not-allowed': return 'denied';
+    /* NOT a refusal by the person. iOS raises this when it has no recogniser
+       for the language (Apple's dictation has no isiZulu, isiXhosa, Sesotho
+       or Afrikaans), and it does so BEFORE asking for the microphone — which
+       is why no permission prompt ever appeared. It used to be reported as
+       "you denied the microphone", which was untrue and unfixable. */
+    case 'service-not-allowed': return 'no-language';
     case 'no-speech': return 'no-speech';
     case 'language-not-supported': return 'no-language';
     case 'network': return 'network';

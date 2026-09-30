@@ -4,6 +4,7 @@
    Prod: set VITE_API_URL to the deployed API base.
    ============================================================ */
 import type { CategoryId, FormalJob, Gig, HistoryEntry, Role, TalentWorker, TierId } from '../types';
+import { activeLang, tr } from '../i18n';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '/api';
 const TOKEN_KEY = 'vuka-token';
@@ -43,17 +44,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   try {
     res = await fetch(BASE + path, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError("Can't reach Vuka right now. Check your connection and try again.", 0);
+    throw new ApiError(tr('common.api.unreachable'), 0);
   }
   let data: unknown = null;
   try { data = await res.json(); } catch { /* empty body */ }
   if (!res.ok) {
     const err = data as { error?: string; reason?: string; field?: string } | null;
-    const msg = err?.error ?? 'Something went wrong. Please try again.';
+    const msg = err?.error ?? tr('error.generic');
     throw new ApiError(msg, res.status, err?.reason, err?.field);
   }
   return data as T;
@@ -153,6 +154,8 @@ export interface ServerConfig {
   badges: { id: string; threshold: number | null; special: string | null }[];
   /** Public key for push subscriptions. Empty string = push is off server-side. */
   vapidPublicKey?: string;
+  /** Languages the server can transcribe a spoken question in. */
+  sttLangs?: string[];
 }
 /** Payout details as the server is willing to return them — never the full number. */
 export interface BankingSummary {
@@ -349,7 +352,8 @@ export function uploadAttachment(blob: Blob, opts: UploadOptions): Promise<Attac
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${BASE}/attachments?${q}`);
     xhr.responseType = 'json';
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`); // i18n-ignore: header name
+    xhr.setRequestHeader('X-Vuka-Lang', activeLang()); // i18n-ignore: header name
     // The blob's own type carries the container and codec the browser chose.
     xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
 
@@ -362,13 +366,13 @@ export function uploadAttachment(blob: Blob, opts: UploadOptions): Promise<Attac
         opts.onProgress?.(1);
         resolve(xhr.response as Attachment);
       } else if (xhr.status === 413) {
-        reject(new ApiError('That recording is too long to send. Try a shorter one.', 413));
+        reject(new ApiError(tr('common.api.tooLong'), 413));
       } else {
-        reject(new ApiError(data?.error ?? 'That upload failed. Please try again.', xhr.status));
+        reject(new ApiError(data?.error ?? tr('common.api.uploadFailed'), xhr.status));
       }
     };
-    xhr.onerror = () => reject(new ApiError("Can't reach Vuka right now. Check your connection and try again.", 0));
-    xhr.onabort = () => reject(new ApiError('Upload cancelled.', 0));
+    xhr.onerror = () => reject(new ApiError(tr('common.api.unreachable'), 0));
+    xhr.onabort = () => reject(new ApiError(tr('common.api.uploadCancelled'), 0));
     opts.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
     xhr.send(blob);
   });
@@ -394,10 +398,10 @@ export function attachmentUrl(id: string): Promise<string> {
 
   const pending = (async () => {
     const res = await fetch(`${BASE}/attachments/${id}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
     });
     if (!res.ok) {
-      let msg = 'That file is no longer available.';
+      let msg = tr('common.api.fileGone');
       try { msg = ((await res.json()) as { error?: string }).error ?? msg; } catch { /* no body */ }
       throw new ApiError(msg, res.status);
     }
@@ -443,7 +447,7 @@ export function reportDeparture(): void {
     void fetch(`${BASE}/messages/presence`, {
       method: 'POST',
       keepalive: true,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Vuka-Lang': activeLang() },
       body: JSON.stringify({ visible: false }),
     }).catch(() => { /* the page is going; there is nothing to retry into */ });
   } catch { /* keepalive unsupported — the stream closing is the fallback */ }
@@ -493,14 +497,14 @@ export const api = {
     try {
       res = await fetch(`${BASE}/me/id-verification/${encodeURIComponent(verificationId)}/documents/${kind}`, {
         method: 'PUT',
-        headers: { 'Content-Type': photo.type || 'image/jpeg', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': photo.type || 'image/jpeg', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
         body: photo,
       });
     } catch {
-      throw new ApiError("Can't reach Vuka right now. Check your connection and try again.", 0);
+      throw new ApiError(tr('common.api.unreachable'), 0);
     }
     if (!res.ok) {
-      let msg = 'That photo could not be sent. Please try again.';
+      let msg = tr('common.api.photoFailed');
       try { msg = ((await res.json()) as { error?: string }).error ?? msg; } catch { /* not json */ }
       throw new ApiError(msg, res.status);
     }
@@ -594,7 +598,7 @@ export const api = {
     try {
       res = await fetch(`${BASE}/assistant/voice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
         body: JSON.stringify({ text }),
       });
     } catch {
@@ -603,9 +607,28 @@ export const api = {
     if (!res.ok) {
       let reason: string | undefined;
       try { reason = ((await res.json()) as { reason?: string }).reason; } catch { /* not json */ }
+      // i18n-ignore: never shown; the caller falls back to the phone's own voice
       throw new ApiError('voice unavailable', res.status, reason);
     }
     return res.blob();
+  },
+  /* A spoken question, as text. Only for languages in config.sttLangs; the
+     recording is not stored on the server. */
+  transcribe: async (audio: Blob, lang: string): Promise<string> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/assistant/transcribe?lang=${encodeURIComponent(lang)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': audio.type || 'audio/webm', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
+        body: audio,
+      });
+    } catch {
+      throw new ApiError('offline', 0, 'offline');
+    }
+    let body: { text?: string; error?: string; reason?: string } = {};
+    try { body = await res.json(); } catch { /* not json */ }
+    if (!res.ok) throw new ApiError(body.error ?? 'transcribe failed', res.status, body.reason); // i18n-ignore: the caller shows its own message
+    return String(body.text ?? '');
   },
   reportSafety: (concern: string, extra?: { gigId?: string; aboutUserId?: string }) =>
     request<{ ok: boolean; id: string }>('POST', '/safety/report', { concern, ...extra }),

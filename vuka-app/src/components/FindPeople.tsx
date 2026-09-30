@@ -3,6 +3,7 @@ import { api, type PersonResult } from '../lib/api';
 import { useApp } from '../store/appStore';
 import { Avatar, Sheet, Skeleton } from './ui';
 import { Icon } from './Icon';
+import { useT } from '../providers/LanguageProvider';
 
 /**
  * Find people to follow or message, by name.
@@ -15,6 +16,7 @@ import { Icon } from './Icon';
  */
 export function FindPeopleSheet({ onClose, onFollowChange }: { onClose: () => void; onFollowChange?: () => void }) {
   const { navigate } = useApp();
+  const t = useT();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PersonResult[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -50,11 +52,11 @@ export function FindPeopleSheet({ onClose, onFollowChange }: { onClose: () => vo
   };
 
   return (
-    <Sheet title="Find people" onClose={onClose}>
-      <h3 className="font-display text-title font-extrabold text-ink m-0">Find people</h3>
-      <p className="text-small text-dim mt-1 mb-3">Search by name to follow someone or send them a message.</p>
+    <Sheet title={t('common.people.find')} onClose={onClose}>
+      <h3 className="font-display text-title font-extrabold text-ink m-0">{t('common.people.find')}</h3>
+      <p className="text-small text-dim mt-1 mb-3">{t('common.people.findIntro')}</p>
 
-      <label htmlFor={inputId} className="sr-only">Search people by name</label>
+      <label htmlFor={inputId} className="sr-only">{t('common.people.searchLabel')}</label>
       <div className="relative mb-3">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-faint pointer-events-none"><Icon name="search" size={18} /></span>
         <input
@@ -63,12 +65,12 @@ export function FindPeopleSheet({ onClose, onFollowChange }: { onClose: () => vo
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Name or surname"
+          placeholder={t('common.people.searchPlaceholder')}
           className="w-full border-[1.5px] border-line rounded-pill pl-11 pr-4 py-3 text-base bg-surface text-ink focus:outline-none focus:border-ink"
         />
       </div>
 
-      <div className="text-micro text-faint font-bold uppercase tracking-wide mb-2">{shownFor ? 'Results' : 'New on Vuka'}</div>
+      <div className="text-micro text-faint font-bold uppercase tracking-wide mb-2">{shownFor ? t('common.people.results') : t('common.people.newOnVuka')}</div>
 
       {results === null ? (
         <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => (
@@ -76,8 +78,8 @@ export function FindPeopleSheet({ onClose, onFollowChange }: { onClose: () => vo
         ))}</div>
       ) : results.length === 0 ? (
         <p className="text-small text-dim text-center py-8 m-0">
-          {failed ? 'Search is unavailable right now. Check your connection and try again.'
-            : shownFor ? `Nobody on Vuka matches “${shownFor}”.` : 'Nobody new yet. Try searching for a name.'}
+          {failed ? t('common.people.searchFailed')
+            : shownFor ? t('common.people.noMatch', { query: shownFor }) : t('common.people.noneNew')}
         </p>
       ) : (
         <ul className="flex flex-col gap-1 list-none p-0 m-0">
@@ -86,24 +88,24 @@ export function FindPeopleSheet({ onClose, onFollowChange }: { onClose: () => vo
               <button
                 onClick={() => { onClose(); navigate('chat', p.id); }}
                 className="flex items-center gap-3 flex-1 min-w-0 min-h-[44px] text-left"
-                aria-label={`Message ${p.name}`}
+                aria-label={t('common.people.messageName', { name: p.name })}
               >
                 <Avatar initials={p.initials} size="sm" verified={p.idVerified} />
                 <div className="flex-1 min-w-0">
                   <b className="text-small text-ink block truncate">{p.name}</b>
                   <span className="text-micro text-dim font-semibold block truncate">
-                    {p.role === 'worker' ? 'Worker' : 'Employer'}{p.location ? ` · ${p.location}` : ''}{p.idVerified ? ' · ID-verified' : ''}
+                    {p.role === 'worker' ? t('common.people.worker') : t('common.people.employer')}{p.location ? ` · ${p.location}` : ''}{p.idVerified ? ` · ${t('common.trust.idVerified')}` : ''}
                   </span>
                 </div>
               </button>
               <button
                 onClick={() => void toggle(p)}
                 aria-pressed={p.isFollowing}
-                aria-label={p.isFollowing ? `Unfollow ${p.name}` : `Follow ${p.name}`}
+                aria-label={p.isFollowing ? t('common.people.unfollowName', { name: p.name }) : t('common.people.followName', { name: p.name })}
                 className={`shrink-0 inline-flex items-center gap-1 min-h-[36px] rounded-pill font-bold text-micro px-3 transition active:scale-95
                   ${p.isFollowing ? 'bg-surface-2 text-ink border border-line' : 'bg-ink text-canvas hover:opacity-90'}`}
               >
-                {p.isFollowing ? <><Icon name="check" size={13} /> Following</> : <><Icon name="plus" size={13} /> Follow</>}
+                {p.isFollowing ? <><Icon name="check" size={13} /> {t('common.people.following')}</> : <><Icon name="plus" size={13} /> {t('common.people.follow')}</>}
               </button>
             </li>
           ))}

@@ -10,11 +10,15 @@ import type { Applicant, Hire } from '../../lib/api';
 import type { Gig } from '../../types';
 import { Button, Card, Chip, EmptyState, LiveDot, SectionTitle, Skeleton, Tile, TextAction } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
+import { useRichT } from './EmployerRail';
 
 interface PostedJob { gig: Gig; applicants: Applicant[] }
 
 export function MyJobs() {
   const { navigate, listMyGigs, loadApplicants, loadMyHires, toast } = useApp();
+  const t = useT();
+  const rt = useRichT();
   const [posted, setPosted] = useState<PostedJob[] | null>(null);
   const [hires, setHires] = useState<Hire[] | null>(null);
 
@@ -44,40 +48,40 @@ export function MyJobs() {
   return (
     <>
       <header className="mb-3">
-        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Your hiring</small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Jobs & applicants<span className="text-brand">.</span></h1>
+        <small className="text-faint text-micro font-semibold uppercase tracking-wide">{t('employer.myJobs.eyebrow')}</small>
+        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{t('employer.myJobs.title')}<span className="text-brand">.</span></h1>
       </header>
 
       {needsConfirmation.length > 0 && (
         <>
-          <SectionTitle>Waiting on you</SectionTitle>
+          <SectionTitle>{t('employer.myJobs.waitingOnYou')}</SectionTitle>
           {needsConfirmation.map((h) => (
             <Card key={h.applicationId} className="p-4 mb-2.5 border-l-4 border-brand">
               <div className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-brand mb-2">
-                <Icon name="bolt" size={13} /> Marked done — needs your confirmation
+                <Icon name="bolt" size={13} /> {t('employer.markedDone')}
               </div>
               <b className="text-body font-extrabold text-ink block tracking-tight break-words">{h.gig.title}</b>
               <div className="text-small text-dim mt-0.5">
-                {h.worker.name} finished this job · <b className="text-ink font-mono tnum">{money(h.gig.hours * h.gig.payPerHour)}</b>
+                {rt('employer.myJobs.finished', { name: h.worker.name, amount: <b className="text-ink font-mono tnum">{money(h.gig.hours * h.gig.payPerHour)}</b> })}
               </div>
-              <p className="text-small text-dim leading-snug mt-2 mb-0">Confirming releases their pay and adds your review to their CV.</p>
+              <p className="text-small text-dim leading-snug mt-2 mb-0">{t('employer.myJobs.confirmHint')}</p>
               {(() => {
                 const auto = timeToAutoConfirm(h.workerDoneAt, autoReleaseHours());
                 return auto ? (
                   <p className={`text-small leading-snug mt-1 mb-0 ${auto.soon ? 'text-brand font-semibold' : 'text-dim'}`}>
                     {auto.expired
-                      ? 'Counting automatically now — it will be recorded as work done, without your rating.'
-                      : `${auto.text} to confirm — after that it counts automatically, without your rating.`}
+                      ? t('employer.myJobs.autoNow')
+                      : t('employer.myJobs.autoIn', { time: auto.text })}
                   </p>
                 ) : null;
               })()}
-              <Button block size="sm" variant="primary" className="mt-3" onClick={() => navigate('applicants', h.gig.id)}>Confirm & rate {h.worker.name.split(' ')[0]}</Button>
+              <Button block size="sm" variant="primary" className="mt-3" onClick={() => navigate('applicants', h.gig.id)}>{t('employer.myJobs.confirmName', { name: h.worker.name.split(' ')[0] })}</Button>
             </Card>
           ))}
         </>
       )}
 
-      <SectionTitle action={<TextAction onClick={() => navigate('post')}>Post a job →</TextAction>}>Open jobs</SectionTitle>
+      <SectionTitle action={<TextAction onClick={() => navigate('post')}>{t('employer.myJobs.postArrow')}</TextAction>}>{t('employer.myJobs.open')}</SectionTitle>
       {posted === null ? (
         <div className="flex flex-col gap-2.5">
           <Skeleton className="h-[86px] w-full rounded-card" />
@@ -86,9 +90,9 @@ export function MyJobs() {
       ) : posted.length === 0 ? (
         <EmptyState
           icon="jobs"
-          title="No open jobs"
-          hint="Post a job and verified youth nearby can apply. You'll see every applicant here with their real rating and tier."
-          action={<Button icon="plus" onClick={() => navigate('post')}>Post a job</Button>}
+          title={t('employer.myJobs.none')}
+          hint={t('employer.myJobs.noneHint')}
+          action={<Button icon="plus" onClick={() => navigate('post')}>{t('post.title')}</Button>}
         />
       ) : (
         posted.map(({ gig, applicants }) => {
@@ -103,8 +107,8 @@ export function MyJobs() {
                   <div className="text-small text-dim mt-0.5">{gig.location} · {gig.when}</div>
                   <div className="mt-1.5">
                     {waiting > 0
-                      ? <Chip tone="live" icon="bolt">{waiting} {waiting === 1 ? 'applicant' : 'applicants'} to review</Chip>
-                      : <Chip tone="neutral">No applications yet</Chip>}
+                      ? <Chip tone="live" icon="bolt">{t('employer.myJobs.toReview', { count: waiting })}</Chip>
+                      : <Chip tone="neutral">{t('employer.noApplications')}</Chip>}
                   </div>
                 </div>
                 <span className="text-faint"><Icon name="chev" size={18} /></span>
@@ -116,15 +120,15 @@ export function MyJobs() {
 
       {inProgress.length > 0 && (
         <>
-          <SectionTitle action={<LiveDot label={`${inProgress.length} on site`} />}>Work in progress</SectionTitle>
+          <SectionTitle action={<LiveDot label={t('employer.myJobs.onSite', { count: inProgress.length })} />}>{t('employer.myJobs.inProgress')}</SectionTitle>
           {inProgress.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
               <span className="grid place-items-center w-10 h-10 rounded-xl bg-surface-2 text-ink shrink-0" aria-hidden="true"><Icon name="clock" size={20} /></span>
               <div className="flex-1 min-w-0">
                 <b className="text-body text-ink block">{h.gig.title}</b>
-                <div className="text-small text-dim">{h.worker.name} is on it — they'll mark it done when finished</div>
+                <div className="text-small text-dim">{t('employer.myJobs.onIt', { name: h.worker.name })}</div>
               </div>
-              <Button size="sm" variant="ghost" icon="chat" onClick={() => navigate('chat', h.worker.id)}>Chat</Button>
+              <Button size="sm" variant="ghost" icon="chat" onClick={() => navigate('chat', h.worker.id)}>{t('employer.myJobs.chat')}</Button>
             </Card>
           ))}
         </>
@@ -132,13 +136,13 @@ export function MyJobs() {
 
       {finished.length > 0 && (
         <>
-          <SectionTitle>Completed</SectionTitle>
+          <SectionTitle>{t('employer.myJobs.completed')}</SectionTitle>
           {finished.map((h) => (
             <Card key={h.applicationId} className="p-3.5 mb-2.5 flex gap-3 items-center">
               <span className="grid place-items-center w-10 h-10 rounded-xl bg-verified-soft text-verified shrink-0" aria-hidden="true"><Icon name="check" size={20} /></span>
               <div className="flex-1 min-w-0">
                 <b className="text-body text-ink block">{h.gig.title}</b>
-                <div className="text-small text-dim">{h.worker.name} · confirmed and reviewed</div>
+                <div className="text-small text-dim">{t('employer.myJobs.reviewed', { name: h.worker.name })}</div>
               </div>
             </Card>
           ))}

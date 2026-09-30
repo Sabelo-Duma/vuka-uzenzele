@@ -11,9 +11,12 @@ import { useApp } from '../../store/appStore';
 import type { Gig } from '../../types';
 import { Button, Sheet } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { useT } from '../../providers/LanguageProvider';
+import { fill } from './fill';
 
 export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void }) {
   const { completeGig, navigate, toast } = useApp();
+  const t = useT();
   const [phase, setPhase] = useState<'review' | 'sent'>('review');
   /* Starts unset, not at five.
      Both dialogs opened on 5★ and the fastest way out was to accept it, so
@@ -37,48 +40,48 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
 
   if (phase === 'review') {
     return (
-      <Sheet title="Mark the job done" onClose={onClose}>
-        <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">How was the job?</h3>
+      <Sheet title={t('worker.review.markDone')} onClose={onClose}>
+        <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">{t('worker.review.howWas')}</h3>
         <p className="text-dim text-small leading-relaxed mb-4">
-          Rate <b>{gig.employer}</b> for “{gig.title}”. Your rating is part of their public employer score.
+          {fill(t('worker.review.rateIntro', { title: gig.title }), { employer: <b>{gig.employer}</b> })}
         </p>
         <RatingInput value={rating} onChange={setRating} />
         <label className="flex gap-2.5 items-start bg-brand-soft border border-brand rounded-2xl p-3 my-4 cursor-pointer">
           <input type="checkbox" checked={flag} onChange={(e) => setFlag(e.target.checked)} className="w-5 h-5 mt-0.5 shrink-0 accent-[var(--v-danger)]" />
-          <span className="text-small text-brand leading-snug"><b>I felt unsafe or something went wrong.</b> Flagging opens a report with our Safety team and is kept confidential. Your safety comes first.</span>
+          <span className="text-small text-brand leading-snug"><b>{t('worker.review.unsafe')}</b> {t('worker.review.unsafeBody')}</span>
         </label>
-        <Button block disabled={busy || rating === 0} onClick={submit}>{busy ? 'Sending…' : rating === 0 ? 'Choose a rating first' : `Mark done & rate ${rating}★`}</Button>
+        <Button block disabled={busy || rating === 0} onClick={submit}>{busy ? t('action.sending') : rating === 0 ? t('worker.review.chooseFirst') : t('worker.review.markRate', { rating })}</Button>
         <p className="text-center text-small text-dim mt-3">
-          {gig.employer.split(' ')[0]} then confirms the work — that's what writes the verified reference onto your CV.
+          {t('worker.review.thenConfirms', { name: gig.employer.split(' ')[0] })}
         </p>
       </Sheet>
     );
   }
 
   return (
-    <Sheet title="Waiting for confirmation" onClose={onClose}>
+    <Sheet title={t('worker.review.waiting')} onClose={onClose}>
       <div className="text-center">
         <div className="inline-grid place-items-center w-16 h-16 rounded-2xl bg-surface-2 border border-line text-ink animate-pop" aria-hidden="true"><Icon name="clock" size={30} /></div>
-        <h3 className="font-display text-title font-extrabold text-ink mt-2 mb-1 tracking-tight">Sent to {gig.employer.split(' ')[0]}<span className="text-brand">.</span></h3>
+        <h3 className="font-display text-title font-extrabold text-ink mt-2 mb-1 tracking-tight">{t('worker.review.sentTo', { name: gig.employer.split(' ')[0] })}<span className="text-brand">.</span></h3>
         <p className="text-dim text-small leading-relaxed">
-          Your rating is in. As soon as <b className="text-ink">{gig.employer}</b> confirms the work, the reference and your pay are released — and your CV updates on the spot.
+          {fill(t('worker.review.ratingIn'), { employer: <b className="text-ink">{gig.employer}</b> })}
         </p>
       </div>
 
       <div className="mt-5 rounded-2xl border border-line bg-surface-2 p-4">
-        <Step done label="You marked the job done and rated the employer" />
-        <Step label={`${gig.employer} confirms and rates you`} />
-        <Step label="Verified reference added to your CV" last />
+        <Step done label={t('worker.review.step1')} />
+        <Step label={t('worker.review.step2', { employer: gig.employer })} />
+        <Step label={t('worker.review.step3')} last />
       </div>
 
       <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mt-4">
         <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-        <span className="text-small text-ink leading-snug">Both sides have to review before pay is released — that's what keeps everyone honest, including your employers.</span>
+        <span className="text-small text-ink leading-snug">{t('worker.review.bothSides')}</span>
       </div>
 
-      <Button block variant="primary" className="mt-5" onClick={() => { onClose(); navigate('home'); }}>Got it</Button>
+      <Button block variant="primary" className="mt-5" onClick={() => { onClose(); navigate('home'); }}>{t('worker.review.gotIt')}</Button>
       <button onClick={() => { onClose(); navigate('chat', gig.employerId ?? ''); }} className="w-full text-center text-small text-ink font-bold mt-3 hover:text-brand transition">
-        Message {gig.employer.split(' ')[0]}
+        {t('worker.message', { name: gig.employer.split(' ')[0] })}
       </button>
     </Sheet>
   );
@@ -99,10 +102,11 @@ function Step({ label, done, last }: { label: string; done?: boolean; last?: boo
 }
 
 function RatingInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const t = useT();
   return (
-    <div className="flex justify-center gap-2.5 my-2" role="radiogroup" aria-label="Rating out of 5">
+    <div className="flex justify-center gap-2.5 my-2" role="radiogroup" aria-label={t('worker.review.ratingOutOf5')}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} role="radio" aria-checked={value === n} aria-label={`${n} star${n > 1 ? 's' : ''}`} onClick={() => onChange(n)}
+        <button key={n} role="radio" aria-checked={value === n} aria-label={t('worker.review.stars', { count: n })} onClick={() => onChange(n)}
           className={`text-hero leading-none transition active:scale-90 ${n <= value ? 'grayscale-0 opacity-100 scale-105' : 'grayscale opacity-40'}`}>⭐</button>
       ))}
     </div>

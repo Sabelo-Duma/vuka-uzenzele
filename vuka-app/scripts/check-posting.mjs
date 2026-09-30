@@ -73,7 +73,7 @@ try {
     await page.getByLabel('Hours').fill('2');
     await page.getByLabel('Rate / hr').fill('80');
     await page.getByLabel('Where').fill('Diepkloof, Soweto');
-    await page.getByLabel('When').fill('Sat, 09:00');
+    await page.getByLabel('When', { exact: true }).fill('Sat, 09:00');
     await page.getByRole('button', { name: /post job/i }).click();
     await page.waitForTimeout(2200);
 
