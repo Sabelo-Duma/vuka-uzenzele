@@ -29,7 +29,7 @@ export function FormalDetail({ id }: { id: string }) {
     return (
       <>
         <DetailHeader title="Formal job" onBack={() => goBack('jobs')} />
-        <EmptyState icon="🔍" title="Job not found" hint="This role may have been removed. Browse the formal jobs board for other opportunities." action={<Button onClick={() => { setFeed('formal'); navigate('jobs'); }}>Back to formal jobs</Button>} />
+        <EmptyState icon="search" title="Job not found" hint="This role may have been removed. Browse the formal jobs board for other opportunities." action={<Button onClick={() => { setFeed('formal'); navigate('jobs'); }}>Back to formal jobs</Button>} />
       </>
     );
   }
@@ -43,7 +43,7 @@ export function FormalDetail({ id }: { id: string }) {
     <>
       <DetailHeader title="Formal job" onBack={() => goBack('jobs')} />
       <Hero
-        eyebrow={`🏢 ${job.employer} · ${job.type}`}
+        eyebrow={`${job.employer} · ${job.type}`}
         title={job.title}
         sub={<><Icon name="pin" size={13} /> {job.location}{distanceLabel(job.distanceKm, job.distanceSource) ? ` · ${distanceLabel(job.distanceKm, job.distanceSource)}` : ''}</>}
       >
@@ -51,7 +51,7 @@ export function FormalDetail({ id }: { id: string }) {
       </Hero>
 
       <Card className="p-4 my-4">
-        <KV k="Education">🎓 {job.education}</KV>
+        <KV k="Education">{job.education}</KV>
         <KV k="Access">
           {unlocked
             ? <span className="text-verified flex items-center gap-1.5"><Icon name="check" size={15} /> Open to you ({cv.tier.name})</span>

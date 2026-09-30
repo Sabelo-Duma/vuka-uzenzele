@@ -5,6 +5,7 @@ import { Button, EmptyState } from '../../components/ui';
 import { TalentCard, CardSkeletonGrid } from '../../components/cards';
 import { Dashboard } from '../../components/Dashboard';
 import { EmployerStats, PostJobCard } from './EmployerRail';
+import { Icon } from '../../components/Icon';
 
 export function Talent() {
   const { state, navigate } = useApp();
@@ -29,7 +30,7 @@ export function Talent() {
       </header>
 
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5 mb-3">
-        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-ink`} aria-label="All workers" aria-pressed={cat === null}>👥</button>
+        <button onClick={() => setCat(null)} className={`${railBtn(cat === null)} text-ink`} aria-label="All workers" aria-pressed={cat === null}><Icon name="talent" size={20} /></button>
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
@@ -49,8 +50,8 @@ export function Talent() {
         : workers.length > 0
         ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{workers.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
         : cat
-        ? <EmptyState icon="🔍" title={`No ${catLabel} workers yet`} hint="No verified workers list this skill right now. Try another category or view everyone." action={<Button size="sm" variant="ghost" onClick={() => setCat(null)}>Show all talent</Button>} />
-        : <EmptyState icon="👥" title="No workers yet" hint="Verified youth near you will show up here as they join and complete jobs." />}
+        ? <EmptyState icon="search" title={`No ${catLabel} workers yet`} hint="No verified workers list this skill right now. Try another category or view everyone." action={<Button size="sm" variant="ghost" onClick={() => setCat(null)}>Show all talent</Button>} />
+        : <EmptyState icon="talent" title="No workers yet" hint="Verified youth near you will show up here as they join and complete jobs." />}
     </Dashboard>
   );
 }

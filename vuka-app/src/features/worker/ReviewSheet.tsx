@@ -58,7 +58,7 @@ export function ReviewSheet({ gig, onClose }: { gig: Gig; onClose: () => void })
   return (
     <Sheet title="Waiting for confirmation" onClose={onClose}>
       <div className="text-center">
-        <div className="text-giant animate-pop" aria-hidden="true">🕓</div>
+        <div className="inline-grid place-items-center w-16 h-16 rounded-2xl bg-surface-2 border border-line text-ink animate-pop" aria-hidden="true"><Icon name="clock" size={30} /></div>
         <h3 className="font-display text-title font-extrabold text-ink mt-2 mb-1 tracking-tight">Sent to {gig.employer.split(' ')[0]}<span className="text-brand">.</span></h3>
         <p className="text-dim text-small leading-relaxed">
           Your rating is in. As soon as <b className="text-ink">{gig.employer}</b> confirms the work, the reference and your pay are released — and your CV updates on the spot.

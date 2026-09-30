@@ -3,6 +3,7 @@ import { api, type ChatUser } from '../lib/api';
 import { useApp } from '../store/appStore';
 import { Avatar, Card, Sheet, Skeleton } from './ui';
 import { Icon } from './Icon';
+import { FindPeopleSheet } from './FindPeople';
 
 /**
  * Follow / Following toggle for a given user, with a live follower count.
@@ -55,7 +56,7 @@ export function FollowButton({ userId, showFollowers = true, className = '' }: {
 }
 
 /**
- * Profile card: the accounts you follow.
+ * Profile card: the accounts you follow, and the way to find more.
  *
  * The card stays a compact avatar stack at any size. Opening it used to expand
  * an inline 288px box holding every row at once — fine at five, unusable at
@@ -71,13 +72,16 @@ export function FollowingCard() {
   const [list, setList] = useState<ChatUser[] | null>(null);
   const [open, setOpen] = useState(false);
 
+  const [finding, setFinding] = useState(false);
+  const [reloads, setReloads] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     api.listFollowing().then((l) => { if (!cancelled) setList(l); }).catch(() => { if (!cancelled) setList([]); });
     return () => { cancelled = true; };
-  }, []);
+  }, [reloads]);
 
-  if (list && list.length === 0) return null;
+  /* Shown even when you follow nobody: that is when finding people matters. */
   const total = list?.length ?? 0;
 
   return (
@@ -86,17 +90,27 @@ export function FollowingCard() {
         <div className="text-small font-bold text-ink">
           Following{list ? <> · <span className="font-mono tnum">{total.toLocaleString('en-ZA')}</span></> : ''}
         </div>
-        {total > 0 && (
+        <div className="flex items-center gap-1">
+          {total > 0 && (
+            <button
+              onClick={() => setOpen(true)}
+              className="inline-flex items-center min-h-[44px] px-2 rounded-chip text-small font-bold text-dim hover:bg-surface-2 transition"
+            >
+              See all
+            </button>
+          )}
           <button
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center min-h-[44px] px-2 -mx-2 rounded-chip text-small font-bold text-brand hover:bg-surface-2 transition"
+            onClick={() => setFinding(true)}
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-2 -mr-2 rounded-chip text-small font-bold text-brand hover:bg-surface-2 transition"
           >
-            See all
+            <Icon name="search" size={15} /> Find people
           </button>
-        )}
+        </div>
       </div>
 
-      {list === null ? (
+      {list !== null && total === 0 ? (
+        <p className="text-small text-dim leading-relaxed m-0">Follow people you know on Vuka to keep up with them and message them in one tap.</p>
+      ) : list === null ? (
         <div className="flex -space-x-2.5">{[0, 1, 2, 3].map((i) => <span key={i} className="w-9 h-9 rounded-full border-2 border-surface"><Skeleton className="w-full h-full rounded-full" /></span>)}</div>
       ) : (
         <button
@@ -117,6 +131,7 @@ export function FollowingCard() {
       )}
 
       {open && list && <FollowingSheet list={list} onClose={() => setOpen(false)} />}
+      {finding && <FindPeopleSheet onClose={() => setFinding(false)} onFollowChange={() => setReloads((n) => n + 1)} />}
     </Card>
   );
 }

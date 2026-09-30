@@ -29,13 +29,13 @@ export function WorkerHome() {
 
   const nextText = cv.nextTier
     ? <>{cv.jobsToGo === 0 ? <b>Rating up</b> : <b>{cv.jobsToGo} more job{cv.jobsToGo > 1 ? 's' : ''}</b>} to reach <b>{cv.nextTier.name}</b> {cv.nextTier.icon}</>
-    : <>You've reached the top tier 🎉</>;
+    : <>You've reached the top tier</>;
 
   return (
     <Dashboard aside={<ReputationPanel />}>
       <header className="flex items-center justify-between mb-3">
         <div>
-          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Sawubona 👋</small>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Sawubona</small>
           <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">{(state.worker.name || 'Welcome').split(' ')[0]}, let's hustle<span className="text-brand">.</span></h1>
         </div>
         <Avatar initials={state.worker.initials || 'ME'} verified={state.worker.idVerified} tier={cv.tier.icon} />
@@ -122,7 +122,7 @@ export function WorkerHome() {
       <TrustStrip />
 
       <p className="text-center text-micro text-faint leading-relaxed px-4 pb-2">
-        Built light on data — the app itself is saved on your phone, so it opens with no signal. Job listings still need a connection. 📶
+        Built light on data — the app itself is saved on your phone, so it opens with no signal. Job listings still need a connection.
       </p>
     </Dashboard>
   );
@@ -172,7 +172,7 @@ function InviteCard({ inv }: { inv: Invitation }) {
     setBusy(true);
     try {
       await respondInvitation(inv.id, accept);
-      if (accept) { toast('Invitation accepted 🎉'); navigate('gigDetail', inv.gig.id); }
+      if (accept) { toast('Invitation accepted'); navigate('gigDetail', inv.gig.id); }
       else toast('Invitation declined');
     } catch (e) { toast((e as Error).message); setBusy(false); }
   };

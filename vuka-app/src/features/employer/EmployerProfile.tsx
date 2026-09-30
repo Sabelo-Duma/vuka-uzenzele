@@ -32,24 +32,24 @@ export function EmployerProfile() {
     ? 'Loading…'
     : rating.rating === null
       ? 'No reviews yet — workers rate you after each job'
-      : `${rating.rating.toFixed(1)} ⭐ from ${rating.count} worker review${rating.count === 1 ? '' : 's'}`;
+      : `${rating.rating.toFixed(1)}★ from ${rating.count} worker review${rating.count === 1 ? '' : 's'}`;
 
   const rows = [
-    { ic: '💳', title: 'Banking details', sub: bank ? `${bank} · tap to edit` : 'Add your payment details', go: () => setSheet('banking') },
-    { ic: '🪪', title: 'Verify your identity', sub: 'Builds trust with workers', go: () => setSheet('identity') },
+    { ic: 'card' as const, title: 'Banking details', sub: bank ? `${bank} · tap to edit` : 'Add your payment details', go: () => setSheet('banking') },
+    { ic: 'id' as const, title: 'Verify your identity', sub: 'Builds trust with workers', go: () => setSheet('identity') },
     {
-      ic: '🧾',
+      ic: 'jobs' as const,
       title: 'My jobs & applicants',
       sub: state.pendingConfirmations > 0
         ? `${state.pendingConfirmations} job${state.pendingConfirmations === 1 ? '' : 's'} waiting on your confirmation`
         : 'See your open jobs and who applied',
       go: () => navigate('hires'),
     },
-    { ic: '⭐', title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)} ⭐ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
-    { ic: '🛡️', title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
-    { ic: '🚫', title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
-    { ic: '🔒', title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
-    { ic: '📄', title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
+    { ic: 'star' as const, title: 'Your employer rating', sub: ratingSub, go: () => toast(rating?.rating === null || rating === null ? 'Workers rate you after each completed job — your rating appears here.' : `Your employer rating is ${rating.rating.toFixed(1)}★ from ${rating.count} review${rating.count === 1 ? '' : 's'}`) },
+    { ic: 'shield' as const, title: 'Safety centre', sub: 'How Vuka keeps hiring safe', go: () => setSheet('safety') },
+    { ic: 'ban' as const, title: 'Blocked people', sub: 'Who you have blocked, and how to undo it', go: () => setSheet('blocked') },
+    { ic: 'lock' as const, title: 'Privacy & data', sub: 'What we collect and why', go: () => setSheet('privacy') },
+    { ic: 'doc' as const, title: 'Terms of use', sub: 'The deal between you and Vuka', go: () => setSheet('terms') },
   ];
 
   return (
@@ -72,7 +72,7 @@ export function EmployerProfile() {
       {rows.map((r) => (
         <button key={r.title} onClick={r.go} className="w-full text-left mb-2.5 active:scale-[.99] transition">
           <Card className="p-3.5 flex gap-3.5 items-center cursor-pointer hover:bg-surface-2 hover:border-faint transition">
-            <div className="text-head" aria-hidden="true">{r.ic}</div>
+            <span className="grid place-items-center w-10 h-10 rounded-xl bg-surface-2 text-ink shrink-0" aria-hidden="true"><Icon name={r.ic} size={20} /></span>
             <div className="flex-1"><b className="text-small text-ink block">{r.title}</b><div className="text-small text-dim mt-0.5">{r.sub}</div></div>
             <span className="text-faint"><Icon name="chev" size={18} /></span>
           </Card>

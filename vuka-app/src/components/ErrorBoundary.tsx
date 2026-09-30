@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Icon } from './Icon';
 
 interface Props { children: ReactNode; onReset?: () => void; }
 interface State { hasError: boolean; }
@@ -28,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
     return (
       <div className="p-8 text-center" role="alert">
-        <div className="text-jumbo mb-3" aria-hidden="true">😕</div>
+        <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="alert" size={26} /></div>
         <h2 className="font-display text-ink text-lead font-bold m-0">This screen ran into a problem</h2>
         <p className="text-dim text-small leading-relaxed mt-2 mb-5">
           Something on this page didn't load correctly. Your saved profile is safe. Go back to the home screen and try again.

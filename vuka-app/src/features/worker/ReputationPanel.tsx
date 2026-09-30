@@ -35,14 +35,14 @@ export function ReputationPanel() {
         <div className="text-small text-on-feature-dim my-2.5 leading-snug">
           {cv.nextTier
             ? <>{cv.jobsToGo > 0 ? <><b>{cv.jobsToGo} more job{cv.jobsToGo > 1 ? 's' : ''}</b></> : <><b>Lift your rating</b></>} to reach <b>{cv.nextTier.name}</b> {cv.nextTier.icon}</>
-            : <>Top tier reached — employers see you first 🎉</>}
+            : <>Top tier reached — employers see you first</>}
         </div>
         {cv.nextTier && <ProgressBar pct={cv.tierProgress} label={`Progress to ${cv.nextTier.name}`} />}
         <Button block variant="primary" className="mt-3.5" icon="ladder" onClick={() => navigate('cv')}>Open My Record</Button>
       </Card>
 
       <Card className="p-4">
-        <div className="text-small font-bold text-ink mb-1.5">🪜 How The Ladder works</div>
+        <div className="text-small font-bold text-ink mb-1.5">How The Ladder works</div>
         <p className="text-small text-dim leading-relaxed m-0">Complete gigs and earn good ratings to climb tiers. Each tier unlocks better, more formal jobs — cashier, security, call-centre — no matric needed.</p>
       </Card>
     </>

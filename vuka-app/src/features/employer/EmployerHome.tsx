@@ -23,8 +23,8 @@ export function EmployerHome() {
       <div className="text-on-feature rounded-[14px] px-3.5 py-2.5 text-small font-semibold flex gap-2 items-center mb-3 feature-band">
         <span className="bg-on-feature text-feature px-2 py-0.5 rounded-full text-micro font-bold">SAFE</span>
         {verified > 0
-          ? <span><b className="font-mono tnum">{verified}</b> ID-verified workers nearby · <b className="font-mono tnum">{jobsTotal}</b> jobs completed with reviews 🛡️</span>
-          : <span>Every worker is ID-verified with a real, reviewed CV and an earned tier 🛡️</span>}
+          ? <span><b className="font-mono tnum">{verified}</b> ID-verified workers nearby · <b className="font-mono tnum">{jobsTotal}</b> jobs completed with reviews</span>
+          : <span>Every worker is ID-verified with a real, reviewed CV and an earned tier</span>}
       </div>
 
       <TrustStrip />
@@ -53,7 +53,7 @@ export function EmployerHome() {
         ? <CardSkeletonGrid count={2} talent />
         : top.length > 0
         ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 [&>*]:min-w-0">{top.map((w) => <TalentCard key={w.id} worker={w} onClick={() => navigate('workerDetail', w.id)} />)}</div>
-        : <EmptyState icon="👥" title="Finding workers near you…" hint="Verified youth in your area will appear here. Post a job to start receiving applications." />}
+        : <EmptyState icon="talent" title="Finding workers near you…" hint="Verified youth in your area will appear here. Post a job to start receiving applications." />}
     </Dashboard>
   );
 }

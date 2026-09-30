@@ -50,14 +50,14 @@ function BankingForm({ existing, onClose }: { existing: BankingSummary | null; o
   const digits = accountNumber.replace(/\D/g, '');
 
   const save = async () => {
-    if (!holder.trim()) return toast('Enter the account holder name ✍️');
-    if (!bank) return toast('Choose your bank 🏦');
+    if (!holder.trim()) return toast('Enter the account holder name');
+    if (!bank) return toast('Choose your bank');
     if (!existing && !digits) return toast('Enter your account number');
     if (digits && (digits.length < 6 || digits.length > 13)) return toast('Enter a valid account number (6–13 digits)');
     setBusy(true);
     try {
       await saveBanking({ holder: holder.trim(), bank, accountType, ...(digits ? { accountNumber: digits } : {}) });
-      toast('Banking details saved securely 💳');
+      toast('Banking details saved securely');
       onClose();
     } catch (e) {
       toast((e as Error).message);
@@ -167,7 +167,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
     setBusy(true);
     try {
       setSubmission(await api.submitIdVerification(fullName.trim(), idNumber.replace(/\D/g, '')));
-      toast("ID submitted 🪪 We'll check it and let you know.");
+      toast("ID submitted. We'll check it and let you know.");
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -179,15 +179,15 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
 
   return (
     <Sheet title="Identity" onClose={onClose}>
-      <div className={`w-16 h-16 rounded-2xl grid place-items-center text-hero mb-3 ${status === 'verified' ? 'bg-verified-soft' : 'bg-surface-2'}`} aria-hidden="true">
-        {status === 'verified' ? '✅' : status === 'pending' ? '🕓' : '🪪'}
+      <div className={`w-16 h-16 rounded-2xl grid place-items-center mb-3 ${status === 'verified' ? 'bg-verified-soft text-verified' : 'bg-surface-2 text-ink'}`} aria-hidden="true">
+        <Icon name={status === 'verified' ? 'check' : status === 'pending' ? 'clock' : 'id'} size={30} />
       </div>
 
       {status === 'verified' && (
         <>
           <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Verified with SA ID<span className="text-brand">.</span></h3>
           <p className="text-small text-dim mt-1.5 leading-relaxed">
-            Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your ✅ Verified badge, and formal roles that require verification are open to you.
+            Your SA ID is confirmed{submission?.last4 ? <> (•••• {submission.last4})</> : null}. Employers see your Verified badge, and formal roles that require verification are open to you.
           </p>
           <Button block variant="ghost" className="mt-5" onClick={onClose}>Close</Button>
         </>
@@ -199,7 +199,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
           <p className="text-small text-dim mt-1.5 leading-relaxed">
             Submitted{submission?.last4 ? <> for ID •••• {submission.last4}</> : null}. {submission?.method === 'scan'
               ? 'A person is comparing your selfies with your card. '
-              : ''}Checks usually finish within a day — your ✅ badge appears here automatically. You can keep working in the meantime.
+              : ''}Checks usually finish within a day — your Verified badge appears here automatically. You can keep working in the meantime.
           </p>
           <p className="text-micro text-dim mt-2 leading-relaxed">
             Home Affairs check: coming soon. It is in test mode until a verification service is connected.
@@ -216,7 +216,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
               <b>We couldn't verify your last submission.</b>{submission?.reason ? ` ${submission.reason}` : ' Please check the details and try again.'}
             </div>
           )}
-          <p className="text-small text-dim mt-1.5 leading-relaxed">Verifying adds a ✅ badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
+          <p className="text-small text-dim mt-1.5 leading-relaxed">Verifying adds a Verified badge to your profile, builds employer trust, and unlocks formal roles that require it.</p>
 
           {loading ? (
             <div className="flex flex-col gap-3 mt-4" aria-busy="true"><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>
@@ -254,7 +254,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
               </div>
               <div className="flex gap-2.5 items-start bg-info-soft rounded-xl px-3.5 py-3 mb-4">
                 <span className="text-info shrink-0"><Icon name="shield" size={16} /></span>
-                <span className="text-small text-ink leading-snug">Your ID number is encrypted and never shown to employers — they only see the ✅ badge.</span>
+                <span className="text-small text-ink leading-snug">Your ID number is encrypted and never shown to employers — they only see the Verified badge.</span>
               </div>
               <Button block disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for verification'}</Button>
               <button onClick={() => setTyping(false)} className="w-full text-center text-small text-dim font-bold mt-3 min-h-[44px] hover:text-ink">Scan my card instead</button>
@@ -265,7 +265,7 @@ export function IdentitySheet({ verified, onClose }: { verified: boolean; onClos
       {scanning && (
         <IdScan
           onClose={() => { setScanning(false); void reload(); }}
-          onDone={() => { setScanning(false); void reload(); toast('ID sent for checking 🪪 We will let you know.'); }}
+          onDone={() => { setScanning(false); void reload(); toast('ID sent for checking. We will let you know.'); }}
         />
       )}
     </Sheet>
@@ -284,7 +284,7 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
     try {
       await api.reportSafety(concern.trim(), { gigId, aboutUserId });
       setConcern('');
-      toast('Report received — our safety team will look into it 🛡️');
+      toast('Report received — our safety team will look into it');
       onClose();
     } catch (e) {
       toast((e as Error).message);
@@ -299,10 +299,10 @@ export function SafetySheet({ gigId, aboutUserId, onClose }: { gigId?: string; a
         {/* This used to read "Only ID-verified users can be hired or hire".
             Nothing enforced it — nothing ever has — and a safety claim the
             product does not keep is worse than no claim at all. */}
-        <li className="flex gap-2 items-start"><span>🪪</span> {t('safety.verify')}</li>
-        <li className="flex gap-2 items-start"><span>⭐</span> {t('safety.ratings')}</li>
-        <li className="flex gap-2 items-start"><span>⚖️</span> {t('safety.fairPay')}</li>
-        <li className="flex gap-2 items-start"><span>📍</span> {t('safety.meetPublic')}</li>
+        <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="id" size={16} /></span> {t('safety.verify')}</li>
+        <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="star" size={16} /></span> {t('safety.ratings')}</li>
+        <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="scale" size={16} /></span> {t('safety.fairPay')}</li>
+        <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="pin" size={16} /></span> {t('safety.meetPublic')}</li>
       </ul>
       <div className="bg-live-soft rounded-xl px-3.5 py-3 mb-4 text-small text-ink leading-snug">
         <b>{t('safety.emergency')}</b>
@@ -427,7 +427,7 @@ export function EditProfileSheet({ onClose }: { onClose: () => void }) {
     try {
       await api.saveProfile({ ...f, languages });
       await reloadData();
-      toast('Profile saved — your CV is up to date 📄');
+      toast('Profile saved — your CV is up to date');
       onClose();
     } catch (e) {
       const ae = e as ApiError;
@@ -552,7 +552,7 @@ export function BlockedSheet({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-2">{[0, 1].map((i) => <Skeleton key={i} className="h-14 rounded-2xl" />)}</div>
       ) : people.length === 0 ? (
         <div className="text-center py-8">
-          <div className="text-hero mb-2" aria-hidden="true">🛡️</div>
+          <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="shield" size={26} /></div>
           <p className="text-dim text-small m-0">You haven't blocked anyone.</p>
           <p className="text-faint text-small mt-1 mb-0">You can block someone from inside a conversation.</p>
         </div>

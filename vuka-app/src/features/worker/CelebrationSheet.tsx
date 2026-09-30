@@ -63,7 +63,7 @@ function Celebrate({ before, after, jobTitle, tieredUp, newlyUnlocked, newBadges
             <div className="text-jumbo animate-pop" aria-hidden="true">{after.tier.icon}</div>
             <h4 className="font-display m-0 mt-1.5 text-lead font-extrabold tracking-tight">TIER UP — you're now {after.tier.name}!</h4>
             <p className="m-0 text-small text-on-feature-dim leading-snug mt-1">{after.tier.unlocks}</p>
-            {newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-small font-bold bg-brand-solid rounded-full px-3 py-1 animate-pop">🔓 {newlyUnlocked} new formal job{newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
+            {newlyUnlocked > 0 && <div className="inline-block mt-2.5 text-small font-bold bg-brand-solid rounded-full px-3 py-1 animate-pop">{newlyUnlocked} new formal job{newlyUnlocked > 1 ? 's' : ''} unlocked</div>}
           </div>
         </div>
       ) : (

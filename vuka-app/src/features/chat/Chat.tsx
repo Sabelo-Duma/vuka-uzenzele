@@ -13,7 +13,8 @@ import {
 import type { Pending } from '../../lib/outbox';
 import type { Recording } from '../../lib/voice';
 import type { PreparedPhoto } from '../../lib/photo';
-import { Avatar, Card, EmptyState, Skeleton } from '../../components/ui';
+import { Avatar, Button, Card, EmptyState, Skeleton } from '../../components/ui';
+import { FindPeopleSheet } from '../../components/FindPeople';
 import { SafetySheet } from '../profile/SettingsSheets';
 import { Icon } from '../../components/Icon';
 import { Composer } from './Composer';
@@ -131,8 +132,8 @@ function MessageActions({ mine, canEdit, canCopy, onReply, onEdit, onDelete, onC
 const quoteText = (kind: string, body: string, deleted: boolean) => {
   if (deleted) return 'Message deleted';
   if (body) return body;
-  if (kind === 'voice') return '🎤 Voice note';
-  if (kind === 'image') return '📷 Photo';
+  if (kind === 'voice') return 'Voice note';
+  if (kind === 'image') return 'Photo';
   return '';
 };
 
@@ -322,7 +323,7 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
 function PendingBubble({ p, onRetry, onDiscard }: {
   p: Pending; onRetry: () => void; onDiscard: () => void;
 }) {
-  const label = p.kind === 'voice' ? '🎤 Voice note' : p.kind === 'image' ? (p.body || '📷 Photo') : p.body;
+  const label = p.kind === 'voice' ? 'Voice note' : p.kind === 'image' ? (p.body || 'Photo') : p.body;
   return (
     <div>
       <div
@@ -350,6 +351,7 @@ export function Messages() {
   const { navigate, loadConversations } = useApp();
   const t = useT();
   const [convos, setConvos] = useState<Conversation[] | null>(null);
+  const [finding, setFinding] = useState(false);
 
   const load = useCallback(() => {
     loadConversations().then(setConvos).catch(() => setConvos((prev) => prev ?? []));
@@ -372,10 +374,19 @@ export function Messages() {
 
   return (
     <div className="max-w-[720px] mx-auto">
-      <header className="mb-3">
-        <small className="text-faint text-micro font-semibold uppercase tracking-wide">Direct messages</small>
-        <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Chats<span className="text-brand">.</span></h1>
+      <header className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <small className="text-faint text-micro font-semibold uppercase tracking-wide">Direct messages</small>
+          <h1 className="font-display m-0 mt-0.5 text-head font-extrabold text-ink tracking-tight">Chats<span className="text-brand">.</span></h1>
+        </div>
+        <button
+          onClick={() => setFinding(true)}
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-pill border border-line text-small font-bold text-ink hover:bg-surface-2 transition active:scale-95"
+        >
+          <Icon name="search" size={16} /> Find people
+        </button>
       </header>
+      {finding && <FindPeopleSheet onClose={() => setFinding(false)} />}
 
       {convos === null ? (
         <div className="flex flex-col gap-2.5">{[0, 1, 2].map((i) => (
@@ -385,7 +396,7 @@ export function Messages() {
           </Card>
         ))}</div>
       ) : convos.length === 0 ? (
-        <EmptyState icon="💬" title="No messages yet" hint="When you invite, apply or get hired, start a conversation here. Employers and workers chat directly to sort out the details — by text, voice note or photo." />
+        <EmptyState icon="chat" title="No messages yet" hint="When you invite, apply or get hired, start a conversation here, or find someone you know. Chat by text, voice note or photo." action={<Button size="sm" onClick={() => setFinding(true)}>Find people</Button>} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {convos.map((c) => (
@@ -761,7 +772,7 @@ export function ChatThread({ id }: { id: string }) {
   }, [toast]);
 
   if (notFound) {
-    return <div className="max-w-[720px] mx-auto"><EmptyState icon="🔍" title="Conversation unavailable" hint="This person is no longer on Vuka." /></div>;
+    return <div className="max-w-[720px] mx-auto"><EmptyState icon="search" title="Conversation unavailable" hint="This person is no longer on Vuka." /></div>;
   }
 
   const otherFirstName = other?.name?.split(' ')[0] ?? 'them';
@@ -826,7 +837,7 @@ export function ChatThread({ id }: { id: string }) {
         ) : rows.length === 0 ? (
           <div className="flex-1 grid place-items-center text-center py-8">
             <div>
-              <div className="text-hero mb-2" aria-hidden="true">👋</div>
+              <div className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-surface-2 border border-line text-dim mb-3" aria-hidden="true"><Icon name="chat" size={26} /></div>
               <p className="text-dim text-small">Say hello and sort out the details — start, pay, and where to meet.</p>
               {/* Gestures are invisible by definition, so say them once, here,
                   where there is nothing else competing for the space. */}

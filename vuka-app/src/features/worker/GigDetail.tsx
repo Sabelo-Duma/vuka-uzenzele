@@ -23,7 +23,7 @@ export function GigDetail({ id }: { id: string }) {
     return (
       <>
         <DetailHeader title="Gig details" onBack={() => goBack('jobs')} />
-        <EmptyState icon="🔍" title="This gig is no longer available" hint="It may have been filled or you already completed it. Browse other gigs near you." action={<Button onClick={() => navigate('jobs')}>Back to gigs</Button>} />
+        <EmptyState icon="search" title="This gig is no longer available" hint="It may have been filled or you already completed it. Browse other gigs near you." action={<Button onClick={() => navigate('jobs')}>Back to gigs</Button>} />
       </>
     );
   }
@@ -82,7 +82,7 @@ export function GigDetail({ id }: { id: string }) {
       <StickyCta>
         {status === 'applied' && (
           <>
-            <Button block variant="ghost" disabled>⏳ Applied — waiting on {employerFirstName}</Button>
+            <Button block variant="ghost" icon="clock" disabled>Applied — waiting on {employerFirstName}</Button>
             <p className="text-center text-small text-dim mt-2">Your CV and tier were sent with your application. {employerFirstName} picks who gets the job — you'll be notified either way.</p>
           </>
         )}
@@ -94,13 +94,13 @@ export function GigDetail({ id }: { id: string }) {
         )}
         {status === 'hired' && (
           <>
-            <Button block variant="primary" onClick={() => setReviewing(true)}>✅ I've finished this job</Button>
+            <Button block variant="primary" icon="check" onClick={() => setReviewing(true)}>I've finished this job</Button>
             <p className="text-center text-small text-dim mt-2">You're hired 🎉 When the work is done, mark it here and rate {employerFirstName}. They then confirm it — that's what writes the reference onto your CV.</p>
           </>
         )}
         {status === 'worker_done' && (
           <>
-            <Button block variant="ghost" disabled>🕓 Waiting for {employerFirstName} to confirm</Button>
+            <Button block variant="ghost" icon="clock" disabled>Waiting for {employerFirstName} to confirm</Button>
             <p className="text-center text-small text-dim mt-2">You've marked this done. As soon as {employerFirstName} confirms, your pay is released and the verified reference lands on your CV.</p>
             {autoConfirm && (
               <p className="text-center text-small text-dim mt-1.5">
@@ -120,7 +120,7 @@ export function GigDetail({ id }: { id: string }) {
         {status === null && (
           <Button block disabled={applying} onClick={async () => {
             setApplying(true);
-            try { await applyGig(gig.id); toast('Applied! 🎉 The employer will be in touch.'); }
+            try { await applyGig(gig.id); toast('Applied. The employer will be in touch.'); }
             catch (e) { toast((e as Error).message); setApplying(false); }
           }}>
             {applying ? 'Applying…' : "Apply for this gig — it's free"}

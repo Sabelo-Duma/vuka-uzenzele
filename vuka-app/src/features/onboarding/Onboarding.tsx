@@ -7,7 +7,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { ApiError } from '../../lib/api';
 import type { CategoryId, Role } from '../../types';
 import { Button, InlineError } from '../../components/ui';
-import { Icon } from '../../components/Icon';
+import { Icon, type IconName } from '../../components/Icon';
 import { SunMark } from '../../components/SunMark';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
@@ -44,10 +44,10 @@ export function Onboarding() {
   const key = steps[step];
 
   const validate = (): boolean => {
-    if (key === 'about' && !data.name.trim()) { toast('Please enter your name ✍️'); return false; }
-    if (key === 'skills' && data.skills.length === 0) { toast('Pick at least one skill 🎯'); return false; }
-    if (key === 'org' && !data.name.trim()) { toast('Enter your name or business ✍️'); return false; }
-    if (key === 'password' && data.password.length < 8) { toast('Choose a password of at least 8 characters 🔒'); return false; }
+    if (key === 'about' && !data.name.trim()) { toast('Please enter your name'); return false; }
+    if (key === 'skills' && data.skills.length === 0) { toast('Pick at least one skill'); return false; }
+    if (key === 'org' && !data.name.trim()) { toast('Enter your name or business'); return false; }
+    if (key === 'password' && data.password.length < 8) { toast('Choose a password of at least 8 characters'); return false; }
     return true;
   };
 
@@ -139,12 +139,12 @@ function AuthLayout({ children }: { children: ReactNode }) {
           <p className="ob-rise-2 text-on-feature-dim mt-5 text-body leading-relaxed">Vuka Uzenzele connects South Africa's youth to real work — and turns every completed job into a verified track record that opens the door to formal employment.</p>
           <ul className="ob-rise-3 mt-9 space-y-4">
             {[
-              { icon: '🪜', t: 'The Ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
-              { icon: '🧾', t: 'A CV that builds itself', s: 'Real, verified references from every job you complete.' },
-              { icon: '🛡️', t: 'Safe & fair by design', s: 'ID verification, two-way reviews, minimum-wage checks.' },
+              { icon: 'ladder' as const, t: 'The Ladder', s: 'A strong profile unlocks cashier, security & call-centre roles.' },
+              { icon: 'doc' as const, t: 'A CV that builds itself', s: 'Real, verified references from every job you complete.' },
+              { icon: 'shield' as const, t: 'Safe & fair by design', s: 'ID verification, two-way reviews, minimum-wage checks.' },
             ].map((f) => (
               <li key={f.t} className="flex gap-3.5 items-start">
-                <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 text-title shrink-0" aria-hidden="true">{f.icon}</span>
+                <span className="grid place-items-center w-10 h-10 rounded-xl bg-white/10 shrink-0" aria-hidden="true"><Icon name={f.icon} size={20} /></span>
                 <span><span className="block font-bold text-body">{f.t}</span><span className="block text-on-feature-dim text-small leading-snug mt-0.5">{f.s}</span></span>
               </li>
             ))}
@@ -202,17 +202,17 @@ function RoleChoose({ onPick, onLogin, onBack }: { onPick: (r: Role) => void; on
       <h2 className="font-display text-display font-extrabold text-ink mb-1.5 leading-tight tracking-tight">{t('auth.createAccount')}<span className="text-brand">.</span></h2>
       <p className="text-small text-dim mb-6">How will you use Vuka?</p>
       <div className="grid gap-3.5">
-        <RoleOption emoji="🙋" bg="var(--v-info-soft)" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
-        <RoleOption emoji="💼" bg="var(--v-brand-soft)" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
+        <RoleOption icon="user" bg="var(--v-info-soft)" title="I want to work" sub="Find gigs & formal jobs near you, and build a verified CV." onClick={() => onPick('worker')} />
+        <RoleOption icon="briefcase" bg="var(--v-brand-soft)" title="I need help" sub="Post a job and hire trusted, ID-verified youth nearby." onClick={() => onPick('employer')} />
       </div>
       <div className="text-center mt-6"><button onClick={onLogin} className="text-small text-dim font-semibold hover:text-ink">{t('auth.hasAccount')} <b className="text-brand">{t('action.logIn')}</b></button></div>
     </div>
   );
 }
-function RoleOption({ emoji, bg, title, sub, onClick }: { emoji: string; bg: string; title: string; sub: string; onClick: () => void }) {
+function RoleOption({ icon, bg, title, sub, onClick }: { icon: IconName; bg: string; title: string; sub: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="text-left border border-line rounded-[20px] p-4 bg-surface flex gap-4 items-center hover:border-brand hover:shadow-e2 transition active:scale-[.985]">
-      <span className="grid place-items-center w-[54px] h-[54px] rounded-2xl text-display shrink-0 dark:bg-surface-2" style={{ background: bg }} aria-hidden="true">{emoji}</span>
+      <span className="grid place-items-center w-[54px] h-[54px] rounded-2xl text-ink shrink-0 dark:bg-surface-2" style={{ background: bg }} aria-hidden="true"><Icon name={icon} size={26} /></span>
       <span className="flex-1"><span className="block text-lead font-bold text-ink">{title}</span><span className="block text-small text-dim mt-0.5 leading-snug">{sub}</span></span>
       <span className="text-faint"><Icon name="chev" size={18} /></span>
     </button>
@@ -309,8 +309,8 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
         <>
           <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
           <div className="grid grid-cols-2 gap-2.5">
-            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
-            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>Demo worker</Button>
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>Demo employer</Button>
           </div>
         </>
       )}
@@ -366,7 +366,7 @@ function ResetView({ onBack }: { onBack: () => void }) {
     try {
       // Confirming signs the account straight in, so there's no second login step.
       await api.confirmPasswordReset(phone, code, password).then(async () => { await login(phone, password); });
-      toast('Password changed 🔒 Welcome back!');
+      toast('Password changed. Welcome back!');
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -500,7 +500,7 @@ function PhoneStep({ data, setData, onSent, onSignIn }: { data: OBData; setData:
       // In a pilot without an SMS contract the server may hand the code back so
       // sign-up still works; say so plainly rather than pretending it was sent.
       lastDevCode.value = res.devCode ?? null;
-      toast(res.sent ? 'Code sent 📱 Check your SMS.' : `Test mode — your code is ${res.devCode}`);
+      toast(res.sent ? 'Code sent. Check your SMS.' : `Test mode — your code is ${res.devCode}`);
       onSent();
     } catch (e) {
       const err = e as ApiError;
@@ -576,7 +576,7 @@ function OtpStep({ data, setData, onVerified }: {
       lastDevCode.value = res.devCode ?? null;
       setData((d) => ({ ...d, otp: '' }));
       refs.current[0]?.focus();
-      toast(res.sent ? 'New code sent 📱' : `Test mode — your code is ${res.devCode}`);
+      toast(res.sent ? 'New code sent' : `Test mode — your code is ${res.devCode}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -639,16 +639,16 @@ function PasswordStep({ data, setData }: { data: OBData; setData: React.Dispatch
  * and nothing to tick on this screen.
  */
 function IdStep() {
-  return (<><Head h="Verify your identity<span class='text-brand'>.</span>" sub="Optional — but verified workers get the ✅ badge, more employer trust, and access to formal roles that require it." />
+  return (<><Head h="Verify your identity<span class='text-brand'>.</span>" sub="Optional — but verified workers get the Verified badge, more employer trust, and access to formal roles that require it." />
     <div className="border-[1.5px] border-dashed border-line bg-surface-2 rounded-[20px] p-6 text-center">
-      <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-hero bg-info-soft dark:bg-surface" aria-hidden="true">🪪</div>
+      <div className="w-[72px] h-[72px] mx-auto mb-2.5 rounded-[20px] grid place-items-center text-ink bg-info-soft dark:bg-surface" aria-hidden="true"><Icon name="id" size={32} /></div>
       <h4 className="font-display m-0 mb-1 text-lead text-ink font-bold">Do this from your profile</h4>
       <p className="m-0 text-small text-dim leading-relaxed">Finish signing up, then open <b className="text-ink">Profile → Identity</b> and enter your SA ID number. We check it and add your badge — usually within a day.</p>
     </div>
     <ul className="mt-4 space-y-2 text-small text-ink">
-      <li className="flex gap-2 items-start"><span>🔒</span> Your ID number is encrypted and never shown to employers</li>
-      <li className="flex gap-2 items-start"><span>⚡</span> Takes under a minute, once</li>
-      <li className="flex gap-2 items-start"><span>🪜</span> Unlocks formal roles that require verification</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="lock" size={16} /></span> Your ID number is encrypted and never shown to employers</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="clock" size={16} /></span> Takes under a minute, once</li>
+      <li className="flex gap-2 items-start"><span className="text-dim mt-0.5 shrink-0"><Icon name="ladder" size={16} /></span> Unlocks formal roles that require verification</li>
     </ul>
     <Trust>You can start applying for gigs straight away — verification is not needed first.</Trust></>);
 }
@@ -664,7 +664,7 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
   return (
     <div className="text-center">
       <BackRow onBack={onBack} />
-      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-on-feature feature-band" aria-hidden="true">{worker ? '🎉' : '💼'}</div>
+      <div className="w-[110px] h-[110px] mx-auto rounded-[30px] grid place-items-center text-giant text-on-feature feature-band" aria-hidden="true">{worker ? '🎉' : <Icon name="briefcase" size={48} />}</div>
       <h2 className="font-display text-head font-extrabold text-ink mt-5 mb-2 tracking-tight">Almost there{name ? `, ${name.split(' ')[0]}` : ''}!</h2>
       <p className="text-small text-dim leading-relaxed">{worker ? "Create your account and you're a Starter 🌱 with a blank CV — now let your work write it for you." : 'Create your account, then post your first job and reach verified youth nearby.'}</p>
       {/* An inverted block: `ink` and `canvas` swap between themes, so the
@@ -673,9 +673,9 @@ function Success({ role, name, busy, onEnter, onBack }: { role: Role; name: stri
       {worker && (
         <div className="text-left bg-ink text-canvas rounded-card p-4 mt-5">
           <b className="text-small">Your first 3 steps</b>
-          <div className="text-small opacity-85 mt-2.5">1️⃣ Apply to a gig near you (it's free)</div>
-          <div className="text-small opacity-85 mt-2">2️⃣ Do a great job & get reviewed</div>
-          <div className="text-small opacity-85 mt-2">3️⃣ Watch your CV grow and unlock formal jobs 🪜</div>
+          <div className="text-small opacity-85 mt-2.5">1. Apply to a gig near you (it's free)</div>
+          <div className="text-small opacity-85 mt-2">2. Do a great job & get reviewed</div>
+          <div className="text-small opacity-85 mt-2">3. Watch your CV grow and unlock formal jobs</div>
         </div>
       )}
       <Button block className="mt-7" disabled={busy} onClick={onEnter}>{busy ? 'Creating your account…' : worker ? 'Create account & start' : 'Create account'}</Button>
