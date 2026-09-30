@@ -44,6 +44,12 @@ services:
         sync: false
       - key: VUKA_VAPID_SUBJECT
         sync: false            # mailto: address a push service can contact
+      # Demo accounts. Their password is public (it is in the source), so the
+      # live server refuses them. Set to 1 only for a live demonstration, and
+      # remove it afterwards. The demo buttons show only in local development
+      # (or in a build made with VITE_SHOW_DEMO=1).
+      - key: VUKA_ALLOW_DEMO
+        sync: false
       # Msizi's AI fallback (free, no card). Without a key Msizi still answers
       # from its written knowledge base; with one, it can handle questions the
       # knowledge base does not cover. Get a free key at console.groq.com/keys
