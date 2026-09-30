@@ -17,6 +17,7 @@ process.env.PORT = '3999';
    exactly the shape the per-IP limiter exists to stop. Lifted here only; the
    limiter itself is still exercised, by the auth-specific one at the end. */
 process.env.VUKA_RATE_MAX = '100000';
+process.env.VUKA_AUTH_RATE_MAX = '40';
 // Storage figures are cached for a quarter of an hour in production. A test
 // that asserts a count it just created needs the real one.
 process.env.VUKA_STORAGE_TTL_MS = '0';
@@ -94,6 +95,28 @@ async function run() {
     if (!sent.json?.devCode) throw new Error('devCode not returned — OTP echo should be on in dev');
     const v = await api('POST', '/auth/otp/verify', { body: { phone, code: sent.json.devCode } });
     return v.json.verifyToken;
+  }
+
+  // 10x) Demo accounts are refused on the live site (their password is public).
+  {
+    const was = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const refused = await api('POST', '/auth/login', { body: { identifier: '0710000000', password: 'demo1234' } });
+      ok(refused.status === 403 && refused.json?.reason === 'demo_disabled', 'on the live site, the demo worker cannot log in');
+      ok((await api('POST', '/auth/login', { body: { identifier: '0731000001', password: 'demo1234' } })).json?.reason === 'demo_disabled',
+        'nor any other seeded account');
+      ok((await api('POST', '/auth/login', { body: { identifier: '0710000000', password: 'wrong-one' } })).json?.reason === 'wrong_password',
+        'a wrong password is still just a wrong password — the check reveals nothing');
+      process.env.VUKA_ALLOW_DEMO = '1';
+      ok((await api('POST', '/auth/login', { body: { identifier: '0710000000', password: 'demo1234' } })).status === 200,
+        'VUKA_ALLOW_DEMO=1 lets them in again, for a demonstration');
+    } finally {
+      delete process.env.VUKA_ALLOW_DEMO;
+      process.env.NODE_ENV = was;
+    }
+    ok((await api('POST', '/auth/login', { body: { identifier: '0710000000', password: 'demo1234' } })).status === 200,
+      'in development the demo accounts work as before');
   }
 
   // 2) phone verification gates registration
@@ -1677,7 +1700,7 @@ async function run() {
   // 11) auth rate limiting: repeated failed logins eventually get throttled (429).
   // Runs last so tripping the limiter doesn't affect earlier assertions.
   let saw429 = false;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     const r = await api('POST', '/auth/login', { body: { phone: '0710000000', password: 'wrong-password' } });
     if (r.status === 429) { saw429 = true; break; }
   }

@@ -12,6 +12,10 @@ import { SunMark } from '../../components/SunMark';
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { Landing } from './Landing';
 
+/** Demo logins: on in development (npm run dev on your own machine), off in
+    the live build unless it was built with VITE_SHOW_DEMO=1. */
+const SHOW_DEMO = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO === '1';
+
 type OBView = 'landing' | 'role' | 'reg' | 'login' | 'reset';
 interface OBData {
   phone: string; otp: string; name: string; age: string; location: string;
@@ -297,11 +301,19 @@ function LoginView({ busy, error, onBack, onLogin, onDemo, onForgot, onSignUp, o
 
       <Button block disabled={busy} onClick={() => onLogin(identifier, password)}>{busy ? t('auth.signingIn') : t('action.logIn')}</Button>
 
-      <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
-      <div className="grid grid-cols-2 gap-2.5">
-        <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
-        <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
-      </div>
+      {/* Demo logins are for development on the owner's own machine only. The
+          live build never shows them (and the live server refuses the demo
+          accounts — see DEMO_PHONES in vuka-server). VITE_SHOW_DEMO=1 brings
+          them back in a build, for a demonstration. */}
+      {SHOW_DEMO && (
+        <>
+          <div className="flex items-center gap-3 my-6"><span className="flex-1 h-px bg-line" /><span className="text-micro text-faint font-semibold uppercase tracking-wide">Or explore instantly</span><span className="flex-1 h-px bg-line" /></div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('worker')}>🙋 Demo worker</Button>
+            <Button size="sm" variant="ghost" className="whitespace-nowrap" disabled={busy} onClick={() => onDemo('employer')}>💼 Demo employer</Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

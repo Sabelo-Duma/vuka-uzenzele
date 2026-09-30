@@ -37,6 +37,15 @@ const TALENT = [
   { name: 'Naledi Sithole', phone: '0731000004', skills: ['cleaning', 'garden'], jobs: 9, fours: 2, location: 'Diepkloof', age: 20, color: '#B45309', verified: 0, tagline: 'Detail-focused and honest. Building my rep.' },
 ];
 
+/* Every account the seed creates. They all share the public demo password, so
+   on the live site the server refuses them (see the login route) — hiding the
+   demo buttons alone would leave a door whose key is in the source code. */
+export const DEMO_PHONES = new Set([
+  '0710000000', '0720000000',
+  ...GIGS.map((g) => g.phone).filter(Boolean),
+  ...TALENT.map((t) => t.phone),
+]);
+
 const INS_USER = 'INSERT INTO users (id, role, phone, password_hash, name, created_at) VALUES (?,?,?,?,?,?)';
 const SET_VERIFIED = 'UPDATE users SET id_verified = 1 WHERE id = ?';
 const INS_PROFILE = 'INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)';

@@ -6,7 +6,7 @@ import morgan from 'morgan';
 import { existsSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 import { all, get, run, initDb, closeDb, driver, toBytes } from './db.mjs';
-import { seedIfEmpty } from './seed.mjs';
+import { seedIfEmpty, DEMO_PHONES } from './seed.mjs';
 import {
   hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid,
   randomDigits, hashCode, verifyCode, signPurposeToken, verifyPurposeToken,
@@ -97,7 +97,7 @@ const apiLimiter = rateLimit({
 });
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,     // 15 minutes
-  max: 20,                      // 20 sign-in / sign-up attempts per IP
+  max: Number(process.env.VUKA_AUTH_RATE_MAX || 20), // 20 failed sign-in / sign-up attempts per IP (the test suite raises it)
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // only failed attempts count toward the limit
@@ -847,6 +847,14 @@ app.post('/api/auth/login', asyncH(async (req, res) => {
       reason: 'wrong_password',
     });
   }
+  /* The demo accounts are for development only. Their password is public (it
+     is in the source), so on the live site they are refused outright unless
+     VUKA_ALLOW_DEMO=1 is set for a demonstration. Checked after the password,
+     so this reveals nothing to someone guessing. */
+  if (process.env.NODE_ENV === 'production' && process.env.VUKA_ALLOW_DEMO !== '1' && DEMO_PHONES.has(user.phone)) {
+    return res.status(403).json({ error: 'Demo accounts are not available on the live site.', reason: 'demo_disabled' });
+  }
+
   const extra = user.role === 'worker' ? await cvFor(user.id) : {};
   res.json({ token: signToken(user), user: userOut(user), ...extra });
 }));
