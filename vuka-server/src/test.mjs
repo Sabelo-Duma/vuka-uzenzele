@@ -1828,14 +1828,51 @@ async function run() {
       'Nothing to change', 'notify must be an object'];
     const shape = (s) => s.replace(/\$\{[^}]*\}/g, '{x}').replace(/\{\w+\}/g, '{x}');
     const listed = new Set(MESSAGES.map(shape));
+    /* Every string literal inside an `error:` value however it is written —
+       a plain string, a ternary between two, a template — and the messages
+       the escrow module throws, which reach the person unchanged. A regex on
+       `error: '…'` alone missed the sign-in screen's own two messages. */
+    const literalsIn = (expr) => {
+      const out = [];
+      for (let i = 0; i < expr.length; i++) {
+        const q = expr[i];
+        if (q !== "'" && q !== '"' && q !== '`') continue;
+        let j = i + 1, buf = '';
+        while (j < expr.length && expr[j] !== q) {
+          if (expr[j] === '\\') { buf += expr[j + 1]; j += 2; continue; }
+          if (q === '`' && expr[j] === '$' && expr[j + 1] === '{') {
+            let depth = 1; j += 2;
+            while (j < expr.length && depth) { if (expr[j] === '{') depth++; else if (expr[j] === '}') depth--; j++; }
+            buf += '{x}'; continue;
+          }
+          buf += expr[j++];
+        }
+        out.push(buf); i = j;
+      }
+      return out;
+    };
+    const valuesOf = (src, re) => {
+      const out = [];
+      for (const m of src.matchAll(re)) {
+        let i = m.index + m[0].length, depth = 0;
+        const start = i;
+        for (; i < src.length; i++) {
+          const c = src[i];
+          if (c === "'" || c === '"' || c === '`') { const q = c; i++; while (i < src.length && src[i] !== q) i += src[i] === '\\' ? 2 : 1; continue; }
+          if ('([{'.includes(c)) depth++;
+          else if (')]}'.includes(c)) { if (depth === 0) break; depth--; }
+          else if (c === ',' && depth === 0) break;
+        }
+        out.push(src.slice(start, i));
+      }
+      return out;
+    };
     const unlisted = [];
     for (const f of readdirSync(here).filter((n) => n.endsWith('.mjs') && !['test.mjs', 'seed.mjs', 'smstest.mjs', 'vapid.mjs'].includes(n))) {
       const src = readSrc(join(here, f), 'utf8');
-      const found = [
-        ...[...src.matchAll(/error:\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1].replace(/\\'/g, "'")),
-        ...[...src.matchAll(/error:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\"/g, '"')),
-        ...[...src.matchAll(/error:\s*`([^`]*)`/g)].map((m) => m[1]),
-      ];
+      const found = [...valuesOf(src, /\berror:\s*/g), ...valuesOf(src, /new EscrowError\(/g)]
+        .flatMap(literalsIn)
+        .filter((s) => /[A-Za-z]{2,}\s+[A-Za-z]{2,}/.test(s));
       for (const msg of found) if (!DEV.some((d) => msg.includes(d)) && !listed.has(shape(msg))) unlisted.push(`${f}: ${msg}`);
     }
     ok(unlisted.length === 0, `every error the server can send is in i18n/messages.mjs${unlisted.length ? ` — missing: ${unlisted.slice(0, 3).join(' | ')}` : ''}`);
@@ -1865,6 +1902,9 @@ async function run() {
     const wrongZu = await api('POST', '/auth/login', { body: { phone: '0829990001', password: 'not-the-password' }, headers: { 'X-Vuka-Lang': 'zu' } });
     ok(wrongZu.status === wrongEn.status && wrongZu.json?.error === tables.zu[wrongEn.json?.error] && wrongZu.json?.reason === wrongEn.json?.reason,
       'an error goes back in the language the app asked in, with the same status and reason');
+    const noAccount = await api('POST', '/auth/login', { body: { identifier: '0839990505', password: 'whatever123' }, headers: { 'X-Vuka-Lang': 'xh' } });
+    ok(noAccount.json?.reason === 'no_account' && noAccount.json?.error === tables.xh["We don't have an account for that number yet. Create one — it takes a minute."],
+      'including the one chosen between two messages — the sign-in screen\'s "no account"');
 
     const texts = [];
     const log = console.log;
