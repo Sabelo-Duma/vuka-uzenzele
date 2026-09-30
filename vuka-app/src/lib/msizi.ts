@@ -278,7 +278,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
     role: 'worker',
     resolve: (ctx) =>
       ctx.gigsNearby === 0
-        ? 'There is nothing in your feed at the moment. New gigs are posted through the day — turn on Job alerts under Me and your phone will tell you instead of you having to check.'
+        ? 'There is nothing in your feed at the moment. New gigs are posted through the day — turn on New gigs near me under Me, then Notifications, and your phone will tell you instead of you having to check.'
         : `There ${ctx.gigsNearby === 1 ? 'is' : 'are'} ${ctx.gigsNearby} gig${ctx.gigsNearby === 1 ? '' : 's'} in your feed right now, sorted nearest first. Open Find work to see them.`,
   },
   {
@@ -288,7 +288,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
     keywords: ['my messages', 'unread', 'new messages', 'anyone message'],
     resolve: (ctx) =>
       ctx.unread === 0
-        ? 'You have no unread messages. Anything new from an employer will show up in Chats, and your phone can tell you if Job alerts are on.'
+        ? 'You have no unread messages. Anything new from an employer will show up in Chats, and your phone can tell you if Messages is on under Me, then Notifications.'
         : `You have ${ctx.unread} unread message${ctx.unread === 1 ? '' : 's'} waiting in Chats.`,
   },
 ];

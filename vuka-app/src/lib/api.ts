@@ -169,7 +169,27 @@ export interface BankingInput {
   /** Omit to keep the stored number and change only the other fields. */
   accountNumber?: string;
 }
-export interface Preferences { jobAlerts: boolean; }
+/** What may reach this person's phone. The in-app inbox gets everything regardless. */
+export type NoticeKind = 'messages' | 'jobs' | 'work' | 'money' | 'account';
+export interface Preferences {
+  jobAlerts: boolean;
+  notify: Record<NoticeKind, boolean>;
+  /** false = names and message text stay off the lock screen and out of SMS. */
+  previews: boolean;
+  /** Hours in South African time; null = no quiet hours. */
+  quietHours: { start: number; end: number } | null;
+}
+/** A partial change: each switch saves on its own. */
+export interface PreferencesChange {
+  jobAlerts?: boolean;
+  notify?: Partial<Record<NoticeKind, boolean>>;
+  previews?: boolean;
+  quietHours?: { start: number; end: number } | null;
+}
+export interface Notice {
+  id: string; type: string; category: NoticeKind; title: string; body: string;
+  url: string | null; createdAt: string; read: boolean;
+}
 export interface FormalApplication {
   jobId: string;
   /** applied | shortlisted | rejected | placed — decided by whoever reviews them. */
@@ -551,7 +571,10 @@ export const api = {
   saveBanking: (input: BankingInput) => request<BankingSummary>('PUT', '/me/banking', input),
   deleteBanking: () => request<{ ok: boolean }>('DELETE', '/me/banking'),
   getPreferences: () => request<Preferences>('GET', '/me/preferences'),
-  savePreferences: (prefs: Preferences) => request<Preferences>('PUT', '/me/preferences', prefs),
+  savePreferences: (change: PreferencesChange) => request<Preferences>('PUT', '/me/preferences', change),
+  listNotifications: () => request<{ items: Notice[]; unread: number }>('GET', '/notifications'),
+  /** One by id, or all when no id is given. */
+  markNotificationsRead: (id?: string) => request<{ ok: true; unread: number }>('POST', '/notifications/read', id ? { id } : {}),
   /* Msizi's fallback when its own knowledge base has no answer. Only the
      question, recent turns and public help text are sent — see
      vuka-server/src/assistant.mjs. */
