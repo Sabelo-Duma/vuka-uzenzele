@@ -111,21 +111,66 @@ function Ticks({ state }: { state: 'queued' | 'failed' | 'sent' | 'delivered' | 
  * because a bubble near the bottom of the thread leaves a popover nowhere to go
  * once the keyboard is up.
  */
-function MessageActions({ mine, canEdit, canCopy, onReply, onEdit, onDelete, onCopy, onClose }: {
-  mine: boolean; canEdit: boolean; canCopy: boolean;
-  onReply: () => void; onEdit: () => void; onDelete: () => void; onCopy: () => void; onClose: () => void;
+function MessageActions({ mine, canEdit, canCopy, deleted, onReply, onEdit, onDeleteForMe, onDeleteForEveryone, onCopy, onClose }: {
+  mine: boolean; canEdit: boolean; canCopy: boolean; deleted: boolean;
+  onReply: () => void; onEdit: () => void; onDeleteForMe: () => void; onDeleteForEveryone: () => void; onCopy: () => void; onClose: () => void;
 }) {
   const t = useT();
+  /* Delete asks first, the way people already expect from WhatsApp: "for me"
+     is always offered, "for everyone" only on your own messages. Asking is
+     also what stops a thumb that slipped from withdrawing a message. */
+  const [confirming, setConfirming] = useState(false);
   const item = 'w-full text-left px-4 py-3 text-body font-semibold hover:bg-surface-2 transition flex items-center gap-3';
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={t('chat.x.messageActions')}>
       <button className="absolute inset-0 bg-black/40" aria-label={t('action.close')} onClick={onClose} />
       <div className="relative w-full sm:w-[320px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
-        <button className={`${item} text-ink`} onClick={onReply}><Icon name="reply" size={16} /> {t('chat.x.reply')}</button>
-        {canCopy && <button className={`${item} text-ink`} onClick={onCopy}><Icon name="copy" size={16} /> {t('chat.x.copyText')}</button>}
-        {mine && canEdit && <button className={`${item} text-ink`} onClick={onEdit}><Icon name="edit" size={16} /> {t('action.edit')}</button>}
-        {mine && <button className={`${item} text-danger`} onClick={onDelete}><Icon name="trash" size={16} /> {t('chat.x.deleteForEveryone')}</button>}
-        <button className={`${item} text-dim border-t border-line`} onClick={onClose}>{t('action.cancel')}</button>
+        {confirming ? (
+          <>
+            <b className="block px-4 pt-4 pb-2 text-body font-extrabold text-ink tracking-tight">{t('chat.x.deleteMessageTitle')}</b>
+            {mine && !deleted && (
+              <button className={`${item} text-danger border-t border-line`} onClick={onDeleteForEveryone}><Icon name="trash" size={16} /> {t('chat.x.deleteForEveryone')}</button>
+            )}
+            <button className={`${item} text-danger border-t border-line`} onClick={onDeleteForMe}><Icon name="trash" size={16} /> {t('chat.x.deleteForMe')}</button>
+            <button className={`${item} text-dim border-t border-line`} onClick={onClose}>{t('action.cancel')}</button>
+          </>
+        ) : (
+          <>
+            {!deleted && <button className={`${item} text-ink`} onClick={onReply}><Icon name="reply" size={16} /> {t('chat.x.reply')}</button>}
+            {canCopy && !deleted && <button className={`${item} text-ink`} onClick={onCopy}><Icon name="copy" size={16} /> {t('chat.x.copyText')}</button>}
+            {mine && canEdit && !deleted && <button className={`${item} text-ink`} onClick={onEdit}><Icon name="edit" size={16} /> {t('action.edit')}</button>}
+            <button className={`${item} text-danger`} onClick={() => setConfirming(true)}><Icon name="trash" size={16} /> {t('chat.x.delete')}</button>
+            <button className={`${item} text-dim border-t border-line`} onClick={onClose}>{t('action.cancel')}</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Clear chat" / "Delete chat" asks before it acts. Both are for you only, and
+ * the sheet says so, because the first worry anyone has is whether the other
+ * person's copy disappears too.
+ */
+function ConfirmChatSheet({ title, body, action, onConfirm, onClose }: {
+  title: string; body: string; action: string; onConfirm: () => void; onClose: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center" role="alertdialog" aria-label={title}>
+      <button className="absolute inset-0 bg-black/40" aria-label={t('action.close')} onClick={onClose} />
+      <div className="relative w-full sm:w-[340px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
+        <div className="px-4 pt-4 pb-3">
+          <b className="block text-body font-extrabold text-ink tracking-tight">{title}</b>
+          <p className="m-0 mt-1 text-small text-dim leading-snug">{body}</p>
+        </div>
+        <button className="w-full text-left px-4 py-3 text-body font-semibold text-danger hover:bg-surface-2 transition flex items-center gap-3 border-t border-line" onClick={onConfirm}>
+          <Icon name="trash" size={16} /> {action}
+        </button>
+        <button className="w-full text-left px-4 py-3 text-body font-semibold text-dim hover:bg-surface-2 transition border-t border-line" onClick={onClose}>
+          {t('action.cancel')}
+        </button>
       </div>
     </div>
   );
@@ -252,10 +297,19 @@ function MessageBubble({ m, mine, meId, otherFirstName, onMenu, onReply, onOpenP
   const armed = dragX >= SWIPE_TRIGGER_PX;
 
   if (m.deleted) {
+    /* A tap opens the menu, whose only action here is "Delete for me": the
+       placeholder has nothing else to offer, and leaving it stuck in the
+       thread forever is what people complain about. */
     return (
-      <div className={`px-3.5 py-2.5 text-small italic rounded-2xl border border-dashed border-line text-faint inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}>
+      <button
+        type="button"
+        onClick={onMenu}
+        onContextMenu={(e) => { e.preventDefault(); onMenu(); }}
+        aria-haspopup="dialog"
+        className={`px-3.5 py-2.5 min-h-[44px] text-small italic rounded-2xl border border-dashed border-line text-faint inline-flex items-center gap-1.5 ${mine ? 'rounded-br-md' : 'rounded-bl-md'}`}
+      >
         <Icon name="trash" size={12} /> {tr('chat.x.thisDeleted')}
-      </div>
+      </button>
     );
   }
 
@@ -369,7 +423,7 @@ export function Messages() {
      it. Reloading the list is cheaper and far less error-prone than trying to
      fold one message into the right row by hand. */
   useEffect(() => onChatEvent((e) => {
-    if (e.type === 'message' || e.type === 'message-changed') { load(); return; }
+    if (e.type === 'message' || e.type === 'message-changed' || e.type === 'chat-cleared' || e.type === 'message-hidden') { load(); return; }
     /* A status dot is one boolean on one row. Reloading the whole inbox for it
        would turn every arrival and departure into a round trip, which on a
        metered bundle is the thing this transport exists to avoid. */
@@ -451,7 +505,7 @@ const TYPING_TTL_MS = 4000;
 const TYPING_PING_MS = 3000;
 
 export function ChatThread({ id }: { id: string }) {
-  const { state, toast, refreshUnread } = useApp();
+  const { state, toast, refreshUnread, navigate } = useApp();
   const t = useT();
   const { meta } = useLanguage();
   const me = state.user?.id;
@@ -489,12 +543,19 @@ export function ChatThread({ id }: { id: string }) {
      from three directions — the reply to a POST, the live stream, and a
      catch-up sync — and all three are correct. Keyed by id, so the last one to
      arrive wins and none of them can produce a duplicate. */
+  /* What this person has let go of: everything up to a clear, and single
+     messages deleted for them. An edit or a late sync of one of those must
+     not quietly put it back on screen. */
+  const clearedAt = useRef('');
+  const hiddenIds = useRef(new Set<string>());
+
   const mergeMessages = useCallback((incoming: Message[]) => {
     if (incoming.length === 0) return;
     setMessages((prev) => {
       const byId = new Map((prev ?? []).map((m) => [m.id, m]));
       for (const m of incoming) {
         if (m.senderId !== id && m.recipientId !== id) continue; // not this conversation
+        if (hiddenIds.current.has(m.id) || (clearedAt.current && m.createdAt <= clearedAt.current)) continue;
         byId.set(m.id, m);
         noteSeen(m.createdAt);
       }
@@ -517,6 +578,8 @@ export function ChatThread({ id }: { id: string }) {
         setEditWindow(t.editWindowMinutes ?? 15);
         setVoiceMaxMs(t.voiceMaxMs ?? 60_000);
         setBlocked(t.blocked);
+        clearedAt.current = t.clearedAt ?? '';
+        hiddenIds.current = new Set();
         setMessages(t.messages);
         for (const m of t.messages) noteSeen(m.createdAt);
       } catch {
@@ -544,6 +607,16 @@ export function ChatThread({ id }: { id: string }) {
       setMessages((prev) => (prev ?? []).map((m) => (ids.has(m.id)
         ? { ...m, delivered: true, read: e.state === 'read' ? true : m.read }
         : m)));
+    }
+    // Cleared or deleted on another of my devices: this one follows.
+    if (e.type === 'chat-cleared' && e.userId === id) {
+      clearedAt.current = e.at;
+      setMessages((prev) => (prev ?? []).filter((m) => m.createdAt > e.at));
+      setHasMore(false);
+    }
+    if (e.type === 'message-hidden' && e.userId === id) {
+      hiddenIds.current.add(e.id);
+      setMessages((prev) => (prev ?? []).filter((m) => m.id !== e.id));
     }
     if (e.type === 'typing' && e.from === id) setTypingUntil(Date.now() + TYPING_TTL_MS);
     /* Presence used to be read once, when the thread opened, and never again —
@@ -753,6 +826,41 @@ export function ChatThread({ id }: { id: string }) {
       toast((e as Error).message);
     }
   }, [mergeMessages, toast]);
+
+  const hideForMe = useCallback(async (m: Message) => {
+    setMenuFor(null);
+    // Gone from the screen at once; the server call only makes it stick.
+    hiddenIds.current.add(m.id);
+    setMessages((prev) => (prev ?? []).filter((x) => x.id !== m.id));
+    setEditingId((cur) => (cur === m.id ? null : cur));
+    setReplyingTo((cur) => (cur?.id === m.id ? null : cur));
+    try {
+      await api.hideMessage(m.id);
+      refreshUnread();
+    } catch (e) {
+      hiddenIds.current.delete(m.id);
+      mergeMessages([m]);
+      toast((e as Error).message);
+    }
+  }, [mergeMessages, refreshUnread, toast]);
+
+  const [confirmClear, setConfirmClear] = useState<null | 'clear' | 'delete'>(null);
+  const clearChat = async (remove: boolean) => {
+    setConfirmClear(null);
+    try {
+      const res = await api.clearChat(id, remove);
+      clearedAt.current = res.clearedAt;
+      setMessages((prev) => (prev ?? []).filter((m) => m.createdAt > res.clearedAt));
+      setHasMore(false);
+      setReplyingTo(null);
+      setEditingId(null);
+      refreshUnread();
+      toast(remove ? t('chat.x.deletedChatToast') : t('chat.x.clearedToast'));
+      if (remove) navigate('messages');
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
 
   const toggleBlock = async () => {
     setThreadMenu(false);
@@ -999,9 +1107,11 @@ export function ChatThread({ id }: { id: string }) {
           mine={menuFor.senderId === me}
           canEdit={withinEditWindow(menuFor, editWindow)}
           canCopy={menuFor.kind === 'text' || !!menuFor.body}
+          deleted={menuFor.deleted}
           onReply={() => startReply(menuFor)}
           onEdit={() => startEdit(menuFor)}
-          onDelete={() => removeMessage(menuFor)}
+          onDeleteForMe={() => hideForMe(menuFor)}
+          onDeleteForEveryone={() => removeMessage(menuFor)}
           onCopy={() => copyText(menuFor)}
           onClose={() => setMenuFor(null)}
         />
@@ -1032,11 +1142,35 @@ export function ChatThread({ id }: { id: string }) {
                 {t('chat.x.blockExplain')}
               </p>
             )}
+            <button
+              className="w-full text-left px-4 py-3 text-body font-semibold text-ink hover:bg-surface-2 transition flex items-center gap-3 border-t border-line"
+              onClick={() => { setThreadMenu(false); setConfirmClear('clear'); }}
+            >
+              <Icon name="trash" size={16} /> {t('chat.x.clearChat')}
+            </button>
+            <button
+              className="w-full text-left px-4 py-3 text-body font-semibold text-danger hover:bg-surface-2 transition flex items-center gap-3"
+              onClick={() => { setThreadMenu(false); setConfirmClear('delete'); }}
+            >
+              <Icon name="trash" size={16} /> {t('chat.x.deleteChat')}
+            </button>
             <button className="w-full text-left px-4 py-3 text-body font-semibold text-dim hover:bg-surface-2 transition border-t border-line" onClick={() => setThreadMenu(false)}>
               {t('action.cancel')}
             </button>
           </div>
         </div>
+      )}
+
+      {confirmClear && (
+        <ConfirmChatSheet
+          title={confirmClear === 'clear' ? t('chat.x.clearConfirmTitle') : t('chat.x.deleteChatConfirmTitle')}
+          body={confirmClear === 'clear'
+            ? t('chat.x.clearConfirmBody', { name: otherFirstName })
+            : t('chat.x.deleteChatConfirmBody', { name: otherFirstName })}
+          action={confirmClear === 'clear' ? t('chat.x.clearChat') : t('chat.x.deleteChat')}
+          onConfirm={() => clearChat(confirmClear === 'delete')}
+          onClose={() => setConfirmClear(null)}
+        />
       )}
 
       {reporting && <SafetySheet aboutUserId={id} onClose={() => setReporting(false)} />}

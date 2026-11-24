@@ -148,7 +148,46 @@ const initialsOf = (name) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ---- serializers ----
-const userOut = (u) => ({ id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null });
+/* ---- Msizi, for one account only ----
+
+   Msizi is switched off for everyone except the owner while it is not good
+   enough to show people who are deciding whether Vuka is credible. The
+   owner keeps it, so it can go on being worked on in the real app.
+
+   Who counts as the owner:
+     1. VUKA_MSIZI_ACCOUNTS, when set — a comma list of user ids or phone
+        numbers. This is the precise way and wins outright.
+     2. Otherwise the OLDEST account whose name starts "Sabelo". Oldest, not
+        any: somebody who registers tomorrow under the same name must not
+        inherit it, and the owner's account predates every public sign-up.
+   The server decides, not the app, so turning it off cannot be undone by
+   anyone editing their own browser — the assistant routes refuse as well. */
+/* A phone is compared on its last nine digits, so 082…, 27 82… and +27 82…
+   are the same number however it was typed into the dashboard. */
+const phoneKey = (p) => String(p || '').replace(/\D/g, '').slice(-9);
+const MSIZI_ACCOUNTS = new Set(String(process.env.VUKA_MSIZI_ACCOUNTS || '')
+  .split(',').map((x) => x.trim()).filter(Boolean)
+  .flatMap((x) => (/^[\d\s+()-]+$/.test(x) ? [phoneKey(x)] : [x])));
+let msiziOwnerId = null;
+async function refreshMsiziOwner() {
+  if (MSIZI_ACCOUNTS.size) return;
+  const rows = await all("SELECT id, name, created_at FROM users ORDER BY created_at ASC, id ASC");
+  const owner = rows.find((r) => String(r.name || '').toLowerCase().replace(/[^a-z]/g, '').startsWith('sabelo'));
+  msiziOwnerId = owner?.id ?? null;
+}
+const msiziAllowed = (u) => {
+  if (!u) return false;
+  if (MSIZI_ACCOUNTS.size) {
+    const phone = phoneKey(u.phone);
+    return MSIZI_ACCOUNTS.has(u.id) || (phone.length === 9 && MSIZI_ACCOUNTS.has(phone));
+  }
+  return !!msiziOwnerId && u.id === msiziOwnerId;
+};
+
+const userOut = (u) => ({
+  id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null,
+  features: { msizi: msiziAllowed(u) },
+});
 function profileOut(p, verified) {
   if (!p) return null;
   return {
@@ -2104,7 +2143,19 @@ const assistantLimiter = rateLimit({
   message: { error: 'Msizi needs a moment. Try again in a minute.', reason: 'slow_down' },
 });
 
-app.post('/api/assistant/ask', requireAuth, assistantLimiter, asyncH(async (req, res) => {
+await refreshMsiziOwner();
+setInterval(() => { refreshMsiziOwner().catch((e) => captureError(e, 'msizi:owner')); }, 10 * 60_000).unref?.();
+
+/** Every Msizi route: the owner only, until it is ready for everyone. */
+async function requireMsizi(req, res, next) {
+  try {
+    const u = await userById(req.user.id);
+    if (!msiziAllowed(u)) return res.status(403).json({ error: 'Msizi is not available yet.', reason: 'msizi_off' });
+    next();
+  } catch (e) { next(e); }
+}
+
+app.post('/api/assistant/ask', requireAuth, requireMsizi, assistantLimiter, asyncH(async (req, res) => {
   const question = String(req.body?.question ?? '').trim();
   if (!question) return res.status(400).json({ error: 'Ask a question first.', reason: 'empty' });
   if (!aiConfigured()) return res.status(503).json({ error: 'Msizi is answering from its own notes only.', reason: 'not_configured' });
@@ -2148,7 +2199,7 @@ const sttLimiter = rateLimit({
   keyGenerator: (req) => req.user?.id ?? req.ip,
   message: { error: 'Slow down a little.', reason: 'slow_down' },
 });
-app.post('/api/assistant/transcribe', requireAuth, sttLimiter,
+app.post('/api/assistant/transcribe', requireAuth, requireMsizi, sttLimiter,
   express.raw({ type: () => true, limit: STT_MAX_BYTES }),
   asyncH(async (req, res) => {
     const lang = String(req.query.lang ?? 'en');
@@ -2166,11 +2217,11 @@ app.post('/api/assistant/transcribe', requireAuth, sttLimiter,
   }));
 
 /* Before an answer starts: can ALL of it be read in the natural voice? */
-app.post('/api/assistant/voice/check', requireAuth, voiceLimiter, asyncH(async (req, res) => {
+app.post('/api/assistant/voice/check', requireAuth, requireMsizi, voiceLimiter, asyncH(async (req, res) => {
   res.json({ speakable: await canSpeakAll(req.body?.texts, req.body?.voice) });
 }));
 
-app.post('/api/assistant/voice', requireAuth, voiceLimiter, asyncH(async (req, res) => {
+app.post('/api/assistant/voice', requireAuth, requireMsizi, voiceLimiter, asyncH(async (req, res) => {
   try {
     const { audio, cached } = await synthesize(req.body?.text, req.body?.voice);
     res.set('Content-Type', 'audio/wav');
@@ -2602,10 +2653,29 @@ async function attachmentsFor(rows) {
   return new Map(found.map((a) => [a.id, a]));
 }
 
+/* ---- what one person can still see ----
+
+   Clearing a chat or deleting a message "for me" never touches the message
+   row: the other person still has it. So every read path filters through
+   this clause instead. `m` is the messages alias, and the viewer's id is
+   bound twice, once per subquery. */
+const VISIBLE = `NOT EXISTS (SELECT 1 FROM chat_clears cc
+    WHERE cc.user_id = ?
+      AND cc.other_id = CASE WHEN m.sender_id = cc.user_id THEN m.recipient_id ELSE m.sender_id END
+      AND m.created_at <= cc.cleared_at)
+  AND NOT EXISTS (SELECT 1 FROM message_hides mh WHERE mh.user_id = ? AND mh.message_id = m.id)`;
+
+async function unreadCount(userId) {
+  const r = await get(
+    `SELECT COUNT(*) AS c FROM messages m WHERE m.recipient_id = ? AND m.read_at IS NULL AND ${VISIBLE}`,
+    [userId, userId, userId],
+  );
+  return Number(r.c);
+}
+
 // Unread message count (for the nav badge).
 app.get('/api/messages/unread-count', requireAuth, asyncH(async (req, res) => {
-  const r = await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id]);
-  res.json({ count: Number(r.c) });
+  res.json({ count: await unreadCount(req.user.id) });
 }));
 
 /**
@@ -2618,20 +2688,30 @@ app.get('/api/messages/unread-count', requireAuth, asyncH(async (req, res) => {
  * extra query rather than one per conversation.
  */
 app.get('/api/messages/conversations', requireAuth, asyncH(async (req, res) => {
+  const me = req.user.id;
   const pairs = await all(
-    `SELECT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other_id,
-            MAX(created_at) AS last_at
-       FROM messages
-      WHERE sender_id = ? OR recipient_id = ?
+    `SELECT CASE WHEN m.sender_id = ? THEN m.recipient_id ELSE m.sender_id END AS other_id,
+            MAX(m.created_at) AS last_at
+       FROM messages m
+      WHERE (m.sender_id = ? OR m.recipient_id = ?) AND ${VISIBLE}
       GROUP BY 1
       ORDER BY 2 DESC
       LIMIT 100`,
-    [req.user.id, req.user.id, req.user.id],
+    [me, me, me, me, me],
   );
 
+  /* A cleared chat with nothing newer has no visible messages, so it is not
+     in `pairs`. "Clear chat" (unlike "Delete chat") keeps it listed anyway. */
+  const kept = await all('SELECT other_id, cleared_at FROM chat_clears WHERE user_id = ? AND hidden = 0', [me]);
+  const listed = new Set(pairs.map((p) => p.other_id));
+  for (const k of kept) if (!listed.has(k.other_id)) pairs.push({ other_id: k.other_id, last_at: k.cleared_at, empty: true });
+  pairs.sort((a, b) => String(b.last_at).localeCompare(String(a.last_at)));
+
   const unreadRows = await all(
-    'SELECT sender_id, COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL GROUP BY sender_id',
-    [req.user.id],
+    `SELECT m.sender_id, COUNT(*) AS c FROM messages m
+      WHERE m.recipient_id = ? AND m.read_at IS NULL AND ${VISIBLE}
+      GROUP BY m.sender_id`,
+    [me, me, me],
   );
   const unreadBy = new Map(unreadRows.map((r) => [r.sender_id, Number(r.c)]));
 
@@ -2639,12 +2719,19 @@ app.get('/api/messages/conversations', requireAuth, asyncH(async (req, res) => {
   for (const p of pairs) {
     const u = await get('SELECT id, name, role FROM users WHERE id = ?', [p.other_id]);
     if (!u) continue;
+    if (p.empty) {
+      convos.push({
+        user: await chatUser(u), lastMessage: '', lastKind: 'text', lastAt: p.last_at,
+        lastFromMe: false, lastRead: false, lastDelivered: false, unread: 0, online: isOnline(u.id),
+      });
+      continue;
+    }
     const last = await get(
-      `SELECT * FROM messages
-        WHERE ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))
-          AND created_at = ?
-        ORDER BY id LIMIT 1`,
-      [req.user.id, u.id, u.id, req.user.id, p.last_at],
+      `SELECT * FROM messages m
+        WHERE ((m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?))
+          AND m.created_at = ? AND ${VISIBLE}
+        ORDER BY m.id LIMIT 1`,
+      [me, u.id, u.id, me, p.last_at, me, me],
     );
     if (!last) continue;
     convos.push({
@@ -2711,8 +2798,8 @@ app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => 
   if (!u) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
 
   const limit = Math.min(Math.max(Number(req.query.limit) || THREAD_PAGE, 1), 100);
-  const pair = [req.user.id, u.id, u.id, req.user.id];
-  const where = '((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))';
+  const pair = [req.user.id, u.id, u.id, req.user.id, req.user.id, req.user.id];
+  const where = `((m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)) AND ${VISIBLE}`;
 
   let rows;
   let hasMore = false;
@@ -2721,16 +2808,16 @@ app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => 
        page size: what changed since a few seconds ago is tiny by definition,
        and truncating it would silently drop the tail. */
     rows = await all(
-      `SELECT * FROM messages WHERE ${where} AND created_at >= ? ORDER BY created_at ASC LIMIT 200`,
+      `SELECT * FROM messages m WHERE ${where} AND m.created_at >= ? ORDER BY m.created_at ASC LIMIT 200`,
       [...pair, String(req.query.since)],
     );
   } else {
     /* Newest page, or the page above `before`. Fetched descending so the
        database can stop early, then flipped for the client. */
-    const clause = req.query.before ? `${where} AND created_at < ?` : where;
+    const clause = req.query.before ? `${where} AND m.created_at < ?` : where;
     const params = req.query.before ? [...pair, String(req.query.before)] : pair;
     const page = await all(
-      `SELECT * FROM messages WHERE ${clause} ORDER BY created_at DESC LIMIT ?`,
+      `SELECT * FROM messages m WHERE ${clause} ORDER BY m.created_at DESC LIMIT ?`,
       [...params, limit + 1],
     );
     hasMore = page.length > limit;
@@ -2760,6 +2847,9 @@ app.get('/api/messages/thread/:userId', requireAuth, asyncH(async (req, res) => 
     blocked: block.iBlocked,
     messages: rows.map((r) => msgOut(r, r.reply_to_id ? byId.get(r.reply_to_id) ?? null : null, files.get(r.attachment_id) ?? null)),
     hasMore,
+    /* Anything at or before this is cleared for this viewer. The app uses it
+       to refuse a late edit of a message it has already let go of. */
+    clearedAt: (await get('SELECT cleared_at FROM chat_clears WHERE user_id = ? AND other_id = ?', [req.user.id, u.id]))?.cleared_at ?? null,
     editWindowMinutes: MESSAGE_EDIT_WINDOW_MIN,
     voiceMaxMs: VOICE_MAX_MS,
     attachMaxBytes: ATTACH_MAX_BYTES,
@@ -2777,10 +2867,10 @@ app.get('/api/messages/sync', requireAuth, asyncH(async (req, res) => {
   const since = String(req.query.since || '');
   const rows = since
     ? await all(
-      `SELECT * FROM messages
-        WHERE (recipient_id = ? OR sender_id = ?) AND created_at >= ?
-        ORDER BY created_at ASC LIMIT 200`,
-      [req.user.id, req.user.id, since],
+      `SELECT * FROM messages m
+        WHERE (m.recipient_id = ? OR m.sender_id = ?) AND m.created_at >= ? AND ${VISIBLE}
+        ORDER BY m.created_at ASC LIMIT 200`,
+      [req.user.id, req.user.id, since, req.user.id, req.user.id],
     )
     : [];
 
@@ -2790,7 +2880,7 @@ app.get('/api/messages/sync', requireAuth, asyncH(async (req, res) => {
 
   const files = await attachmentsFor(rows);
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const unread = Number((await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id])).c);
+  const unread = await unreadCount(req.user.id);
 
   res.json({
     now: new Date().toISOString(),
@@ -2830,7 +2920,7 @@ app.post('/api/messages/read', requireAuth, asyncH(async (req, res) => {
     );
     emit(otherId, 'receipt', { state: 'read', by: req.user.id, at, ids: affected.map((r) => r.id) });
   }
-  const unread = Number((await get('SELECT COUNT(*) AS c FROM messages WHERE recipient_id = ? AND read_at IS NULL', [req.user.id])).c);
+  const unread = await unreadCount(req.user.id);
   res.json({ ok: true, marked: affected.length, unread });
 }));
 
@@ -3036,6 +3126,57 @@ app.delete('/api/messages/:id', requireAuth, asyncH(async (req, res) => {
   emit(m.recipient_id, 'message-changed', out);
   emit(m.sender_id, 'message-changed', out);
   res.json(out);
+}));
+
+/**
+ * Clear a conversation, or delete it, for me only.
+ *
+ * { userId, remove }: remove=false is "Clear chat" (the conversation stays in
+ * the list, empty); remove=true is "Delete chat" (it leaves the list until
+ * either of you writes again). Either way the other person's copy is
+ * untouched, every message is still on the server for safety reports, and
+ * nothing is said to them. Unread messages that were cleared stop counting,
+ * without sending a read receipt for words nobody read.
+ */
+app.post('/api/messages/clear', requireAuth, asyncH(async (req, res) => {
+  const otherId = String(req.body?.userId || '');
+  if (!otherId || otherId === req.user.id) return res.status(400).json({ error: 'Which conversation?' });
+  const other = await get('SELECT id FROM users WHERE id = ?', [otherId]);
+  if (!other) return res.status(404).json({ error: 'That person is no longer on Vuka.' });
+  const hidden = req.body?.remove ? 1 : 0;
+  /* chatNow() puts the clear on the same clock as the messages, so a message
+     written in the same instant is unambiguously before or after it. */
+  const at = chatNow();
+  await run('DELETE FROM chat_clears WHERE user_id = ? AND other_id = ?', [req.user.id, otherId]);
+  await run('INSERT INTO chat_clears (user_id, other_id, cleared_at, hidden) VALUES (?,?,?,?)', [req.user.id, otherId, at, hidden]);
+  // Per-message hides inside the cleared range are now redundant.
+  await run(
+    `DELETE FROM message_hides WHERE user_id = ? AND message_id IN (
+       SELECT id FROM messages WHERE created_at <= ?
+          AND ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)))`,
+    [req.user.id, at, req.user.id, otherId, otherId, req.user.id],
+  );
+  // My other devices drop it too.
+  emit(req.user.id, 'chat-cleared', { userId: otherId, at, removed: !!hidden });
+  res.json({ ok: true, clearedAt: at, removed: !!hidden, unread: await unreadCount(req.user.id) });
+}));
+
+/**
+ * Delete one message for me only: any message in my conversations, mine or
+ * theirs. "Delete for everyone" (DELETE /api/messages/:id) is the other one.
+ */
+app.post('/api/messages/:id/hide', requireAuth, asyncH(async (req, res) => {
+  const m = await get('SELECT id, sender_id, recipient_id FROM messages WHERE id = ?', [req.params.id]);
+  if (!m || (m.sender_id !== req.user.id && m.recipient_id !== req.user.id)) {
+    return res.status(404).json({ error: 'That message no longer exists.' });
+  }
+  const done = await get('SELECT 1 AS x FROM message_hides WHERE user_id = ? AND message_id = ?', [req.user.id, m.id]);
+  if (!done) {
+    await run('INSERT INTO message_hides (user_id, message_id, created_at) VALUES (?,?,?)', [req.user.id, m.id, new Date().toISOString()]);
+  }
+  const otherId = m.sender_id === req.user.id ? m.recipient_id : m.sender_id;
+  emit(req.user.id, 'message-hidden', { id: m.id, userId: otherId });
+  res.json({ ok: true, id: m.id, unread: await unreadCount(req.user.id) });
 }));
 
 /* ---- the live channel ----

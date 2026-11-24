@@ -61,7 +61,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 // ---- server response shapes ----
-export interface ApiUser { id: string; role: Role; name: string; phone: string; email?: string | null; }
+export interface ApiUser {
+  id: string; role: Role; name: string; phone: string; email?: string | null;
+  /** Switched on per account by the server. Msizi is owner-only for now. */
+  features?: { msizi?: boolean };
+}
 export interface ApiProfile {
   age: number; location: string; education: string; bio: string;
   skills: CategoryId[]; idVerified: boolean; color: string; joined: string; tagline: string;
@@ -134,6 +138,8 @@ export interface Thread {
   messages: Message[];
   /** There is older history above this page. */
   hasMore: boolean;
+  /** You cleared this chat at this moment; nothing at or before it is yours to see. */
+  clearedAt?: string | null;
   editWindowMinutes: number;
   voiceMaxMs: number;
   attachMaxBytes: number;
@@ -560,6 +566,11 @@ export const api = {
     }),
   editMessage: (id: string, body: string) => request<Message>('PATCH', `/messages/${id}`, { body }),
   deleteMessage: (id: string) => request<Message>('DELETE', `/messages/${id}`),
+  /** Delete one message on your side only. Theirs is untouched. */
+  hideMessage: (id: string) => request<{ ok: boolean; id: string; unread: number }>('POST', `/messages/${id}/hide`),
+  /** Clear a chat (remove=false) or delete it from your list (remove=true), for you only. */
+  clearChat: (userId: string, remove = false) =>
+    request<{ ok: boolean; clearedAt: string; removed: boolean; unread: number }>('POST', '/messages/clear', { userId, remove }),
   getSocial: (userId: string) => request<Social>('GET', `/users/${userId}/social`),
   follow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('POST', `/users/${userId}/follow`),
   unfollow: (userId: string) => request<{ isFollowing: boolean; followers: number }>('DELETE', `/users/${userId}/follow`),

@@ -60,6 +60,11 @@ services:
         sync: false
       - key: VUKA_GEMINI_API_KEY
         sync: false
+      # Who may use Msizi while it is switched off for everyone else: a comma
+      # list of phone numbers or user ids. Unset, it is the oldest account
+      # named "Sabelo…" (the owner's). See msiziAllowed() in server.mjs.
+      - key: VUKA_MSIZI_ACCOUNTS
+        sync: false
       # SMS — the only thing gating new sign-ups. Without it /api/auth/otp
       # returns 503 and nobody new can register; existing and demo accounts
       # still work, which is what makes it easy to miss.

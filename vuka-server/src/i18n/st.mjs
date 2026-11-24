@@ -83,6 +83,7 @@ export const st = {
   'That push endpoint is not valid.': 'Endpoint eo ya push ha e a nepahala.',
   'That push subscription is missing its encryption keys.': 'Ngodiso eo ya push e haelloa ke dinotlolo tsa yona tsa encryption.',
   'Msizi needs a moment. Try again in a minute.': 'Msizi o hloka motsotso. Leka hape kamora motsotso.',
+  'Msizi is not available yet.': 'Msizi ha a so fumanehe.',
   'Ask a question first.': 'Botsa potso pele.',
   'Msizi is answering from its own notes only.': 'Msizi o araba ho tswa dintlheng tsa hae feela.',
   'Msizi has answered a lot today. Try again tomorrow.': 'Msizi o arabile haholo kajeno. Leka hape hosane.',

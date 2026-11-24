@@ -83,6 +83,7 @@ export const zu = {
   'That push endpoint is not valid.': 'Leyo ndawo yezaziso ayilungile.',
   'That push subscription is missing its encryption keys.': 'Lokho kubhalisela izaziso akunazo izikhiye zokubethela.',
   'Msizi needs a moment. Try again in a minute.': 'UMsizi udinga isikhashana. Zama futhi emzuzwini.',
+  'Msizi is not available yet.': 'UMsizi akakatholakali okwamanje.',
   'Ask a question first.': 'Buza umbuzo kuqala.',
   'Msizi is answering from its own notes only.': 'UMsizi uphendula ngamanothi akhe kuphela.',
   'Msizi has answered a lot today. Try again tomorrow.': 'UMsizi uphendule okuningi namuhla. Zama futhi kusasa.',

@@ -59,7 +59,9 @@ export default defineConfig({
            up front, which is ~46 KB of a South African user's data bundle spent
            on glyph ranges this app will never render. They stay on the server
            and are still fetched on demand in the rare case one is needed. */
-        globIgnores: ['**/*-{latin-ext,vietnamese}-*.woff2'],
+        /* Msizi is owner-only for now and loads on demand, so it is not worth
+           ~100 KB of every other user's bundle to pre-download it. */
+        globIgnores: ['**/*-{latin-ext,vietnamese}-*.woff2', '**/Msizi-*.js'],
         /* So `icon.png?v=2` still matches the precached `icon.png` instead of
            falling through to the network. The two defaults are kept because
            setting this replaces them. */

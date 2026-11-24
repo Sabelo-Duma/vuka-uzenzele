@@ -39,7 +39,11 @@ export type ChatEvent =
   /** Someone in a conversation with you arrived or went away. */
   | { type: 'presence'; userId: string; online: boolean }
   /** The bell's unread count changed (a new notice, or read on another device). */
-  | { type: 'notification'; unread: number };
+  | { type: 'notification'; unread: number }
+  /** You cleared or deleted a chat, here or on another of your devices. */
+  | { type: 'chat-cleared'; userId: string; at: string; removed: boolean }
+  /** You deleted one message for yourself, here or on another device. */
+  | { type: 'message-hidden'; id: string; userId: string };
 
 type Listener = (e: ChatEvent) => void;
 
@@ -197,6 +201,14 @@ async function connect() {
   es.addEventListener('notification', (e) => {
     const n = parsed<{ unread: number }>(e as MessageEvent);
     if (n) emit({ type: 'notification', unread: Number(n.unread) || 0 });
+  });
+  es.addEventListener('chat-cleared', (e) => {
+    const c = parsed<{ userId: string; at: string; removed: boolean }>(e as MessageEvent);
+    if (c) emit({ type: 'chat-cleared', userId: c.userId, at: c.at, removed: !!c.removed });
+  });
+  es.addEventListener('message-hidden', (e) => {
+    const h = parsed<{ id: string; userId: string }>(e as MessageEvent);
+    if (h) emit({ type: 'message-hidden', id: h.id, userId: h.userId });
   });
   es.addEventListener('typing', (e) => {
     const t = parsed<{ from: string }>(e as MessageEvent);

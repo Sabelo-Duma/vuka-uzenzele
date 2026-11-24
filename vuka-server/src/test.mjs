@@ -24,6 +24,9 @@ process.env.VUKA_STORAGE_TTL_MS = '0';
 // Msizi's model fallback must never reach a real provider from a test run.
 delete process.env.VUKA_GROQ_API_KEY;
 delete process.env.VUKA_GEMINI_API_KEY;
+// Msizi is owner-only. The test worker (0829990001) is the owner here, typed
+// the way someone would paste it into the dashboard, to prove it still matches.
+process.env.VUKA_MSIZI_ACCOUNTS = '+27 82 999 0001';
 // A throwaway VAPID keypair so the push routes are switched on for the run.
 // Generated here with node:crypto rather than via push.mjs, because that module
 // reads its keys at import time — importing it first would freeze them as empty.
@@ -358,6 +361,54 @@ async function run() {
     ok((await api('DELETE', `/messages/${reply.json.id}`, { token: wTok })).status === 200, 'deleting an already-deleted message is harmless');
   }
 
+  // 9c-iib) "for me": delete one message, clear a chat, delete a chat.
+  // The other person's copy must never change.
+  {
+    const theirs = await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'for-me test' } });
+    const hide = await api('POST', `/messages/${theirs.json.id}/hide`, { token: wTok });
+    ok(hide.status === 200, 'anyone in the conversation can delete a message for themselves, even one they did not send');
+    const wSees = (await api('GET', `/messages/thread/${eId}`, { token: wTok })).json.messages.map((m) => m.id);
+    const eSees = (await api('GET', `/messages/thread/${wId}`, { token: eTok })).json.messages.map((m) => m.id);
+    ok(!wSees.includes(theirs.json.id), 'a message deleted for me is gone from my thread');
+    ok(eSees.includes(theirs.json.id), 'and still in theirs');
+    ok((await api('POST', `/messages/${theirs.json.id}/hide`, { token: wTok })).status === 200, 'deleting for me twice is harmless');
+    const outsider = await loginAs(GIG_OWNER.j2);
+    ok((await api('POST', `/messages/${theirs.json.id}/hide`, { token: outsider })).status === 404, 'a stranger cannot touch a message in someone else\'s chat');
+
+    // Clear: unread from them stops counting, without a read receipt.
+    await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'unread before clear' } });
+    const before = (await api('GET', '/messages/unread-count', { token: wTok })).json.count;
+    const cleared = await api('POST', '/messages/clear', { token: wTok, body: { userId: eId } });
+    ok(cleared.status === 200 && cleared.json?.clearedAt, 'a chat can be cleared');
+    ok(cleared.json.unread < before, 'clearing drops its unread messages from the badge');
+    const wThread = await api('GET', `/messages/thread/${eId}`, { token: wTok });
+    ok(wThread.json.messages.length === 0 && wThread.json.clearedAt, 'a cleared chat opens empty');
+    const eThread = await api('GET', `/messages/thread/${wId}`, { token: eTok });
+    ok(eThread.json.messages.length > 0, 'the other person keeps every message');
+    ok(eThread.json.messages.filter((m) => m.senderId === eId).every((m) => !m.read || m.body !== 'unread before clear'),
+      'clearing does not tell them their unread message was read');
+    const wConvos = (await api('GET', '/messages/conversations', { token: wTok })).json;
+    const row = wConvos.find((c) => c.user.id === eId);
+    ok(row && row.lastMessage === '' && row.unread === 0, 'Clear chat keeps the conversation listed, empty');
+    const sinceSync = (await api('GET', `/messages/sync?since=${encodeURIComponent('1970-01-01')}`, { token: wTok })).json.messages;
+    ok(!sinceSync.some((m) => (m.senderId === eId || m.recipientId === eId)), 'catch-up sync does not bring cleared messages back');
+
+    // A new message after the clear shows normally.
+    const fresh = await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'after the clear' } });
+    const after = (await api('GET', `/messages/thread/${eId}`, { token: wTok })).json.messages;
+    ok(after.length === 1 && after[0].id === fresh.json.id, 'only what is said after a clear appears');
+
+    // Delete chat: gone from the list until somebody writes again.
+    ok((await api('POST', '/messages/clear', { token: wTok, body: { userId: eId, remove: true } })).json?.removed === true, 'a chat can be deleted');
+    ok(!(await api('GET', '/messages/conversations', { token: wTok })).json.some((c) => c.user.id === eId), 'a deleted chat leaves the list');
+    ok((await api('GET', '/messages/conversations', { token: eTok })).json.some((c) => c.user.id === wId), 'but not theirs');
+    await api('POST', '/messages', { token: eTok, body: { toUserId: wId, body: 'back again' } });
+    const back = (await api('GET', '/messages/conversations', { token: wTok })).json.find((c) => c.user.id === eId);
+    ok(back?.lastMessage === 'back again' && back?.unread === 1, 'a new message brings a deleted chat back, with only the new message');
+    ok((await api('POST', '/messages/clear', { token: wTok, body: { userId: wId } })).status === 400, 'you cannot clear a chat with yourself');
+    await api('POST', '/messages/read', { token: wTok, body: { userId: eId } });
+  }
+
   // 9c-iii) the SMS payload template. A provider whose field names differ is an
   // env change, not a code change — but only if the template survives real
   // message text.
@@ -521,6 +572,12 @@ async function run() {
   // guards that do not depend on a provider actually hold.
   {
     ok((await api('POST', '/assistant/ask', { body: { question: 'hi' } })).status === 401, 'assistant requires auth');
+    // Owner-only: switched on for the configured account, off for everyone else.
+    ok(wReg.json.user?.features?.msizi === true, 'the owner account is told Msizi is on');
+    ok((await api('GET', '/auth/me', { token: eTok })).json?.user?.features?.msizi === false, 'every other account is told it is off');
+    const offForOthers = await api('POST', '/assistant/ask', { token: eTok, body: { question: 'how do I post a job?' } });
+    ok(offForOthers.status === 403 && offForOthers.json?.reason === 'msizi_off', 'and the server refuses them, not just the app');
+    ok((await api('POST', '/assistant/voice/check', { token: eTok, body: { texts: ['Hello.'] } })).status === 403, 'voice is owner-only too');
     ok((await api('POST', '/assistant/ask', { token: wTok, body: { question: '  ' } })).status === 400, 'empty question rejected');
     const off = await api('POST', '/assistant/ask', { token: wTok, body: { question: 'can I bring my child to a job?', lang: 'en' } });
     ok(off.status === 503 && off.json?.reason === 'not_configured', 'with no key, it says so rather than failing');
