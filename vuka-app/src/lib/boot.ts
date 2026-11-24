@@ -104,8 +104,9 @@ export function reloadOnNewWorker(): void {
     /* Reported from a phone: the app appeared, then the loading screen came
        back and it loaded again. That was this reload firing after the splash
        had gone. A new build now only reloads the page while the splash still
-       covers it; after that it waits for the next launch. */
-    if (!splashShowing) return;
+       covers it; otherwise it is applied the next time the person comes back
+       to the app (applyUpdateOnReturn), never under their thumb. */
+    if (!splashShowing) { updateWaiting = true; return; }
     reloading = true;
     /* A second stop, in case a pathological worker activates on every load:
        one reload per tab session, whatever else happens. */
@@ -116,6 +117,52 @@ export function reloadOnNewWorker(): void {
       /* No storage. The in-memory guard above still holds for this page. */
     }
     window.location.reload();
+  });
+}
+
+/** A new build took over after the splash had gone; it is waiting to be shown. */
+let updateWaiting = false;
+
+/** Away at least this long before coming back counts as a fresh start. */
+const AWAY_MS = 30_000;
+/** Do not ask the server for a new build more often than this. */
+const CHECK_EVERY_MS = 10 * 60_000;
+
+/**
+ * Keep an app that is never closed up to date.
+ *
+ * An installed app on a phone is resumed far more often than it is launched —
+ * on an iPhone it can sit in the background for days — and the splash, which
+ * is where updates used to be picked up, only shows on a launch. Reported
+ * after a release: the owner opened Chats and the new feature was not there,
+ * because the phone was still running the build from before it.
+ *
+ * So coming back to the app does two things:
+ *   · checks for a new build (at most every ten minutes), and
+ *   · if one has already taken over and the person was away for 30 seconds
+ *     or more, reloads into it. They were not mid-anything, the reload is
+ *     about a second, and the outbox keeps any queued message safe.
+ * A quick glance away and back never reloads.
+ */
+export function applyUpdateOnReturn(): void {
+  if (!('serviceWorker' in navigator)) return;
+  let hiddenAt = 0;
+  let lastCheck = Date.now();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    if (updateWaiting && away >= AWAY_MS) {
+      updateWaiting = false;
+      window.location.reload();
+      return;
+    }
+    if (Date.now() - lastCheck >= CHECK_EVERY_MS) {
+      lastCheck = Date.now();
+      navigator.serviceWorker.getRegistration()
+        .then((reg) => reg?.update())
+        .catch(() => { /* offline: try again next time */ });
+    }
   });
 }
 
