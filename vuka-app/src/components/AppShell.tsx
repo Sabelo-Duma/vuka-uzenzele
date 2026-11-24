@@ -128,6 +128,7 @@ function AccountBar() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { state, navigate, goBack, canGoBack } = useApp();
+  const msiziOn = !!state.user?.features?.msizi;
   const t = useT();
 
   /* Swiping in from the left edge goes back, the way it does everywhere else
@@ -189,8 +190,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="ml-auto"><UnreadBadge count={state.unread} onDark={current === 'messages'} /></span>
           </button>
           {/* Msizi — also both roles. Sits last because it is the thing you
-              reach for when one of the others has not made sense. */}
-          <button
+              reach for when one of the others has not made sense. Only on
+              accounts the server has switched it on for (owner-only for now). */}
+          {msiziOn && <button
             onClick={() => navigate('msizi')}
             aria-current={current === 'msizi' ? 'page' : undefined}
             className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-small font-bold transition
@@ -198,7 +200,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Icon name="assistant" size={20} />
             <span>{t('msizi.open')}</span>
-          </button>
+          </button>}
         </nav>
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -266,11 +268,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       </div>
 
-      <MsiziFab
-        onOpen={() => navigate('msizi')}
-        hidden={keyboardOpen || state.nav.screen === 'msizi'}
-        onChat={state.nav.screen === 'chat'}
-      />
+      {msiziOn && (
+        <MsiziFab
+          onOpen={() => navigate('msizi')}
+          hidden={keyboardOpen || state.nav.screen === 'msizi'}
+          onChat={state.nav.screen === 'chat'}
+        />
+      )}
     </div>
   );
 }

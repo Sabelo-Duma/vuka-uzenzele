@@ -240,6 +240,30 @@ export async function initDb() {
       PRIMARY KEY (blocker_id, blocked_id)
     );
 
+    /* "For me" actions in chat: clearing or deleting a conversation, and
+       deleting one message, on your side only. The other person's copy is
+       untouched, which is what makes these safe to offer freely, and why the
+       rows are per viewer rather than edits to the messages themselves.
+
+       chat_clears: everything up to cleared_at is gone for user_id. hidden=1
+       also drops the conversation from the inbox until something newer
+       arrives ("Delete chat"); hidden=0 keeps it listed, empty ("Clear
+       chat"). */
+    CREATE TABLE IF NOT EXISTS chat_clears (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      other_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cleared_at TEXT NOT NULL,
+      hidden INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, other_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS message_hides (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, message_id)
+    );
+
     CREATE TABLE IF NOT EXISTS follows (
       follower_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       followee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useApp } from './store/appStore';
 import { Splash } from './components/Splash';
 import { dismissBootSplash, splashReady } from './lib/boot';
@@ -21,7 +21,9 @@ import { MyJobs } from './features/employer/MyJobs';
 import { Applicants } from './features/employer/Applicants';
 import { EmployerProfile } from './features/employer/EmployerProfile';
 import { Messages, ChatThread } from './features/chat/Chat';
-import { Msizi } from './features/msizi/Msizi';
+/* Msizi is owner-only for now, so its five-language knowledge base and voice
+   code load only when it is opened, instead of in every user's first download. */
+const Msizi = lazy(() => import('./features/msizi/Msizi').then((m) => ({ default: m.Msizi })));
 import { PublicCv } from './features/public/PublicCv';
 import { Icon } from './components/Icon';
 import { Notifications } from './features/notifications/Notifications';
@@ -91,10 +93,10 @@ export function App() {
   const screen = state.nav.screen;
 
   let content: React.ReactNode;
-  if (screen === 'msizi') {
+  if (screen === 'msizi' && state.user?.features?.msizi) {
     /* Before the role switch: Msizi answers for both roles, and asking it a
        question should never depend on which kind of account you have. */
-    content = <Msizi />;
+    content = <Suspense fallback={null}><Msizi /></Suspense>;
   } else if (screen === 'notifications') {
     content = <Notifications />;
   } else if (screen === 'messages') {

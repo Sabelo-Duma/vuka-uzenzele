@@ -124,6 +124,26 @@ only when it is actually in front of someone (`document.hidden` is checked).
 
 ---
 
+## Deleting, clearing: "for me" and "for everyone"
+
+The same choices people already know from WhatsApp:
+
+| action | where | who it affects |
+|---|---|---|
+| Delete for everyone | hold a message you sent → Delete | both sides; a tombstone stays |
+| Delete for me | hold any message → Delete | only you |
+| Clear chat | ⋯ in the thread header | only you; the chat stays in your list, empty |
+| Delete chat | ⋯ in the thread header | only you; it leaves your list until either of you writes again |
+
+The "for me" actions never touch the message row. The other person's copy is
+untouched, and every message is still on the server for safety reports, which
+need a human to be able to read what was actually said. They are stored per
+viewer instead (`chat_clears`, `message_hides`), and every read path (thread,
+sync, inbox and unread counts) filters through one SQL clause, `VISIBLE` in
+`server.mjs`. Clearing a chat drops its unread messages from your badge
+without sending a read receipt for words you never read. Your other signed-in
+devices follow at once (`chat-cleared`, `message-hidden` events).
+
 ## The thread header, and the keyboard
 
 The header is a name and a status — Online, Offline, or *typing…* — and nothing
