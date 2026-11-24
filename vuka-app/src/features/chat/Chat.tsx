@@ -407,11 +407,33 @@ function PendingBubble({ p, onRetry, onDiscard }: {
 
 /* ---------------- Inbox ---------------- */
 export function Messages() {
-  const { navigate, loadConversations } = useApp();
+  const { navigate, loadConversations, toast, refreshUnread } = useApp();
   const t = useT();
   const { meta } = useLanguage();
   const [convos, setConvos] = useState<Conversation[] | null>(null);
   const [finding, setFinding] = useState(false);
+  // Clear / delete a whole chat from the list, without opening it first.
+  const [optionsFor, setOptionsFor] = useState<Conversation | null>(null);
+  const [confirm, setConfirm] = useState<{ c: Conversation; kind: 'clear' | 'delete' } | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const pressFired = useRef(false);
+  const pressStart = useRef({ x: 0, y: 0 });
+  const cancelPress = () => { if (pressTimer.current !== null) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
+  const clearFromList = async (c: Conversation, remove: boolean) => {
+    setConfirm(null);
+    try {
+      await api.clearChat(c.user.id, remove);
+      // Updated here at once; the reload the live event triggers agrees with it.
+      setConvos((prev) => (remove
+        ? (prev ?? []).filter((x) => x.user.id !== c.user.id)
+        : (prev ?? []).map((x) => (x.user.id === c.user.id ? { ...x, lastMessage: '', lastFromMe: false, unread: 0 } : x))));
+      refreshUnread();
+      toast(remove ? t('chat.x.deletedChatToast') : t('chat.x.clearedToast'));
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
 
   const load = useCallback(() => {
     loadConversations().then(setConvos).catch(() => setConvos((prev) => prev ?? []));
@@ -460,8 +482,34 @@ export function Messages() {
       ) : (
         <div className="flex flex-col gap-2.5">
           {convos.map((c) => (
-            <button key={c.user.id} onClick={() => navigate('chat', c.user.id)} className="text-left active:scale-[.99] transition-transform">
-              <Card className="p-3.5 flex gap-3.5 items-center hover:bg-surface-2 transition-colors">
+            <Card key={c.user.id} className="flex items-center hover:bg-surface-2 transition-colors">
+            <button
+              onClick={() => {
+                // The long-press already opened the options; lifting off is not also a tap.
+                if (pressFired.current) { pressFired.current = false; return; }
+                navigate('chat', c.user.id);
+              }}
+              onContextMenu={(e) => { e.preventDefault(); setOptionsFor(c); }}
+              onTouchStart={(e) => {
+                const p = e.touches[0];
+                pressStart.current = { x: p.clientX, y: p.clientY };
+                pressFired.current = false;
+                cancelPress();
+                pressTimer.current = window.setTimeout(() => {
+                  pressFired.current = true;
+                  buzz(12);
+                  setOptionsFor(c);
+                }, LONG_PRESS_MS);
+              }}
+              onTouchMove={(e) => {
+                const p = e.touches[0];
+                if (Math.abs(p.clientX - pressStart.current.x) > 12 || Math.abs(p.clientY - pressStart.current.y) > 12) cancelPress();
+              }}
+              onTouchEnd={cancelPress}
+              onTouchCancel={cancelPress}
+              className="flex-1 min-w-0 text-left active:scale-[.99] transition-transform select-none [-webkit-touch-callout:none]"
+            >
+              <div className="p-3.5 pr-1 flex gap-3.5 items-center">
                 <div className="relative shrink-0">
                   <Avatar initials={c.user.initials} />
                   {/* A green dot only ever means "their app is open right now" —
@@ -486,11 +534,63 @@ export function Messages() {
                   <span className="text-micro text-faint">{timeShort(c.lastAt, meta.tag)}</span>
                   {c.unread > 0 && <span className="grid place-items-center min-w-[20px] h-5 px-1.5 rounded-full bg-brand-solid text-brand-on text-micro font-bold font-mono tnum">{c.unread}</span>}
                 </div>
-              </Card>
+              </div>
             </button>
+            {/* Always visible, so deleting a chat never depends on knowing
+                that a long-press exists. */}
+            <button
+              onClick={() => setOptionsFor(c)}
+              aria-label={t('chat.x.optionsFor', { name: c.user.name })}
+              aria-haspopup="dialog"
+              className="shrink-0 grid place-items-center w-11 h-11 mr-1.5 rounded-full text-faint hover:text-ink hover:bg-surface-2 transition"
+            >
+              <Icon name="more" size={18} />
+            </button>
+            </Card>
           ))}
         </div>
       )}
+
+      {optionsFor && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-label={t('chat.x.optionsFor', { name: optionsFor.user.name })}>
+          <button className="absolute inset-0 bg-black/40" aria-label={t('action.close')} onClick={() => setOptionsFor(null)} />
+          <div className="relative w-full sm:w-[340px] bg-surface rounded-t-3xl sm:rounded-3xl border border-line shadow-e3 overflow-hidden animate-slideup pb-[max(8px,env(safe-area-inset-bottom))] sm:pb-0">
+            <div className="px-4 pt-4 pb-2">
+              <b className="block text-body font-extrabold text-ink tracking-tight">{optionsFor.user.name}</b>
+              <span className="text-micro text-dim">{roleLabel(optionsFor.user.role, t)}</span>
+            </div>
+            <button
+              className="w-full text-left px-4 py-3 text-body font-semibold text-ink hover:bg-surface-2 transition flex items-center gap-3 border-t border-line"
+              onClick={() => { setConfirm({ c: optionsFor, kind: 'clear' }); setOptionsFor(null); }}
+            >
+              <Icon name="trash" size={16} /> {t('chat.x.clearChat')}
+            </button>
+            <button
+              className="w-full text-left px-4 py-3 text-body font-semibold text-danger hover:bg-surface-2 transition flex items-center gap-3"
+              onClick={() => { setConfirm({ c: optionsFor, kind: 'delete' }); setOptionsFor(null); }}
+            >
+              <Icon name="trash" size={16} /> {t('chat.x.deleteChat')}
+            </button>
+            <button className="w-full text-left px-4 py-3 text-body font-semibold text-dim hover:bg-surface-2 transition border-t border-line" onClick={() => setOptionsFor(null)}>
+              {t('action.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirm && (() => {
+        const first = confirm.c.user.name.split(' ')[0] || confirm.c.user.name;
+        const del = confirm.kind === 'delete';
+        return (
+          <ConfirmChatSheet
+            title={del ? t('chat.x.deleteChatConfirmTitle') : t('chat.x.clearConfirmTitle')}
+            body={del ? t('chat.x.deleteChatConfirmBody', { name: first }) : t('chat.x.clearConfirmBody', { name: first })}
+            action={del ? t('chat.x.deleteChat') : t('chat.x.clearChat')}
+            onConfirm={() => clearFromList(confirm.c, del)}
+            onClose={() => setConfirm(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -9,6 +9,7 @@
     "check:classes": "node scripts/check-classes.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:chat": "node scripts/check-chat.mjs",
+    "check:chat-delete": "node scripts/check-chat-delete.mjs",
     "check:csp": "node scripts/check-csp.mjs",
     "check:responsive": "node scripts/check-responsive.mjs",
     "dev": "vite",
