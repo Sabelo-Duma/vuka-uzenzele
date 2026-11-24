@@ -23,7 +23,21 @@ import { EmployerProfile } from './features/employer/EmployerProfile';
 import { Messages, ChatThread } from './features/chat/Chat';
 /* Msizi is owner-only for now, so its five-language knowledge base and voice
    code load only when it is opened, instead of in every user's first download. */
-const Msizi = lazy(() => import('./features/msizi/Msizi').then((m) => ({ default: m.Msizi })));
+const Msizi = lazy(() => import('./features/msizi/Msizi')
+  .then((m) => ({ default: m.Msizi }))
+  /* A deploy while the app was open removes the old build's files, so this
+     one can be gone by the time it is asked for. Reload onto the new build
+     rather than show an error; the session flag stops it looping offline. */
+  .catch((e) => {
+    try {
+      if (!sessionStorage.getItem('vuka-chunk-reload')) {
+        sessionStorage.setItem('vuka-chunk-reload', '1');
+        window.location.reload();
+        return new Promise<never>(() => {});
+      }
+    } catch { /* no storage: fall through to the error */ }
+    throw e;
+  }));
 import { PublicCv } from './features/public/PublicCv';
 import { Icon } from './components/Icon';
 import { Notifications } from './features/notifications/Notifications';
