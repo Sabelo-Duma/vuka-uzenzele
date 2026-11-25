@@ -84,6 +84,7 @@ export const af = {
   'That push subscription is missing its encryption keys.': 'Daardie stootintekening kort sy enkripsiesleutels.',
   'Msizi needs a moment. Try again in a minute.': 'Msizi het ’n oomblik nodig. Probeer oor ’n minuut weer.',
   'Msizi is not available yet.': 'Msizi is nog nie beskikbaar nie.',
+  'This page is not available.': 'Hierdie bladsy is nie beskikbaar nie.',
   'Ask a question first.': 'Vra eers ’n vraag.',
   'Msizi is answering from its own notes only.': 'Msizi antwoord net uit sy eie notas.',
   'Msizi has answered a lot today. Try again tomorrow.': 'Msizi het vandag baie geantwoord. Probeer môre weer.',

@@ -18,7 +18,7 @@ export type Screen =
   | 'talent' | 'post' | 'hires' | 'applicants'
   | 'gigDetail' | 'formalDetail' | 'workerDetail'
   | 'messages' | 'chat'
-  | 'msizi' | 'notifications';
+  | 'msizi' | 'notifications' | 'owner';
 
 export interface Nav { screen: Screen; id?: string; }
 

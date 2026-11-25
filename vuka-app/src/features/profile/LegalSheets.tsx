@@ -73,7 +73,7 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 
       <H>What we collect, and why</H>
       <L items={[
-        <><b>Your name and mobile number</b> — to create your account, prove the number is yours by SMS code, and let the other side of a job contact you.</>,
+        <><b>Your name and mobile number</b> — to create your account, prove the number is yours by SMS code, let the other side of a job contact you, and so Vuka can contact you about your account or to ask how it is working for you.</>,
         <><b>A password</b> — stored only as a one-way hash. Nobody at {OPERATOR.tradingName}, including us, can read it.</>,
         <><b>Your suburb, age, education and skills</b> — to match you with work near you and show employers who they're hiring.</>,
         <><b>Your work record</b> — jobs done, hours, pay, ratings and written references. This is your CV; it's the point of the product.</>,

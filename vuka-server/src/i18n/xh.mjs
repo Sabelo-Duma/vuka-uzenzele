@@ -84,6 +84,7 @@ export const xh = {
   'That push subscription is missing its encryption keys.': 'Olo bhaliso lwezaziso aluna zitshixo zalo zokufihla.',
   'Msizi needs a moment. Try again in a minute.': 'UMsizi ufuna umzuzwana. Zama kwakhona emva komzuzu.',
   'Msizi is not available yet.': 'UMsizi akakafumaneki okwangoku.',
+  'This page is not available.': 'Eli phepha alifumaneki.',
   'Ask a question first.': 'Buza umbuzo kuqala.',
   'Msizi is answering from its own notes only.': 'UMsizi uphendula esebenzisa amanqaku akhe kuphela.',
   'Msizi has answered a lot today. Try again tomorrow.': 'UMsizi uphendule kakhulu namhlanje. Zama kwakhona ngomso.',

@@ -53,7 +53,7 @@ export const OPERATOR = {
    * until one exists, the individual operating it in their own name. A sole
    * operator is a perfectly lawful responsible party; an unnamed one is not.
    */
-  legalName: '',
+  legalName: 'Sabelo Duma (sole operator of Vuka Uzenzele)',
   /**
    * TODO: the appointed Information Officer (POPIA s55).
    *
@@ -63,13 +63,13 @@ export const OPERATOR = {
    * and online, and is the most commonly skipped POPIA obligation in the
    * country.
    */
-  informationOfficer: '',
+  informationOfficer: 'Sabelo Duma',
   /** TODO: a monitored mailbox for access, correction and deletion requests. */
   privacyEmail: '',
   /** Where the servers are. Render's Frankfurt region + a managed Postgres. */
   hostingRegion: 'Frankfurt, Germany (EU)',
   /** Last substantive change to the notice and terms. */
-  lastUpdated: '14 September 2026',
+  lastUpdated: '25 November 2026',
 } as const;
 
 /** True once the notice can honestly be presented as final. */

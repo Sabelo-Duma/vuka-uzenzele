@@ -92,6 +92,7 @@ export const MESSAGES = [
   'That push subscription is missing its encryption keys.',
   'Msizi needs a moment. Try again in a minute.',
   'Msizi is not available yet.',
+  'This page is not available.',
   'Ask a question first.',
   'Msizi is answering from its own notes only.',
   'Msizi has answered a lot today. Try again tomorrow.',

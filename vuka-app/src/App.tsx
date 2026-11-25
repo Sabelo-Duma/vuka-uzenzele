@@ -39,6 +39,7 @@ const Msizi = lazy(() => import('./features/msizi/Msizi')
     throw e;
   }));
 import { PublicCv } from './features/public/PublicCv';
+import { OwnerPeoplePage } from './features/owner/People';
 import { Icon } from './components/Icon';
 import { Notifications } from './features/notifications/Notifications';
 import { useT } from './providers/LanguageProvider';
@@ -111,6 +112,8 @@ export function App() {
     /* Before the role switch: Msizi answers for both roles, and asking it a
        question should never depend on which kind of account you have. */
     content = <Suspense fallback={null}><Msizi /></Suspense>;
+  } else if (screen === 'owner' && state.user?.features?.owner) {
+    content = <OwnerPeoplePage />;
   } else if (screen === 'notifications') {
     content = <Notifications />;
   } else if (screen === 'messages') {
