@@ -106,7 +106,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['msizi', 'assistant', 'help', 'bot', 'ai', 'robot', 'you'],
     body:
       'I am Msizi — "umsizi" means helper. I answer questions about how Vuka works.\n'
-      + 'I am not an artificial intelligence and I do not guess. I am a set of answers written and checked against how this app actually behaves, so if I tell you something, it is true of Vuka. If I do not know something, I will say so rather than invent it.\n'
+      + 'Most of my answers are written and checked against how this app actually behaves. When a question is not covered, I use AI to answer from those same checked answers, and I mark those answers so you can tell. If I do not know something, I will say so rather than invent it.\n'
       + 'I can read your own record back to you — your score, your tier, your jobs, your applications — because that is on your phone already. I cannot apply for jobs for you, hire anyone, or touch your banking details. Those stay your decision, always.\n'
       + 'You can type to me or tap the microphone and talk.',
     next: ['msizi-languages', 'my-score', 'find-work'],
@@ -224,7 +224,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'find-work',
     title: 'Finding work',
-    asks: ['How do I find work?', 'Where are the jobs?', 'How do I get a job?', 'How do I apply for a job?', 'I need a job'],
+    asks: ['How do I find work?', 'Where are the jobs?', 'How do I get a job?', 'How do I apply for a job?', 'I need a job', 'How do I apply?', 'How do I get a job here?', 'I need a job, please help'],
     keywords: ['find', 'work', 'job', 'jobs', 'gig', 'gigs', 'search', 'browse', 'apply', 'hiring'],
     role: 'worker',
     body:
@@ -355,7 +355,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'the-ladder',
     title: 'The Ladder',
-    asks: ['What is The Ladder?', 'What are the tiers?', 'Explain the tiers to me'],
+    asks: ['What is The Ladder?', 'What are the tiers?', 'Explain the tiers to me', 'How do I become Trusted?', 'How do I move up a tier?'],
     keywords: ['ladder', 'tier', 'tiers', 'level', 'levels', 'rank', 'starter', 'trusted', 'professional', 'elite', 'medal'],
     role: 'worker',
     body:

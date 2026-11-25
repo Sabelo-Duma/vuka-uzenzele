@@ -32,7 +32,7 @@ import { useApp } from '../../store/appStore';
 import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { computeCv } from '../../lib/engine';
 import { autoReleaseHours } from '../../data/catalog';
-import { ask, askById, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
+import { SURE_SCORE, ask, askById, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
 import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
 import {
@@ -286,7 +286,7 @@ export function Msizi() {
        are kept — speak() uses them as sentence boundaries, which is what gives
        the voice a cadence instead of one flat run-on. */
     const text = r.kind === 'miss'
-      ? `${t(r.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}.\n${t('msizi.missBody')}`
+      ? `${t(r.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}.\n${t(r.offTopic ? 'msizi.missBody' : 'msizi.unsureBody')}`
       : r.title ? `${r.title}.\n${r.body}` : r.body;
     setSpeakingTurn(turn.id);
     /* The language of the TEXT picks the voice. Written and live answers say
@@ -374,12 +374,21 @@ export function Msizi() {
     /* 2. The written answers. "Hi, how do I get paid" is asked without the hi. */
     const query = peelGreeting(q).rest || q;
     const reply = ask(query, ctx);
-    if (reply.kind !== 'miss') { put(q, reply, spoken); return; }
+    /* A live answer is built from the person's own record, which never goes to
+       the model, so it is shown as it is. A written answer is shown only when
+       the match is sure; a near one is a guess (see SURE_SCORE). */
+    if (reply.kind === 'live' || (reply.kind === 'answer' && reply.score >= SURE_SCORE)) { put(q, reply, spoken); return; }
 
-    /* 3. Nothing written covers it. Ask the model, grounded on the nearest
-          entries. Offline, unconfigured or over quota, it says honestly that it
-          does not know, exactly as before. */
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) { put(q, reply, spoken); return; }
+    /* 3. Nothing written covers it, or only roughly. Ask the model, grounded on
+          the nearest entries. Offline, unconfigured or over quota, it says
+          honestly that it is not sure and offers the near match as a chip to
+          tap, rather than stating a guess. */
+    /* Beside a model answer, the near written answer is a useful "more on
+       this". Beside "I am not sure" it is the guess again (car wash → scam
+       warning), so that gets the role's openers, which are always sensible. */
+    const nearIds = [...new Set([...(reply.id ? [reply.id] : []), ...reply.suggestions])].slice(0, 3);
+    const unsure: MsiziReply = { kind: 'miss', id: null, title: '', body: '', suggestions: openers(ctx.role).slice(0, 3), score: reply.score };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { put(q, unsure, spoken); return; }
     const pending = put(q, { ...reply, kind: 'thinking' }, spoken);
     const epoch = epochRef.current;
     const history = turnsRef.current
@@ -391,9 +400,10 @@ export function Msizi() {
         /* Not a Vuka question: a polite no, in the person's own language, and
            what Msizi can help with instead. */
         ? { ...reply, kind: 'miss', offTopic: true, suggestions: openers(ctx.role).slice(0, 4) }
-        : { kind: 'ai', id: null, title: '', body: answer, suggestions: reply.suggestions.slice(0, 3), score: reply.score },
+        /* The near written answer stays one tap away as a chip. */
+        : { kind: 'ai', id: null, title: '', body: answer, suggestions: nearIds, score: reply.score },
       epoch))
-      .catch(() => settleTurn(pending, reply, epoch));
+      .catch(() => settleTurn(pending, unsure, epoch));
   }, [ctx, put, settleTurn, lang, firstName, setConversation]);
 
   const pick = useCallback((id: string) => {
@@ -646,7 +656,7 @@ export function Msizi() {
                     <h2 className="m-0 mb-1.5 text-lead font-display font-bold text-ink">
                       {t(turn.reply.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}
                     </h2>
-                    <p className="m-0 text-body text-dim leading-relaxed">{t('msizi.missBody')}</p>
+                    <p className="m-0 text-body text-dim leading-relaxed">{t(turn.reply.offTopic ? 'msizi.missBody' : 'msizi.unsureBody')}</p>
                   </>
                 ) : (
                   <>

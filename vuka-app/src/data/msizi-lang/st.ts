@@ -35,7 +35,7 @@ export const msiziSt: MsiziLang = {
       keywords: ['msizi', 'mothusi', 'roboto', 'bot', 'ai', 'wena'],
       body:
         'Ke nna Msizi — “umsizi” e bolela mothusi. Ke araba dipotso tsa kamoo Vuka e sebetsang kateng.\n'
-        + 'Ha ke bohlale ba maiketsetso, mme ha ke hakanye. Ke dikarabo tse ngotsweng mme tsa hlahlojwa kgahlanong le kamoo app ena e sebetsang kateng ka nnete, kahoo ha nka o bolella ho hong, ke nnete ka Vuka. Ha ke sa tsebe ho hong, ke tla bua jwalo ho ena le ho iqapela.\n'
+        + 'Boholo ba dikarabo tsa ka di ngotswe mme di hlahlobilwe kgahlanong le kamoo app ena e sebetsang kateng ka nnete. Ha potso e sa arabjwe ke tsona, ke sebedisa AI ho araba ho tswa dikarabong tseo tse hlahlobilweng, mme dikarabo tseo ke a di tshwaya hore o bone. Ha ke sa tsebe ho hong, ke tla bua jwalo ho ena le ho iqapela.\n'
         + 'Nka o balla rekoto ya hao — score ya hao, boemo ba hao, mesebetsi ya hao, dikopo tsa hao — hobane seo se se se le mohaleng wa hao. Nke ke ka o etsetsa dikopo tsa mosebetsi, ka hira motho, kapa ka ama dintlha tsa hao tsa banka. Tseo di dula e le qeto ya hao, kamehla.\n'
         + 'O ka nngolla kapa wa tobetsa maekrofounu wa bua.',
     },

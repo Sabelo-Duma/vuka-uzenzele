@@ -44,7 +44,7 @@ export const msiziZu: MsiziLang = {
       keywords: ['msizi', 'umsizi', 'irobhothi', 'robhothi', 'bot', 'ai', 'wena'],
       body:
         'NginguMsizi — "umsizi" usho umuntu osizayo. Ngiphendula imibuzo mayelana nendlela i-Vuka esebenza ngayo.\n'
-        + 'Angiyona i-AI futhi angiqageli. Ngiyiqoqo lezimpendulo ezibhaliwe nezihlolwe ngokuthi le app isebenza kanjani ngempela, ngakho uma ngikutshela okuthile, kuyiqiniso nge-Vuka. Uma kukhona engingakwazi, ngizokusho kunokuba ngiqambe amanga.\n'
+        + 'Iningi lezimpendulo zami libhaliwe futhi lihlolwe ngokuthi le app isebenza kanjani ngempela. Uma umbuzo ungaphenduli yizo, ngisebenzisa i-AI ukuze ngiphendule ngisuka kulezo zimpendulo ezihloliwe, futhi lezo zimpendulo ngiyazimaka ukuze ubone. Uma kukhona engingakwazi, ngizokusho kunokuba ngiqambe amanga.\n'
         + 'Ngingakufundela irekhodi lakho — amaphuzu akho, izinga lakho, imisebenzi yakho, izicelo zakho — ngoba lokho sekuvele kusefonini yakho. Angikwazi ukukufakela izicelo zemisebenzi, ukuqasha umuntu, noma ukuthinta imininingwane yakho yasebhange. Lokho kuhlala kuyisinqumo sakho, njalo.\n'
         + 'Ungangibhalela noma uthephe imakrofoni ukhulume nami.',
     },
@@ -141,7 +141,7 @@ export const msiziZu: MsiziLang = {
     /* ---------------- Finding work ---------------- */
     'find-work': {
       title: 'Ukuthola umsebenzi',
-      asks: ['Ngiwuthola kanjani umsebenzi?', 'Ikuphi imisebenzi?', 'Ngifaka kanjani isicelo somsebenzi?', 'Ngidinga umsebenzi', 'Ngifuna i-job'],
+      asks: ['Ngiwuthola kanjani umsebenzi?', 'Ngingawuthola kanjani umsebenzi?', 'Ikuphi imisebenzi?', 'Ngifaka kanjani isicelo somsebenzi?', 'Ngidinga umsebenzi', 'Ngifuna i-job'],
       keywords: ['thola', 'umsebenzi', 'imisebenzi', 'job', 'gig', 'sesha', 'faka isicelo', 'isicelo'],
       body:
         'Thepha okuthi Thola umsebenzi. Uzobona imisebenzi yesikhashana eseduze kwakho, eseduze kakhulu iqala.\n'
