@@ -3630,6 +3630,30 @@ const stopAttachmentSweep = (() => {
   return () => clearInterval(timer);
 })();
 
+/* Keep the live site awake. Render's free plan sleeps after 15 minutes with no
+   visitor, and the next person waits up to a minute on a blank screen. GitHub's
+   scheduler proved too unreliable to prevent that (it ran every 4-8 hours) and
+   Supabase's own scheduler is closed to the app's database login, so the server
+   visits its own public address. That goes out through Render's front door, so
+   it counts as a visitor; /api/health also touches the database, which keeps
+   Supabase from pausing the project. Render sets RENDER_EXTERNAL_URL itself;
+   nothing runs locally or in tests. */
+const stopSelfPing = (() => {
+  const base = process.env.RENDER_EXTERNAL_URL;
+  if (!base || process.env.VUKA_SELF_PING === '0') return () => {};
+  const tick = async () => {
+    try {
+      const r = await fetch(`${base.replace(/\/$/, '')}/api/health`, { signal: AbortSignal.timeout(30_000) });
+      if (!r.ok) console.warn(`keep-awake: health answered ${r.status}`);
+    } catch (e) {
+      console.warn(`keep-awake: ${(e && e.message) || e}`);
+    }
+  };
+  const timer = setInterval(tick, 10 * 60_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
+})();
+
 /* Overnight, record Msizi's written answers in the natural voice with the
    free allowance nobody is using (voice.mjs). */
 const stopVoiceWarmer = startVoiceWarmer();
@@ -3673,6 +3697,7 @@ async function shutdown(signal) {
   stopAutoRelease();
   stopVoiceWarmer();
   stopAttachmentSweep();
+  stopSelfPing();
   /* An SSE stream never finishes on its own, so server.close() would be waiting
      for something that is never going to happen and the failsafe below would be
      what actually ended the process — taking in-flight requests with it. Drop
