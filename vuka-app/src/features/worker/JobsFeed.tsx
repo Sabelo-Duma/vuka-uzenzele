@@ -124,6 +124,9 @@ export function JobsFeed() {
 
   function Formal({ cv, list }: { cv: ReturnType<typeof computeCv>; list: FormalJob[] }) {
     if (state.dataLoading && state.formalJobs.length === 0) return <CardSkeletonGrid count={4} />;
+    if (state.formalJobs.length === 0) {
+      return <EmptyState icon="ladder" title={t('worker.feed.noFormalYet')} hint={t('worker.feed.noFormalYetHint')} />;
+    }
     if (list.length === 0) {
       return <EmptyState icon="search" title={t('worker.feed.noCatFormal', { category: catLabel ?? '' })} hint={t('worker.feed.noCatFormalHint')} action={<Button size="sm" variant="ghost" onClick={() => setCategory(null)}>{t('worker.feed.showAllRoles')}</Button>} />;
     }

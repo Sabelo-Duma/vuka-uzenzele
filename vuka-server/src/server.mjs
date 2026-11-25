@@ -6,7 +6,7 @@ import morgan from 'morgan';
 import { existsSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 import { all, get, run, initDb, closeDb, driver, toBytes } from './db.mjs';
-import { seedIfEmpty, DEMO_PHONES } from './seed.mjs';
+import { seedIfEmpty, DEMO_PHONES, SEED_FORMAL_IDS } from './seed.mjs';
 import {
   hashPassword, verifyPassword, signToken, requireAuth, requireRole, uuid,
   randomDigits, hashCode, verifyCode, signPurposeToken, verifyPurposeToken,
@@ -186,7 +186,7 @@ const msiziAllowed = (u) => {
 
 const userOut = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null,
-  features: { msizi: msiziAllowed(u) },
+  features: { msizi: msiziAllowed(u), owner: msiziAllowed(u) },
 });
 function profileOut(p, verified) {
   if (!p) return null;
@@ -983,6 +983,25 @@ app.post('/api/auth/register', asyncH(async (req, res) => {
    site locks them unless VUKA_ALLOW_DEMO=1 is set for a demonstration. */
 const demoLocked = () => process.env.NODE_ENV === 'production' && process.env.VUKA_ALLOW_DEMO !== '1';
 
+/* Sample data off the live site.
+
+   The seed fills an empty database with invented jobs, employers and workers
+   so the app has something to show in development. On the live site those
+   were being shown to real people: a job-seeker in Pietermaritzburg found two
+   sample car-wash jobs in Soweto, eight formal roles at companies that do not
+   exist, and employers browsing workers saw seeded profiles claiming 27 and
+   31 jobs at the top of the list, above every real person.
+
+   Hidden rather than deleted: the rows stay (a demonstration can bring them
+   back with VUKA_ALLOW_DEMO=1), but nothing a real user lists or opens
+   includes them. `alias` is the users table alias in the caller's query. */
+const DEMO_LIST = [...DEMO_PHONES];
+const notDemo = (alias) => (demoLocked()
+  ? { sql: ` AND (${alias}.phone IS NULL OR ${alias}.phone NOT IN (${DEMO_LIST.map(() => '?').join(',')}))`, params: DEMO_LIST }
+  : { sql: '', params: [] });
+const isDemoPhone = (phone) => demoLocked() && DEMO_PHONES.has(phone);
+const isSeedFormal = (id) => demoLocked() && SEED_FORMAL_IDS.has(id);
+
 app.post('/api/auth/login', asyncH(async (req, res) => {
   /* `identifier` is what the single sign-in field sends; `phone` and `email`
      are accepted too so an older client keeps working. */
@@ -1107,7 +1126,8 @@ app.get('/api/auth/me', requireAuth, asyncH(async (req, res) => {
 // ---- gigs ----
 app.get('/api/gigs', asyncH(async (req, res) => {
   const from = viewerCoords(req);
-  const rows = await all("SELECT g.*, u.id_verified AS employer_verified FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.status = 'open' ORDER BY g.created_at DESC LIMIT 500");
+  const nd = notDemo('u');
+  const rows = await all(`SELECT g.*, u.id_verified AS employer_verified FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.status = 'open'${nd.sql} ORDER BY g.created_at DESC LIMIT 500`, nd.params);
   const out = await gigsOut(rows, from);
   // "Work near me" is the whole point, so when we know where the viewer is,
   // the closest gig leads. Without a position we keep newest-first.
@@ -1116,8 +1136,8 @@ app.get('/api/gigs', asyncH(async (req, res) => {
 }));
 
 app.get('/api/gigs/:id', asyncH(async (req, res) => {
-  const g = await get('SELECT g.*, u.id_verified AS employer_verified FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.id = ?', [req.params.id]);
-  if (!g) return res.status(404).json({ error: 'This gig is no longer available. Browse other gigs near you.' });
+  const g = await get('SELECT g.*, u.id_verified AS employer_verified, u.phone AS employer_phone FROM gigs g LEFT JOIN users u ON u.id = g.employer_id WHERE g.id = ?', [req.params.id]);
+  if (!g || isDemoPhone(g.employer_phone)) return res.status(404).json({ error: 'This gig is no longer available. Browse other gigs near you.' });
   res.json((await gigsOut([g], viewerCoords(req)))[0]);
 }));
 
@@ -1501,7 +1521,7 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
 // ---- formal jobs ----
 app.get('/api/formal-jobs', asyncH(async (req, res) => {
   const from = viewerCoords(req);
-  const rows = await all('SELECT * FROM formal_jobs ORDER BY min_tier ASC LIMIT 200');
+  const rows = (await all('SELECT * FROM formal_jobs ORDER BY min_tier ASC LIMIT 200')).filter((r) => !isSeedFormal(r.id));
   res.json(rows.map((r) => withDistance(formalOut(r), rowCoords(r), from)));
 }));
 
@@ -1510,7 +1530,7 @@ app.get('/api/formal-jobs', asyncH(async (req, res) => {
 // not the rule.
 app.post('/api/formal-jobs/:id/apply', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const job = await get('SELECT * FROM formal_jobs WHERE id = ?', [req.params.id]);
-  if (!job) return res.status(404).json({ error: 'This role is no longer listed. Browse the formal jobs board for others.' });
+  if (!job || isSeedFormal(job.id)) return res.status(404).json({ error: 'This role is no longer listed. Browse the formal jobs board for others.' });
 
   const { cv } = await cvFor(req.user.id);
   if (cv.tier.id < job.min_tier) {
@@ -2131,6 +2151,64 @@ app.post('/api/push/test', requireAuth, asyncH(async (req, res) => {
 }));
 
 // ---- safety reports ----
+/* ---- the owner's view of who has joined ----
+
+   Until now the only way to know someone had registered was to stumble on
+   them; there was no way to see who they were or reach them. This lists every
+   real account (sample data left out on the live site), newest first, with
+   what the owner needs to follow up: name, role, area, number, when they
+   joined, and how far they have got.
+
+   Owner only, decided by the server (the same account check as Msizi), so
+   nobody else can read anyone's phone number by editing their app. */
+async function requireOwner(req, res, next) {
+  try {
+    const u = await userById(req.user.id);
+    if (!msiziAllowed(u)) return res.status(403).json({ error: 'This page is not available.', reason: 'not_owner' });
+    next();
+  } catch (e) { next(e); }
+}
+
+app.get('/api/owner/people', requireAuth, requireOwner, asyncH(async (req, res) => {
+  const nd = notDemo('u');
+  const rows = await all(
+    `SELECT u.id, u.name, u.role, u.phone, u.email, u.created_at, u.id_verified, p.location AS location
+       FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id
+      WHERE 1 = 1${nd.sql}
+      ORDER BY u.created_at DESC
+      LIMIT 2000`,
+    nd.params,
+  );
+  const count = async (sql) => new Map((await all(sql)).map((r) => [r.k, Number(r.c)]));
+  const posted = await count('SELECT employer_id AS k, COUNT(*) AS c FROM gigs GROUP BY employer_id');
+  const applied = await count('SELECT worker_id AS k, COUNT(*) AS c FROM applications GROUP BY worker_id');
+  const done = await count('SELECT worker_id AS k, COUNT(*) AS c FROM history GROUP BY worker_id');
+
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const people = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    role: r.role,
+    phone: r.phone,
+    email: r.email ?? null,
+    location: r.location ?? null,
+    joined: r.created_at,
+    verified: !!r.id_verified,
+    jobsPosted: posted.get(r.id) ?? 0,
+    applications: applied.get(r.id) ?? 0,
+    jobsDone: done.get(r.id) ?? 0,
+  }));
+  res.json({
+    totals: {
+      all: people.length,
+      workers: people.filter((x) => x.role === 'worker').length,
+      employers: people.filter((x) => x.role === 'employer').length,
+      thisWeek: people.filter((x) => x.joined >= weekAgo).length,
+    },
+    people,
+  });
+}));
+
 /* ---- Msizi, when the knowledge base has no answer ----
    See assistant.mjs for what is sent and what is not. A per-IP limit on top of
    the global one: each call spends a slice of a free daily quota that every
@@ -2306,7 +2384,8 @@ app.get('/api/me/employer-rating', requireAuth, requireRole('employer'), asyncH(
 
 // ---- talent (employer) ----
 app.get('/api/talent', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
-  const workers = await all("SELECT u.id, u.name, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ? LIMIT 500", [req.user.id]);
+  const nd = notDemo('u');
+  const workers = await all(`SELECT u.id, u.name, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND u.id != ?${nd.sql} LIMIT 500`, [req.user.id, ...nd.params]);
   const list = await Promise.all(workers.map(async (w) => {
     const { cv } = await cvFor(w.id);
     return {
@@ -2320,8 +2399,8 @@ app.get('/api/talent', requireAuth, requireRole('employer'), asyncH(async (req, 
 }));
 
 app.get('/api/talent/:id', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
-  const w = await get("SELECT u.id, u.name, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'", [req.params.id]);
-  if (!w) return res.status(404).json({ error: 'This worker is no longer available. Browse other verified workers.' });
+  const w = await get("SELECT u.id, u.name, u.phone AS user_phone, p.*, u.id_verified AS verified FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'", [req.params.id]);
+  if (!w || isDemoPhone(w.user_phone)) return res.status(404).json({ error: 'This worker is no longer available. Browse other verified workers.' });
   const { cv } = await cvFor(w.id);
   res.json({
     id: w.id, name: w.name, initials: initialsOf(w.name), age: w.age, location: w.location,

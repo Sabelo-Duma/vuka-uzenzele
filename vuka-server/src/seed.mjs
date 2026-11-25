@@ -40,6 +40,11 @@ const TALENT = [
 /* Every account the seed creates. They all share the public demo password, so
    on the live site the server refuses them (see the login route) — hiding the
    demo buttons alone would leave a door whose key is in the source code. */
+/* The formal roles are all invented (GoFuel, MegaMart, ...). On the live site
+   they are hidden, the same as the demo accounts: a real job-seeker applying
+   to a company that does not exist would simply never hear back. */
+export const SEED_FORMAL_IDS = new Set(FORMAL_JOBS.map((f) => f.id));
+
 export const DEMO_PHONES = new Set([
   '0710000000', '0720000000',
   ...GIGS.map((g) => g.phone).filter(Boolean),

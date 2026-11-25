@@ -64,7 +64,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export interface ApiUser {
   id: string; role: Role; name: string; phone: string; email?: string | null;
   /** Switched on per account by the server. Msizi is owner-only for now. */
-  features?: { msizi?: boolean };
+  features?: { msizi?: boolean; owner?: boolean };
 }
 export interface ApiProfile {
   age: number; location: string; education: string; bio: string;
@@ -459,7 +459,19 @@ export function reportDeparture(): void {
   } catch { /* keepalive unsupported — the stream closing is the fallback */ }
 }
 
+/** One account, as the owner's people list shows it. */
+export interface OwnerPerson {
+  id: string; name: string; role: Role; phone: string; email: string | null; location: string | null;
+  joined: string; verified: boolean; jobsPosted: number; applications: number; jobsDone: number;
+}
+export interface OwnerPeople {
+  totals: { all: number; workers: number; employers: number; thisWeek: number };
+  people: OwnerPerson[];
+}
+
 export const api = {
+  /** Everyone who has joined. Owner only; the server refuses anyone else. */
+  ownerPeople: () => request<OwnerPeople>('GET', '/owner/people'),
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
   /** One field, either credential. The server tells a phone from an email. */
   login: (identifier: string, password: string) => request<AuthResult>('POST', '/auth/login', { identifier, password }),

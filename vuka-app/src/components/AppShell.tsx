@@ -99,6 +99,25 @@ function Bell() {
   );
 }
 
+/** The owner's list of who has joined. Only drawn on the owner's account. */
+function OwnerButton() {
+  const { state, navigate } = useApp();
+  const t = useT();
+  if (!state.user?.features?.owner) return null;
+  const here = state.nav.screen === 'owner';
+  return (
+    <button
+      onClick={() => navigate('owner')}
+      aria-label={t('owner.title')}
+      aria-current={here ? 'page' : undefined}
+      className={`grid place-items-center w-11 h-11 shrink-0 rounded-chip border transition active:scale-95
+        ${here ? 'border-ink bg-surface-2 text-ink' : 'border-line bg-surface text-ink hover:bg-surface-2'}`}
+    >
+      <Icon name="talent" size={18} />
+    </button>
+  );
+}
+
 function ThemeToggle() {
   const { resolved, toggle } = useTheme();
   const t = useT();
@@ -205,7 +224,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-auto pt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-micro text-faint font-semibold">{t('me.theme')}</span>
-            <div className="flex items-center gap-2"><Bell /><ThemeToggle /></div>
+            <div className="flex items-center gap-2"><OwnerButton /><Bell /><ThemeToggle /></div>
           </div>
           <InstallButton className="w-full" />
           <AccountBar />
@@ -222,7 +241,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between gap-3 h-14
             pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))]">
             <BrandMark />
-            <div className="flex items-center gap-2"><Bell /><ThemeToggle /></div>
+            <div className="flex items-center gap-2"><OwnerButton /><Bell /><ThemeToggle /></div>
           </div>
         </header>
 

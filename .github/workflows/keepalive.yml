@@ -1,0 +1,77 @@
+# Keep the live site awake, from inside the database.
+#
+# Render's free plan puts the service to sleep after 15 minutes without a
+# request, and the next visitor waits 30–60 seconds for it to wake. uptime.yml
+# pings every 10 minutes on paper, but GitHub's scheduler is best-effort and in
+# practice ran it every 4–8 hours (measured 2026-11-24), so the site slept most
+# of the day and new users met a blank screen.
+#
+# Supabase has its own scheduler (pg_cron) and HTTP client (pg_net), both free
+# on every plan. This asks the database to open /api/health every 5 minutes,
+# which keeps Render awake AND counts as database activity, so the Supabase
+# project is never paused for inactivity either.
+#
+# Run it once (Actions → Keep-alive → Run workflow). It is safe to run again:
+# it replaces the job rather than adding a second one. To switch it off, run it
+# with "stop" ticked.
+name: Keep-alive
+
+on:
+  workflow_dispatch:
+    inputs:
+      stop:
+        description: 'Remove the keep-alive job instead of installing it'
+        type: boolean
+        default: false
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the secret is present
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL is not set as a repository secret."
+            exit 1
+          fi
+
+      - name: Install or remove the 5-minute ping
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STOP: ${{ inputs.stop }}
+        run: |
+          set -euo pipefail
+          if [ "$STOP" = "true" ]; then
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'vuka-keepalive';
+          SELECT count(*) AS keepalive_jobs_left FROM cron.job WHERE jobname = 'vuka-keepalive';
+          SQL
+            exit 0
+          fi
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+          CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+          SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'vuka-keepalive';
+          SELECT cron.schedule(
+            'vuka-keepalive',
+            '*/5 * * * *',
+            $$SELECT net.http_get('https://vuka-uzenzele.onrender.com/api/health', timeout_milliseconds := 60000)$$
+          );
+          SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'vuka-keepalive';
+          SQL
+
+      - name: Confirm it is firing
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STOP: ${{ inputs.stop }}
+        run: |
+          set -euo pipefail
+          [ "$STOP" = "true" ] && exit 0
+          # The first run lands on the next 5-minute mark.
+          sleep 330
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+            SELECT d.status, d.start_time, d.return_message
+              FROM cron.job_run_details d JOIN cron.job j ON j.jobid = d.jobid
+             WHERE j.jobname = 'vuka-keepalive'
+             ORDER BY d.start_time DESC LIMIT 3;"

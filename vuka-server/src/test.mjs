@@ -571,6 +571,38 @@ async function run() {
   // 9i) Msizi's model fallback: gated, honest when switched off, and the
   // guards that do not depend on a provider actually hold.
   {
+    // The owner's list of who has joined: owner only, with contact details.
+    {
+      ok(wReg.json.user?.features?.owner === true, 'the owner account is told it can see registered people');
+      const people = await api('GET', '/owner/people', { token: wTok });
+      ok(people.status === 200 && people.json?.totals?.all >= 2, 'the owner sees everyone who has joined');
+      const emp = people.json.people.find((x) => x.id === eId);
+      ok(emp && emp.role === 'employer' && emp.phone && emp.joined, 'with role, phone number and join date');
+      ok(people.json.totals.workers + people.json.totals.employers === people.json.totals.all, 'and the totals add up');
+      const refused = await api('GET', '/owner/people', { token: eTok });
+      ok(refused.status === 403 && refused.json?.reason === 'not_owner', 'nobody else can read the list');
+      ok((await api('GET', '/owner/people')).status === 401, 'not even without signing in');
+    }
+
+    // Sample data stays off the live site: jobs, formal roles and workers.
+    {
+      const was = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      try {
+        const gigs = (await api('GET', '/gigs')).json;
+        ok(Array.isArray(gigs) && !gigs.some((g) => /^j\d$/.test(g.id)), 'live: no sample jobs in the job list');
+        ok((await api('GET', '/gigs/j1')).status === 404, 'live: a sample job cannot be opened by link');
+        ok((await api('GET', '/formal-jobs')).json?.length === 0, 'live: none of the invented formal roles are listed');
+        ok((await api('POST', '/formal-jobs/f1/apply', { token: wTok })).status === 404, 'live: nor can anyone apply to one');
+        const talent = (await api('GET', '/talent', { token: eTok })).json;
+        ok(Array.isArray(talent) && !talent.some((t) => t.name === 'Bongani Zulu' || t.name === 'Thandeka Mokoena'), 'live: employers see no sample workers');
+        ok(talent.some((t) => t.id === wReg.json.user.id), 'live: but real workers are still listed');
+      } finally {
+        process.env.NODE_ENV = was;
+      }
+      ok((await api('GET', '/gigs/j1')).status === 200, 'in development the sample data is still there');
+    }
+
     ok((await api('POST', '/assistant/ask', { body: { question: 'hi' } })).status === 401, 'assistant requires auth');
     // Owner-only: switched on for the configured account, off for everyone else.
     ok(wReg.json.user?.features?.msizi === true, 'the owner account is told Msizi is on');
