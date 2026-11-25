@@ -36,20 +36,30 @@ jobs:
             exit 1
           fi
 
-      - name: Install or remove the 5-minute ping
+      # Supabase only lets pg_cron live in the built-in "postgres" database, and
+      # DATABASE_URL names the app's own database. Same server and login, so
+      # swap just the database name. The ping does not need the app's tables.
+      - name: Point at the postgres database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          ADMIN_URL=$(python3 -c 'import os,urllib.parse as u; p=u.urlsplit(os.environ["DATABASE_URL"]); print(u.urlunsplit(p._replace(path="/postgres")))')
+          echo "::add-mask::$ADMIN_URL"
+          echo "ADMIN_URL=$ADMIN_URL" >> "$GITHUB_ENV"
+
+      - name: Install or remove the 5-minute ping
+        env:
           STOP: ${{ inputs.stop }}
         run: |
           set -euo pipefail
           if [ "$STOP" = "true" ]; then
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+            psql "$ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL'
           SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'vuka-keepalive';
           SELECT count(*) AS keepalive_jobs_left FROM cron.job WHERE jobname = 'vuka-keepalive';
           SQL
             exit 0
           fi
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          psql "$ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL'
           CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
           CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
           SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'vuka-keepalive';
@@ -63,14 +73,13 @@ jobs:
 
       - name: Confirm it is firing
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           STOP: ${{ inputs.stop }}
         run: |
           set -euo pipefail
           [ "$STOP" = "true" ] && exit 0
           # The first run lands on the next 5-minute mark.
           sleep 330
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+          psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -c "
             SELECT d.status, d.start_time, d.return_message
               FROM cron.job_run_details d JOIN cron.job j ON j.jobid = d.jobid
              WHERE j.jobname = 'vuka-keepalive'
