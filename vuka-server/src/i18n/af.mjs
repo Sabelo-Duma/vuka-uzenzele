@@ -218,4 +218,7 @@ export const af = {
   'Those funds have already moved.': 'Daardie fondse het reeds geskuif.',
   'Add your bank details under Me first, so we know where to send it.': 'Voeg eers jou bankbesonderhede onder Ek by, sodat ons weet waarheen om dit te stuur.',
   'There is nothing in your wallet to withdraw yet.': 'Daar is nog niks in jou beursie om te onttrek nie.',
+  'Choose worker or employer.': 'Kies werker of werkgewer.',
+  'You cannot apply for a job you posted.': 'Jy kan nie aansoek doen vir ’n werk wat jy self geplaas het nie.',
+  'You cannot invite yourself.': 'Jy kan nie jouself nooi nie.',
 };

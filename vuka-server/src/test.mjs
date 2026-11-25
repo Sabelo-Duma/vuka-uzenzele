@@ -582,6 +582,21 @@ async function run() {
       const refused = await api('GET', '/owner/people', { token: eTok });
       ok(refused.status === 403 && refused.json?.reason === 'not_owner', 'nobody else can read the list');
       ok((await api('GET', '/owner/people')).status === 401, 'not even without signing in');
+
+      // The owner can switch sides, and back, with one account.
+      const toEmp = await api('POST', '/owner/role', { token: wTok, body: { role: 'employer' } });
+      ok(toEmp.status === 200 && toEmp.json?.user?.role === 'employer' && toEmp.json.token, 'the owner can switch to employer and gets a new token');
+      const oTok = toEmp.json.token;
+      ok((await api('GET', '/me/gigs', { token: oTok })).status === 200, 'the new token works on employer pages');
+      const own = await api('POST', '/gigs', { token: oTok, body: { title: 'Owner test wash', category: 'carwash', hours: 2, payPerHour: 60, location: 'Soweto', when: 'Sat 09:00', description: 'Two cars.' } });
+      const back = await api('POST', '/owner/role', { token: oTok, body: { role: 'worker' } });
+      ok(back.status === 200 && back.json?.user?.role === 'worker' && Array.isArray(back.json?.history), 'and back to worker, with their record intact');
+      ok(own.status === 201 && own.json?.id, 'as an employer the owner can post a job');
+      const self = await api('POST', `/gigs/${own.json?.id}/apply`, { token: back.json.token });
+      ok(self.status === 409 && self.json?.reason === 'own_job', 'but cannot apply for a job they posted');
+      ok((await api('POST', `/talent/${wReg.json.user.id}/invite`, { token: oTok, body: { message: 'hi' } })).status === 409, 'nor invite themselves');
+      ok((await api('POST', '/owner/role', { token: back.json.token, body: { role: 'admin' } })).status === 400, 'only worker or employer');
+      ok((await api('POST', '/owner/role', { token: eTok, body: { role: 'worker' } })).status === 403, 'nobody else can switch roles');
     }
 
     // Sample data stays off the live site: jobs, formal roles and workers.

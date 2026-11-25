@@ -218,4 +218,7 @@ export const xh = {
   'Those funds have already moved.': 'Loo mali sele ihambile.',
   'Add your bank details under Me first, so we know where to send it.': 'Faka iinkcukacha zakho zebhanki phantsi kuka-Mna kuqala, ukuze sazi ukuba siyithumela phi.',
   'There is nothing in your wallet to withdraw yet.': 'Akukho nto esipajini sakho onokuyikhupha okwangoku.',
+  'Choose worker or employer.': 'Khetha umsebenzi okanye umqeshi.',
+  'You cannot apply for a job you posted.': 'Awukwazi ukufaka isicelo somsebenzi owuthumele wena.',
+  'You cannot invite yourself.': 'Awukwazi ukuzimema.',
 };

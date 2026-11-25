@@ -7,6 +7,9 @@
 export const profile = {
   en: {
     'owner.title': 'Registered people',
+    'owner.useAs': 'Use Vuka as',
+    'owner.useAsHint': 'Switch any time. Your jobs and your record stay on both sides.',
+    'owner.switching': 'Switching…',
     'owner.onlyYou': 'Only you can see this',
     'owner.thisWeek': '{count} joined in the last 7 days',
     'owner.all': 'All',
@@ -261,6 +264,9 @@ export const profile = {
 
   zu: {
     'owner.title': 'Abantu ababhalisile',
+    'owner.useAs': 'Sebenzisa i-Vuka njenge',
+    'owner.useAsHint': 'Shintsha noma nini. Imisebenzi yakho nerekhodi lakho kuhlala kukhona nhlangothi zombili.',
+    'owner.switching': 'Kuyashintsha…',
     'owner.onlyYou': 'Yiwe kuphela obona lokhu',
     'owner.thisWeek': '{count} bajoyine ezinsukwini ezi-7 ezedlule',
     'owner.all': 'Bonke',
@@ -506,6 +512,9 @@ export const profile = {
 
   xh: {
     'owner.title': 'Abantu ababhalisileyo',
+    'owner.useAs': 'Sebenzisa iVuka njenge',
+    'owner.useAsHint': 'Tshintsha nanini na. Imisebenzi yakho nerekhodi yakho zihlala zikhona kumacala omabini.',
+    'owner.switching': 'Iyatshintsha…',
     'owner.onlyYou': 'Nguwe kuphela obona oku',
     'owner.thisWeek': '{count} bajoyine kwiintsuku ezi-7 ezidlulileyo',
     'owner.all': 'Bonke',
@@ -751,6 +760,9 @@ export const profile = {
 
   st: {
     'owner.title': 'Batho ba ngodisitseng',
+    'owner.useAs': 'Sebedisa Vuka jwalo ka',
+    'owner.useAsHint': 'Fetola neng kapa neng. Mesebetsi ya hao le rekoto ya hao di dula di le teng mahlakoreng ka bobedi.',
+    'owner.switching': 'E a fetola…',
     'owner.onlyYou': 'Ke wena feela ya bonang sena',
     'owner.thisWeek': '{count} ba kene matsatsing a 7 a fetileng',
     'owner.all': 'Bohle',
@@ -996,6 +1008,9 @@ export const profile = {
 
   af: {
     'owner.title': 'Geregistreerde mense',
+    'owner.useAs': 'Gebruik Vuka as',
+    'owner.useAsHint': 'Wissel enige tyd. Jou poste en jou rekord bly aan albei kante.',
+    'owner.switching': 'Wissel tans…',
     'owner.onlyYou': 'Net jy kan dit sien',
     'owner.thisWeek': '{count} het die afgelope 7 dae aangesluit',
     'owner.all': 'Almal',

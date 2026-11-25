@@ -1266,6 +1266,8 @@ app.get('/api/me/applications', requireAuth, requireRole('worker'), asyncH(async
 app.post('/api/gigs/:id/apply', requireAuth, requireRole('worker'), asyncH(async (req, res) => {
   const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
   if (!g || g.status !== 'open') return res.status(404).json({ error: 'This gig is no longer accepting applications.' });
+  /* Only possible for the owner, who can switch sides (POST /api/owner/role). */
+  if (g.employer_id === req.user.id) return res.status(409).json({ error: 'You cannot apply for a job you posted.', reason: 'own_job' });
   const existing = await get('SELECT * FROM applications WHERE gig_id = ? AND worker_id = ?', [g.id, req.user.id]);
   if (!existing) {
     await run('INSERT INTO applications (id, gig_id, worker_id, status, created_at) VALUES (?,?,?,?,?)',
@@ -2209,6 +2211,26 @@ app.get('/api/owner/people', requireAuth, requireOwner, asyncH(async (req, res) 
   });
 }));
 
+/* The owner tries Vuka from both sides with one account. Changes the role on
+   the account and hands back a fresh token, since the role travels in it. A
+   worker profile is made the first time, with the same defaults a new worker
+   gets, and kept when switching back, so nothing on either side is lost. */
+app.post('/api/owner/role', requireAuth, requireOwner, asyncH(async (req, res) => {
+  const role = req.body?.role;
+  if (role !== 'worker' && role !== 'employer') return res.status(400).json({ error: 'Choose worker or employer.', field: 'role' });
+  if (role === 'worker' && !(await profileOf(req.user.id))) {
+    await run('INSERT INTO worker_profiles (user_id, age, location, education, bio, skills, id_verified, color, joined, tagline) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [req.user.id, null, 'South Africa', 'New member',
+        'New to Vuka and ready to work. Building my reputation one job at a time.',
+        JSON.stringify(['cleaning']), 0, DEFAULT_AVATAR_COLOR,
+        new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }), 'New member, ready to work.']);
+  }
+  await run('UPDATE users SET role = ? WHERE id = ?', [role, req.user.id]);
+  const user = await userById(req.user.id);
+  const extra = role === 'worker' ? await cvFor(user.id) : {};
+  res.json({ token: signToken(user), user: userOut(user), ...extra });
+}));
+
 /* ---- Msizi, when the knowledge base has no answer ----
    See assistant.mjs for what is sent and what is not. A per-IP limit on top of
    the global one: each call spends a slice of a free daily quota that every
@@ -2417,6 +2439,7 @@ app.get('/api/me/gigs', requireAuth, requireRole('employer'), asyncH(async (req,
 
 app.post('/api/talent/:id/invite', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
   const workerId = req.params.id;
+  if (workerId === req.user.id) return res.status(409).json({ error: 'You cannot invite yourself.', reason: 'self' });
   /* An invitation is the other channel that lands on a person's screen, and it
      carries a free-text message. Blocking the chat and leaving this open would
      have moved the problem rather than solved it. */

@@ -218,4 +218,7 @@ export const st = {
   'Those funds have already moved.': 'Tjhelete eo e se e tsamaile.',
   'Add your bank details under Me first, so we know where to send it.': 'Kenya dintlha tsa hao tsa banka tlasa Nna pele, hore re tsebe moo re e romelang.',
   'There is nothing in your wallet to withdraw yet.': 'Ha ho letho sepacheng sa hao seo o ka se ntshang hajwale.',
+  'Choose worker or employer.': 'Kgetha mosebetsi kapa mohiri.',
+  'You cannot apply for a job you posted.': 'O ke ke wa etsa kopo ya mosebetsi oo o o kentseng.',
+  'You cannot invite yourself.': 'O ke ke wa ipitsa.',
 };

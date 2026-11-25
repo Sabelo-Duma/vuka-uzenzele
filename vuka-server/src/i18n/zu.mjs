@@ -218,4 +218,7 @@ export const zu = {
   'Those funds have already moved.': 'Leyo mali isidlulisiwe.',
   'Add your bank details under Me first, so we know where to send it.': 'Faka imininingwane yakho yasebhange ngaphansi kokuthi Mina kuqala, ukuze sazi ukuthi siyithumela kuphi.',
   'There is nothing in your wallet to withdraw yet.': 'Akukho okusesikhwameni sakho ongakukhipha okwamanje.',
+  'Choose worker or employer.': 'Khetha isisebenzi noma umqashi.',
+  'You cannot apply for a job you posted.': 'Awukwazi ukufaka isicelo somsebenzi owufake wena.',
+  'You cannot invite yourself.': 'Awukwazi ukuzimema wena.',
 };
