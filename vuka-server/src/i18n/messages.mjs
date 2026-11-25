@@ -226,4 +226,7 @@ export const MESSAGES = [
   'Those funds have already moved.',
   'Add your bank details under Me first, so we know where to send it.',
   'There is nothing in your wallet to withdraw yet.',
+  'Choose worker or employer.',
+  'You cannot apply for a job you posted.',
+  'You cannot invite yourself.',
 ];

@@ -472,6 +472,8 @@ export interface OwnerPeople {
 export const api = {
   /** Everyone who has joined. Owner only; the server refuses anyone else. */
   ownerPeople: () => request<OwnerPeople>('GET', '/owner/people'),
+  /** Owner only: use the same account as a worker or as an employer. */
+  ownerSwitchRole: (role: Role) => request<AuthResult>('POST', '/owner/role', { role }),
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
   /** One field, either credential. The server tells a phone from an email. */
   login: (identifier: string, password: string) => request<AuthResult>('POST', '/auth/login', { identifier, password }),
