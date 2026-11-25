@@ -35,7 +35,7 @@ export const msiziAf: MsiziLang = {
       keywords: ['msizi', 'assistent', 'helper', 'bot', 'robot', 'jy'],
       body:
         'Ek is Msizi — “umsizi” beteken helper. Ek beantwoord vrae oor hoe Vuka werk.\n'
-        + 'Ek is nie ’n kunsmatige intelligensie nie en ek raai nie. Ek is ’n stel antwoorde wat geskryf en nagegaan is teen hoe hierdie app regtig werk, so as ek jou iets sê, is dit waar van Vuka. As ek iets nie weet nie, sal ek dit sê eerder as om iets op te maak.\n'
+        + 'Die meeste van my antwoorde is geskryf en nagegaan teen hoe hierdie app regtig werk. Wanneer ’n vraag nie daardeur gedek word nie, gebruik ek KI om uit daardie selfde nagegaande antwoorde te antwoord, en ek merk daardie antwoorde sodat jy dit kan sien. As ek iets nie weet nie, sal ek dit sê eerder as om iets op te maak.\n'
         + 'Ek kan jou eie rekord vir jou voorlees — jou telling, jou vlak, jou werke, jou aansoeke — want dit is reeds op jou foon. Ek kan nie vir jou aansoek doen nie, niemand aanstel nie, en nie aan jou bankbesonderhede raak nie. Dit bly altyd jou besluit.\n'
         + 'Jy kan vir my tik of die mikrofoon tik en praat.',
     },

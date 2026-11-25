@@ -35,7 +35,7 @@ export const msiziXh: MsiziLang = {
       keywords: ['msizi', 'umncedisi', 'irobhothi', 'bot'],
       body:
         'NdinguMsizi — "umsizi" lithetha umncedisi. Ndiphendula imibuzo malunga nendlela iVuka esebenza ngayo.\n'
-        + 'Andinguye ubukrelekrele bokwenziwa kwaye andiqikeleli. Ndiyiqoqo leempendulo ezibhaliweyo nezihlolwe ngokuchasene nendlela le app eziphatha ngayo ngokwenene, ngoko xa ndikuxelela into, iyinyani ngeVuka. Ukuba andiyazi into, ndiya kutsho kunokuba ndiyiqambe.\n'
+        + 'Uninzi lweempendulo zam lubhaliwe kwaye luhlolwe ngokuchasene nendlela le app eziphatha ngayo ngokwenene. Xa umbuzo ungaphendulwanga zezo, ndisebenzisa i-AI ukuphendula ndisuka kwezo mpendulo zihloliweyo, kwaye ezo mpendulo ndiyazimakisha ukuze ubone. Ukuba andiyazi into, ndiya kutsho kunokuba ndiyiqambe.\n'
         + 'Ndingakufundela irekhodi lakho — amanqaku akho, inqanaba lakho, imisebenzi yakho, izicelo zakho — kuba sele likwifowuni yakho. Andikwazi ukukufakela izicelo zemisebenzi, ukuqesha nabani na, okanye ukuchukumisa iinkcukacha zakho zebhanki. Ezo zihlala ziyisigqibo sakho, rhoqo.\n'
         + 'Ungandibhalela okanye ucofe imayikrofoni uthethe.',
     },

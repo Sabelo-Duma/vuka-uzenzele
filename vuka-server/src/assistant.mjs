@@ -130,7 +130,13 @@ const FACTS = [
   'Workers find work under "Find work", apply with one tap, chat with employers in "Chats", and see their record in "My Record". Settings, language, ID verification, banking details and job alerts are under "Me".',
   'Employers post a job with the + button, choose from applicants, and confirm the work afterwards.',
   'Safety: meet in daylight where possible, tell someone where you are going, never pay money to get a job — any "job" asking the worker for a fee is a scam. Report or block anyone from their profile or chat. In danger, phone the police on 10111, or 112 from a cellphone.',
-  'Msizi (isiZulu "umsizi" = helper) is the in-app helper. It can explain and look things up, but it cannot apply, hire, post, pay or change anything on anyone\'s behalf.',
+  'Msizi (isiZulu "umsizi" = helper) is the in-app helper. It can explain and look things up, but it cannot apply, hire, post, pay or change anything on anyone\'s behalf. Most of its answers are written and checked; questions they do not cover are answered by AI from those same entries, and those answers are marked.',
+  'ACCOUNT: the mobile number is the login and cannot be changed in the app. Under "Me" a person can change their name, email, area, languages, education and short bio. A forgotten password is reset from the log-in screen with a code sent to that number.',
+  'HIRING: once a worker is hired, the job can no longer be removed and its secured pay stays locked for that worker. If a hired worker does not arrive, the employer should message them in "Chats", and can report a problem from the Safety centre under "Me". There is no button to un-hire.',
+  'CONFIRMING: the employer can confirm a job only after the worker has marked it done, and must give a star rating from 1 to 5 (a written review is optional). That rating goes on the worker\'s record, so a poor rating is how poor work is recorded. Serious problems can also be reported.',
+  'Employers can browse workers under "Talent", look at their record, and message them. Workers find jobs under "Find work"; if nothing shows, there may be no jobs posted near them yet, and turning on job alerts under "Me" tells them when one is.',
+  'Vuka runs in the phone\'s web browser and can be added to the home screen like an app. It is built to use little data and to open with a weak signal.',
+  'Vuka is a small, independent South African project. The privacy notice under "Me" says who runs it and how to ask about your data.',
 ];
 
 function systemPrompt(lang, role = 'worker') {

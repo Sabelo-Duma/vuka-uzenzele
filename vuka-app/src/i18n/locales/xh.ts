@@ -276,6 +276,7 @@ export const xh = {
   'msizi.missTitle': 'Andiwazi loo mbuzo',
   'msizi.offTopicTitle': 'Andikwazi ukunceda ngaloo nto',
   'msizi.missBody': 'Ndiphendula imibuzo ngeVuka kuphela — ukufumana umsebenzi, irekhodi lakho, ukuhlawulwa, nokhuseleko. Nantsi into endinokukunceda ngayo:',
+  'msizi.unsureBody': 'Zama ukubuza ngamanye amazwi, okanye ucofe enye yezi:',
   'msizi.notAi': 'UMsizi uphendula ngendlela iVuka esebenza ngayo. Xa umbuzo umtsha, angabuza i-AI yasimahla — kuthunyelwa amagama akho kuphela, hayi irekhodi yakho.',
   'msizi.thinking': 'Ndiyacinga…',
   'msizi.aiLabel': 'Kuphendulwe yi-AI ukusuka kumanqaku oncedo e-Vuka — jonga izinto ezibalulekileyo kwi-app.',

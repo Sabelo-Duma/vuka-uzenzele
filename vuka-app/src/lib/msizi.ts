@@ -556,6 +556,19 @@ const OTHER_ROLE_PENALTY = 0.55;
 export const CONFIDENCE_FLOOR = 0.34;
 
 /**
+ * Below this, a written match is a guess, not an answer.
+ *
+ * Measured 2026-11-25 on 70 questions phrased the way people actually type:
+ * every wrong answer scored under 0.9 ("I want someone to wash my car" got the
+ * scam warning at 0.81, "my phone is old, will it work" got the minimum-age
+ * page at 0.57), and the right ones that also scored low were all within
+ * reach of the model, which is handed the same entries. So between the floor
+ * and this, the screen asks the model with those entries and keeps the written
+ * answer as the fallback when the model cannot be reached.
+ */
+export const SURE_SCORE = 0.9;
+
+/**
  * How much recognised weight a question needs before its score is taken at
  * face value, in inverse-document-frequency units.
  *

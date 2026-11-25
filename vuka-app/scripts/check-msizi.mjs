@@ -477,6 +477,46 @@ for (const i of M.LIVE_INTENTS) {
   ok(M.groundingFor('zzzz qqqq', worker).length > 0, 'a question with nothing near still gets the basics');
 }
 
+/* ---- 8. A near guess is not shown as an answer ------------------------- */
+
+/* Each of these got a confident, wrong written answer before 2026-11-25 (the
+   car wash got the scam warning). The screen shows a written answer only at
+   SURE_SCORE or above and asks the model otherwise, so each must stay below it
+   or reach the right entry. */
+{
+  const sure = (r) => r.kind === 'live' || (r.kind === 'answer' && r.score >= M.SURE_SCORE);
+  const notShownWrong = [
+    [employer, 'i want someone to wash my car', ['post-a-job']],
+    [employer, 'what if the worker doesnt pitch', []],
+    [employer, 'the worker did a bad job', []],
+    [employer, 'how much must i pay a gardener', ['fair-pay']],
+    [worker, 'how do i message an employer', []],
+    [worker, 'my phone is old will it work', ['works-offline']],
+    [worker, 'how do i change my number', []],
+    [worker, 'who made this app', []],
+    [worker, 'can i trust this app', ['is-it-safe']],
+    [worker, 'is this app free', ['is-it-free']],
+    [worker, 'how long until they reply', ['after-i-apply']],
+    [worker, 'why cant i see any jobs', []],
+  ];
+  for (const [ctx, q, rightIds] of notShownWrong) {
+    const r = M.ask(q, ctx);
+    ok(!sure(r) || rightIds.includes(r.id), `"${q}" is not shown as a sure answer unless it is the right one`, `got ${r.kind} ${r.id} at ${r.score.toFixed(2)}`);
+  }
+  const shownRight = [
+    [worker, 'how do i get paid', 'how-payment-works'],
+    [worker, 'i forgot my password', 'forgot-password'],
+    [worker, 'how do i become trusted', 'the-ladder'],
+    [worker, 'i need a job please help', 'find-work'],
+    [employer, 'how do i post a job', 'post-a-job'],
+    [{ ...worker, lang: 'zu' }, 'ngingawuthola kanjani umsebenzi', 'find-work'],
+  ];
+  for (const [ctx, q, id] of shownRight) {
+    const r = M.ask(q, ctx);
+    ok(sure(r) && r.id === id, `"${q}" is answered from ${id} without the model`, `got ${r.kind} ${r.id} at ${r.score.toFixed(2)}`);
+  }
+}
+
 /* ---- done -------------------------------------------------------------- */
 
 rmSync(outDir, { recursive: true, force: true });
