@@ -22,11 +22,11 @@ export const msiziAf: MsiziLang = {
     },
     'is-it-free': {
       title: 'Wat dit kos',
-      asks: ['Is Vuka gratis?', 'Hoeveel kos dit?', 'Moet ek betaal om die app te gebruik?', 'Is dit free?'],
-      keywords: ['gratis', 'kos', 'prys', 'fooi', 'heffing', 'intekening'],
+      asks: ['Is Vuka gratis?', 'Hoeveel kos dit?', 'Moet ek betaal om die app te gebruik?', 'Vat Vuka ’n deel van my betaling?', 'Is dit free?'],
+      keywords: ['gratis', 'kos', 'prys', 'fooi', 'heffing', 'intekening', 'deel', 'kommissie', 'free', 'fee'],
       body:
-        'Vuka is gratis. Daar is geen registrasiefooi, geen maandelikse fooi, en geen koste om vir werk aansoek te doen of ’n werk te plaas nie.\n'
-        + 'Vuka vat nie ’n deel van wat jy verdien nie. Die betaling vir ’n werk word deur die werkgewer verseker voordat die werk begin, en vrygestel na jou beursie wanneer dit bevestig is — vir nou in toetsmodus, so geen regte geld beweeg nog deur Vuka nie.\n'
+        'Vuka is gratis vir werkers. Daar is geen registrasiefooi, geen maandelikse fooi, en geen koste om vir werk aansoek te doen nie. Jy kry die volle betaling vir elke werk — Vuka vat niks daarvan nie.\n'
+        + 'Om ’n werk te plaas is ook gratis. Wanneer ’n werk klaar is, betaal die werkgewer die werker se betaling plus ’n Vuka-fooi van {feePercent} bo-op. Daardie fooi is hoe Vuka aan die gang bly.\n'
         + 'As iemand jou ooit vra om ’n fooi te betaal om ’n werk op Vuka te kry, is dit ’n swendelary. Rapporteer dit.',
     },
     'who-is-msizi': {
@@ -285,58 +285,61 @@ export const msiziAf: MsiziLang = {
     'how-payment-works': {
       title: 'Hoe jy betaal word',
       asks: ['Hoe word ek betaal?', 'Hou Vuka my geld?', 'Wanneer kry ek my geld?', 'Hoe kry ek my pay?'],
-      keywords: ['betaal', 'betaling', 'geld', 'loon', 'kontant', 'salaris', 'verdien', 'verseker', 'fondse', 'beursie'],
+      keywords: ['betaal', 'betaling', 'geld', 'loon', 'kontant', 'salaris', 'verdien', 'bank', 'kaart', 'card', 'paystack', 'eft', 'wallet'],
       body:
-        'Die betaling vir ’n werk word verseker voordat die werk begin. Die werkgewer sit die volle bedrag in wanneer hulle die werk plaas, of later — maar altyd voordat hulle iemand kan aanstel.\n'
-        + '• Soek na Fondse verseker op ’n werk. Dit beteken die betaling wag reeds vir jou. Vir ’n werk wat Wag vir fondse wys, kan jy steeds aansoek doen, maar niemand kan daarvoor aangestel word voordat die werkgewer die geld bysit nie.\n'
-        + '• Totdat iemand aangestel is, kan die werkgewer die fondse gratis terugvat. Van die oomblik dat jy aangestel is, is die geld vir jou gesluit.\n'
-        + '• Wanneer die werkgewer jou voltooide werk bevestig — of outomaties, {autoReleaseHours} nadat jy dit as klaar gemerk het as hulle nooit antwoord nie — gaan die betaling in jou Vuka-beursie onder Ek. Jy onttrek dit na jou bankrekening wanneer jy wil.\n'
-        + 'Op die oomblik is dit in TOETSMODUS: die beursie is ’n oefenlopie en geen regte geld beweeg nog deur Vuka nie. Totdat dit aangeskakel word, spreek met die werkgewer af hoe hulle jou regtig gaan betaal, voordat jy begin.\n'
-        + 'As ’n werkgewer jou nie betaal nie, rapporteer dit. Dit is presies waarvoor die veiligheidsverslag is.',
+        'Jy word reguit in jou bankrekening betaal, deur Paystack, die betalingsmaatskappy wat Vuka gebruik. Die geld gaan nie deur Vuka se eie rekening nie.\n'
+        + '• Voordat ’n werkgewer iemand kan aanstel, moet hulle ’n kaart byvoeg. Niks word dan vir die werk gedebiteer nie.\n'
+        + '• Wanneer die werkgewer jou voltooide werk bevestig — of outomaties, {autoReleaseHours} nadat jy dit as klaar gemerk het as hulle nooit antwoord nie — word hul kaart gedebiteer en jou volle betaling na jou bankrekening gestuur.\n'
+        + '• Voeg jou bankbesonderhede by onder Ek, dan Kry betaal. As hulle ontbreek wanneer ’n werk bevestig word, wag jou betaling en word dit gestuur sodra jy hulle byvoeg.\n'
+        + 'Onder Ek, dan My betaling, kan jy sien wat betaal is en enigiets wat nog wag.\n'
+        + 'As ’n betaling misluk of ’n werkgewer jou nie betaal nie, rapporteer dit. Dit is presies waarvoor die veiligheidsverslag is.\n'
+        + '{testModeNote}',
     },
     'funds-secured': {
-      title: 'Wat Fondse verseker beteken',
-      asks: ['Wat beteken Fondse verseker?', 'Wat beteken Wag vir fondse?', 'Kan die werkgewer die geld terugvat?', 'Is die geld regtig daar?'],
-      keywords: ['fondse verseker', 'wag vir fondse', 'verseker', 'terugvat', 'die geld terugvat', 'gesluit', 'uitbetaal'],
+      title: 'Is die betaling gewaarborg?',
+      asks: ['Is my betaling gewaarborg?', 'Wat as die werkgewer nie betaal nie?', 'Kan die werkgewer die geld terugvat?', 'Is die geld regtig daar?', 'Is my pay guaranteed?'],
+      keywords: ['gewaarborg', 'waarborg', 'nie betaal', 'betaal nie', 'nooit betaal', 'terugvat', 'die geld terugvat', 'gedebiteer', 'geweier', 'misluk', 'omkeer', 'guaranteed', 'declined', 'escrow'],
       body:
-        'Elke werkie wys een van drie etikette, sodat jy van die betaling weet voordat jy aansoek doen:\n'
-        + '• Fondse verseker — die werkgewer het reeds die volle betaling ingesit. Dit wag vir jou.\n'
-        + '• Wag vir fondse — nog nie. Jy kan steeds aansoek doen, maar niemand kan daarvoor aangestel word voordat die werkgewer die geld bysit nie.\n'
-        + '• Uitbetaal — die werk is klaar en die betaling het na die werker gegaan.\n'
-        + 'Kan die werkgewer dit terugvat? Net voordat iemand aangestel is. Van die oomblik dat jy aangestel is, is die geld vir jou gesluit, en dit gaan in jou beursie wanneer die werk bevestig is — of outomaties, {autoReleaseHours} nadat jy dit as klaar gemerk het, as die werkgewer nooit antwoord nie.\n'
-        + 'Dit is vir nou in toetsmodus, so geen regte geld beweeg nog deur Vuka nie.',
+        'Elke werkgewer moet ’n kaart byvoeg voordat hulle iemand kan aanstel, en die kaart word nagegaan wanneer hulle dit byvoeg. So is daar van die begin af ’n manier om jou te betaal.\n'
+        + '• Die kaart word gedebiteer wanneer die werk bevestig word — of outomaties, {autoReleaseHours} nadat jy dit as klaar gemerk het, as die werkgewer nooit antwoord nie. Om stil te bly, keer dit nie.\n'
+        + '• ’n Aanstelling kan nie in die app ongedaan gemaak word nie, so ’n werkgewer kan jou nie uit ’n werk kanselleer om te vermy om te betaal nie.\n'
+        + 'Wat ’n kaart nie kan belowe nie, is dat die geld op die dag daar is. As die debitering misluk, word die werkgewer gevra om te betaal, en jy kan die betaling op die werk sien. As hulle steeds nie betaal nie, rapporteer dit.\n'
+        + '{testModeNote}',
     },
     'wallet-withdraw': {
-      title: 'Jou beursie, en onttrekking',
-      asks: ['Hoe onttrek ek my geld?', 'Waar is my beursie?', 'Hoe lank vat ’n onttrekking?', 'Hoe cash ek out?'],
-      keywords: ['beursie', 'onttrek', 'onttrekking', 'uithaal', 'balans', 'oordrag', 'uitbetaling'],
+      title: 'Waarheen jou betaling gaan',
+      asks: ['Hoe onttrek ek my geld?', 'Waar is my beursie?', 'Wanneer kom die geld in my bank?', 'Hoe cash ek out?'],
+      keywords: ['onttrek', 'onttrekking', 'uithaal', 'balans', 'oordrag', 'uitbetaling', 'my betaling', 'in my bank', 'beursie', 'wallet', 'withdraw', 'cash out', 'payout'],
       body:
-        'Jou beursie is onder Ek, dan My beursie. Dit wys wat jy nou kan onttrek, en wat verseker is op werk wat jy nog doen.\n'
-        + '• Betaling kom in die beursie wanneer ’n werkgewer jou werk bevestig.\n'
-        + '• Onttrek stuur die hele balans na die bankrekening wat jy onder Kry betaal gestoor het. Voeg eers jou bankbesonderhede daar by.\n'
-        + 'Omdat betalings in toetsmodus is, word nog geen geld regtig gestuur nie, so daar is geen wagtyd om jou van te vertel nie. Wanneer regte betalings aangeskakel word, sal die tyd wat ’n onttrekking vat, gewys word voordat jy dit bevestig.\n'
-        + 'Vra my “hoeveel is in my beursie” en ek sal jou balans vir jou voorlees.',
+        'Daar is niks om te onttrek nie: jou betaling gaan reguit na jou bankrekening wanneer ’n werk bevestig word. Vuka het geen beursie om dit in te hou nie.\n'
+        + '• Jou bankbesonderhede gaan onder Ek, dan Kry betaal. Voeg hulle by voor jou eerste werk, sodat niks hoef te wag nie.\n'
+        + '• Ek, dan My betaling, lys elke werk, wat jy betaal is, en enigiets wat nog wag.\n'
+        + 'Paystack stuur die betaling na jou bank volgens sy gewone uitbetalingskedule, en jou bank wys dit dan. As dit ná ’n paar werksdae nog nie aangekom het nie, rapporteer dit onder Ek.\n'
+        + 'Vra my “hoeveel is al aan my betaal” en ek sal dit vir jou voorlees.\n'
+        + '{testModeNote}',
     },
     'test-mode': {
       title: 'Wat toetsmodus beteken',
       asks: ['Wat is toetsmodus?', 'Is dit regte geld?', 'Hoekom sê dit toetsmodus?', 'Wat is test mode?'],
-      keywords: ['toetsmodus', 'toets', 'oefen', 'oefenlopie', 'regte geld', 'vals geld', 'nie eg'],
+      keywords: ['toetsmodus', 'toets', 'oefen', 'regte geld', 'vals geld', 'nie eg', 'toetskaart', 'test mode', 'test card'],
       body:
-        'Vuka wys die volle manier waarop betaling sal werk — betaling verseker voor die werk, vrygestel na die werker se beursie wanneer dit bevestig is, en dan na die bank onttrek. Op die oomblik is dit ’n oefenlopie: geen regte geld beweeg nog deur Vuka nie.\n'
-        + 'Totdat betalings aangeskakel word, spreek met die ander persoon af hoe die betaling regtig gemaak sal word, voordat die werk begin. Alles anders — jou rekord, graderings, vlakke en kentekens — is eg en tel.\n'
-        + 'Wanneer regte betalings begin, sal die app dit duidelik sê, en toetsmodus sal van hierdie skerms verdwyn.',
+        'Terwyl Vuka getoets word, loop betalings in Paystack se toetsmodus. Alles werk soos dit regtig sal werk — die kaart, die debitering wanneer ’n werk klaar is, die betaling na die werker se bank — maar net toetskaarte word aanvaar, en geen regte geld beweeg nie.\n'
+        + 'Spreek dus vir nou met die ander persoon af hoe die betaling regtig gemaak sal word, voordat die werk begin. Alles anders — jou rekord, graderings, vlakke en kentekens — is eg en tel.\n'
+        + 'Wanneer regte betalings begin, verdwyn toetsmodus van hierdie skerms.',
     },
     'employer-fund-job': {
-      title: 'Die betaling vir ’n werk verseker',
-      asks: ['Hoe befonds ek ’n werk?', 'Hoekom kan ek niemand aanstel nie?', 'Hoe kry ek my geld terug?', 'Kan ek kanselleer nadat ek aangestel het?', 'Hoe betaal ek die werker?', 'Wat gebeur met die geld as ek die werk uitvee?'],
-      keywords: ['befonds', 'verseker', 'verseker die betaling', 'fondse', 'kan nie aanstel', 'geld terug', 'terugbetaling', 'terugvat', 'kanselleer', 'betaal die werker', 'wag vir fondse'],
+      title: 'Vir ’n werk betaal',
+      asks: ['Hoe betaal ek die werker?', 'Hoekom het ek ’n kaart nodig om aan te stel?', 'Wanneer word my kaart gedebiteer?', 'Kan ek kanselleer nadat ek aangestel het?', 'Hoekom kan ek niemand aanstel nie?', 'Wat gebeur met die geld as ek die werk uitvee?'],
+      keywords: ['kaart', 'card', 'betaal die werker', 'gedebiteer', 'debiteer', 'kaart byvoeg', 'kan nie aanstel', 'terugbetaling', 'kanselleer', 'paystack', 'toetsdebitering', 'geld terug', 'befonds'],
       body:
-        'Die betaling vir ’n werk word verseker voordat iemand begin. Merk Verseker die betaling nou wanneer jy plaas, of maak die werk later oop en tik Verseker die betaling.\n'
-        + '• Niemand kan aangestel word voordat die betaling verseker is nie. Daarom sê die Stel aan-knoppie Verseker die betaling om aan te stel.\n'
-        + '• Voordat jy aanstel, kan jy die fondse sonder ’n fooi terugvat. As jy ’n werk onttrek waarvoor niemand aangestel is nie, kry jy dit ook terug.\n'
-        + '• Van die oomblik dat jy iemand aanstel, is die fondse vir hulle gesluit. Dit gaan in die werker se beursie wanneer jy die werk bevestig — of outomaties, {autoReleaseHours} nadat hulle dit as klaar gemerk het, as jy nie antwoord nie.\n'
+        'Jy betaal per kaart, en net wanneer die werk klaar is.\n'
+        + '• Voor jou eerste aanstelling voeg jy ’n kaart by op Paystack se veilige bladsy. Om te kyk of die kaart werk, debiteer Paystack {cardCheck} en betaal dit dadelik terug (jou bank kan ’n paar dae vat om die terugbetaling te wys). Die kaart word vir latere werke gehou.\n'
+        + '• Niks word gedebiteer wanneer jy plaas of wanneer jy aanstel nie. Wanneer jy die voltooide werk bevestig — of outomaties, {autoReleaseHours} nadat die werker dit as klaar gemerk het, as jy nie antwoord nie — word jou kaart gedebiteer vir die betaling plus Vuka se fooi van {feePercent}, en die betaling gaan reguit na die werker se bank.\n'
+        + '• As die werker nog nie bankbesonderhede bygevoeg het nie, wag die debitering totdat hulle dit doen.\n'
+        + '• Om ’n werk te onttrek voordat iemand aangestel is, kos niks.\n'
         + '’n Werk waarvoor iemand aangestel is, kan nie in die app gekanselleer word nie. Stuur die werker ’n boodskap om dit uit te sorteer, en rapporteer dit onder Ek as iets verkeerd is.\n'
-        + 'Betalings is vir nou in toetsmodus, so geen regte geld beweeg nog deur Vuka nie.',
+        + 'Vuka sien nooit jou volle kaartnommer nie; Paystack hou dit.\n'
+        + '{testModeNote}',
     },
     'get-more-work': {
       title: 'Meer werk kry',
@@ -347,17 +350,17 @@ export const msiziAf: MsiziLang = {
         + '• Vul jou profiel in en die vaardighede wat jy regtig het, sodat jy vir die regte werk opdaag.\n'
         + '• Verifieer jou ID onder Ek. Tussen twee mense neem ’n werkgewer die geverifieerde een.\n'
         + '• Skakel Nuwe werk naby my aan, onder Ek dan Kennisgewings, sodat jy van ’n werkie hoor sodra dit geplaas word en vroeg aansoek kan doen.\n'
-        + '• Verkies werk wat Fondse verseker wys, en werk naby jou — jy kom betyds aan, en die betaling wag.\n'
+        + '• Voeg jou bankbesonderhede by onder Ek, dan Kry betaal, sodat jy betaal kan word sodra ’n werk bevestig is.\n'
+        + '• Verkies werk naby jou — jy kom betyds aan, en werkgewers merk dit op.\n'
         + '• Doen elke werk goed en merk dit as klaar. Elke bevestigde werk en goeie gradering lig jou Vuka Score en jou vlak.',
     },
     'banking-details': {
       title: 'Jou bankbesonderhede',
       asks: ['Hoekom wil Vuka my bankbesonderhede hê?', 'Is my bankbesonderhede veilig?', 'Hoe voeg ek my bankrekening by?', 'Bank details?'],
-      keywords: ['bank', 'bankbesonderhede', 'rekeningnommer', 'takkode', 'capitec', 'fnb', 'absa'],
+      keywords: ['bank', 'bankbesonderhede', 'rekeningnommer', 'takkode', 'uitbetaling', 'payout', 'capitec', 'fnb', 'absa'],
       body:
-        'Jy kan jou bankbesonderhede onder Ek stoor, sodat jy dit gereed het om vir ’n werkgewer te gee sonder om na ’n kaart te soek.\n'
+        'Jou bankbesonderhede is waarheen jou betaling gestuur word. Voeg hulle by onder Ek, dan Kry betaal. Wanneer ’n werk bevestig word, betaal Paystack, die betalingsmaatskappy wat Vuka gebruik, in hierdie rekening in — so jou rekeningnommer word daarvoor met Paystack gedeel, en vir niks anders nie.\n'
         + 'Hulle is op die bediener geïnkripteer en word nooit terug na die app gestuur nie. Selfs jy sien net ’n bedekte wenk — jou bank, die rekeningtipe, en die laaste vier syfers. Niks sensitiefs word op jou foon gestoor nie.\n'
-        + 'Dit is waarheen jou beursie jou betaling stuur wanneer jy dit onttrek. Betalings is vir nou in toetsmodus, so geen regte geld word nog daarheen gestuur nie.\n'
         + 'Niemand van Vuka sal jou ooit bel of ’n boodskap stuur om jou rekeningnommer, jou PIN of ’n OTP te vra nie. Enigiemand wat dit doen, is nie van Vuka nie.',
     },
     'fair-pay': {
@@ -386,7 +389,7 @@ export const msiziAf: MsiziLang = {
       body:
         'Maak die werk van jou Tuis-skerm oop en merk dit as klaar. Jy sal gevra word om die werkgewer uit vyf sterre te gradeer voordat jy kan — dit is die deel wat werkgewers eerlik hou, en dis hoekom ander werkers kan sien vir wie dit goed is om te werk.\n'
         + 'As iets van die werk onveilig was, is daar ’n blokkie om terselfdertyd ’n veiligheidsvlag te lig. ’n Mens lees dit.\n'
-        + 'Die werkgewer word dan gevra om te bevestig. Sodra hulle dit doen, kom die werk op jou rekord met hul gradering en resensie, en die betaling wat daarvoor verseker is, gaan in jou beursie, vir nou in toetsmodus.',
+        + 'Die werkgewer word dan gevra om te bevestig. Sodra hulle dit doen, kom die werk op jou rekord met hul gradering en resensie, en jou betaling daarvoor word na jou bankrekening gestuur.',
     },
     'confirm-work': {
       title: 'Wag vir ’n werkgewer om te bevestig',
@@ -394,7 +397,7 @@ export const msiziAf: MsiziLang = {
       keywords: ['bevestig', 'bevestiging', 'wag', 'hangende', 'nooit bevestig', 'outomaties vrygestel', 'vas'],
       body:
         'Nadat jy ’n werk as klaar gemerk het, het die werkgewer {autoReleaseHours} om dit te bevestig.\n'
-        + 'As hulle dit nooit doen nie, word die werk in elk geval aan jou toegeken sodra daardie tyd verby is. Jy kry die inskrywing op jou rekord, die verdienste, die vordering na jou vlak — en die versekerde betaling gaan in jou beursie. Dit word sonder ’n gradering gestoor, so hul stilte kan jou gemiddeld nie aftrek nie — of optrek nie.\n'
+        + 'As hulle dit nooit doen nie, word die werk in elk geval aan jou toegeken sodra daardie tyd verby is. Jy kry die inskrywing op jou rekord, die verdienste, die vordering na jou vlak — en die werkgewer se kaart word gedebiteer, so jou betaling word na jou bank gestuur. Dit word sonder ’n gradering gestoor, so hul stilte kan jou gemiddeld nie aftrek nie — of optrek nie.\n'
         + 'Dit bestaan omdat ’n werkgewer wat net ophou antwoord vroeër ’n werker se vordering permanent kon kanselleer, vir werk wat regtig gedoen is. Nou kan hulle nie.',
     },
     'post-a-job': {
@@ -404,10 +407,10 @@ export const msiziAf: MsiziLang = {
       body:
         'Tik Plaas. Jy beskryf die werk, waar dit is, hoeveel ure, en wat jy per uur betaal.\n'
         + '• Die Billike-betaling-meter wys jou terwyl jy tik hoe jou tarief vergelyk met die nasionale minimumloon van {minWage} per uur. Om minder te betaal is nie wettig nie.\n'
-        + '• Verseker die betaling wanneer jy plaas, of later. Jy kan dit gratis terugvat totdat jy aanstel; jy kan niemand aanstel voordat dit verseker is nie. Werkers sien Fondse verseker op jou werk, en dit is wat goeie mense laat aansoek doen.\n'
+        + '• Voor jou eerste aanstelling voeg jy ’n kaart by. Niks word gedebiteer totdat die werk klaar is en jy dit bevestig nie.\n'
         + '• Jou werk gaan dadelik regstreeks na werkers naby jou.\n'
         + '• Jy sien almal wat aansoek doen, met hul rekord — gradering, werke voltooi, vlak en kentekens.\n'
-        + 'Plaas is gratis, en Vuka vat geen kommissie nie.',
+        + 'Plaas is gratis. Wanneer ’n werk klaar is, betaal jy die werker se betaling plus ’n Vuka-fooi van {feePercent}.',
     },
     'choose-worker': {
       title: 'Kies wie om aan te stel',
@@ -427,15 +430,17 @@ export const msiziAf: MsiziLang = {
         'Wanneer ’n werker ’n werk as klaar merk, kry jy ’n kennisgewing. Maak dit oop, bevestig die werk, en gradeer hulle uit vyf met ’n kort resensie.\n'
         + 'Doen dit asseblief vinnig. Vir jou is dit ’n tik; vir hulle is dit die inskrywing op hul rekord wat die volgende vlak en die volgende soort werk ontsluit.\n'
         + 'As jy nie binne {autoReleaseHours} bevestig nie, word die werk outomaties aan die werker toegeken, sonder ’n gradering. Jou resensie is die deel wat verlore gaan, en daardie resensie is die waardevolste ding wat jy kan gee aan iemand wat ’n eerste werkgeskiedenis bou.\n'
-        + 'Om te bevestig stel ook die betaling wat jy verseker het vry in die werker se Vuka-beursie. Van die oomblik dat jy hulle aangestel het, was dit vir hulle gesluit. Betalings is vir nou in toetsmodus — geen regte geld beweeg nog nie.',
+        + 'Om te bevestig, debiteer ook jou kaart: die betaling gaan reguit na die werker se bank, plus Vuka se fooi van {feePercent}.\n'
+        + '{testModeNote}',
     },
     'employer-cost': {
       title: 'Wat dit ’n werkgewer kos',
-      asks: ['Wat kos dit om ’n werk te plaas?', 'Vat Vuka kommissie?', 'Is daar ’n fee vir werkgewers?'],
-      keywords: ['koste', 'fooi', 'kommissie', 'heffing', 'gratis', 'prys', 'werkgewer'],
+      asks: ['Wat kos dit om ’n werk te plaas?', 'Vat Vuka kommissie?', 'Hoeveel is die Vuka-fooi?', 'Is daar ’n fee vir werkgewers?'],
+      keywords: ['koste', 'fooi', 'kommissie', 'heffing', 'gratis', 'prys', 'werkgewer', 'persentasie', 'fee'],
       body:
-        'Om ’n werk te plaas is gratis en om aan te stel is gratis. Wat jy betaal, is die betaling self, verseker voordat jy aanstel, en jy kan dit gratis terugvat totdat jy dit doen.\n'
-        + 'Betalings is vir nou in toetsmodus, so geen regte geld beweeg nog deur Vuka nie en niks word gehef nie. Enige fooi, sodra betalings aangeskakel is, sal gewys word voordat jy betaal.',
+        'Om ’n werk te plaas en om aan te stel is gratis. Wanneer ’n werk klaar is, word jou kaart gedebiteer vir die werker se betaling plus ’n Vuka-fooi van {feePercent} van die betaling. Die werker kry die volle betaling; die fooi is wat Vuka aan die gang hou.\n'
+        + 'Die totaal wat jy sal betaal, word op die werk gewys voordat jy aanstel.\n'
+        + '{testModeNote}',
     },
     'is-it-safe': {
       title: 'Veilig bly',
@@ -536,7 +541,7 @@ export const msiziAf: MsiziLang = {
     'my-jobs': { title: 'Werk wat jy voltooi het', asks: ['Hoeveel werke het ek al gedoen?', 'Hoeveel werke het ek voltooi?', 'Hoeveel jobs het ek gedoen?'], keywords: ['my werke', 'werke gedoen', 'hoeveel werke', 'voltooide werke'] },
     'my-earnings': { title: 'Wat jy verdien het', asks: ['Hoeveel het ek al verdien?', 'Wat is my totale verdienste?', 'Hoeveel geld het ek gemaak?'], keywords: ['my verdienste', 'verdien', 'hoeveel het ek', 'my geld'] },
     'my-badges': { title: 'Jou kentekens', asks: ['Watter kentekens het ek?', 'Watter kentekens het ek verdien?', 'My badges?'], keywords: ['my kentekens', 'kentekens verdien', 'watter kentekens'] },
-    'my-wallet': { title: 'Jou beursie', asks: ['Hoeveel is in my beursie?', 'Wat is my balans?', 'Hoeveel kan ek onttrek?', 'Wat is in my wallet?'], keywords: ['my beursie', 'my balans', 'in my beursie', 'kan ek onttrek'] },
+    'my-wallet': { title: 'Jou betaling', asks: ['Hoeveel is al aan my betaal?', 'Hoeveel is in my beursie?', 'Wat is my balans?', 'Hoeveel kan ek onttrek?', 'Wat is in my wallet?'], keywords: ['aan my betaal', 'al betaal', 'my betaling', 'my beursie', 'my balans', 'in my beursie', 'kan ek onttrek'] },
     'my-applications': { title: 'Werk waarvoor jy aansoek gedoen het', asks: ['Vir hoeveel werke het ek aansoek gedoen?', 'Waarvoor het ek aansoek gedoen?', 'My aansoeke?'], keywords: ['my aansoeke', 'aansoek gedoen', 'hoeveel aansoeke'] },
     'my-verification': { title: 'Of jou ID geverifieer is', asks: ['Is ek geverifieer?', 'Is my ID geverifieer?', 'Is ek al verified?'], keywords: ['is ek geverifieer', 'my verifikasie', 'my id geverifieer'] },
     'jobs-near-me': { title: 'Werk naby jou', asks: ['Watter werk is naby my?', 'Is daar nou enige werk?', 'Hoeveel werke is daar?', 'Enige jobs naby?'], keywords: ['werk naby', 'naby my', 'enige werk', 'wat is beskikbaar'] },
@@ -555,6 +560,9 @@ export const msiziAf: MsiziLang = {
     'fill.days_one': '{count} dag',
     'fill.days_other': '{count} dae',
     'fill.listSep': ', ',
+    'fill.testMode': 'Betalings is vir nou in toetsmodus: net toetskaarte werk, en geen regte geld beweeg nog nie.',
+    'fill.feeUnknown': '’n klein persentasie',
+    'fill.cardCheckUnknown': '’n klein bedrag',
 
     'score.value': 'Jou Vuka Score is {rep} uit 100.',
     'score.built': 'Dit is gebou uit {jobs}, ’n gemiddeld van {avg} sterre, en {safety}.',
@@ -583,8 +591,8 @@ export const msiziAf: MsiziLang = {
     'jobs.kinds_one': '{count} soort werk',
     'jobs.kinds_other': '{count} soorte werk',
 
-    'earn.total_one': 'Jy het {amount} verdien uit {count} voltooide werk, getel uit die betaling wat elke werk gelys het. Wat nou in jou beursie is, is ’n aparte bedrag — vra my “hoeveel is in my beursie”.',
-    'earn.total_other': 'Jy het {amount} verdien uit {count} voltooide werke, getel uit die betaling wat elke werk gelys het. Wat nou in jou beursie is, is ’n aparte bedrag — vra my “hoeveel is in my beursie”.',
+    'earn.total_one': 'Jy het {amount} verdien uit {count} voltooide werk, getel uit die betaling wat elke werk gelys het. Wat reeds aan jou betaal is, is ’n aparte bedrag — vra my “hoeveel is al aan my betaal”.',
+    'earn.total_other': 'Jy het {amount} verdien uit {count} voltooide werke, getel uit die betaling wat elke werk gelys het. Wat reeds aan jou betaal is, is ’n aparte bedrag — vra my “hoeveel is al aan my betaal”.',
 
     'badges.none': 'Jy het nog nie ’n kenteken verdien nie. Die eerste een, Eerste Werk, kom sodra jou eerste werkie bevestig is.',
     'badges.earned': 'Jy het {earned} van {total} kentekens verdien: {list}.',
@@ -600,6 +608,13 @@ export const msiziAf: MsiziLang = {
     'wallet.pending': 'Nog {amount} is verseker op werk wat jy doen. Dit kom aan wanneer elkeen bevestig is.',
     'wallet.howLands': 'Betaling kom hier aan wanneer ’n werkgewer ’n werk bevestig wat jy gedoen het.',
     'wallet.test': 'Betalings is vir nou in toetsmodus, so geen regte geld het nog geskuif nie.',
+
+    'pay.loading': 'Jou betalings laai nog. Vra my weer oor ’n oomblik, of maak Ek oop, dan My betaling.',
+    'pay.error': 'Ek kon nie nou jou betalings lees nie. Maak Ek oop, dan My betaling, om hulle te sien.',
+    'pay.paid': '{amount} is tot dusver vir jou werke in jou bankrekening betaal.',
+    'pay.none': 'Niks is nog aan jou betaal nie.',
+    'pay.waiting': 'Nog {amount} wag om betaal te word. Maak Ek oop, dan My betaling, om te sien hoekom.',
+    'pay.howLands': 'Wanneer ’n werkgewer ’n werk bevestig wat jy gedoen het, gaan jou betaling reguit na jou bankrekening.',
 
     'apps.none': 'Jy het nog vir niks aansoek gedoen nie. Vind werk wys die werkies naby jou, en aansoek doen is een tik.',
     'apps.some_one': 'Jy het vir {count} werkie aansoek gedoen. Werkgewers sien almal wat aansoek gedoen het en kies uit hulle, so dis normaal as jy nie van een terughoor nie — hou aan aansoek doen.',

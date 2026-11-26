@@ -246,6 +246,7 @@ export function Applicants({ id }: { id: string }) {
         <ConfirmSheet
           a={confirming}
           gigTitle={gig?.title ?? t('employer.applicants.thisJob')}
+          card={gig?.paymentsMode === 'card'}
           busy={busyId === confirming.applicationId}
           onClose={() => setConfirming(null)}
           onConfirm={(rating, review) => confirm(confirming, rating, review)}
@@ -370,8 +371,8 @@ function WithdrawSheet({ gig, waiting, onClose, onDone }: {
   );
 }
 
-function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
-  a: Applicant; gigTitle: string; busy: boolean; onClose: () => void;
+function ConfirmSheet({ a, gigTitle, card, busy, onClose, onConfirm }: {
+  a: Applicant; gigTitle: string; card: boolean; busy: boolean; onClose: () => void;
   onConfirm: (rating: number, review: string) => void;
 }) {
   // Unset, not five — see the note in ReviewSheet. A pre-filled top score is
@@ -384,7 +385,7 @@ function ConfirmSheet({ a, gigTitle, busy, onClose, onConfirm }: {
     <Sheet title={t('employer.confirm.title')} onClose={onClose}>
       <h3 className="font-display text-title font-extrabold text-ink m-0 mb-1 tracking-tight">{t('employer.confirm.question', { name: first })}</h3>
       <p className="text-dim text-small leading-relaxed mb-4">
-        {t('employer.confirm.body', { title: gigTitle, name: first })}
+        {t(card ? 'employer.confirm.bodyCard' : 'employer.confirm.body', { title: gigTitle, name: first })}
       </p>
       <StarRating value={rating} onChange={setRating} />
       <label className="block text-micro font-bold text-dim uppercase tracking-wide mb-1.5 mt-4">{t('employer.confirm.reviewLabel')}</label>

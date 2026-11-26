@@ -92,6 +92,7 @@ const worker = {
     tier: TIER, nextTier: NEXT_TIER, tierProgress: 40, jobsToGo: 3, ratingMet: true, flagBlocked: false,
   },
   minWage: 30.23, autoReleaseHours: 72, applied: 4, gigsNearby: 12, unread: 2, idVerified: true,
+  payments: { card: true, live: false, feePercent: 10, cardCheck: 5 },
 };
 
 /** Somebody who signed up an hour ago. Every live answer must cope with this. */
@@ -132,6 +133,7 @@ for (const role of ['worker', 'employer']) {
 
 const KNOWN_PLACEHOLDERS = new Set([
   'minWage', 'autoReleaseHours', 'tiers', 'categories', 'badges', 'hosting', 'youthUnemployment',
+  'feePercent', 'cardCheck', 'testModeNote',
 ]);
 
 for (const e of KNOWLEDGE) {
@@ -164,6 +166,19 @@ for (const e of KNOWLEDGE) {
   const answer = M.ask('what if the employer never confirms', odd);
   ok(answer.body.includes('2 days'),
     'the confirmation window in an answer comes from live config', answer.body.slice(0, 160));
+}
+
+/* The fee and the card check come from the server too, and the test-mode
+   line goes away by itself once payments are live. */
+{
+  const odd = { ...worker, role: 'employer', payments: { card: true, live: false, feePercent: 13, cardCheck: 7 } };
+  const answer = M.ask('when is my card charged', odd);
+  ok(answer.body.includes('13%') && /R\s?7/.test(answer.body), 'the fee and card check in an answer come from live config', answer.body.slice(0, 200));
+  ok(/test mode/.test(answer.body), 'test mode is said while payments are in test mode');
+  const live = M.ask('when is my card charged', { ...odd, payments: { ...odd.payments, live: true } });
+  ok(!/test mode|\{testModeNote\}/.test(live.body) && !/\n\s*$/.test(live.body), 'and is gone, cleanly, once they are live', live.body.slice(-120));
+  const paid = M.ask('how much have I been paid', { ...worker, cardPay: { paid: 350, waiting: 0 } });
+  ok(/350/.test(paid.body) && /bank/.test(paid.body), 'card mode: "how much have I been paid" reads the paid total', paid.body);
 }
 
 /* ---- 3. Real questions reach the right answer -------------------------- */
@@ -438,10 +453,10 @@ for (const [text, intent] of [['ok cool', 'ack'], ['sounds good', 'ack'], ['how 
   ok(r?.intent === intent, `"${text}" is small talk (${intent})`, `got ${r?.intent ?? 'nothing'}`);
 }
 
-/* The wallet answer reads the person's own figure, and is honest when it
+/* The ledger wallet answer (no Paystack key) reads the person's own figure, and is honest when it
    cannot — loading, unreadable — rather than saying R0. */
 {
-  const w = (wallet) => M.askById('my-wallet', { ...worker, wallet })?.body ?? '';
+  const w = (wallet) => M.askById('my-wallet', { ...worker, payments: { ...worker.payments, card: false }, wallet })?.body ?? '';
   ok(/R180/.test(w({ balance: 180, pending: 0, mode: 'test' })), 'the wallet answer reads the balance', w({ balance: 180, pending: 0, mode: 'test' }));
   ok(/secured on jobs/.test(w({ balance: 0, pending: 90, mode: 'test' })), 'and what is secured on jobs in progress');
   ok(/test mode/.test(w({ balance: 180, pending: 0, mode: 'test' })), 'and says it is test mode');

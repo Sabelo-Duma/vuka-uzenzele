@@ -75,6 +75,14 @@ export interface MsiziContext {
    * only to the person it belongs to, and never sent to the model.
    */
   wallet?: { balance: number; pending: number; mode: string } | null;
+  /**
+   * How payment works right now, from the server. Card mode is Paystack: the
+   * employer's card is charged when a job is confirmed and the pay goes
+   * straight to the worker's bank. Undefined while loading.
+   */
+  payments?: { card: boolean; live: boolean; feePercent: number; cardCheck: number } | null;
+  /** Card mode: what the worker has been paid, and what is waiting. Undefined = loading. */
+  cardPay?: { paid: number; waiting: number } | null;
 }
 
 /* ------------------------------------------------------------------
@@ -149,7 +157,12 @@ function hoursPhrase(hours: number, lang: Lang): string {
 /** Resolve every {placeholder} in an answer body. */
 export function fill(text: string, ctx: MsiziContext): string {
   const lang = ctx.lang ?? 'en';
+  const pay = ctx.payments;
   return text
+    /* A sentence on its own line, or nothing at all once payments are live. */
+    .replace(/\n?\{testModeNote\}/g, pay?.live ? '' : `\n${say(lang, 'fill.testMode')}`)
+    .replace(/\{feePercent\}/g, pay ? `${pay.feePercent}%` : say(lang, 'fill.feeUnknown'))
+    .replace(/\{cardCheck\}/g, pay ? money(pay.cardCheck) : say(lang, 'fill.cardCheckUnknown'))
     .replace(/\{minWage\}/g, money(ctx.minWage))
     .replace(/\{autoReleaseHours\}/g, hoursPhrase(ctx.autoReleaseHours, lang))
     .replace(/\{tiers\}/g, tierLines(lang))
@@ -276,12 +289,23 @@ export const LIVE_INTENTS: LiveIntent[] = [
   },
   {
     id: 'my-wallet',
-    title: 'Your wallet',
-    asks: ['How much is in my wallet?', 'What is my balance?', 'How much can I withdraw?'],
-    keywords: ['my wallet', 'my balance', 'in my wallet', 'can i withdraw', 'wallet balance'],
+    title: 'Your pay',
+    asks: ['How much have I been paid?', 'How much is in my wallet?', 'What is my balance?', 'How much can I withdraw?'],
+    keywords: ['my wallet', 'my balance', 'in my wallet', 'can i withdraw', 'wallet balance', 'been paid', 'my pay'],
     role: 'worker',
     resolve: (ctx) => {
       const lang = L(ctx);
+      /* Card mode: no balance, the pay went to the bank. */
+      if (ctx.payments?.card) {
+        if (ctx.cardPay === undefined) return say(lang, 'pay.loading');
+        if (ctx.cardPay === null) return say(lang, 'pay.error');
+        const { paid, waiting } = ctx.cardPay;
+        const parts = [paid > 0 ? say(lang, 'pay.paid', { amount: money(paid) }) : say(lang, 'pay.none')];
+        if (waiting > 0) parts.push(say(lang, 'pay.waiting', { amount: money(waiting) }));
+        if (paid <= 0 && waiting <= 0) parts.push(say(lang, 'pay.howLands'));
+        if (!ctx.payments.live) parts.push(say(lang, 'fill.testMode'));
+        return parts.join('\n');
+      }
       if (ctx.wallet === undefined) return say(lang, 'wallet.loading');
       if (ctx.wallet === null) return say(lang, 'wallet.error');
       const { balance, pending, mode } = ctx.wallet;

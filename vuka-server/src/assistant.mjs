@@ -32,6 +32,10 @@
    phone. Long digit runs (ID numbers, phone numbers, account numbers) are
    masked before sending, because people type those into help boxes.
    ============================================================ */
+import { feePercent, paystackMode, paystackOn } from './payments.mjs';
+
+/** How money moves right now: 'card' once Paystack is switched on, else the test ledger. */
+export function paymentModel() { return paystackOn() ? 'card' : 'ledger'; }
 
 const LANGS = {
   en: 'English',
@@ -120,19 +124,53 @@ export function redact(text) {
  * would contradict it. Change one only after checking the code that it
  * describes.
  */
-const FACTS = [
-  'Vuka Uzenzele ("Vuka") is a free South African app that connects people looking for work with gigs (short jobs like cleaning, gardening, dog-walking, moving help, errands, car washing) and formal jobs.',
+/* Card mode (payments.mjs): nothing is held anywhere. The employer's saved card
+   is charged when the job is confirmed, and Paystack splits the charge: the
+   full pay to the worker's bank, the fee to Vuka. */
+function cardFacts() {
+  const out = [
+    'HOW PAYMENT WORKS (card, through Paystack, see payments.mjs): before their first hire, the employer adds a card on Paystack\'s secure page. To check the card, Paystack charges a small amount and refunds it straight away. Nothing is charged for a job when it is posted or when someone is hired.',
+    `When the employer confirms the job — or automatically, if they never answer within the confirmation window — their card is charged the pay plus Vuka's fee of ${feePercent()}% of the pay, and Paystack sends the full pay straight to the worker's bank account. The job is added to the worker's record ("My Record") either way. Vuka takes nothing from the worker's pay. There is no Vuka wallet and nothing to withdraw; the money does not pass through Vuka's own account.`,
+    'Workers add their bank details under "Me" → "Get paid". If they are missing when a job is confirmed, the payment waits and goes through as soon as they are added. If a card charge fails, the employer is asked to pay again from the job. Workers see what they have been paid under "Me" → "My pay".',
+    'Vuka never sees or stores a full card number; Paystack keeps the card. Withdrawing a job before anyone is hired costs nothing.',
+  ];
+  if (paystackMode() !== 'live') out.push('PAYMENTS ARE IN PAYSTACK TEST MODE. Only test cards work and no real money moves yet. Whenever you explain payments, say that it is test mode.');
+  return out;
+}
+
+const LEDGER_HIRING = 'HIRING: once a worker is hired, the job can no longer be removed and its secured pay stays locked for that worker. If a hired worker does not arrive, the employer should message them in "Chats", and can report a problem from the Safety centre under "Me". There is no button to un-hire.';
+const CARD_HIRING = 'HIRING: once a worker is hired, the job can no longer be removed and the hire cannot be undone. If a hired worker does not arrive, the employer should message them in "Chats", and can report a problem from the Safety centre under "Me". There is no button to un-hire.';
+
+/** The facts for the payment model in force. */
+export function factsFor(model = paymentModel()) {
+  return FACTS.flatMap((f) => {
+    if (f === LEDGER_MONEY) return model === 'card' ? cardFacts() : LEDGER_FACTS;
+    if (f === LEDGER_HIRING) return [model === 'card' ? CARD_HIRING : LEDGER_HIRING];
+    if (f === WHAT_IS_VUKA) return [model === 'card' ? WHAT_IS_VUKA.replace('is a free South African app', 'is a South African app, free for workers,') : f];
+    return [f];
+  });
+}
+
+const WHAT_IS_VUKA = 'Vuka Uzenzele ("Vuka") is a free South African app that connects people looking for work with gigs (short jobs like cleaning, gardening, dog-walking, moving help, errands, car washing) and formal jobs.';
+/** Stands in FACTS for the ledger's payment lines below. */
+const LEDGER_MONEY = '(payment)';
+const LEDGER_FACTS = [
   'HOW PAYMENT WORKS (escrow, see escrow.mjs): the employer secures the full pay for a job in Vuka before anyone is hired — when posting it, or later. Workers see "Funds secured" on a job before they apply. Nobody can be hired onto a job until its pay is secured.',
   'Until a worker is hired, the employer can take the funds back at no fee. From the moment someone is hired, the funds are locked for that worker and cannot be taken back.',
   'When the employer confirms the job — or automatically, if they never answer within the confirmation window — the pay moves into the worker\'s Vuka wallet, and the job is added to their record ("My Record"). The worker withdraws from the wallet to the bank account saved under "Me".',
   'PAYMENTS ARE IN TEST MODE. No real money moves yet: funding, the wallet and withdrawals are a practice run until a payment provider is connected. Whenever you explain payments, say that it is test mode.',
+];
+
+const FACTS = [
+  WHAT_IS_VUKA,
+  LEDGER_MONEY,
   'My Record is a verified work CV built from completed, confirmed jobs. The Vuka Score, tiers on "The Ladder", badges and star ratings come from it.',
   'Workers find work under "Find work", apply with one tap, chat with employers in "Chats", and see their record in "My Record". Settings, language, ID verification, banking details and job alerts are under "Me".',
   'Employers post a job with the + button, choose from applicants, and confirm the work afterwards.',
   'Safety: meet in daylight where possible, tell someone where you are going, never pay money to get a job — any "job" asking the worker for a fee is a scam. Report or block anyone from their profile or chat. In danger, phone the police on 10111, or 112 from a cellphone.',
   'Msizi (isiZulu "umsizi" = helper) is the in-app helper. It can explain and look things up, but it cannot apply, hire, post, pay or change anything on anyone\'s behalf. Most of its answers are written and checked; questions they do not cover are answered by AI from those same entries, and those answers are marked.',
   'ACCOUNT: the mobile number is the login and cannot be changed in the app. Under "Me" a person can change their name, email, area, languages, education and short bio. A forgotten password is reset from the log-in screen with a code sent to that number.',
-  'HIRING: once a worker is hired, the job can no longer be removed and its secured pay stays locked for that worker. If a hired worker does not arrive, the employer should message them in "Chats", and can report a problem from the Safety centre under "Me". There is no button to un-hire.',
+  LEDGER_HIRING,
   'CONFIRMING: the employer can confirm a job only after the worker has marked it done, and must give a star rating from 1 to 5 (a written review is optional). That rating goes on the worker\'s record, so a poor rating is how poor work is recorded. Serious problems can also be reported.',
   'Employers can browse workers under "Talent", look at their record, and message them. Workers find jobs under "Find work"; if nothing shows, there may be no jobs posted near them yet, and turning on job alerts under "Me" tells them when one is.',
   'Vuka runs in the phone\'s web browser and can be added to the home screen like an app. It is built to use little data and to open with a weak signal.',
@@ -142,7 +180,7 @@ const FACTS = [
 function systemPrompt(lang, role = 'worker') {
   const language = LANGS[lang] ?? 'English';
   const who = role === 'employer'
-    ? 'The person asking is an EMPLOYER: someone who posts jobs, secures the pay and hires. Answer from their side.'
+    ? 'The person asking is an EMPLOYER: someone who posts jobs, hires and pays. Answer from their side.'
     : 'The person asking is a WORKER: someone looking for work, applying and getting paid. Answer from their side.';
   return [
     'You are Msizi, the warm, patient helper inside the Vuka Uzenzele app in South Africa.',
@@ -161,7 +199,7 @@ function systemPrompt(lang, role = 'worker') {
     '9. If someone says they are in danger, tell them to phone 10111 (or 112 from a cellphone) first.',
     '',
     'FACTS:',
-    ...FACTS.map((f) => `- ${f}`),
+    ...factsFor().map((f) => `- ${f}`),
   ].join('\n');
 }
 
@@ -229,8 +267,17 @@ const OLD_MODEL = /\b(pays? (you|the worker|workers) (directly|in cash|cash)|pai
    between the hiring and the claim, so "not" elsewhere cannot excuse it. */
 const LATE_REVERSAL = /\b(after|once|even after)\b[^.]{0,40}\bhir(e|ed|ing)\b([^.]{0,60}?)\b(take|get|pull|withdraw|reverse|cancel)s?\b[^.]{0,30}\b(back|refund|refunded|money|funds)\b/i;
 
-export function violatesFacts(text) {
-  if (OLD_MODEL.test(text)) return true;
+/* Card mode turns the ledger's truths into falsehoods: there is no wallet,
+   nothing to withdraw, and nothing "secured" before the hire. Vuka not holding
+   the money is now TRUE, so OLD_MODEL does not apply there. Cash is still
+   wrong either way: the app pays by card or not at all. */
+const LEDGER_TALK = /\b(vuka wallet|your wallet|the wallet|worker'?s? wallet|withdraw (it|your pay|the money|from)|funds secured|secures? the (full )?pay)\b/i;
+const CASH = /\bpays? (you|the worker|workers) (in cash|cash)\b/i;
+
+export function violatesFacts(text, model = paymentModel()) {
+  if (model === 'card') {
+    if (LEDGER_TALK.test(text) || CASH.test(text)) return true;
+  } else if (OLD_MODEL.test(text)) return true;
   const late = text.match(LATE_REVERSAL);
   if (!late) return false;
   return !/\b(not|never|cannot|can.t|no longer|locked)\b/i.test(late[3] ?? '');
@@ -238,6 +285,16 @@ export function violatesFacts(text) {
 
 /* The replacement when a reply gets payment wrong — one for each side, since
    "once you are hired" is nonsense to the person doing the hiring. */
+const CARD_ANSWER = {
+  worker:
+    'Before an employer can hire anyone, they add a card on Paystack\'s secure page. '
+    + 'When they confirm your finished job, or automatically if they never answer, their card is charged and Paystack sends your full pay straight to your bank account. '
+    + 'Add your bank details under Me, then Get paid. Vuka takes nothing from your pay, and there is no wallet to withdraw from.',
+  employer:
+    'Before your first hire you add a card on Paystack\'s secure page; nothing is charged for the job then. '
+    + 'When you confirm the finished work, or automatically if you do not answer in time, your card is charged the pay plus Vuka\'s fee, and the pay goes straight to the worker\'s bank. '
+    + 'Once someone is hired, the hire cannot be undone.',
+};
 const ESCROW_ANSWER = {
   worker:
     'The employer secures the full pay for the job in Vuka before anyone is hired, and you can see "Funds secured" on the job before you apply. '
@@ -260,14 +317,31 @@ const TEST_NOTE = {
 };
 /* Not the bare words "pay" or "rand": they turn up in every answer about the
    minimum wage and fair pay, which are not about money moving through Vuka. */
-const MONEY_WORDS = /\b(paid|payment|payments|money|funds?|wallet|withdraw|withdrawal|escrow|secured|imali|chelete|geld|betaal|umholo|moputso|ukukhokhelwa)\b/i;
+/* Card mode before a live key: real cards are refused, which is what a person
+   about to pay needs to hear. */
+const CARD_TEST_NOTE = {
+  en: 'Payments are in Paystack test mode for now: only test cards work, and no real money moves yet.',
+  zu: 'Izinkokhelo zisesimweni sokuhlola se-Paystack okwamanje: kusebenza amakhadi okuhlola kuphela, futhi ayikho imali yangempela edluliswayo okwamanje.',
+  xh: 'Iintlawulo zikwimo yovavanyo ye-Paystack okwangoku: kusebenza amakhadi ovavanyo kuphela, kwaye akukho mali yokwenyani ihambayo okwangoku.',
+  st: 'Ditefo di maemong a teko a Paystack hajwale: ho sebetsa dikarete tsa teko feela, mme ha ho chelete ya nnete e fetisetswang hajwale.',
+  af: 'Betalings is vir eers in Paystack se toetsmodus: net toetskaarte werk, en geen regte geld beweeg nog nie.',
+};
+const MONEY_WORDS = /\b(paid|payment|payments|money|funds?|wallet|withdraw|withdrawal|escrow|secured|charged|imali|chelete|geld|betaal|umholo|moputso|ukukhokhelwa)\b/i;
 /* Not a bare "test" either — an answer mentioning a test is not a test-mode note. */
 const HAS_TEST_NOTE = /test mode|practice run|no real money|toetsmodus|hlola|vavanyo|\bteko\b/i;
 
-/** Append the test-mode note to any answer about money that lacks one. */
-export function withTestNote(text, lang = 'en') {
+/** Append the test-mode note to any answer about money that lacks one. Live card payments get none. */
+export function withTestNote(text, lang = 'en', model = paymentModel()) {
+  if (model === 'card' && paystackMode() === 'live') return text;
   if (!MONEY_WORDS.test(text) || HAS_TEST_NOTE.test(text)) return text;
-  return `${text}\n${TEST_NOTE[lang] ?? TEST_NOTE.en}`;
+  const notes = model === 'card' ? CARD_TEST_NOTE : TEST_NOTE;
+  return `${text}\n${notes[lang] ?? notes.en}`;
+}
+
+/** The safe answer when a reply got payment wrong. */
+export function paymentAnswer(role = 'worker', model = paymentModel()) {
+  const set = model === 'card' ? CARD_ANSWER : ESCROW_ANSWER;
+  return set[role] ?? set.worker;
 }
 
 async function callProvider(p, messages) {
@@ -325,7 +399,7 @@ export async function askAssistant({ userId, role = 'worker', question, lang, en
       const answer = tidy(raw);
       if (!answer) throw new Error(`${p.name}: empty answer`);
       if (violatesFacts(answer)) {
-        return { provider: p.name, answer: withTestNote(ESCROW_ANSWER[role] ?? ESCROW_ANSWER.worker, 'en') };
+        return { provider: p.name, answer: withTestNote(paymentAnswer(role), 'en') };
       }
       return { answer: withTestNote(answer, safeLang), provider: p.name };
     } catch (e) {

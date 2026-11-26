@@ -110,7 +110,7 @@ function CardWalletSheet({ w, onClose, onNeedBank }: { w: CardWallet; onClose: (
   const t = useT();
   const { lang } = useLanguage();
   return (
-    <Sheet title={t('worker.myWallet')} onClose={onClose}>
+    <Sheet title={t('worker.myPay')} onClose={onClose}>
       <div className="rounded-3xl feature-band p-5 mb-3">
         <small className="block text-micro font-bold uppercase tracking-wide text-on-feature-dim">{t('common.pay.walletPaid')}</small>
         <b className="block font-display text-display font-extrabold text-on-feature font-mono tnum leading-none mt-1.5">{money(w.paid)}</b>

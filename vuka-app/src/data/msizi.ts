@@ -91,11 +91,11 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'is-it-free',
     title: 'What it costs',
-    asks: ['Is Vuka free?', 'How much does it cost?', 'Do I have to pay to use this?'],
-    keywords: ['free', 'cost', 'price', 'fee', 'charge', 'subscription', 'pay to use'],
+    asks: ['Is Vuka free?', 'How much does it cost?', 'Do I have to pay to use this?', 'Does Vuka take a cut of my pay?'],
+    keywords: ['free', 'cost', 'price', 'fee', 'charge', 'subscription', 'pay to use', 'cut', 'commission'],
     body:
-      'Vuka is free. There is no sign-up fee, no monthly fee, and no charge to apply for work or to post a job.\n'
-      + 'Vuka does not take a cut of what you earn. The pay for a job is secured by the employer before work starts and released to your wallet when it is confirmed — in test mode for now, so no real money moves through Vuka yet.\n'
+      'Vuka is free for workers. There is no sign-up fee, no monthly fee, and no charge to apply for work. You get the full pay for every job — Vuka takes nothing from it.\n'
+      + 'Posting a job is free too. When a job is done, the employer pays the worker\'s pay plus a Vuka fee of {feePercent} on top. That fee is how Vuka keeps running.\n'
       + 'If anyone ever asks you to pay a fee to get a job on Vuka, that is a scam. Report it.',
     next: ['how-payment-works', 'report-someone'],
   },
@@ -433,73 +433,76 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'how-payment-works',
     title: 'How you get paid',
     asks: ['How do I get paid?', 'Does Vuka hold my money?', 'When do I get my money?'],
-    keywords: ['paid', 'payment', 'money', 'wages', 'cash', 'eft', 'salary', 'earn', 'escrow', 'secured', 'funds', 'wallet'],
+    keywords: ['paid', 'payment', 'money', 'wages', 'cash', 'eft', 'salary', 'earn', 'bank', 'card', 'paystack', 'wallet', 'escrow'],
     body:
-      'The pay for a job is secured before the work starts. The employer puts the full amount in when they post the job, or later — but always before they can hire anyone.\n'
-      + '• Look for Funds secured on a job. It means the pay is already waiting for you. A job showing Awaiting funds can still be applied for, but nobody can be hired onto it until the employer adds the money.\n'
-      + '• Until someone is hired, the employer can take the funds back, free. From the moment you are hired, the money is locked for you.\n'
-      + '• When the employer confirms your finished job — or automatically, {autoReleaseHours} after you mark it done if they never answer — the pay moves into your Vuka wallet under Me. You withdraw it to your bank account whenever you like.\n'
-      + 'Right now this is in TEST MODE: the wallet is a practice run and no real money moves through Vuka yet. Until it is switched on, agree with the employer how they will actually pay you, before you start.\n'
-      + 'If an employer does not pay you, report it. That is exactly what the safety report is for.',
+      'You are paid straight into your bank account, through Paystack, the payment company Vuka uses. The money does not pass through Vuka\'s own account.\n'
+      + '• Before an employer can hire anyone, they must add a card. Nothing is charged for the job then.\n'
+      + '• When the employer confirms your finished job — or automatically, {autoReleaseHours} after you mark it done if they never answer — their card is charged and your full pay is sent to your bank account.\n'
+      + '• Add your bank details under Me, then Get paid. If they are missing when a job is confirmed, your pay waits and is sent as soon as you add them.\n'
+      + 'Under Me, then My pay, you can see what has been paid and anything still waiting.\n'
+      + 'If a payment fails or an employer does not pay you, report it. That is exactly what the safety report is for.\n'
+      + '{testModeNote}',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
-    next: ['funds-secured', 'wallet-withdraw', 'test-mode', 'banking-details'],
+    next: ['funds-secured', 'wallet-withdraw', 'banking-details', 'test-mode'],
   },
   {
     id: 'funds-secured',
-    title: 'What Funds secured means',
-    asks: ['What does Funds secured mean?', 'What does Awaiting funds mean?', 'Can the employer take the money back?', 'Is the money really there?'],
-    keywords: ['funds secured', 'awaiting funds', 'secured', 'take back', 'take the money back', 'locked', 'reverse', 'paid out', 'escrow'],
+    title: 'Is the pay guaranteed?',
+    asks: ['Is my pay guaranteed?', 'What if the employer does not pay?', 'Can the employer take the money back?', 'Is the money really there?'],
+    keywords: ['guaranteed', 'guarantee', 'not pay', 'does not pay', 'never paid', 'take back', 'take the money back', 'charged', 'declined', 'failed', 'reverse', 'funds secured', 'escrow'],
     role: 'worker',
     body:
-      'Every gig shows one of three labels, so you know about the pay before you apply:\n'
-      + '• Funds secured — the employer has already put the full pay in. It is waiting for you.\n'
-      + '• Awaiting funds — not yet. You can still apply, but nobody can be hired onto it until the employer adds the money.\n'
-      + '• Paid out — the job is done and the pay went to the worker.\n'
-      + 'Can the employer take it back? Only before anyone is hired. From the moment you are hired, the money is locked for you, and it moves into your wallet when the job is confirmed — or automatically, {autoReleaseHours} after you mark it done, if the employer never answers.\n'
-      + 'This is in test mode for now, so no real money moves through Vuka yet.',
-    next: ['wallet-withdraw', 'test-mode', 'confirm-work'],
+      'Every employer must add a card before they can hire anyone, and the card is checked when they add it. So there is a way to pay you from the start.\n'
+      + '• The card is charged when the job is confirmed — or automatically, {autoReleaseHours} after you mark it done, if the employer never answers. Staying silent does not stop it.\n'
+      + '• A hire cannot be undone in the app, so an employer cannot cancel you out of a job to avoid paying.\n'
+      + 'What a card cannot promise is that the money is there on the day. If the charge fails, the employer is asked to pay, and you can see the payment on the job. If they still do not pay, report it.\n'
+      + '{testModeNote}',
+    next: ['wallet-withdraw', 'confirm-work', 'report-someone'],
   },
   {
     id: 'wallet-withdraw',
-    title: 'Your wallet, and withdrawing',
-    asks: ['How do I withdraw my money?', 'Where is my wallet?', 'How long does a withdrawal take?'],
-    keywords: ['wallet', 'withdraw', 'withdrawal', 'cash out', 'take out', 'balance', 'transfer', 'payout'],
+    title: 'Where your pay goes',
+    asks: ['How do I withdraw my money?', 'Where is my wallet?', 'When does the money reach my bank?'],
+    keywords: ['wallet', 'withdraw', 'withdrawal', 'cash out', 'take out', 'balance', 'transfer', 'payout', 'my pay', 'reach my bank'],
     role: 'worker',
     body:
-      'Your wallet is under Me, then My wallet. It shows what you can withdraw now, and what is secured on jobs you are still doing.\n'
-      + '• Pay lands in the wallet when an employer confirms your job.\n'
-      + '• Withdraw sends the whole balance to the bank account you saved under Get paid. Add your bank details there first.\n'
-      + 'Because payments are in test mode, no money is actually sent yet, so there is no waiting time to tell you about. When real payments are switched on, the time a withdrawal takes will be shown before you confirm it.\n'
-      + 'Ask me "how much is in my wallet" and I will read you your balance.',
+      'There is nothing to withdraw: your pay goes straight to your bank account when a job is confirmed. Vuka has no wallet to keep it in.\n'
+      + '• Your bank details go under Me, then Get paid. Add them before your first job, so nothing has to wait.\n'
+      + '• Me, then My pay, lists each job, what you were paid, and anything still waiting.\n'
+      + 'Paystack sends the pay to your bank on its normal payout schedule, and your bank then shows it. If it has not arrived after a few working days, report it under Me.\n'
+      + 'Ask me "how much have I been paid" and I will read it to you.\n'
+      + '{testModeNote}',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
-    next: ['my-wallet', 'banking-details', 'test-mode'],
+    next: ['my-wallet', 'banking-details', 'how-payment-works'],
   },
   {
     id: 'test-mode',
     title: 'What test mode means',
     asks: ['What is test mode?', 'Is this real money?', 'Why does it say test mode?'],
-    keywords: ['test mode', 'test', 'practice', 'real money', 'fake money', 'not real', 'pretend'],
+    keywords: ['test mode', 'test', 'practice', 'real money', 'fake money', 'not real', 'pretend', 'test card'],
     body:
-      'Vuka shows the full way payment will work — pay secured before the job, released to the worker wallet when it is confirmed, then withdrawn to the bank. Right now that is a practice run: no real money moves through Vuka yet.\n'
-      + 'Until payments are switched on, agree with the other person how the pay will actually be made, before the work starts. Everything else — your record, ratings, tiers and badges — is real and counts.\n'
-      + 'When real payments start, the app will say so clearly, and test mode will disappear from these screens.',
+      'While Vuka is being tested, payments run in Paystack\'s test mode. Everything works the way it will for real — the card, the charge when a job is done, the pay to the worker\'s bank — but only test cards are accepted, and no real money moves.\n'
+      + 'So for now, agree with the other person how the pay will really be made, before the work starts. Everything else — your record, ratings, tiers and badges — is real and counts.\n'
+      + 'When real payments start, test mode disappears from these screens.',
     next: ['how-payment-works', 'report-someone'],
   },
   {
     id: 'employer-fund-job',
-    title: 'Securing the pay for a job',
-    asks: ['How do I fund a job?', 'Why can I not hire anyone?', 'How do I get my money back?', 'Can I cancel after hiring?', 'How do I pay the worker?', 'What happens to the money if I delete the job?'],
-    keywords: ['fund', 'secure', 'secure the pay', 'funds', 'hire disabled', 'cannot hire', 'money back', 'refund', 'take back', 'cancel', 'pay the worker', 'directly', 'awaiting funds'],
+    title: 'Paying for a job',
+    asks: ['How do I pay the worker?', 'Why do I need a card to hire?', 'When is my card charged?', 'Can I cancel after hiring?', 'Why can I not hire anyone?', 'What happens to the money if I delete the job?', 'How do I fund a job?'],
+    keywords: ['card', 'pay the worker', 'charged', 'charge', 'add card', 'add a card', 'hire disabled', 'cannot hire', 'refund', 'cancel', 'paystack', 'check charge', 'fund', 'money back'],
     role: 'employer',
     body:
-      'The pay for a job is secured before anyone starts. Tick Secure the pay now when you post, or open the job later and tap Secure the pay.\n'
-      + '• Nobody can be hired until the pay is secured. That is why the Hire button says Secure the pay to hire.\n'
-      + '• Before you hire, you can take the funds back at no fee. Withdrawing a job nobody was hired for also gives them back.\n'
-      + '• From the moment you hire someone, the funds are locked for them. They move into the worker wallet when you confirm the work — or automatically, {autoReleaseHours} after they mark it done, if you do not answer.\n'
+      'You pay by card, and only when the job is done.\n'
+      + '• Before your first hire, you add a card on Paystack\'s secure page. To check the card works, Paystack charges {cardCheck} and refunds it straight away (your bank may take a few days to show the refund). The card is kept for later jobs.\n'
+      + '• Nothing is charged when you post or when you hire. When you confirm the finished work — or automatically, {autoReleaseHours} after the worker marks it done, if you do not answer — your card is charged the pay plus Vuka\'s {feePercent} fee, and the pay goes straight to the worker\'s bank.\n'
+      + '• If the worker has not added bank details yet, the charge waits until they do.\n'
+      + '• Withdrawing a job before anyone is hired costs nothing.\n'
       + 'A job someone is hired for cannot be cancelled in the app. Message the worker to sort it out, and report it under Me if something is wrong.\n'
-      + 'Payments are in test mode for now, so no real money moves through Vuka yet.',
+      + 'Vuka never sees your full card number; Paystack keeps it.\n'
+      + '{testModeNote}',
     goto: { screen: 'post', labelKey: 'msizi.goto.post' },
-    next: ['employer-confirm', 'test-mode', 'employer-cost'],
+    next: ['employer-confirm', 'employer-cost', 'test-mode'],
   },
   {
     id: 'get-more-work',
@@ -512,7 +515,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       + '• Fill in your profile and the skills you actually have, so you show up for the right work.\n'
       + '• Verify your ID under Me. Given two people, an employer takes the verified one.\n'
       + '• Turn on New gigs near me, under Me then Notifications, so you hear about a gig the moment it is posted and can apply early.\n'
-      + '• Prefer jobs showing Funds secured, and ones near you — you arrive on time, and the pay is waiting.\n'
+      + '• Add your bank details under Me, then Get paid, so you can be paid the moment a job is confirmed.\n'
+      + '• Prefer jobs near you — you arrive on time, and employers notice.\n'
       + '• Do each job well and mark it done. Every confirmed job and good rating lifts your Vuka Score and your tier.',
     goto: { screen: 'jobs', labelKey: 'msizi.goto.jobs' },
     next: ['find-work', 'move-up-tier', 'notifications'],
@@ -523,9 +527,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     asks: ['Why does Vuka want my bank details?', 'Are my banking details safe?', 'How do I add my bank account?'],
     keywords: ['bank', 'banking', 'account number', 'branch code', 'payout', 'capitec', 'fnb', 'absa'],
     body:
-      'You can save your banking details under Me, so you have them ready to give an employer without digging for a card.\n'
+      'Your bank details are where your pay is sent. Add them under Me, then Get paid. When a job is confirmed, Paystack, the payment company Vuka uses, pays into this account — so your account number is shared with Paystack for that, and for nothing else.\n'
       + 'They are encrypted on the server and are never sent back to the app. Even you only ever see a masked hint — your bank, the account type, and the last four digits. Nothing sensitive is stored on your phone.\n'
-      + 'They are where your wallet sends your pay when you withdraw it. Payments are in test mode for now, so no real money is sent to them yet.\n'
       + 'Nobody from Vuka will ever phone or message you asking for your account number, your PIN or an OTP. Anyone who does is not from Vuka.',
     goto: { screen: 'me', labelKey: 'msizi.goto.me' },
     next: ['how-payment-works', 'what-data'],
@@ -569,7 +572,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'Open the job from your Home screen and mark it done. You will be asked to rate the employer out of five stars before you can — this is the part that keeps employers honest, and it is why other workers can see who is good to work for.\n'
       + 'If something about the job was unsafe, there is a box to raise a safety flag at the same time. A person reads those.\n'
-      + 'The employer is then asked to confirm. Once they do, the job lands on your record with their rating and review, and the pay that was secured for it moves into your wallet (test mode for now).',
+      + 'The employer is then asked to confirm. Once they do, the job lands on your record with their rating and review, and your pay for it is sent to your bank account.',
     next: ['confirm-work', 'ratings-average'],
   },
   {
@@ -579,7 +582,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['confirm', 'confirmation', 'waiting', 'pending', 'never confirmed', 'auto release', 'stuck'],
     body:
       'After you mark a job done, the employer has {autoReleaseHours} to confirm it.\n'
-      + 'If they never do, the job is credited to you anyway once that window passes. You get the record entry, the earnings, the tier progress — and the secured pay moves into your wallet. It is stored without a rating, so their silence cannot drag your average down — or push it up.\n'
+      + 'If they never do, the job is credited to you anyway once that window passes. You get the record entry, the earnings, the tier progress — and the employer\'s card is charged, so your pay is sent to your bank. It is stored without a rating, so their silence cannot drag your average down — or push it up.\n'
       + 'This exists because an employer who simply stops replying used to cancel a worker progress permanently, for work that was genuinely done. Now they cannot.',
     next: ['ratings-average', 'my-jobs'],
   },
@@ -594,10 +597,10 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     body:
       'Tap Post. You describe the work, where it is, how many hours, and what you are paying per hour.\n'
       + '• The Fair-Pay meter shows you how your rate compares with the national minimum wage of {minWage} per hour as you type. Paying under it is not lawful.\n'
-      + '• Secure the pay when you post, or later. You can take it back free until you hire; you cannot hire anyone until it is secured. Workers see Funds secured on your job, which is what makes good people apply.\n'
+      + '• Before your first hire you add a card. Nothing is charged until the work is done and you confirm it.\n'
       + '• Your job goes live to workers near you immediately.\n'
       + '• You see everyone who applies, with their record — rating, jobs completed, tier and badges.\n'
-      + 'Posting is free, and Vuka takes no commission.',
+      + 'Posting is free. When a job is done, you pay the worker\'s pay plus a Vuka fee of {feePercent}.',
     goto: { screen: 'post', labelKey: 'msizi.goto.post' },
     next: ['choose-worker', 'employer-confirm', 'fair-pay'],
   },
@@ -624,19 +627,21 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'When a worker marks a job done you get a notification. Open it, confirm the work, and rate them out of five with a short review.\n'
       + 'Please do it promptly. For you it is a tap; for them it is the entry on their record that unlocks the next tier and the next kind of job.\n'
       + 'If you do not confirm within {autoReleaseHours}, the job is credited to the worker automatically, without a rating. Your review is the part that is lost, and that review is the most valuable thing you can give someone who is building a first work history.\n'
-      + 'Confirming also releases the pay you secured into the worker\'s Vuka wallet. From the moment you hired them it was locked for them. Payments are in test mode for now — no real money moves yet.',
-    next: ['how-payment-works', 'choose-worker'],
+      + 'Confirming also charges your card: the pay goes straight to the worker\'s bank, plus Vuka\'s {feePercent} fee.\n'
+      + '{testModeNote}',
+    next: ['employer-fund-job', 'choose-worker'],
   },
   {
     id: 'employer-cost',
     title: 'What it costs an employer',
-    asks: ['What does it cost to post a job?', 'Does Vuka take commission?'],
-    keywords: ['cost', 'fee', 'commission', 'charge', 'free', 'price', 'employer'],
+    asks: ['What does it cost to post a job?', 'Does Vuka take commission?', 'How much is the Vuka fee?'],
+    keywords: ['cost', 'fee', 'commission', 'charge', 'free', 'price', 'employer', 'percentage'],
     role: 'employer',
     body:
-      'Posting a job is free and hiring is free. What you pay is the pay itself, secured before you hire, and you can take it back free until you do.\n'
-      + 'Payments are in test mode for now, so no real money moves through Vuka yet and nothing is charged. Any fee, once payments are switched on, will be shown before you pay.',
-    next: ['how-payment-works', 'post-a-job'],
+      'Posting a job and hiring are free. When a job is done, your card is charged the worker\'s pay plus a Vuka fee of {feePercent} of the pay. The worker gets the full pay; the fee is what keeps Vuka running.\n'
+      + 'The total you will pay is shown on the job before you hire.\n'
+      + '{testModeNote}',
+    next: ['employer-fund-job', 'post-a-job'],
   },
 
   /* ---------------- Safety, trust and privacy ---------------- */

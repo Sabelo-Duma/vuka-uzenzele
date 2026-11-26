@@ -6,8 +6,10 @@
    1. It only claims what the code actually does. Every "we store X" and
       "we don't do Y" below is checkable against the server: payout numbers are
       AES-256-GCM encrypted and returned masked, ID numbers are encrypted and
-      only ever shown as last-4, location is asked for and never taken, and no
-      money moves through Vuka at all yet — so the notice says so.
+      only ever shown as last-4, location is asked for and never taken. Money
+      follows the payment model in force (usePaymentsConfig): card payments
+      through Paystack, or the test ledger when no key is set — and test mode
+      is said for as long as it lasts.
    2. It names the gaps. Where a detail still needs a human decision (the
       registered entity, the Information Officer), the page says the notice is
       not final rather than quietly reading as published policy.
@@ -18,6 +20,7 @@
    ============================================================ */
 import { Sheet } from '../../components/ui';
 import { INDEPENDENCE, legalReady, OPERATOR, REGULATOR } from '../../data/legal';
+import { isCardMode, usePaymentsConfig } from '../../lib/payments';
 
 const responsibleParty = OPERATOR.legalName || `The operator of ${OPERATOR.product} (registered name to be confirmed)`;
 const privacyContact = OPERATOR.privacyEmail || 'the contact address published in the app';
@@ -54,6 +57,9 @@ function Updated() {
 
 /* ---------------- Privacy notice (POPIA) ---------------- */
 export function PrivacySheet({ onClose }: { onClose: () => void }) {
+  const pay = usePaymentsConfig();
+  const card = isCardMode(pay);
+  const testing = pay?.mode !== 'live';
   return (
     <Sheet title="Privacy & your data" onClose={onClose}>
       <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Privacy &amp; your data<span className="text-brand">.</span></h3>
@@ -80,6 +86,7 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
         <><b>Messages</b> you send through the app — so a conversation about a job has a record if something goes wrong.</>,
         <><b>Your SA ID number and full name</b>, if you choose to verify your identity — see below.</>,
         <><b>Your bank account details</b>, if you choose to add them, so you can be paid.</>,
+        ...(card ? [<><b>Your card, if you hire</b> — typed on Paystack's page, never on ours. We keep only Paystack's code for charging it, plus the card type, last four digits, expiry date and the email you gave, so you can see which card is on file.</>] : []),
         <><b>Your device's location</b>, only when you tap to share it — to measure how far a job actually is.</>,
         <><b>A notification address</b> for your browser, only if you turn on notifications for that phone.</>,
         <><b>Your notifications</b> — the updates listed under the bell, and your choices about which reach your phone. Each update is deleted after 90 days.</>,
@@ -97,9 +104,12 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
       <H>Your bank details never touch your phone twice</H>
       <P>
         Account numbers are encrypted at rest and are never sent back to any device. Once saved, the
-        app can only ever display something like "Capitec •••• 4321". In-app payments are in test
-        mode: no real money moves through Vuka yet, and until they are switched on, payment for a job
-        is arranged directly between you and the employer.
+        app can only ever display something like "Capitec •••• 4321".
+        {card
+          ? <> To pay you, your name, bank and account number are passed to Paystack, our payment
+            provider, which pays your earnings into that account.{testing && ' Payments are in test mode: only test cards work, and no real money moves yet.'}</>
+          : <> In-app payments are in test mode: no real money moves through Vuka yet, and until they
+            are switched on, payment for a job is arranged directly between you and the employer.</>}
       </P>
 
       <H>The lawful basis we rely on</H>
@@ -114,6 +124,7 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
       <L items={[
         <>Our hosting and database providers, who store the data.</>,
         <>An SMS provider, which sees your mobile number and the code or notice being sent.</>,
+        ...(card ? [<>Paystack, our payment provider, which takes card payments and pays workers. It sees the employer's card and email, and the worker's name and bank account. Card numbers go straight to Paystack and never reach Vuka.</>] : []),
         <>Your browser's push service (Google, Mozilla or Apple, depending on your device), if you turn on notifications. The message is encrypted end-to-end; they carry it without being able to read it.</>,
         <>An error-monitoring service, if enabled, which sees technical fault details — never your ID number, password or account number.</>,
       ]} />
@@ -197,6 +208,8 @@ export function PrivacySheet({ onClose }: { onClose: () => void }) {
 
 /* ---------------- Terms of use ---------------- */
 export function TermsSheet({ onClose }: { onClose: () => void }) {
+  const pay = usePaymentsConfig();
+  const card = isCardMode(pay);
   return (
     <Sheet title="Terms of use" onClose={onClose}>
       <h3 className="font-display text-title font-extrabold text-ink tracking-tight m-0">Terms of use<span className="text-brand">.</span></h3>
@@ -239,13 +252,38 @@ export function TermsSheet({ onClose }: { onClose: () => void }) {
       <P>Keep your password to yourself. Anything done from your account is treated as done by you. If you lose control of your number or your phone, reset your password immediately — that ends every other session.</P>
 
       <H>Money</H>
-      <P>
-        Vuka shows a job's pay being secured before work starts, released to the worker's wallet on
-        confirmation, and withdrawn to their bank. <b>This is in test mode:</b> no real money moves
-        through Vuka yet, and Vuka does not hold, transfer or guarantee any payment. Until payments are
-        switched on, payment is arranged and made <b>directly between the worker and the employer</b>.
-        Vuka takes no commission from what you earn.
-      </P>
+      {card && pay ? (
+        <>
+          <P>
+            Employers pay by card through Paystack, our payment provider. Before the first hire, the
+            card is checked with a small charge that is refunded straight away. Nothing is charged
+            when a job is posted or when someone is hired.
+          </P>
+          <P>
+            When a job is confirmed — or automatically, once the confirmation window has passed — the
+            employer's card is charged the pay shown on the job plus Vuka's fee of {pay.feePercent}% of
+            that pay, and the total is shown before hiring. Paystack pays the full pay into the worker's
+            bank account and the fee to Vuka. <b>Vuka takes nothing from what a worker earns</b>, and
+            the money does not pass through Vuka's own account. If a charge fails, the employer still
+            owes the worker and is asked to pay again.
+          </P>
+          {pay.mode !== 'live' && (
+            <P>
+              <b>Payments are in test mode:</b> only test cards work, and no real money moves yet. Until
+              real payments are switched on, payment is arranged and made <b>directly between the
+              worker and the employer</b>.
+            </P>
+          )}
+        </>
+      ) : (
+        <P>
+          Vuka shows a job's pay being secured before work starts, released to the worker's wallet on
+          confirmation, and withdrawn to their bank. <b>This is in test mode:</b> no real money moves
+          through Vuka yet, and Vuka does not hold, transfer or guarantee any payment. Until payments are
+          switched on, payment is arranged and made <b>directly between the worker and the employer</b>.
+          Vuka takes no commission from what you earn.
+        </P>
+      )}
 
       <H>The fair-pay check is guidance</H>
       <P>

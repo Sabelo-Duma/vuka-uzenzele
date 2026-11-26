@@ -27,6 +27,9 @@ export const msiziEn: MsiziLang = {
     'fill.days_one': '{count} day',
     'fill.days_other': '{count} days',
     'fill.listSep': ', ',
+    'fill.testMode': 'Payments are in test mode for now: only test cards work, and no real money moves yet.',
+    'fill.feeUnknown': 'a small percentage',
+    'fill.cardCheckUnknown': 'a small amount',
 
     'score.value': 'Your Vuka Score is {rep} out of 100.',
     'score.built': 'That is built from {jobs}, an average of {avg} stars, and {safety}.',
@@ -55,8 +58,8 @@ export const msiziEn: MsiziLang = {
     'jobs.kinds_one': '{count} kind of work',
     'jobs.kinds_other': '{count} kinds of work',
 
-    'earn.total_one': 'You have earned {amount} from {count} completed job, counted from the pay each job listed. What is in your wallet right now is a separate figure — ask me "how much is in my wallet".',
-    'earn.total_other': 'You have earned {amount} from {count} completed jobs, counted from the pay each job listed. What is in your wallet right now is a separate figure — ask me "how much is in my wallet".',
+    'earn.total_one': 'You have earned {amount} from {count} completed job, counted from the pay each job listed. What has actually been paid to you is a separate figure — ask me "how much have I been paid".',
+    'earn.total_other': 'You have earned {amount} from {count} completed jobs, counted from the pay each job listed. What has actually been paid to you is a separate figure — ask me "how much have I been paid".',
 
     'badges.none': 'You have not earned a badge yet. The first one, First Job, arrives the moment your first gig is confirmed.',
     'badges.earned': 'You have earned {earned} of {total} badges: {list}.',
@@ -72,6 +75,13 @@ export const msiziEn: MsiziLang = {
     'wallet.pending': 'Another {amount} is secured on jobs you are doing. It arrives when each one is confirmed.',
     'wallet.howLands': 'Pay lands here when an employer confirms a job you did.',
     'wallet.test': 'Payments are in test mode for now, so no real money has moved yet.',
+
+    'pay.loading': 'Your payments are still loading. Ask me again in a moment, or open Me, then My pay.',
+    'pay.error': 'I could not read your payments just now. Open Me, then My pay, to see them.',
+    'pay.paid': '{amount} has been paid into your bank account for your jobs so far.',
+    'pay.none': 'Nothing has been paid to you yet.',
+    'pay.waiting': 'Another {amount} is waiting to be paid. Open Me, then My pay, to see why.',
+    'pay.howLands': 'When an employer confirms a job you did, your pay goes straight to your bank account.',
 
     'apps.none': 'You have not applied for anything yet. Find work shows the gigs near you, and applying is one tap.',
     'apps.some_one': 'You have applied for {count} gig. Employers see everyone who applied and choose from them, so not hearing back on one is normal — keep applying.',

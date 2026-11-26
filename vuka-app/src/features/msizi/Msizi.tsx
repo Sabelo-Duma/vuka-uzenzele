@@ -32,6 +32,7 @@ import { useApp } from '../../store/appStore';
 import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { computeCv } from '../../lib/engine';
 import { autoReleaseHours } from '../../data/catalog';
+import { isCardMode, usePaymentsConfig } from '../../lib/payments';
 import { SURE_SCORE, ask, askById, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
 import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
@@ -148,6 +149,8 @@ export function Msizi() {
   const [voiceTick, setVoiceTick] = useState(0);
   /** The worker's wallet, for "how much is in my wallet". Undefined = loading. */
   const [wallet, setWallet] = useState<MsiziContext['wallet']>(undefined);
+  const [cardPay, setCardPay] = useState<MsiziContext['cardPay']>(undefined);
+  const payConfig = usePaymentsConfig();
 
   const listenerRef = useRef<Listener | RecordListener | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -188,8 +191,12 @@ export function Msizi() {
     unread: state.unread,
     idVerified: state.worker.idVerified,
     wallet,
+    cardPay,
+    payments: payConfig
+      ? { card: isCardMode(payConfig), live: payConfig.mode === 'live', feePercent: payConfig.feePercent, cardCheck: payConfig.cardCheck }
+      : payConfig,
   }), [state.role, state.user, state.worker, state.minWage, state.appliedGigIds,
-       state.appliedFormalIds, state.gigs, state.unread, wallet, lang]);
+       state.appliedFormalIds, state.gigs, state.unread, wallet, cardPay, payConfig, lang]);
 
   /* The wallet is read once when the screen opens, for workers only. It is
      the person's own money, so it is only ever read back to them — it is not
@@ -198,10 +205,14 @@ export function Msizi() {
     if (state.role !== 'worker' || !state.user) return undefined;
     let live = true;
     api.getWallet()
-      /* Card mode has no balance to withdraw — pay goes to the bank — and the
-         wallet answers are written for the ledger, so they stay out of it. */
-      .then((w) => { if (live) setWallet(w.mode === 'card' ? null : { balance: w.balance, pending: w.pending, mode: w.mode }); })
-      .catch(() => { if (live) setWallet(null); });
+      /* Card mode has no balance to withdraw — pay goes to the bank — so it
+         is read back as what was paid, and what is waiting. */
+      .then((w) => {
+        if (!live) return;
+        if (w.mode === 'card') { setCardPay({ paid: w.paid, waiting: w.waiting }); setWallet(null); }
+        else { setWallet({ balance: w.balance, pending: w.pending, mode: w.mode }); setCardPay(null); }
+      })
+      .catch(() => { if (live) { setWallet(null); setCardPay(null); } });
     return () => { live = false; };
   }, [state.role, state.user]);
 

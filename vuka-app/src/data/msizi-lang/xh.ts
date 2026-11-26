@@ -22,11 +22,11 @@ export const msiziXh: MsiziLang = {
     },
     'is-it-free': {
       title: 'Ixabiso layo',
-      asks: ['Ingaba iVuka isimahla?', 'Ixabisa malini le app?', 'Kufuneka ndihlawule ukuyisebenzisa?', 'Ingaba i-Vuka i-free?'],
-      keywords: ['simahla', 'ixabiso', 'imali yokubhalisa', 'free'],
+      asks: ['Ingaba iVuka isimahla?', 'Kubiza malini?', 'Kufuneka ndihlawule ukuyisebenzisa?', 'Ingaba iVuka ithatha isabelo kumvuzo wam?', 'Ingaba i-Vuka i-free?'],
+      keywords: ['simahla', 'ixabiso', 'umrhumo', 'isabelo', 'free', 'fee', 'commission', 'cut'],
       body:
-        'IVuka isimahla. Akukho mali yokubhalisa, akukho mali yenyanga, kwaye akuhlawulwa ukufaka isicelo somsebenzi okanye ukufaka umsebenzi.\n'
-        + 'IVuka ayithathi nesabelo kwimali oyifumanayo. Intlawulo yomsebenzi ikhuselwa ngumqeshi ngaphambi kokuba umsebenzi uqale, ize ikhutshelwe esipajini sakho xa uqinisekisiwe — okwangoku kwimowudi yovavanyo, ngoko akukho mali yokwenene ihamba ngeVuka okwangoku.\n'
+        'IVuka isimahla kubasebenzi. Akukho mali yokubhalisa, akukho mali yenyanga, kwaye akuhlawulwa ukufaka isicelo somsebenzi. Ufumana umvuzo wonke kuwo wonke umsebenzi — iVuka ayithathi nto kuwo.\n'
+        + 'Ukufaka umsebenzi nako simahla. Xa umsebenzi ugqityiwe, umqeshi uhlawula umvuzo womsebenzi kunye nomrhumo weVuka we-{feePercent} ngaphezulu. Lo mrhumo yindlela iVuka eqhubeka ngayo.\n'
         + 'Ukuba umntu ukhe akucele ukuba uhlawule imali ukuze ufumane umsebenzi kwiVuka, obo bubuqhetseba. Mxele.',
     },
     'who-is-msizi': {
@@ -285,58 +285,61 @@ export const msiziXh: MsiziLang = {
     'how-payment-works': {
       title: 'Indlela ohlawulwa ngayo',
       asks: ['Ndihlawulwa njani?', 'Ingaba iVuka iyayigcina imali yam?', 'Ndiyifumana nini imali yam?', 'Ndiba-paid njani?'],
-      keywords: ['hlawulwa', 'intlawulo', 'imali', 'umvuzo', 'ikhuselwe', 'isipaji', 'escrow'],
+      keywords: ['hlawulwa', 'intlawulo', 'imali', 'umvuzo', 'ibhanki', 'ikhadi', 'bank', 'card', 'paystack', 'paid', 'eft'],
       body:
-        'Intlawulo yomsebenzi ikhuselwa ngaphambi kokuba umsebenzi uqale. Umqeshi ufaka imali yonke xa efaka umsebenzi, okanye emva koko — kodwa rhoqo ngaphambi kokuba aqeshe nabani na.\n'
-        + '• Khangela Imali ikhuselekile kumsebenzi. Kuthetha ukuba intlawulo sele ikulindile. Umsebenzi obonisa Kulindwe imali usenokufakelwa isicelo, kodwa akukho mntu unokuqeshwa kuwo de umqeshi afake imali.\n'
-        + '• De kuqeshwe umntu, umqeshi angayibuyisa imali, simahla. Ukusukela umzuzu oqeshwe ngawo, imali itshixelwe wena.\n'
-        + '• Xa umqeshi eqinisekisa umsebenzi wakho ogqityiweyo — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} uphawule ukuba ugqityiwe, ukuba akaze aphendule — intlawulo ingena kwisipaji sakho seVuka phantsi kuka-Mna. Uyikhuphela kwiakhawunti yakho yebhanki nanini na uthanda.\n'
-        + 'Okwangoku oku kukwimowudi yovavanyo: isipaji siluziqheliso kwaye akukho mali yokwenene ihamba ngeVuka okwangoku. De ivulwe, vumelana nomqeshi ngendlela aya kukuhlawula ngayo ngokwenene, ngaphambi kokuba uqale.\n'
-        + 'Ukuba umqeshi akakuhlawuli, mxele. Yiyo kanye loo nto ingxelo yokhuseleko ekhoyo.',
+        'Uhlawulwa ngqo kwiakhawunti yakho yebhanki, ngePaystack, inkampani yeentlawulo esetyenziswa yiVuka. Imali ayidluli kwiakhawunti yeVuka ngokwayo.\n'
+        + '• Ngaphambi kokuba umqeshi aqeshe nabani na, kufuneka afake ikhadi. Akukho nto itsalwayo ngomsebenzi ngelo xesha.\n'
+        + '• Xa umqeshi eqinisekisa umsebenzi wakho ogqityiweyo — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} uphawule ukuba ugqityiwe, ukuba akaze aphendule — imali itsalwa kwikhadi lakhe, kwaye umvuzo wakho wonke uthunyelwa kwiakhawunti yakho yebhanki.\n'
+        + '• Faka iinkcukacha zakho zebhanki phantsi kuka-Mna, emva koko Fumana intlawulo. Ukuba azikho xa umsebenzi uqinisekiswa, umvuzo wakho uyalinda, uze uthunyelwe kwakamsinya nje xa uzifakile.\n'
+        + 'Phantsi kuka-Mna, emva koko Umvuzo wam, ungabona oko sele kuhlawulwe nayo nayiphi na into esalindileyo.\n'
+        + 'Ukuba intlawulo iyasilela okanye umqeshi akakuhlawuli, kuxele. Yiyo kanye loo nto ingxelo yokhuseleko ekhoyo.\n'
+        + '{testModeNote}',
     },
     'funds-secured': {
-      title: 'Kuthetha ukuthini Imali ikhuselekile',
-      asks: ['Kuthetha ukuthini Imali ikhuselekile?', 'Kuthetha ukuthini Kulindwe imali?', 'Umqeshi angayibuyisa imali?', 'Ingaba imali ikhona ngokwenene?'],
-      keywords: ['imali ikhuselekile', 'kulindwe imali', 'ihlawulwe', 'buyisa', 'itshixiwe', 'escrow'],
+      title: 'Ingaba umvuzo uqinisekisiwe?',
+      asks: ['Ingaba umvuzo wam uqinisekisiwe?', 'Kuthekani ukuba umqeshi akandihlawuli?', 'Umqeshi angayibuyisa imali?', 'Ingaba imali ikhona ngokwenene?'],
+      keywords: ['akandihlawuli', 'akahlawuli', 'buyisa imali', 'yasilela', 'ikhadi', 'guaranteed', 'declined', 'failed', 'not pay'],
       body:
-        'Wonke umsebenzi wexeshana ubonisa enye yeelebheli ezintathu, ukuze wazi ngentlawulo ngaphambi kokufaka isicelo:\n'
-        + '• Imali ikhuselekile — umqeshi sele efake intlawulo yonke. Ikulindile.\n'
-        + '• Kulindwe imali — hayi okwangoku. Usenokufaka isicelo, kodwa akukho mntu unokuqeshwa kuwo de umqeshi afake imali.\n'
-        + '• Ihlawulwe — umsebenzi ugqityiwe kwaye intlawulo iye kumsebenzi.\n'
-        + 'Umqeshi angayibuyisa? Kuphela ngaphambi kokuba kuqeshwe mntu. Ukusukela umzuzu oqeshwe ngawo, imali itshixelwe wena, kwaye ingena kwisipaji sakho xa umsebenzi uqinisekisiwe — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} uphawule ukuba ugqityiwe, ukuba umqeshi akaze aphendule.\n'
-        + 'Oku kukwimowudi yovavanyo okwangoku, ngoko akukho mali yokwenene ihamba ngeVuka okwangoku.',
+        'Wonke umqeshi kufuneka afake ikhadi ngaphambi kokuba aqeshe nabani na, kwaye ikhadi liyahlolwa xa elifaka. Ngoko kukho indlela yokukuhlawula ukususela ekuqaleni.\n'
+        + '• Imali itsalwa kwikhadi xa umsebenzi uqinisekiswa — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} uphawule ukuba ugqityiwe, ukuba umqeshi akaze aphendule. Ukuthula akuyinqandi.\n'
+        + '• Ukuqeshwa akunakurhoxiswa kwi-app, ngoko umqeshi akanakukukhupha emsebenzini ukuze angahlawuli.\n'
+        + 'Into ikhadi elingenakuyithembisa kukuba imali iya kubakho ngaloo mini. Ukuba ukutsalwa kwemali kuyasilela, umqeshi uyacelwa ukuba ahlawule, kwaye ungayibona intlawulo kumsebenzi. Ukuba akahlawuli nangoko, kuxele.\n'
+        + '{testModeNote}',
     },
     'wallet-withdraw': {
-      title: 'Isipaji sakho, nokukhupha imali',
-      asks: ['Ndiyikhupha njani imali yam?', 'Siphi isipaji sam?', 'Kuthatha ixesha elingakanani ukukhupha imali?', 'Ndenza njani i-withdraw?'],
-      keywords: ['isipaji', 'khupha', 'khuphela', 'withdraw', 'wallet', 'dlulisela'],
+      title: 'Uya phi umvuzo wakho',
+      asks: ['Ndiyikhupha njani imali yam?', 'Siphi isipaji sam?', 'Imali ifika nini ebhankini yam?', 'Ndenza njani i-withdraw?'],
+      keywords: ['khupha', 'khuphela', 'isipaji', 'ebhankini', 'dlulisela', 'wallet', 'withdraw', 'payout', 'cash out'],
       body:
-        'Isipaji sakho siphantsi kuka-Mna, emva koko Isipaji sam. Sibonisa imali onokuyikhupha ngoku, nale ikhuselweyo kwimisebenzi osayenzayo.\n'
-        + '• Intlawulo ingena esipajini xa umqeshi eqinisekisa umsebenzi wakho.\n'
-        + '• Ukukhupha kuthumela imali yonke eseleyo kwiakhawunti yebhanki oyigcine phantsi kuka-Hlawulwa. Qala ngokongeza iinkcukacha zakho zebhanki apho.\n'
-        + 'Ngenxa yokuba iintlawulo zikwimowudi yovavanyo, akukho mali ithunyelwayo ngokwenene okwangoku, ngoko akukho xesha lokulinda endinokukuxelela ngalo. Xa iintlawulo zokwenene zivuliwe, ixesha elithathwa kukukhupha liya kuboniswa ngaphambi kokuba uqinisekise.\n'
-        + 'Ndibuze uthi "kungakanani esipajini sam" ndiya kukufundela imali eseleyo.',
+        'Akukho nto yokukhupha: umvuzo wakho uya ngqo kwiakhawunti yakho yebhanki xa umsebenzi uqinisekisiwe. IVuka ayinaso isipaji sokuwugcina kuso.\n'
+        + '• Iinkcukacha zakho zebhanki zifakwa phantsi kuka-Mna, emva koko Fumana intlawulo. Zifake ngaphambi komsebenzi wakho wokuqala, ukuze kungabikho nto ilindayo.\n'
+        + '• Mna, emva koko Umvuzo wam, ubonisa umsebenzi ngamnye, oko uhlawulwe kona, nayo nayiphi na into esalindileyo.\n'
+        + 'IPaystack ithumela umvuzo ebhankini yakho ngokwexesha layo eliqhelekileyo lokuhlawula, emva koko ibhanki yakho iyawubonisa. Ukuba awukafiki emva kweentsuku ezimbalwa zokusebenza, kuxele phantsi kuka-Mna.\n'
+        + 'Ndibuze uthi "ndihlawulwe malini" ndiya kukufundela.\n'
+        + '{testModeNote}',
     },
     'test-mode': {
       title: 'Kuthetha ukuthini imowudi yovavanyo',
       asks: ['Yintoni imowudi yovavanyo?', 'Ingaba le yimali yokwenene?', 'Kutheni kusithiwa imowudi yovavanyo?', 'Yintoni i-test mode?'],
-      keywords: ['imowudi yovavanyo', 'uvavanyo', 'uziqheliso', 'imali yokwenene', 'test mode'],
+      keywords: ['imowudi yovavanyo', 'uvavanyo', 'imali yokwenene', 'ikhadi lovavanyo', 'test mode', 'test card'],
       body:
-        'IVuka ibonisa yonke indlela intlawulo eya kusebenza ngayo — intlawulo ikhuselwa ngaphambi komsebenzi, ikhutshelwe esipajini somsebenzi xa uqinisekisiwe, ize ikhutshelwe ebhankini. Okwangoku oko kuluziqheliso: akukho mali yokwenene ihamba ngeVuka okwangoku.\n'
-        + 'De iintlawulo zivulwe, vumelana nomnye umntu ngendlela intlawulo eya kwenziwa ngayo ngokwenene, ngaphambi kokuba umsebenzi uqale. Yonke enye into — irekhodi lakho, ulinganiso, amanqanaba neebheji — yeyokwenene kwaye iyabalwa.\n'
-        + 'Xa iintlawulo zokwenene ziqala, i-app iya kutsho ngokucacileyo, kwaye imowudi yovavanyo iya kunyamalala kwezi zikrini.',
+        'Ngelixa iVuka isavavanywa, iintlawulo zisebenza kwimowudi yovavanyo yePaystack. Yonke into isebenza ngendlela eya kusebenza ngayo ngokwenene — ikhadi, ukutsalwa kwemali xa umsebenzi ugqityiwe, umvuzo oya ebhankini yomsebenzi — kodwa kwamkelwa amakhadi ovavanyo kuphela, kwaye akukho mali yokwenene ihambayo.\n'
+        + 'Ngoko okwangoku, vumelana nomnye umntu ngendlela umvuzo oya kuhlawulwa ngayo ngokwenene, ngaphambi kokuba umsebenzi uqale. Yonke enye into — irekhodi lakho, ulinganiso, amanqanaba neebheji — yeyokwenene kwaye iyabalwa.\n'
+        + 'Xa iintlawulo zokwenene ziqala, imowudi yovavanyo iya kunyamalala kwezi zikrini.',
     },
     'employer-fund-job': {
-      title: 'Ukukhusela intlawulo yomsebenzi',
-      asks: ['Ndiwufakela njani imali umsebenzi?', 'Kutheni ndingakwazi ukuqesha mntu?', 'Ndiyibuyisa njani imali yam?', 'Ndingarhoxisa emva kokuqesha?', 'Ndimhlawula njani umsebenzi?', 'Kwenzeka ntoni kwimali ukuba ndiyacima umsebenzi?'],
-      keywords: ['khusela intlawulo', 'andikwazi ukuqesha', 'buyisa imali', 'rhoxisa', 'hlawula umsebenzi', 'kulindwe imali', 'fund'],
+      title: 'Ukuhlawulela umsebenzi',
+      asks: ['Ndimhlawula njani umsebenzi?', 'Kutheni ndifuna ikhadi ukuze ndiqeshe?', 'Imali itsalwa nini kwikhadi lam?', 'Ndingarhoxisa emva kokuqesha?', 'Kutheni ndingakwazi ukuqesha mntu?', 'Kwenzeka ntoni kwimali ukuba ndiyacima umsebenzi?', 'Ndiwufakela njani imali umsebenzi?'],
+      keywords: ['ikhadi', 'faka ikhadi', 'yongeza ikhadi', 'hlawula umsebenzi', 'andikwazi ukuqesha', 'rhoxisa', 'buyisa imali', 'card', 'paystack', 'charge', 'refund', 'fund'],
       body:
-        'Intlawulo yomsebenzi ikhuselwa ngaphambi kokuba kuqale mntu. Phawula Khusela intlawulo ngoku xa ufaka umsebenzi, okanye uvule umsebenzi kamva ucofe Khusela intlawulo.\n'
-        + '• Akukho mntu unokuqeshwa de intlawulo ikhuselwe. Yiyo loo nto iqhosha elithi Qesha kulo msebenzi lisithi Khusela intlawulo ukuze uqeshe.\n'
-        + '• Ngaphambi kokuba uqeshe, ungayibuyisa imali ngaphandle kwentlawulo. Ukurhoxisa umsebenzi ongaqeshwanga mntu nako kuyibuyisa.\n'
-        + '• Ukusukela umzuzu oqesha ngawo umntu, imali itshixelwe yena. Ingena esipajini somsebenzi xa uqinisekisa umsebenzi — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} ephawule ukuba ugqityiwe, ukuba akuphenduli.\n'
+        'Uhlawula ngekhadi, kwaye kuphela xa umsebenzi ugqityiwe.\n'
+        + '• Ngaphambi kokuqesha kwakho kokuqala, ufaka ikhadi kwiphepha elikhuselekileyo lePaystack. Ukuhlola ukuba ikhadi liyasebenza, iPaystack itsala {cardCheck} ize iyibuyise kwangoko (ibhanki yakho isenokuthatha iintsuku ezimbalwa ukubonisa ukubuyiswa kwayo). Ikhadi ligcinwa kwimisebenzi ezayo.\n'
+        + '• Akukho nto itsalwayo xa ufaka umsebenzi okanye xa uqesha. Xa uqinisekisa umsebenzi ogqityiweyo — okanye ngokuzenzekelayo, xa kudlule {autoReleaseHours} umsebenzi ephawule ukuba ugqityiwe, ukuba akuphenduli — kwikhadi lakho kutsalwa umvuzo kunye nomrhumo weVuka we-{feePercent}, kwaye umvuzo uya ngqo ebhankini yomsebenzi.\n'
+        + '• Ukuba umsebenzi akakafaki iinkcukacha zebhanki, ukutsalwa kwemali kuyalinda de azifake.\n'
+        + '• Ukurhoxisa umsebenzi ngaphambi kokuba kuqeshwe mntu akubizi nto.\n'
         + 'Umsebenzi oqeshelwe umntu awunakurhoxiswa kwi-app. Thumela umyalezo kumsebenzi nisombulule, uze uxele phantsi kuka-Mna ukuba kukho into engalunganga.\n'
-        + 'Iintlawulo zikwimowudi yovavanyo okwangoku, ngoko akukho mali yokwenene ihamba ngeVuka okwangoku.',
+        + 'IVuka ayiyiboni inombolo yekhadi lakho iphela; igcinwa yiPaystack.\n'
+        + '{testModeNote}',
     },
     'get-more-work': {
       title: 'Ukufumana imisebenzi emininzi',
@@ -347,17 +350,17 @@ export const msiziXh: MsiziLang = {
         + '• Gcwalisa iprofayile yakho nezakhono onazo ngokwenene, ukuze uvele kumsebenzi ofanelekileyo.\n'
         + '• Qinisekisa isazisi sakho phantsi kuka-Mna. Xa enabantu ababini, umqeshi uthatha oqinisekisiweyo.\n'
         + '• Vula Imisebenzi emitsha ekufutshane, phantsi kuka-Mna emva koko Izaziso, ukuze uve ngomsebenzi ngoko nangoko xa ufakwa ukwazi ukufaka isicelo kwangoko.\n'
-        + '• Khetha imisebenzi ebonisa Imali ikhuselekile, nekufutshane nawe — ufika ngexesha, kwaye intlawulo ikulindile.\n'
+        + '• Faka iinkcukacha zakho zebhanki phantsi kuka-Mna, emva koko Fumana intlawulo, ukuze uhlawulwe kwangoko xa umsebenzi uqinisekisiwe.\n'
+        + '• Khetha imisebenzi ekufutshane nawe — ufika ngexesha, kwaye abaqeshi bayaqaphela.\n'
         + '• Yenza umsebenzi ngamnye kakuhle uze uphawule ukuba ugqityiwe. Wonke umsebenzi oqinisekisiweyo nolinganiso oluhle lunyusa i-Vuka Score yakho nenqanaba lakho.',
     },
     'banking-details': {
       title: 'Iinkcukacha zakho zebhanki',
       asks: ['Kutheni iVuka ifuna iinkcukacha zam zebhanki?', 'Ingaba iinkcukacha zam zebhanki zikhuselekile?', 'Ndiyongeza njani iakhawunti yam yebhanki?'],
-      keywords: ['ibhanki', 'inombolo yeakhawunti', 'ikhowudi yesebe', 'capitec', 'fnb', 'absa', 'bank'],
+      keywords: ['ibhanki', 'inombolo yeakhawunti', 'ikhowudi yesebe', 'capitec', 'fnb', 'absa', 'bank', 'payout'],
       body:
-        'Ungagcina iinkcukacha zakho zebhanki phantsi kuka-Mna, ukuze uzilungiselele ukuzinika umqeshi ngaphandle kokukhangela ikhadi.\n'
+        'Iinkcukacha zakho zebhanki zizo apho umvuzo wakho uthunyelwa khona. Zifake phantsi kuka-Mna, emva koko Fumana intlawulo. Xa umsebenzi uqinisekisiwe, iPaystack, inkampani yeentlawulo esetyenziswa yiVuka, ihlawula kule akhawunti — ngoko inombolo yakho yeakhawunti yabelwana ngayo nePaystack ngenxa yoko, hayi enye into.\n'
         + 'Zifihlwe ngekhowudi kwiseva kwaye azize zithunyelwe kwakhona kwi-app. Nawe ubona kuphela isikhumbuzo esifihliweyo — ibhanki yakho, uhlobo lweakhawunti, namanani amane okugqibela. Akukho nto ibuthathaka egcinwe kwifowuni yakho.\n'
-        + 'Kulapho isipaji sakho sithumela khona intlawulo yakho xa uyikhupha. Iintlawulo zikwimowudi yovavanyo okwangoku, ngoko akukho mali yokwenene ithunyelwa kuzo okwangoku.\n'
         + 'Akukho mntu waseVuka oya kuze akufowunele okanye akuthumelele umyalezo ecela inombolo yakho yeakhawunti, i-PIN yakho okanye i-OTP. Nabani na owenza oko akaveli kwiVuka.',
     },
     'fair-pay': {
@@ -386,7 +389,7 @@ export const msiziXh: MsiziLang = {
       body:
         'Vula umsebenzi kwisikrini sakho esithi Ikhaya uze uwuphawule ugqityiwe. Uya kucelwa ukuba ulinganise umqeshi ngeenkwenkwezi ezintlanu ngaphambi kokuba ukwazi — le yinxalenye egcina abaqeshi bethembekile, kwaye yiyo loo nto abanye abasebenzi bebona ukuba ngubani olungileyo ukumsebenzela.\n'
         + 'Ukuba kukho into engakhuselekanga ngomsebenzi, kukho ibhokisi yokuphakamisa isilumkiso sokhuseleko ngaxeshanye. Ezo zifundwa ngumntu.\n'
-        + 'Emva koko umqeshi uyacelwa ukuba aqinisekise. Xa eqinisekisile, umsebenzi ungena kwirekhodi lakho nolinganiso lwakhe nophononongo, kwaye intlawulo ebikhuselwe wona ingena esipajini sakho, kwimowudi yovavanyo okwangoku.',
+        + 'Emva koko umqeshi uyacelwa ukuba aqinisekise. Xa eqinisekisile, umsebenzi ungena kwirekhodi lakho nolinganiso lwakhe nophononongo, kwaye umvuzo wakho wawo uthunyelwa kwiakhawunti yakho yebhanki.',
     },
     'confirm-work': {
       title: 'Ukulinda umqeshi aqinisekise',
@@ -394,7 +397,7 @@ export const msiziXh: MsiziLang = {
       keywords: ['qinisekisa', 'ukuqinisekisa', 'ndilindile', 'akakaqinisekisi', 'confirm'],
       body:
         'Emva kokuba uphawule umsebenzi ugqityiwe, umqeshi unazo {autoReleaseHours} zokuwuqinisekisa.\n'
-        + 'Ukuba akaze akwenze, umsebenzi ubalelwa kuwe noko xa elo xesha lidlulile. Ufumana ukubhalwa kwirekhodi, imali, inkqubela yenqanaba — kwaye intlawulo ekhuselweyo ingena esipajini sakho. Ugcinwa ungenalo ulinganiso, ngoko ukuthula kwakhe akunakuwuhlisa umndilili wakho — okanye uwunyuse.\n'
+        + 'Ukuba akaze akwenze, umsebenzi ubalelwa kuwe noko xa elo xesha lidlulile. Ufumana ukubhalwa kwirekhodi, imali, inkqubela yenqanaba — kwaye imali itsalwa kwikhadi lomqeshi, ngoko umvuzo wakho uthunyelwa ebhankini yakho. Ugcinwa ungenalo ulinganiso, ngoko ukuthula kwakhe akunakuwuhlisa umndilili wakho — okanye uwunyuse.\n'
         + 'Oku kukhona kuba umqeshi othi nje ayeke ukuphendula wayekhe ayirhoxise inkqubela yomsebenzi ngonaphakade, ngomsebenzi owenziwe ngokwenene. Ngoku akanakukwenza oko.',
     },
     'post-a-job': {
@@ -404,10 +407,10 @@ export const msiziXh: MsiziLang = {
       body:
         'Cofa Faka. Uchaza umsebenzi, apho ukhoyo, iiyure ezingaphi, nokuba uhlawula malini ngeyure.\n'
         + '• Uhlolo lwentlawulo elungileyo lukubonisa ukuba isixa sakho sithelekiswa njani nomvuzo osezantsi welizwe oyi-{minWage} ngeyure njengoko ubhala. Ukuhlawula ngaphantsi kwawo akukho semthethweni.\n'
-        + '• Khusela intlawulo xa ufaka umsebenzi, okanye kamva. Ungayibuyisa simahla de uqeshe; awukwazi ukuqesha mntu de ikhuselwe. Abasebenzi babona Imali ikhuselekile kumsebenzi wakho, yiyo loo nto abantu abalungileyo befaka izicelo.\n'
+        + '• Ngaphambi kokuqesha kwakho kokuqala ufaka ikhadi. Akukho nto itsalwayo de umsebenzi ugqitywe uze uwuqinisekise.\n'
         + '• Umsebenzi wakho uvela kwangoko kubasebenzi abakufutshane nawe.\n'
         + '• Ubona bonke abafaka izicelo, kunye nerekhodi labo — ulinganiso, imisebenzi egqityiweyo, inqanaba neebheji.\n'
-        + 'Ukufaka umsebenzi simahla, kwaye iVuka ayithathi khomishini.',
+        + 'Ukufaka umsebenzi simahla. Xa umsebenzi ugqityiwe, uhlawula umvuzo womsebenzi kunye nomrhumo weVuka we-{feePercent}.',
     },
     'choose-worker': {
       title: 'Ukukhetha oza kumqesha',
@@ -427,15 +430,17 @@ export const msiziXh: MsiziLang = {
         'Xa umsebenzi ephawula umsebenzi ugqityiwe ufumana isaziso. Sivule, uqinisekise umsebenzi, uze umlinganise ngeenkwenkwezi ezintlanu ngophononongo olufutshane.\n'
         + 'Nceda ukwenze ngokukhawuleza. Kuwe kukucofa kanye; kuye kukubhalwa kwirekhodi lakhe okuvula inqanaba elilandelayo nohlobo olulandelayo lomsebenzi.\n'
         + 'Ukuba kudlule {autoReleaseHours} ungaqinisekisanga, umsebenzi ubalelwa umsebenzi ngokuzenzekelayo, ngaphandle kolinganiso. Uphononongo lwakho yinxalenye elahlekayo, kwaye olo phononongo yeyona nto ixabisekileyo onokuyinika umntu owakha imbali yakhe yokuqala yomsebenzi.\n'
-        + 'Ukuqinisekisa kukwakhulula intlawulo oyikhuselileyo iye esipajini seVuka somsebenzi. Ukusukela umzuzu omqeshe ngawo ibitshixelwe yena. Iintlawulo zikwimowudi yovavanyo okwangoku — akukho mali yokwenene ihambayo okwangoku.',
+        + 'Ukuqinisekisa kukwatsala imali kwikhadi lakho: umvuzo uya ngqo ebhankini yomsebenzi, kunye nomrhumo weVuka we-{feePercent}.\n'
+        + '{testModeNote}',
     },
     'employer-cost': {
       title: 'Oko kubiza umqeshi',
-      asks: ['Kubiza malini ukufaka umsebenzi?', 'Ingaba iVuka iyathatha ikhomishini?', 'Ndihlawula malini njengomqeshi?'],
-      keywords: ['ikhomishini', 'ixabiso', 'umrhumo', 'simahla', 'umqeshi'],
+      asks: ['Kubiza malini ukufaka umsebenzi?', 'Ingaba iVuka iyathatha ikhomishini?', 'Umrhumo weVuka ungakanani?', 'Ndihlawula malini njengomqeshi?'],
+      keywords: ['ikhomishini', 'ixabiso', 'umrhumo', 'ipesenti', 'simahla', 'umqeshi', 'fee', 'commission', 'percentage'],
       body:
-        'Ukufaka umsebenzi simahla kwaye ukuqesha simahla. Oko ukuhlawulayo yintlawulo ngokwayo, ekhuselwa ngaphambi kokuba uqeshe, kwaye ungayibuyisa simahla de uqeshe.\n'
-        + 'Iintlawulo zikwimowudi yovavanyo okwangoku, ngoko akukho mali yokwenene ihamba ngeVuka okwangoku kwaye akukho nto ihlawuliswayo. Nawuphi na umrhumo, xa iintlawulo sele zivuliwe, uya kuboniswa ngaphambi kokuba uhlawule.',
+        'Ukufaka umsebenzi nokuqesha simahla. Xa umsebenzi ugqityiwe, kwikhadi lakho kutsalwa umvuzo womsebenzi kunye nomrhumo weVuka we-{feePercent} womvuzo. Umsebenzi ufumana umvuzo wonke; umrhumo yiwo ogcina iVuka iqhubeka.\n'
+        + 'Imali iyonke oya kuyihlawula iboniswa kumsebenzi ngaphambi kokuba uqeshe.\n'
+        + '{testModeNote}',
     },
     'is-it-safe': {
       title: 'Ukuhlala ukhuselekile',
@@ -565,9 +570,9 @@ export const msiziXh: MsiziLang = {
       keywords: ['iibheji zam', 'ibheji', 'ezingaphi'],
     },
     'my-wallet': {
-      title: 'Isipaji sakho',
-      asks: ['Kungakanani esipajini sam?', 'Imali eseleyo yam ingakanani?', 'Ndingakhupha malini?', 'Yintoni i-balance yam?'],
-      keywords: ['isipaji sam', 'esipajini', 'balance', 'ndingakhupha'],
+      title: 'Umvuzo wakho',
+      asks: ['Ndihlawulwe malini?', 'Kungakanani esipajini sam?', 'Imali eseleyo yam ingakanani?', 'Ndingakhupha malini?', 'Yintoni i-balance yam?'],
+      keywords: ['ndihlawulwe', 'umvuzo wam', 'isipaji sam', 'esipajini', 'ndingakhupha', 'balance', 'been paid', 'my pay'],
     },
     'my-applications': {
       title: 'Imisebenzi ofake izicelo zayo',
@@ -603,6 +608,9 @@ export const msiziXh: MsiziLang = {
     'fill.days_one': 'usuku olu-{count}',
     'fill.days_other': 'iintsuku ezi-{count}',
     'fill.listSep': ', ',
+    'fill.testMode': 'Iintlawulo zikwimowudi yovavanyo okwangoku: kusebenza amakhadi ovavanyo kuphela, kwaye akukho mali yokwenene ihambayo okwangoku.',
+    'fill.feeUnknown': 'ipesenti encinci',
+    'fill.cardCheckUnknown': 'isixa esincinci',
 
     'score.value': 'I-Vuka Score yakho ngu-{rep} kwali-100.',
     'score.built': 'Yakhiwe zizinto ezintathu — {jobs}; umndilili weenkwenkwezi ezi-{avg}; kunye noku: {safety}.',
@@ -631,8 +639,8 @@ export const msiziXh: MsiziLang = {
     'jobs.kinds_one': 'uhlobo olu-{count} lomsebenzi',
     'jobs.kinds_other': 'iintlobo ezi-{count} zomsebenzi',
 
-    'earn.total_one': 'Ufumene {amount} kumsebenzi o-{count} ogqityiweyo, kubalwa ngentlawulo ebibhalwe kumsebenzi ngamnye. Imali esesipajini sakho ngoku linani elahlukileyo — ndibuze uthi "kungakanani esipajini sam".',
-    'earn.total_other': 'Ufumene {amount} kwimisebenzi e-{count} egqityiweyo, kubalwa ngentlawulo ebibhalwe kumsebenzi ngamnye. Imali esesipajini sakho ngoku linani elahlukileyo — ndibuze uthi "kungakanani esipajini sam".',
+    'earn.total_one': 'Ufumene {amount} kumsebenzi o-{count} ogqityiweyo, kubalwa ngentlawulo ebibhalwe kumsebenzi ngamnye. Imali osele uyihlawulwe ngokwenene linani elahlukileyo — ndibuze uthi "ndihlawulwe malini".',
+    'earn.total_other': 'Ufumene {amount} kwimisebenzi e-{count} egqityiweyo, kubalwa ngentlawulo ebibhalwe kumsebenzi ngamnye. Imali osele uyihlawulwe ngokwenene linani elahlukileyo — ndibuze uthi "ndihlawulwe malini".',
 
     'badges.none': 'Awukafumani bheji okwangoku. Eyokuqala, Umsebenzi Wokuqala, ifika ngoko nangoko xa umsebenzi wakho wokuqala uqinisekisiwe.',
     'badges.earned': 'Ufumene iibheji ezi-{earned} kwezi-{total}: {list}.',
@@ -648,6 +656,13 @@ export const msiziXh: MsiziLang = {
     'wallet.pending': 'Enye i-{amount} ikhuselwe kwimisebenzi oyenzayo. Ifika xa ngamnye uqinisekisiwe.',
     'wallet.howLands': 'Intlawulo ifika apha xa umqeshi eqinisekisa umsebenzi owenzileyo.',
     'wallet.test': 'Iintlawulo zikwimowudi yovavanyo okwangoku, ngoko akukho mali yokwenene ihambileyo.',
+
+    'pay.loading': 'Iintlawulo zakho zisalayisha. Ndibuze kwakhona kungekudala, okanye uvule Mna, emva koko Umvuzo wam.',
+    'pay.error': 'Andikwazanga ukufunda iintlawulo zakho ngoku. Vula Mna, emva koko Umvuzo wam, ukuze uzibone.',
+    'pay.paid': 'Sele uhlawulwe i-{amount} kwiakhawunti yakho yebhanki ngemisebenzi yakho ukuza kuthi ga ngoku.',
+    'pay.none': 'Akukabikho nto ihlawulwe kuwe okwangoku.',
+    'pay.waiting': 'Enye i-{amount} isalindile ukuhlawulwa. Vula Mna, emva koko Umvuzo wam, ukuze ubone isizathu.',
+    'pay.howLands': 'Xa umqeshi eqinisekisa umsebenzi owenzileyo, umvuzo wakho uya ngqo kwiakhawunti yakho yebhanki.',
 
     'apps.none': 'Awukafaki sicelo nasinye okwangoku. Fumana umsebenzi ikubonisa imisebenzi ekufutshane nawe, kwaye ukufaka isicelo kukucofa kanye.',
     'apps.some_one': 'Ufake isicelo somsebenzi o-{count}. Abaqeshi babona bonke abafake izicelo baze bakhethe kubo, ngoko ukungaphendulwa ngomnye kuqhelekile — qhubeka ufaka izicelo.',

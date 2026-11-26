@@ -7,7 +7,8 @@
  * answers, it just answers that entry in English (and says so to the voice).
  *
  * Placeholders ({minWage}, {autoReleaseHours}, {tiers}, {categories},
- * {badges}, {hosting}, {youthUnemployment} in bodies; {count}, {amount} and
+ * {badges}, {hosting}, {youthUnemployment}, {feePercent}, {cardCheck},
+ * {testModeNote} in bodies; {count}, {amount} and
  * friends in `text`) must survive translation exactly: they are filled from
  * the server at the moment of answering, which is what keeps Msizi from ever
  * reciting last year's minimum wage.
