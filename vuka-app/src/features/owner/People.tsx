@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../store/appStore';
 import { useLanguage, useT } from '../../providers/LanguageProvider';
-import { api, setToken, type OwnerPeople } from '../../lib/api';
+import { api, type OwnerPeople } from '../../lib/api';
 import { Avatar, Card, EmptyState, Skeleton } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { OwnerRoleSwitch } from './RoleSwitch';
 
 /**
  * Everyone who has joined, for the owner only.
@@ -27,26 +28,7 @@ const initials = (name: string) => name.trim().split(/\s+/).map((w) => w[0]).sli
 type Filter = 'all' | 'worker' | 'employer';
 
 export function OwnerPeoplePage() {
-  const { state, navigate } = useApp();
-  const myRole = state.user?.role;
-  const [switching, setSwitching] = useState(false);
-  const [switchFailed, setSwitchFailed] = useState('');
-
-  /* The role travels in the sign-in token, so a switch brings a new one, and
-     the app starts again from the top as that side. */
-  const switchTo = async (role: 'worker' | 'employer') => {
-    if (role === myRole || switching) return;
-    setSwitching(true);
-    setSwitchFailed('');
-    try {
-      const res = await api.ownerSwitchRole(role);
-      setToken(res.token);
-      window.location.assign('/');
-    } catch (e) {
-      setSwitchFailed((e as Error).message);
-      setSwitching(false);
-    }
-  };
+  const { navigate } = useApp();
   const t = useT();
   const { meta } = useLanguage();
   const [data, setData] = useState<OwnerPeople | null>(null);
@@ -89,24 +71,7 @@ export function OwnerPeoplePage() {
         {data && <p className="m-0 mt-1 text-small text-dim">{t('owner.thisWeek', { count: data.totals.thisWeek })}</p>}
       </header>
 
-      <Card className="p-3.5 mb-4">
-        <div className="text-small font-bold text-ink mb-2">{t('owner.useAs')}</div>
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label={t('owner.useAs')}>
-          {(['worker', 'employer'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => switchTo(r)}
-              disabled={switching}
-              aria-pressed={myRole === r}
-              className={`min-h-[44px] rounded-pill border text-small font-bold transition active:scale-95 disabled:opacity-60
-                ${myRole === r ? 'bg-ink text-canvas border-ink' : 'border-line text-ink hover:bg-surface-2'}`}
-            >
-              {r === 'worker' ? t('owner.worker') : t('owner.employer')}
-            </button>
-          ))}
-        </div>
-        <p className="m-0 mt-2 text-micro text-faint">{switching ? t('owner.switching') : switchFailed || t('owner.useAsHint')}</p>
-      </Card>
+      <OwnerRoleSwitch className="mb-4" />
 
       <div className="flex flex-wrap gap-2 mb-3">
         {chip('all', t('owner.all'), data?.totals.all)}

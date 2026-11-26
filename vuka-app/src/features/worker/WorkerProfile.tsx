@@ -13,6 +13,7 @@ import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { WalletSheet } from './WalletSheet';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 import { useT } from '../../providers/LanguageProvider';
+import { OwnerRoleSwitch } from '../owner/RoleSwitch';
 
 type SheetKey = 'notifications' | 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
 
@@ -75,6 +76,8 @@ export function WorkerProfile() {
           <Chip tone="neutral" icon="star">{t('worker.profile.rating', { rating: cv.avg.toFixed(1) })}</Chip>
         </div>
       </Card>
+
+      <OwnerRoleSwitch />
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
 

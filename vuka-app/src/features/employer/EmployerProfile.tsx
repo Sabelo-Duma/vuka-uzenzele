@@ -11,6 +11,7 @@ import { BankingSheet, BlockedSheet, IdentitySheet, SafetySheet } from '../profi
 import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 import { useT } from '../../providers/LanguageProvider';
+import { OwnerRoleSwitch } from '../owner/RoleSwitch';
 
 type SheetKey = 'notifications' | 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
 
@@ -68,6 +69,8 @@ export function EmployerProfile() {
         <h3 className="font-display m-0 text-title font-extrabold text-ink tracking-tight">{state.user?.name ?? t('nav.accountEmployer')}</h3>
         <p className="m-0 mt-1 text-small text-dim">{t('employer.profile.tagline')}</p>
       </Card>
+
+      <OwnerRoleSwitch />
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
 
