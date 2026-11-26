@@ -21,6 +21,11 @@ import { coordsForPlace, parseCoords, withDistance, haversineKm } from './geo.mj
 import { captureError, installProcessHandlers, recentErrors, errorSummary, monitoringTarget } from './monitor.mjs';
 import { validateSaId } from './said.mjs';
 import { startAutoRelease, AUTO_RELEASE_HOURS } from './autorelease.mjs';
+import {
+  paystackOn, paystackMode, feePercent, cardCheckCents, priceFor, PaymentError, ensurePayout, savedCard, forgetCard,
+  startCardCheck, payForApplication, startJobCheckout, verifyReference, retryWaitingFor, workerPayments,
+  paymentForApplication, verifySignature,
+} from './payments.mjs';
 import { askAssistant, aiConfigured, aiStats } from './assistant.mjs';
 import { synthesize, voiceStats, voiceCacheStats, canSpeakAll, warmProgress, startVoiceWarmer } from './voice.mjs';
 import { transcribe, sttConfigured, sttStats, STT_LANGS, STT_MAX_BYTES } from './transcribe.mjs';
@@ -80,6 +85,24 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
 // front-end onto another origin, set VUKA_CORS_ORIGIN (comma-separated).
 const corsOrigin = process.env.VUKA_CORS_ORIGIN;
 app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((s) => s.trim()) } : {}));
+/* Paystack's webhook (payments.mjs). Registered before the JSON parser on
+   purpose: the signature covers the exact bytes Paystack sent. Optional — the
+   app also verifies every payment itself when the person comes back — and off
+   until PAYSTACK_WEBHOOK_SECRET is set. */
+app.post('/api/payments/webhook', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+  const whsec = process.env.PAYSTACK_WEBHOOK_SECRET;
+  if (!whsec || !paystackOn()) return res.sendStatus(404);
+  if (!verifySignature(req.body, req.get('paystack-signature'), [whsec])) return res.sendStatus(401);
+  res.sendStatus(200);
+  try {
+    const event = JSON.parse(req.body.toString('utf8'));
+    const reference = event?.data?.reference;
+    if (reference && String(event.event || '').startsWith('charge.')) {
+      const out = await verifyReference(reference).catch(() => null);
+      if (out?.kind === 'job' && out.applicationId) await tellAboutPayment(out.applicationId);
+    }
+  } catch (e) { captureError(e, 'paystack:webhook'); }
+});
 app.use(express.json({ limit: '64kb' }));
 /* Errors go back in the language of the screen that asked (X-Vuka-Lang). */
 app.use(localizeErrors);
@@ -227,9 +250,11 @@ function gigOut(g, rating, funding) {
     /* Escrow (escrow.mjs): 'held' means the pay is secured and waiting,
        'released' that it has gone to the worker, 'none' that the employer has
        not funded it yet. Workers see this before they apply. */
-    funding: funding ?? 'none',
+    funding: paystackOn() ? undefined : (funding ?? 'none'),
     totalPay: Math.round(Number(g.hours) * Number(g.pay_per_hour)),
-    paymentsMode: PAYMENTS_MODE,
+    /* 'card' once Paystack is on: the employer's card is charged when the job
+       is done, and there is no secured-funds state any more. */
+    paymentsMode: paystackOn() ? 'card' : PAYMENTS_MODE,
     // Overwritten by withDistance() when both sides' coordinates are known.
     // 'listed' means the number is the listing's own label, not a measurement.
     distanceSource: 'listed',
@@ -496,7 +521,7 @@ const CATEGORY = {
   hired: 'work', 'work-done': 'work', 'gig-withdrawn': 'work', 'formal-decision': 'work',
   'invitation-accepted': 'work', 'new-application': 'work', invited: 'work',
   'auto-confirmed': 'work', 'auto-released': 'work',
-  confirmed: 'money', 'needs-funding': 'money',
+  confirmed: 'money', 'needs-funding': 'money', paid: 'money', 'needs-bank': 'money', 'payment-needed': 'money',
   'id-decision': 'account',
 };
 /** Kinds copied into the inbox. Messages have Chats; job alerts have the feed. */
@@ -779,7 +804,7 @@ app.get('/api/health', asyncH(async (_req, res) => {
     ai: aiStats(),
     voice: { ...voiceStats(), saved: await voiceCacheStats(), writtenAnswers: await warmProgress() },
     // 'test' until a payment provider is connected: escrow is a ledger only.
-    payments: PAYMENTS_MODE,
+    payments: paystackOn() ? `paystack-${paystackMode()}` : PAYMENTS_MODE,
     monitoring: monitoringTarget,
     // How many devices are holding a live chat channel open right now. Worth
     // watching: it is the one number that says whether people are getting
@@ -1360,6 +1385,12 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
   if (app_.status !== 'applied') return res.status(409).json({ error: 'That application has already been decided.' });
   const alreadyHired = await get("SELECT * FROM applications WHERE gig_id = ? AND status IN ('hired','worker_done','completed')", [g.id]);
   if (alreadyHired) return res.status(409).json({ error: 'You have already hired someone for this job.' });
+  /* With Paystack on, the rule is a card on file, charged when the job is done. */
+  if (paystackOn()) {
+    if (!(await savedCard(req.user.id))) {
+      return res.status(409).json({ error: 'Add a card before you hire. It is charged only when the job is done.', reason: 'needs_card' });
+    }
+  } else {
   /* The rule the escrow exists for: work only starts once the pay is waiting. */
   const secured = await escrowFor(g.id);
   if (secured?.status !== 'held') {
@@ -1367,6 +1398,7 @@ app.post('/api/gigs/:id/hire', requireAuth, requireRole('employer'), asyncH(asyn
       error: `Add the funds for this job (R${gigTotalCents(g) / 100}) before you hire. The worker starts once the pay is secured.`,
       reason: 'needs_funding',
     });
+  }
   }
 
   const now = new Date().toISOString();
@@ -1517,7 +1549,13 @@ app.post('/api/applications/:id/confirm', requireAuth, requireRole('employer'), 
     }, `${g.employer_name} confirmed "${g.title}" and rated you ${rating}/5 on Vuka Uzenzele. Your CV has been updated.`
       + (released ? ` R${released.amountCents / 100} is in your Vuka wallet.` : ''));
   }
-  res.json({ ok: true, status: 'completed', rating, review, released: released ? released.amountCents / 100 : 0 });
+  /* Card mode: charge the employer now, split straight to the worker's bank. */
+  let payment = null;
+  if (paystackOn()) {
+    try { payment = await payForApplication(app_.id); } catch (e) { captureError(e, 'paystack:confirm'); }
+    await tellAboutPayment(app_.id);
+  }
+  res.json({ ok: true, status: 'completed', rating, review, released: released ? released.amountCents / 100 : 0, payment });
 }));
 
 // ---- formal jobs ----
@@ -1656,7 +1694,17 @@ app.put('/api/me/banking', requireAuth, asyncH(async (req, res) => {
     await run('INSERT INTO banking_details (user_id, holder, bank, account_number_enc, account_last4, account_type, updated_at) VALUES (?,?,?,?,?,?,?)',
       [req.user.id, holder.trim(), bank, enc, last4, accountType, now]);
   }
-  res.json(bankingOut(await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id])));
+  let payout;
+  if (paystackOn()) {
+    try {
+      payout = (await ensurePayout(req.user.id)) ? 'ready' : 'none';
+      for (const r of await retryWaitingFor(req.user.id)) await tellAboutPayment(r.applicationId);
+    } catch (e) {
+      payout = e instanceof PaymentError && e.reason === 'bank_unsupported' ? 'unsupported' : 'error';
+      if (payout === 'error') captureError(e, 'paystack:payout');
+    }
+  }
+  res.json({ ...bankingOut(await get('SELECT * FROM banking_details WHERE user_id = ?', [req.user.id])), payout });
 }));
 
 app.delete('/api/me/banking', requireAuth, asyncH(async (req, res) => {
@@ -2231,6 +2279,103 @@ app.post('/api/owner/role', requireAuth, requireOwner, asyncH(async (req, res) =
   res.json({ token: signToken(user), user: userOut(user), ...extra });
 }));
 
+/* ---------------- payments (Paystack, payments.mjs) ---------------- */
+
+/** Where Paystack sends the person back to: a path the app picks up on load. */
+function returnUrl(req) {
+  const origin = process.env.VUKA_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
+  return `${origin.replace(/\/$/, '')}/paystack-return`;
+}
+
+const paymentFail = (res, e) => {
+  if (e instanceof PaymentError) return res.status(e.status).json({ error: e.message, reason: e.reason });
+  throw e;
+};
+
+/** Tell both sides how a job's payment went. Quiet when nothing changed. */
+async function tellAboutPayment(applicationId) {
+  const p = await paymentForApplication(applicationId);
+  if (!p) return;
+  const app_ = await get('SELECT * FROM applications WHERE id = ?', [applicationId]);
+  const g = app_ ? await get('SELECT * FROM gigs WHERE id = ?', [app_.gig_id]) : null;
+  if (!g) return;
+  const worker = await userById(app_.worker_id);
+  const employer = g.employer_id ? await userById(g.employer_id) : null;
+  const tag = `payment-${applicationId}`;
+  if (p.status === 'success') {
+    if (worker) reach(worker, { type: 'paid', title: `You've been paid R${p.pay}`, body: `For "${g.title}". It goes to your bank account, usually by the next working day.`, url: '/?tab=cv', tag },
+      `You've been paid R${p.pay} for "${g.title}" on Vuka Uzenzele. It goes to your bank account, usually by the next working day.`);
+    if (employer) reach(employer, { type: 'paid', title: 'Payment done', body: `R${p.amount} for "${g.title}", including Vuka's fee of R${p.fee}.`, url: '/?tab=hires', tag });
+  } else if (p.status === 'waiting_bank') {
+    if (worker) reach(worker, { type: 'needs-bank', title: 'Add your bank details to get paid', body: `"${g.title}" is confirmed. Add your bank details under Me and the R${p.pay} is sent to you.`, url: '/?tab=me', tag },
+      `"${g.title}" is confirmed on Vuka Uzenzele. Add your bank details under Me to receive R${p.pay}.`);
+  } else if (['failed', 'needs_card', 'paused'].includes(p.status)) {
+    if (employer) reach(employer, { type: 'payment-needed', title: 'Finish paying for a job', body: `The payment for "${g.title}" did not go through. Open the job to pay.`, url: '/?tab=hires', tag },
+      `The payment for "${g.title}" on Vuka Uzenzele did not go through. Open the job in Vuka to pay.`);
+  }
+}
+
+app.get('/api/payments/config', requireAuth, asyncH(async (req, res) => {
+  res.json({
+    provider: paystackOn() ? 'paystack' : 'ledger', mode: paystackMode(), feePercent: feePercent(),
+    cardCheck: cardCheckCents() / 100, card: paystackOn() ? await savedCard(req.user.id) : null,
+  });
+}));
+
+/* Add (or replace) the employer's card: Paystack's page, a small check, refunded. */
+app.post('/api/payments/card', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  if (!paystackOn()) return res.status(409).json({ error: 'Card payments are not switched on yet.', reason: 'off' });
+  try { res.json(await startCardCheck(req.user.id, { email: req.body?.email, callbackUrl: returnUrl(req) })); } catch (e) { paymentFail(res, e); }
+}));
+
+app.delete('/api/payments/card', requireAuth, asyncH(async (req, res) => {
+  await forgetCard(req.user.id);
+  res.json({ ok: true });
+}));
+
+/* The person is back from Paystack's page: ask Paystack how it went. */
+app.post('/api/payments/verify', requireAuth, asyncH(async (req, res) => {
+  if (!paystackOn()) return res.status(409).json({ error: 'Card payments are not switched on yet.', reason: 'off' });
+  const p = await get('SELECT employer_id FROM payments WHERE reference = ?', [String(req.body?.reference || '')]);
+  if (!p || p.employer_id !== req.user.id) return res.status(404).json({ error: 'That payment could not be found.' });
+  try {
+    const out = await verifyReference(req.body.reference);
+    if (out.kind === 'job' && out.applicationId) await tellAboutPayment(out.applicationId);
+    res.json({ ...out, card: await savedCard(req.user.id) });
+  } catch (e) { paymentFail(res, e); }
+}));
+
+/** The payment for one job, for its employer or its worker. */
+app.get('/api/applications/:id/payment', requireAuth, asyncH(async (req, res) => {
+  const app_ = await get('SELECT * FROM applications WHERE id = ?', [req.params.id]);
+  const g = app_ ? await get('SELECT * FROM gigs WHERE id = ?', [app_.gig_id]) : null;
+  if (!g || (g.employer_id !== req.user.id && app_.worker_id !== req.user.id)) return res.status(404).json({ error: 'That job could not be found.' });
+  const price = priceFor(g);
+  res.json({ payment: await paymentForApplication(app_.id), price: { pay: price.pay / 100, fee: price.fee / 100, total: price.total / 100 }, mode: paystackMode() });
+}));
+
+/* Pay for a confirmed job: the saved card, or Paystack's page ("checkout"). */
+app.post('/api/applications/:id/pay', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  if (!paystackOn()) return res.status(409).json({ error: 'Card payments are not switched on yet.', reason: 'off' });
+  const app_ = await get('SELECT * FROM applications WHERE id = ?', [req.params.id]);
+  const g = app_ ? await get('SELECT * FROM gigs WHERE id = ?', [app_.gig_id]) : null;
+  if (!g || g.employer_id !== req.user.id) return res.status(404).json({ error: 'That job could not be found.' });
+  try {
+    if (req.body?.method !== 'checkout' && await savedCard(req.user.id)) {
+      const before = await paymentForApplication(app_.id);
+      /* A declined or never-started charge may be tried again with the saved card. */
+      if (before && ['failed', 'needs_card', 'waiting_bank'].includes(before.status)) {
+        await run("UPDATE payments SET status = 'retried', updated_at = ? WHERE kind = 'job' AND application_id = ? AND status IN ('failed','needs_card','waiting_bank')",
+          [new Date().toISOString(), app_.id]);
+      }
+      const payment = await payForApplication(app_.id);
+      await tellAboutPayment(app_.id);
+      return res.json({ payment });
+    }
+    res.json(await startJobCheckout(app_.id, req.user.id, { email: req.body?.email, callbackUrl: returnUrl(req) }));
+  } catch (e) { paymentFail(res, e); }
+}));
+
 /* ---- Msizi, when the knowledge base has no answer ----
    See assistant.mjs for what is sent and what is not. A per-IP limit on top of
    the global one: each call spends a slice of a free daily quota that every
@@ -2345,6 +2490,7 @@ function escrowFail(res, e) {
 }
 
 app.post('/api/gigs/:id/fund', requireAuth, requireRole('employer'), asyncH(async (req, res) => {
+  if (paystackOn()) return res.status(409).json({ error: 'Payments now go by card when the job is done, so there is nothing to add here.', reason: 'card_payments' });
   const g = await get('SELECT * FROM gigs WHERE id = ?', [req.params.id]);
   if (!g) return res.status(404).json({ error: 'That job could not be found.' });
   try {
@@ -2363,6 +2509,11 @@ app.post('/api/gigs/:id/unfund', requireAuth, requireRole('employer'), asyncH(as
 }));
 
 app.get('/api/me/wallet', requireAuth, asyncH(async (req, res) => {
+  /* Card mode: pay goes straight to the worker's bank; this lists it. */
+  if (paystackOn()) {
+    const p = await workerPayments(req.user.id);
+    return res.json({ mode: 'card', paid: p.paidCents / 100, waiting: p.waitingCents / 100, payout: p.payout, payments: p.payments });
+  }
   const w = await wallet(req.user.id);
   res.json({
     mode: w.mode, balance: w.balanceCents / 100, pending: w.pendingCents / 100,
@@ -2500,7 +2651,22 @@ app.post('/api/invitations/:id/respond', requireAuth, requireRole('worker'), asy
   /* Accepting an invitation hires the worker, so the same rule as /hire:
      not until the pay is secured. The invitation stays open, and the employer
      is told what is holding it up. */
-  if (accept) {
+  if (accept && paystackOn()) {
+    const gig = await get('SELECT * FROM gigs WHERE id = ?', [inv.gig_id]);
+    if (gig?.employer_id && !(await savedCard(gig.employer_id))) {
+      const employer = await userById(gig.employer_id);
+      if (employer) {
+        const who = (await userById(req.user.id))?.name ?? 'A worker';
+        reach(employer,
+          { type: 'needs-funding', title: `${who} wants to take your job`, body: `Add a card for "${gig.title}" so they can start. It is charged only when the job is done.` },
+          `${who} wants to take "${gig.title}". Add a card in Vuka so they can start.`);
+      }
+      return res.status(409).json({
+        error: 'The employer has not added a card yet. We have told them — you can accept as soon as they do.',
+        reason: 'needs_card',
+      });
+    }
+  } else if (accept) {
     const secured = await escrowFor(inv.gig_id);
     if (secured?.status !== 'held') {
       const gig = await get('SELECT * FROM gigs WHERE id = ?', [inv.gig_id]);
@@ -3684,6 +3850,10 @@ const stopVoiceWarmer = startVoiceWarmer();
 const stopAutoRelease = startAutoRelease({
   onError: (e) => captureError(e, 'autoRelease:sweep'),
   onRelease: async (job) => {
+    if (paystackOn()) {
+      try { await payForApplication(job.app_id); } catch (e) { captureError(e, 'paystack:auto-release'); }
+      await tellAboutPayment(job.app_id);
+    }
     const worker = await userById(job.worker_id);
     if (worker) {
       reach(worker, {

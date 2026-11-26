@@ -16,6 +16,7 @@ import { CardSkeletonGrid } from '../../components/cards';
 import { DetailHeader } from '../../components/bits';
 import { Icon } from '../../components/Icon';
 import { FundingChip, TestModeNote, gigTotal } from '../../components/Funding';
+import { AddCardSheet, CardPayPanel } from '../../components/CardPayments';
 import { useT } from '../../providers/LanguageProvider';
 import { useRichT } from './EmployerRail';
 
@@ -30,6 +31,7 @@ export function Applicants({ id }: { id: string }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [confirming, setConfirming] = useState<Applicant | null>(null);
   const [funding, setFunding] = useState(false);
+  const [addCard, setAddCard] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -51,6 +53,8 @@ export function Applicants({ id }: { id: string }) {
       toast(t('employer.applicants.hired', { name: a.worker.name.split(' ')[0] }));
       await load();
     } catch (e) {
+      /* Card mode: hiring needs a card on file. Offer to add one, there. */
+      if ((e as { reason?: string }).reason === 'needs_card') { setAddCard(true); return; }
       toast((e as Error).message);
     } finally {
       setBusyId(null);
@@ -164,6 +168,7 @@ export function Applicants({ id }: { id: string }) {
               {gig.paymentsMode !== 'live' && <TestModeNote className="mt-3" />}
             </div>
           )}
+          {gig.paymentsMode === 'card' && <CardPayPanel gig={gig} hired={hired} onAddCard={() => setAddCard(true)} />}
           {/* Withdrawing is only offered while it is still possible — once
               someone is hired this is their pay, and the server refuses. */}
           {!hired && (
@@ -173,6 +178,8 @@ export function Applicants({ id }: { id: string }) {
           )}
         </Card>
       )}
+
+      {addCard && <AddCardSheet backTo={id} onClose={() => setAddCard(false)} />}
 
       {withdrawing && gig && (
         <WithdrawSheet

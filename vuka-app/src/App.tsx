@@ -40,6 +40,7 @@ const Msizi = lazy(() => import('./features/msizi/Msizi')
   }));
 import { PublicCv } from './features/public/PublicCv';
 import { OwnerPeoplePage } from './features/owner/People';
+import { PaystackReturn } from './components/CardPayments';
 import { Icon } from './components/Icon';
 import { Notifications } from './features/notifications/Notifications';
 import { useT } from './providers/LanguageProvider';
@@ -151,6 +152,8 @@ export function App() {
       </AppShell>
       {/* Fires the moment an employer's confirmation lands, wherever the worker is. */}
       <CelebrationSheet />
+      {/* Back from Paystack's page: check the payment, go back to the job. */}
+      <PaystackReturn />
       <Toast />
     </>
   );

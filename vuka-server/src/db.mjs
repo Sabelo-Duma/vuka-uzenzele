@@ -284,6 +284,51 @@ export async function initDb() {
       updated_at TEXT NOT NULL
     );
 
+    /* Real payments through Paystack (payments.mjs). Off until a key is set.
+       payout_accounts: a worker's Paystack subaccount, made from their bank
+       details. payment_cards: an employer's reusable card authorization,
+       encrypted. payments: every attempt — card checks and job charges. */
+    CREATE TABLE IF NOT EXISTS payout_accounts (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      subaccount_code TEXT NOT NULL,
+      bank TEXT NOT NULL,
+      account_last4 TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS payment_cards (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      authorization_enc TEXT NOT NULL,
+      last4 TEXT,
+      brand TEXT,
+      exp_month TEXT,
+      exp_year TEXT,
+      email TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      reference TEXT NOT NULL UNIQUE,
+      application_id TEXT,
+      gig_id TEXT,
+      employer_id TEXT NOT NULL,
+      worker_id TEXT,
+      amount_cents INTEGER NOT NULL,
+      worker_cents INTEGER NOT NULL DEFAULT 0,
+      fee_cents INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL,
+      auth_url TEXT,
+      message TEXT,
+      mode TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      paid_at TEXT
+    );
+
     /* Escrow: the pay for a gig, secured by the employer before work starts.
        See escrow.mjs. One live row per gig; a reversed row stays as history.
        Deliberately no FK to gigs — deleting a gig must not delete the record
@@ -461,6 +506,8 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_history_worker ON history(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_worker ON applications(worker_id);
     CREATE INDEX IF NOT EXISTS idx_apps_gig ON applications(gig_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_app ON payments(application_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_worker ON payments(worker_id);
     CREATE INDEX IF NOT EXISTS idx_gigs_status ON gigs(status);
     CREATE INDEX IF NOT EXISTS idx_gigs_employer ON gigs(employer_id);
     CREATE INDEX IF NOT EXISTS idx_inv_worker ON invitations(worker_id);

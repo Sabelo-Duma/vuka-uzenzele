@@ -106,7 +106,7 @@ export interface Gig {
   /** hours × rate, rounded to the rand, as the server computes it. */
   totalPay?: number;
   /** 'test' until a payment provider is connected: no real money moves. */
-  paymentsMode?: 'test' | 'live';
+  paymentsMode?: 'test' | 'live' | 'card';
 }
 
 /** Formal, tier-gated job. */
