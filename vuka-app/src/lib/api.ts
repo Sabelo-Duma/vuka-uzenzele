@@ -305,6 +305,22 @@ export interface WalletEntry {
   testMode: boolean; at: string; gigTitle: string | null;
 }
 export interface Wallet { mode: 'test' | 'live'; balance: number; pending: number; entries: WalletEntry[] }
+/** Card mode (Paystack): pay goes straight to the worker's bank; this lists it. */
+export interface CardWallet {
+  mode: 'card'; paid: number; waiting: number; payout: { bank: string; last4: string } | null;
+  payments: Array<{ id: string; gigTitle: string | null; status: string; amount: number; pay: number; fee: number; at: string }>;
+}
+
+/* ---- Card payments (Paystack) ---- */
+export interface PaymentsConfig {
+  provider: 'paystack' | 'ledger'; mode: 'off' | 'test' | 'live'; feePercent: number; cardCheck: number;
+  card: { last4: string; brand: string; expMonth: string; expYear: string; email: string } | null;
+}
+export interface JobPayment {
+  status: 'success' | 'pending' | 'charging' | 'paused' | 'failed' | 'needs_card' | 'waiting_bank' | 'retried';
+  amount: number; pay: number; fee: number; authUrl: string | null; paidAt: string | null; mode: string;
+}
+export interface PaymentState { payment: JobPayment | null; price: { pay: number; fee: number; total: number }; mode: string }
 
 /** Viewer position, appended so the server can measure real distances. */
 export type Near = { lat: number; lng: number } | null | undefined;
@@ -501,7 +517,13 @@ export const api = {
   /* Escrow, test mode — see vuka-server/src/escrow.mjs. */
   fundGig: (gigId: string) => request<{ ok: boolean; funding: 'held'; amount: number; mode: string }>('POST', `/gigs/${gigId}/fund`),
   unfundGig: (gigId: string) => request<{ ok: boolean; refunded: number; fee: number; mode: string }>('POST', `/gigs/${gigId}/unfund`),
-  getWallet: () => request<Wallet>('GET', '/me/wallet'),
+  getWallet: () => request<Wallet | CardWallet>('GET', '/me/wallet'),
+  paymentsConfig: () => request<PaymentsConfig>('GET', '/payments/config'),
+  addCard: (email: string) => request<{ url: string; reference: string }>('POST', '/payments/card', { email }),
+  verifyPayment: (reference: string) => request<{ kind: 'card_check' | 'job'; status: string }>('POST', '/payments/verify', { reference }),
+  applicationPayment: (applicationId: string) => request<PaymentState>('GET', `/applications/${applicationId}/payment`),
+  payApplication: (applicationId: string, method?: 'checkout') =>
+    request<{ payment: JobPayment } | { url: string; reference: string }>('POST', `/applications/${applicationId}/pay`, method ? { method } : {}),
   withdrawWallet: () => request<{ ok: boolean; amount: number; to: string; mode: string }>('POST', '/me/wallet/withdraw'),
   hireWorker: (gigId: string, workerId: string) => request<{ ok: boolean; applicationId: string }>('POST', `/gigs/${gigId}/hire`, { workerId }),
   listMyHires: () => request<Hire[]>('GET', '/me/hires'),

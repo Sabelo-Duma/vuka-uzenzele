@@ -9,6 +9,7 @@ import { FollowButton } from '../../components/FollowButton';
 import { Icon } from '../../components/Icon';
 import { ReviewSheet } from './ReviewSheet';
 import { WorkerFundingPanel } from '../../components/Funding';
+import { WorkerCardPayNote } from '../../components/CardPayments';
 import { useT } from '../../providers/LanguageProvider';
 import { fill } from './fill';
 
@@ -54,6 +55,7 @@ export function GigDetail({ id }: { id: string }) {
 
       <div className="py-4">
         <WorkerFundingPanel gig={gig} />
+          <WorkerCardPayNote gig={gig} />
         <FairMeter ratePerHour={gig.payPerHour} minWage={minWagePerHour()} />
         <p className="text-ink leading-relaxed text-small m-0">{gig.description}</p>
       </div>

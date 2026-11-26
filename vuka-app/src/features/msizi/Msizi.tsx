@@ -198,7 +198,9 @@ export function Msizi() {
     if (state.role !== 'worker' || !state.user) return undefined;
     let live = true;
     api.getWallet()
-      .then((w) => { if (live) setWallet({ balance: w.balance, pending: w.pending, mode: w.mode }); })
+      /* Card mode has no balance to withdraw — pay goes to the bank — and the
+         wallet answers are written for the ledger, so they stay out of it. */
+      .then((w) => { if (live) setWallet(w.mode === 'card' ? null : { balance: w.balance, pending: w.pending, mode: w.mode }); })
       .catch(() => { if (live) setWallet(null); });
     return () => { live = false; };
   }, [state.role, state.user]);

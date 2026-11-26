@@ -65,6 +65,17 @@ services:
       # named "Sabelo…" (the owner's). See msiziAllowed() in server.mjs.
       - key: VUKA_MSIZI_ACCOUNTS
         sync: false
+      # Real payments (payments.mjs). Unset = the test-mode ledger, as before.
+      # sk_test_… runs Paystack's test mode; sk_live_… moves real money.
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      # Optional: the whsec_… secret of a Paystack webhook pointed at
+      # /api/payments/webhook. Payments are also verified without it.
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+      # Vuka's fee, % of the job's pay, added on top for the employer. Default 10.
+      - key: VUKA_FEE_PERCENT
+        sync: false
       # SMS — the only thing gating new sign-ups. Without it /api/auth/otp
       # returns 503 and nobody new can register; existing and demo accounts
       # still work, which is what makes it easy to miss.

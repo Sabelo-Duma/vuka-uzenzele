@@ -12,7 +12,7 @@
    the balance, where it cannot be missed.
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Wallet } from '../../lib/api';
+import { api, type CardWallet, type Wallet } from '../../lib/api';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appStore';
 import { Button, Sheet } from '../../components/ui';
@@ -25,7 +25,7 @@ export function WalletSheet({ onClose, onNeedBank }: { onClose: () => void; onNe
   const { toast } = useApp();
   const t = useT();
   const { lang } = useLanguage();
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [loaded, setWallet] = useState<Wallet | CardWallet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -49,6 +49,10 @@ export function WalletSheet({ onClose, onNeedBank }: { onClose: () => void; onNe
       setBusy(false);
     }
   };
+
+  /* Card mode (Paystack): nothing to withdraw — pay goes to the bank. */
+  if (loaded?.mode === 'card') return <CardWalletSheet w={loaded} onClose={onClose} onNeedBank={onNeedBank} />;
+  const wallet = loaded as Wallet | null;
 
   return (
     <Sheet title={t('worker.myWallet')} onClose={onClose}>
@@ -94,6 +98,48 @@ export function WalletSheet({ onClose, onNeedBank }: { onClose: () => void; onNe
             <b className={`font-mono tnum text-small shrink-0 ${e.amount > 0 ? 'text-verified' : 'text-ink'}`}>
               {e.amount > 0 ? '+' : '−'}{money(Math.abs(e.amount))}
             </b>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  );
+}
+
+/** Card mode: what has been paid to the worker's bank, and what is on its way. */
+function CardWalletSheet({ w, onClose, onNeedBank }: { w: CardWallet; onClose: () => void; onNeedBank: () => void }) {
+  const t = useT();
+  const { lang } = useLanguage();
+  return (
+    <Sheet title={t('worker.myWallet')} onClose={onClose}>
+      <div className="rounded-3xl feature-band p-5 mb-3">
+        <small className="block text-micro font-bold uppercase tracking-wide text-on-feature-dim">{t('common.pay.walletPaid')}</small>
+        <b className="block font-display text-display font-extrabold text-on-feature font-mono tnum leading-none mt-1.5">{money(w.paid)}</b>
+        {w.waiting > 0 && (
+          <p className="text-small text-on-feature-dim mt-2 mb-0">{t('common.pay.walletWaiting', { amount: money(w.waiting) })}</p>
+        )}
+      </div>
+      {w.payout ? (
+        <p className="text-small text-dim text-center mt-1 mb-4">{t('common.pay.walletTo', { bank: w.payout.bank.toUpperCase(), last4: w.payout.last4 })}</p>
+      ) : (
+        <>
+          <p className="text-small text-ink mt-1 mb-2">{t('common.pay.walletNoBank')}</p>
+          <Button block icon="wallet" onClick={onNeedBank}>{t('worker.getPaid')}</Button>
+          <div className="mb-4" />
+        </>
+      )}
+      <h3 className="font-display text-small font-extrabold text-ink uppercase tracking-wide mb-2">{t('worker.wallet.history')}</h3>
+      {w.payments.length === 0 && <p className="text-small text-dim leading-relaxed">{t('common.pay.walletEmpty')}</p>}
+      <ul className="flex flex-col divide-y divide-line-soft m-0 p-0 list-none">
+        {w.payments.map((p) => (
+          <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+            <div className="min-w-0">
+              <div className="text-small font-semibold text-ink truncate">{p.gigTitle ?? t('worker.jobConfirmed')}</div>
+              <div className="text-micro text-dim">
+                {new Date(p.at).toLocaleDateString(langMeta(lang).tag, { day: 'numeric', month: 'short', year: 'numeric' })}
+                {' · '}{p.status === 'success' ? t('common.pay.rowPaid') : t('common.pay.rowWaiting')}
+              </div>
+            </div>
+            <b className={`font-mono tnum text-small shrink-0 ${p.status === 'success' ? 'text-verified' : 'text-dim'}`}>{money(p.pay)}</b>
           </li>
         ))}
       </ul>

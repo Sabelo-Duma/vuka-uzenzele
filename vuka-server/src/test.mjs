@@ -618,6 +618,127 @@ async function run() {
       ok((await api('GET', '/gigs/j1')).status === 200, 'in development the sample data is still there');
     }
 
+    // Real payments through Paystack (payments.mjs), against a fake Paystack
+    // that records every request, so the shapes sent are checked too.
+    {
+      const http = await import('node:http');
+      const crypto = await import('node:crypto');
+      const seen = [];
+      let chargeResult = 'success';
+      const fake = http.createServer((req, res) => {
+        let raw = '';
+        req.on('data', (c) => { raw += c; });
+        req.on('end', () => {
+          const body = raw ? JSON.parse(raw) : null;
+          seen.push({ method: req.method, url: req.url, body, auth: req.headers.authorization });
+          const send = (data) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ status: true, message: 'ok', data })); };
+          if (req.url.startsWith('/bank')) return send([{ name: 'Capitec Business', code: '450105', active: true }, { name: 'Capitec Bank', code: '470010', active: true }, { name: 'First National Bank', code: '250655', active: true }]);
+          if (req.url === '/subaccount') return send({ subaccount_code: 'ACCT_worker1' });
+          if (req.url === '/transaction/initialize') return send({ authorization_url: `https://checkout.paystack.test/${body.reference}`, access_code: 'x', reference: body.reference });
+          if (req.url.startsWith('/transaction/verify/')) return send({ status: 'success', reference: req.url.split('/').pop(), customer: { email: 'grace@example.com' }, authorization: { authorization_code: 'AUTH_test1', reusable: true, last4: '4081', brand: 'visa', exp_month: '12', exp_year: '2030' } });
+          if (req.url === '/refund') return send({ status: 'pending' });
+          if (req.url === '/transaction/charge_authorization') {
+            if (chargeResult === 'paused') return send({ paused: true, authorization_url: 'https://checkout.paystack.test/resume/abc', reference: body.reference });
+            return send({ status: chargeResult, reference: body.reference, gateway_response: chargeResult === 'success' ? 'Approved' : 'Declined' });
+          }
+          res.statusCode = 404; res.end(JSON.stringify({ status: false, message: 'not found' }));
+        });
+      });
+      await new Promise((r) => fake.listen(0, r));
+      process.env.PAYSTACK_SECRET_KEY = 'sk_test_fake';
+      process.env.PAYSTACK_BASE_URL = `http://127.0.0.1:${fake.address().port}`;
+      process.env.VUKA_FEE_PERCENT = '10';
+      try {
+        const cfg = await api('GET', '/payments/config', { token: eTok });
+        ok(cfg.json?.provider === 'paystack' && cfg.json.mode === 'test' && cfg.json.feePercent === 10 && cfg.json.card === null, 'payments: Paystack on in test mode, 10% fee, no card yet');
+        ok((await api('GET', '/health')).json?.payments === 'paystack-test', 'payments: health reports Paystack test mode');
+
+        // A fresh worker with no bank details, and a job for them.
+        const pw = await api('POST', '/auth/register', { body: { role: 'worker', name: 'Pay Worker', phone: '0829990077', password: 'test1234', age: 24, location: 'Soweto', skills: ['carwash'], verifyToken: await verifyPhone('0829990077') } });
+        const pwTok = pw.json.token;
+        const gig = await api('POST', '/gigs', { token: eTok, body: { title: 'Wash two cars', category: 'carwash', hours: 2, payPerHour: 50, location: 'Soweto', when: 'Sat 09:00', description: 'Two cars.' } });
+        ok(gig.status === 201, 'payments: employer posts a job');
+        const listed = (await api('GET', `/gigs/${gig.json.id}`)).json;
+        ok(listed?.paymentsMode === 'card' && listed.funding === undefined, 'payments: jobs show card mode and no "funds secured" state');
+        ok((await api('POST', `/gigs/${gig.json.id}/fund`, { token: eTok })).json?.reason === 'card_payments', 'payments: the old fund button is refused');
+        await api('POST', `/gigs/${gig.json.id}/apply`, { token: pwTok });
+        const noCard = await api('POST', `/gigs/${gig.json.id}/hire`, { token: eTok, body: { workerId: pw.json.user.id } });
+        ok(noCard.status === 409 && noCard.json?.reason === 'needs_card', 'payments: no hiring without a card on file');
+
+        // Adding a card: needs an email, goes to Paystack's page, is refunded.
+        const noMail = await api('POST', '/payments/card', { token: eTok, body: {} });
+        ok(noMail.status === 409 && noMail.json?.reason === 'needs_email', 'payments: asks for an email when the account has none');
+        const start = await api('POST', '/payments/card', { token: eTok, body: { email: 'grace@example.com' } });
+        ok(start.status === 200 && start.json?.url?.startsWith('https://checkout.paystack.test/') && start.json.reference, 'payments: card check returns the Paystack page');
+        const init = seen.find((x) => x.url === '/transaction/initialize');
+        ok(init?.body?.amount === 500 && init.body.currency === 'ZAR' && init.body.channels?.[0] === 'card' && init.body.callback_url?.endsWith('/paystack-return') && init.auth === 'Bearer sk_test_fake',
+          'payments: card check is R5 in cents, ZAR, card only, returns to /paystack-return, with the secret key');
+        ok((await api('POST', '/payments/verify', { token: wTok, body: { reference: start.json.reference } })).status === 404, 'payments: nobody else can verify a payment');
+        const ver = await api('POST', '/payments/verify', { token: eTok, body: { reference: start.json.reference } });
+        ok(ver.status === 200 && ver.json?.card?.last4 === '4081', 'payments: the card is saved after Paystack confirms it');
+        ok(seen.some((x) => x.url === '/refund' && x.body?.transaction === start.json.reference), 'payments: and the check charge is refunded');
+
+        // Hire, work, confirm: the worker has no bank details yet.
+        ok((await api('POST', `/gigs/${gig.json.id}/hire`, { token: eTok, body: { workerId: pw.json.user.id } })).json?.ok, 'payments: with a card on file, hiring works');
+        await api('POST', `/gigs/${gig.json.id}/complete`, { token: pwTok, body: { rating: 5 } });
+        const appRow = (await api('GET', '/me/hires', { token: eTok })).json.find((h) => h.gig.id === gig.json.id);
+        const conf = await api('POST', `/applications/${appRow.applicationId}/confirm`, { token: eTok, body: { rating: 5 } });
+        ok(conf.json?.payment?.status === 'waiting_bank', 'payments: confirmed, but waiting for the worker bank details');
+        ok(!seen.some((x) => x.url === '/transaction/charge_authorization'), 'payments: nothing is charged before the worker can receive it');
+
+        // The worker adds bank details: a subaccount, and the waiting job is paid.
+        const bank = await api('PUT', '/me/banking', { token: pwTok, body: { holder: 'Pay Worker', bank: 'capitec', accountType: 'savings', accountNumber: '9876543210' } });
+        ok(bank.json?.payout === 'ready', 'payments: bank details become a Paystack payout account');
+        const sub = seen.find((x) => x.url === '/subaccount');
+        ok(sub?.body?.settlement_bank === '470010' && sub.body.account_number === '9876543210' && sub.body.business_name === 'Pay Worker',
+          'payments: subaccount uses the right bank code (Capitec Bank, not Business) and account number');
+        const charge = seen.find((x) => x.url === '/transaction/charge_authorization');
+        ok(charge?.body?.amount === 11000 && charge.body.transaction_charge === '1000' && charge.body.subaccount === 'ACCT_worker1'
+          && charge.body.bearer === 'account' && charge.body.authorization_code === 'AUTH_test1' && charge.body.currency === 'ZAR',
+          'payments: charged R110 (R100 pay + R10 fee), worker subaccount gets R100, Vuka bears the Paystack charge');
+        const pay = await api('GET', `/applications/${appRow.applicationId}/payment`, { token: pwTok });
+        ok(pay.json?.payment?.status === 'success' && pay.json.payment.pay === 100 && pay.json.price.fee === 10, 'payments: the worker sees they were paid R100');
+        const wal = await api('GET', '/me/wallet', { token: pwTok });
+        ok(wal.json?.mode === 'card' && wal.json.paid === 100 && wal.json.payments?.[0]?.status === 'success', 'payments: the wallet lists it as paid');
+        const again = await api('POST', `/applications/${appRow.applicationId}/pay`, { token: eTok, body: {} });
+        ok(again.json?.payment?.status === 'success' && seen.filter((x) => x.url === '/transaction/charge_authorization').length === 1, 'payments: a paid job is never charged twice');
+
+        // A declined card, then the bank asking the employer to approve.
+        const gig2 = await api('POST', '/gigs', { token: eTok, body: { title: 'Wash one car', category: 'carwash', hours: 1, payPerHour: 50, location: 'Soweto', when: 'Sun 09:00', description: 'One car.' } });
+        await api('POST', `/gigs/${gig2.json.id}/apply`, { token: pwTok });
+        await api('POST', `/gigs/${gig2.json.id}/hire`, { token: eTok, body: { workerId: pw.json.user.id } });
+        await api('POST', `/gigs/${gig2.json.id}/complete`, { token: pwTok, body: { rating: 5 } });
+        const app2 = (await api('GET', '/me/hires', { token: eTok })).json.find((h) => h.gig.id === gig2.json.id);
+        chargeResult = 'failed';
+        const c2 = await api('POST', `/applications/${app2.applicationId}/confirm`, { token: eTok, body: { rating: 4 } });
+        ok(c2.json?.payment?.status === 'failed', 'payments: a declined card is reported, not hidden');
+        chargeResult = 'paused';
+        const retry = await api('POST', `/applications/${app2.applicationId}/pay`, { token: eTok, body: {} });
+        ok(retry.json?.payment?.status === 'paused' && retry.json.payment.authUrl === 'https://checkout.paystack.test/resume/abc', 'payments: when the bank wants approval, the employer gets the link');
+        const checkout = await api('POST', `/applications/${app2.applicationId}/pay`, { token: eTok, body: { method: 'checkout' } });
+        const init2 = seen.filter((x) => x.url === '/transaction/initialize').pop();
+        ok(checkout.json?.url && init2.body.amount === 5500 && init2.body.subaccount === 'ACCT_worker1' && init2.body.transaction_charge === '500',
+          'payments: or pays on the Paystack page, split the same way');
+        ok((await api('POST', `/applications/${app2.applicationId}/pay`, { token: pwTok, body: {} })).status === 403, 'payments: a worker cannot trigger a charge');
+
+        // The webhook signature, as Paystack signs it.
+        const { verifySignature } = await import('./payments.mjs');
+        const raw = Buffer.from('{"event":"charge.success"}');
+        const t = Math.floor(Date.now() / 1000);
+        const sig = crypto.createHmac('sha512', 'whsec_test').update(`${t}.`).update(raw).digest('hex');
+        ok(verifySignature(raw, `t=${t},v1=k1:${sig}`, ['whsec_test']) === 'k1', 'payments: a correctly signed webhook is accepted');
+        ok(verifySignature(raw, `t=${t},v1=k1:${sig}`, ['whsec_other']) === null, 'payments: a wrong secret is refused');
+        ok(verifySignature(raw, `t=${t - 1000},v1=k1:${sig}`, ['whsec_test']) === null, 'payments: an old signature is refused');
+        ok((await fetch(BASE + '/payments/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: raw })).status === 404, 'payments: webhook is off until its secret is set');
+      } finally {
+        delete process.env.PAYSTACK_SECRET_KEY;
+        delete process.env.PAYSTACK_BASE_URL;
+        delete process.env.VUKA_FEE_PERCENT;
+        fake.close();
+      }
+      ok((await api('GET', '/payments/config', { token: eTok })).json?.provider === 'ledger', 'payments: without a key, the test-mode ledger is back');
+    }
+
     ok((await api('POST', '/assistant/ask', { body: { question: 'hi' } })).status === 401, 'assistant requires auth');
     // Owner-only: switched on for the configured account, off for everyone else.
     ok(wReg.json.user?.features?.msizi === true, 'the owner account is told Msizi is on');
