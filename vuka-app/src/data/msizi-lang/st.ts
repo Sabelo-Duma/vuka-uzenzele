@@ -22,11 +22,11 @@ export const msiziSt: MsiziLang = {
     },
     'is-it-free': {
       title: 'Ho bitsa bokae',
-      asks: ['Na Vuka ke mahala?', 'E bitsa bokae?', 'Na ke tlameha ho lefa ho e sebedisa?'],
-      keywords: ['mahala', 'theko', 'tefello', 'ho lefa', 'fee'],
+      asks: ['Na Vuka ke mahala?', 'E bitsa bokae?', 'Na ke tlameha ho lefa ho e sebedisa?', 'Na Vuka e nka karolo ya moputso wa ka?'],
+      keywords: ['mahala', 'theko', 'tefello', 'ho lefa', 'bitsa', 'karolo', 'khomishene', 'fee', 'commission'],
       body:
-        'Vuka ke mahala. Ha ho tefello ya ho ngodisa, ha ho tefello ya kgwedi le kgwedi, mme ha o lefe letho ho etsa kopo ya mosebetsi kapa ho kenya mosebetsi.\n'
-        + 'Vuka ha e nke karolo ya seo o se fumanang. Tefo ya mosebetsi e sireletswa ke mohiri pele mosebetsi o qala mme e lokollelwa sepacheng sa hao ha o netefatswa — ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e tsamayang ka Vuka.\n'
+        'Vuka ke mahala ho basebeletsi. Ha ho tefello ya ho ngodisa, ha ho tefello ya kgwedi le kgwedi, mme ha o lefe letho ho etsa kopo ya mosebetsi. O fumana moputso wohle wa mosebetsi o mong le o mong — Vuka ha e nke letho ho wona.\n'
+        + 'Ho kenya mosebetsi le hona ke mahala. Ha mosebetsi o phethilwe, mohiri o lefa moputso wa mosebeletsi, hammoho le tefello ya Vuka ya {feePercent} ka hodimo. Tefello eo ke yona e bolokang Vuka e ntse e sebetsa.\n'
         + 'Haeba motho a ka o kopa ho lefa tefello hore o fumane mosebetsi ho Vuka, ke bomenemene. E tlalehe.',
     },
     'who-is-msizi': {
@@ -284,59 +284,62 @@ export const msiziSt: MsiziLang = {
     },
     'how-payment-works': {
       title: 'Kamoo o lefuwang kateng',
-      asks: ['Ke lefuwa jwang?', 'Na Vuka e tshwara tjhelete ya ka?', 'Ke tla fumana tjhelete ya ka neng?'],
-      keywords: ['lefuwa', 'tefo', 'tjhelete', 'moputso', 'payment', 'sireleditswe', 'sepache', 'wallet'],
+      asks: ['Ke lefuwa jwang?', 'Na Vuka e tshwara tjhelete ya ka?', 'Ke tla fumana tjhelete ya ka neng?', 'Tjhelete ya ka e kena bankeng jwang?'],
+      keywords: ['lefuwa', 'tefo', 'tjhelete', 'moputso', 'banka', 'karete', 'payment', 'bank', 'card', 'eft', 'paystack', 'wallet'],
       body:
-        'Tefo ya mosebetsi e sireletswa pele mosebetsi o qala. Mohiri o kenya tjhelete kaofela ha a kenya mosebetsi, kapa hamorao — empa kamehla pele a ka hira motho.\n'
-        + '• Batla Tjhelete e sireleditswe mosebetsing. E bolela hore tefo e se e o emetse. Mosebetsi o bontshang Ho emetswe tjhelete o ntse o ka etsetswa kopo, empa ha ho motho ya ka hirwang ho ona ho fihlela mohiri a kenya tjhelete.\n'
-        + '• Ho fihlela motho a hirwa, mohiri a ka nka tjhelete hape, mahala. Ho tloha motsotsong oo o hirwang, tjhelete e notletswe bakeng sa hao.\n'
-        + '• Ha mohiri a netefatsa mosebetsi wa hao o phethilweng — kapa ka bowona, {autoReleaseHours} kamora hore o o tshwaye o phethilwe haeba a sa arabe — tefo e kena sepacheng sa hao sa Vuka ka tlasa Nna. O e ntshetsa akhaontong ya hao ya banka neng kapa neng ha o batla.\n'
-        + 'Hona jwale sena se ka MOKGWA WA TEKO: sepache ke boikwetliso mme ha ho tjhelete ya nnete e tsamayang ka Vuka. Ho fihlela e bulwa, dumellanang le mohiri kamoo a tla o lefa kateng ka nnete, pele o qala.\n'
-        + 'Haeba mohiri a sa o lefe, tlaleha. Ke sona seo tlaleho ya polokeho e leng teng bakeng sa sona.',
+        'O lefuwa ka kotloloho akhaontong ya hao ya banka, ka Paystack, khampani ya ditefo eo Vuka e e sebedisang. Tjhelete ha e fete akhaontong ya Vuka ka boyona.\n'
+        + '• Pele mohiri a ka hira motho, o tlameha ho kenya karete. Ha ho letho le lefiswang bakeng sa mosebetsi ka nako eo.\n'
+        + '• Ha mohiri a netefatsa mosebetsi wa hao o phethilweng — kapa ka bowona, {autoReleaseHours} kamora hore o o tshwaye o phethilwe haeba a sa arabe — karete ya hae e a lefiswa mme moputso wa hao wohle o romelwa akhaontong ya hao ya banka.\n'
+        + '• Kenya dintlha tsa hao tsa banka ka tlasa Nna, ebe Lefshwa. Haeba di le siyo ha mosebetsi o netefatswa, moputso wa hao o a ema mme o romelwa hang ha o di kenya.\n'
+        + 'Ka tlasa Nna, ebe Moputso wa ka, o ka bona se seng se lefilwe le eng kapa eng e ntseng e emetse.\n'
+        + 'Haeba tefo e hloleha kapa mohiri a sa o lefe, tlaleha. Ke sona seo tlaleho ya polokeho e leng teng bakeng sa sona.\n'
+        + '{testModeNote}',
     },
     'funds-secured': {
-      title: 'Tjhelete e sireleditswe e bolela eng',
-      asks: ['Tjhelete e sireleditswe e bolela eng?', 'Ho emetswe tjhelete ho bolela eng?', 'Na mohiri a ka nka tjhelete hape?', 'Na tjhelete e teng ka nnete?'],
-      keywords: ['tjhelete e sireleditswe', 'ho emetswe tjhelete', 'e lefilwe', 'nka hape', 'notletswe', 'escrow'],
+      title: 'Na moputso o tiisitswe?',
+      asks: ['Na moputso wa ka o tiisitswe?', 'Ho thweng haeba mohiri a sa ntefe?', 'Na mohiri a ka nka tjhelete hape?', 'Na tjhelete e teng ka nnete?'],
+      keywords: ['tiisitswe', 'tiiso', 'ha a ntefe', 'ha a lefe', 'nka hape', 'lefisitswe', 'hanwe', 'hlolehile', 'guaranteed', 'declined', 'funds secured', 'escrow'],
       body:
-        'Mosebetsi o mong le o mong o bontsha e nngwe ya matshwao a mararo, hore o tsebe ka tefo pele o etsa kopo:\n'
-        + '• Tjhelete e sireleditswe — mohiri o se a kentse tefo kaofela. E o emetse.\n'
-        + '• Ho emetswe tjhelete — ha e so. O ntse o ka etsa kopo, empa ha ho motho ya ka hirwang ho ona ho fihlela mohiri a kenya tjhelete.\n'
-        + '• E lefilwe — mosebetsi o phethilwe mme tefo e ile ho mosebeletsi.\n'
-        + 'Na mohiri a ka e nka hape? Feela pele motho a hirwa. Ho tloha motsotsong oo o hirwang, tjhelete e notletswe bakeng sa hao, mme e kena sepacheng sa hao ha mosebetsi o netefatswa — kapa ka bowona, {autoReleaseHours} kamora hore o o tshwaye o phethilwe, haeba mohiri a sa arabe.\n'
-        + 'Sena se ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e tsamayang ka Vuka.',
+        'Mohiri e mong le e mong o tlameha ho kenya karete pele a ka hira motho, mme karete e a hlahlojwa ha a e kenya. Kahoo ho na le tsela ya ho o lefa ho tloha qalong.\n'
+        + '• Karete e lefiswa ha mosebetsi o netefatswa — kapa ka bowona, {autoReleaseHours} kamora hore o o tshwaye o phethilwe, haeba mohiri a sa arabe. Ho kgutsa ha hae ha ho e emise.\n'
+        + '• Ho hira motho ho ke ke ha hlakolwa ka hara app, kahoo mohiri a ke ke a o ntsha mosebetsing hore a se ke a lefa.\n'
+        + 'Seo karete e ke keng ya se tshepisa ke hore tjhelete e tla ba teng ka letsatsi leo. Haeba tefo e hloleha, mohiri o kopuwa ho lefa, mme o ka bona tefo eo mosebetsing. Haeba a ntse a sa lefe, tlaleha.\n'
+        + '{testModeNote}',
     },
     'wallet-withdraw': {
-      title: 'Sepache sa hao, le ho ntsha tjhelete',
-      asks: ['Ke ntsha tjhelete ya ka jwang?', 'Sepache sa ka se hokae?', 'Ho ntsha tjhelete ho nka nako e kae?'],
-      keywords: ['sepache', 'wallet', 'ntsha tjhelete', 'withdraw', 'balance', 'fetisetsa'],
+      title: 'Moo moputso wa hao o yang teng',
+      asks: ['Ke ntsha tjhelete ya ka jwang?', 'Sepache sa ka se hokae?', 'Tjhelete e fihla bankeng ya ka neng?', 'Moputso wa ka o ya kae?'],
+      keywords: ['ntsha tjhelete', 'sepache', 'wallet', 'withdraw', 'balance', 'fetisetsa', 'payout', 'moputso wa ka', 'fihla bankeng'],
       body:
-        'Sepache sa hao se ka tlasa Nna, ebe Sepache sa ka. Se bontsha seo o ka se ntshang hona jwale, le se sireleditsweng mesebetsing eo o sa ntseng o e etsa.\n'
-        + '• Tefo e kena sepacheng ha mohiri a netefatsa mosebetsi wa hao.\n'
-        + '• Ntshetsa e romela tjhelete yohle akhaontong ya banka eo o e bolokileng ka tlasa Lefuwa. Kenya dintlha tsa hao tsa banka moo pele.\n'
-        + 'Hobane ditefo di ka mokgwa wa teko, ha ho tjhelete e romelwang ka nnete hajwale, kahoo ha ho nako ya ho ema eo nka o bolellang ka yona. Ha ditefo tsa nnete di bulwa, nako eo ho ntsha ho e nkang e tla bontshwa pele o netefatsa.\n'
-        + 'Mpotse “ho na le bokae sepacheng sa ka” mme ke tla o balla balance ya hao.',
+        'Ha ho letho leo o tlamehang ho le ntsha: moputso wa hao o ya ka kotloloho akhaontong ya hao ya banka ha mosebetsi o netefatswa. Vuka ha e na sepache sa ho o boloka.\n'
+        + '• Dintlha tsa hao tsa banka di kenngwa ka tlasa Nna, ebe Lefshwa. Di kenye pele ho mosebetsi wa hao wa pele, hore ho se be letho le tlamehang ho ema.\n'
+        + '• Nna, ebe Moputso wa ka, e bontsha mosebetsi o mong le o mong, seo o se lefilweng, le eng kapa eng e ntseng e emetse.\n'
+        + 'Paystack e romela moputso bankeng ya hao ka nako ya yona e tlwaelehileng ya ho lefa, ebe banka ya hao e a o bontsha. Haeba o so fihle kamora matsatsi a seng makae a mosebetsi, tlaleha ka tlasa Nna.\n'
+        + 'Mpotse “ke lefilwe bokae” mme ke tla o balla palo ya hao.\n'
+        + '{testModeNote}',
     },
     'test-mode': {
       title: 'Mokgwa wa teko o bolela eng',
-      asks: ['Mokgwa wa teko ke eng?', 'Na ena ke tjhelete ya nnete?', 'Hobaneng e re test mode?'],
-      keywords: ['mokgwa wa teko', 'test mode', 'teko', 'boikwetliso', 'tjhelete ya nnete', 'ha se nnete'],
+      asks: ['Mokgwa wa teko ke eng?', 'Na ena ke tjhelete ya nnete?', 'Hobaneng e re test mode?', 'Karete ya teko ke eng?'],
+      keywords: ['mokgwa wa teko', 'test mode', 'teko', 'boikwetliso', 'tjhelete ya nnete', 'ha se nnete', 'karete ya teko', 'test card'],
       body:
-        'Vuka e bontsha tsela yohle eo ditefo di tla sebetsa ka yona — tefo e sireletswa pele ho mosebetsi, e lokollelwa sepacheng sa mosebeletsi ha o netefatswa, ebe e ntshetswa bankeng. Hona jwale seo ke boikwetliso: ha ho tjhelete ya nnete e tsamayang ka Vuka.\n'
-        + 'Ho fihlela ditefo di bulwa, dumellanang le motho e mong kamoo tefo e tla etswa kateng ka nnete, pele mosebetsi o qala. Tse ding tsohle — rekoto ya hao, ditekanyetso, maemo le dibeche — ke tsa nnete mme di a bala.\n'
-        + 'Ha ditefo tsa nnete di qala, app e tla bua jwalo ka ho hlaka, mme mokgwa wa teko o tla nyamela diskrineng tsena.',
+        'Ha Vuka e ntse e lekwa, ditefo di sebetsa ka mokgwa wa teko wa Paystack. Tsohle di sebetsa kamoo di tla sebetsa kateng ka nnete — karete, ho lefiswa ha yona ha mosebetsi o phethilwe, moputso o yang bankeng ya mosebeletsi — empa ho amohelwa dikarete tsa teko feela, mme ha ho tjhelete ya nnete e tsamayang.\n'
+        + 'Kahoo hajwale, dumellanang le motho e mong kamoo moputso o tla lefuwa kateng ka nnete, pele mosebetsi o qala. Tse ding tsohle — rekoto ya hao, ditekanyetso, maemo le dibeche — ke tsa nnete mme di a bala.\n'
+        + 'Ha ditefo tsa nnete di qala, mokgwa wa teko o tla nyamela diskrineng tsena.',
     },
     'employer-fund-job': {
-      title: 'Ho sireletsa tefo ya mosebetsi',
-      asks: ['Ke kenya tjhelete ya mosebetsi jwang?', 'Hobaneng ke sa kgone ho hira motho?', 'Ke kgutlisa tjhelete ya ka jwang?', 'Nka hlakola kamora ho hira?', 'Ke lefa mosebeletsi jwang?', 'Ho etsahalang ka tjhelete ha ke hlakola mosebetsi?'],
-      keywords: ['sireletsa tefo', 'kenya tjhelete', 'kgutlisa tjhelete', 'ha ke kgone ho hira', 'lefa mosebeletsi', 'fund', 'refund'],
+      title: 'Ho lefella mosebetsi',
+      asks: ['Ke lefa mosebeletsi jwang?', 'Hobaneng ke hloka karete ho hira?', 'Karete ya ka e lefiswa neng?', 'Hobaneng ke sa kgone ho hira motho?', 'Nka hlakola kamora ho hira?'],
+      keywords: ['karete', 'lefa mosebeletsi', 'lefiswa', 'kenya karete', 'ha ke kgone ho hira', 'kgutlisa tjhelete', 'hlakola', 'card', 'paystack', 'refund', 'fund'],
       body:
-        'Tefo ya mosebetsi e sireletswa pele motho a qala. Tshwaya Sireletsa tefo hona jwale ha o kenya mosebetsi, kapa o bule mosebetsi hamorao mme o tobetse Sireletsa tefo.\n'
-        + '• Ha ho motho ya ka hirwang ho fihlela tefo e sireleditswe. Ke ka hona konopo ya Hira e reng Sireletsa tefo ho hira.\n'
-        + '• Pele o hira, o ka nka tjhelete hape ntle le tefello. Ho hula mosebetsi oo ho seng motho ya hirilweng ho ona le hona ho e kgutlisa.\n'
-        + '• Ho tloha motsotsong oo o hirang motho, tjhelete e notletswe bakeng sa hae. E kena sepacheng sa mosebeletsi ha o netefatsa mosebetsi — kapa ka bowona, {autoReleaseHours} kamora hore a o tshwaye o phethilwe, haeba o sa arabe.\n'
+        'O lefa ka karete, mme feela ha mosebetsi o phethilwe.\n'
+        + '• Pele o hira motho wa pele, o kenya karete leqepheng le bolokehileng la Paystack. Ho hlahloba hore karete e a sebetsa, Paystack e lefisa {cardCheck} mme e e kgutlisa hanghang (banka ya hao e ka nka matsatsi a seng makae ho bontsha tjhelete e kgutlisitsweng). Karete e bolokelwa mesebetsi e latelang.\n'
+        + '• Ha ho letho le lefiswang ha o kenya mosebetsi kapa ha o hira. Ha o netefatsa mosebetsi o phethilweng — kapa ka bowona, {autoReleaseHours} kamora hore mosebeletsi a o tshwaye o phethilwe, haeba o sa arabe — karete ya hao e lefiswa moputso hammoho le tefello ya Vuka ya {feePercent}, mme moputso o ya ka kotloloho bankeng ya mosebeletsi.\n'
+        + '• Haeba mosebeletsi a so kenye dintlha tsa hae tsa banka, tefo e a ema ho fihlela a di kenya.\n'
+        + '• Ho hula mosebetsi pele motho a hirwa ha ho bitse letho.\n'
         + 'Mosebetsi oo motho a hirilweng ho ona o ke ke wa hlakolwa ka hara app. Romela mosebeletsi molaetsa ho rarolla taba, mme o tlalehe ka tlasa Nna haeba ho na le se sa lokang.\n'
-        + 'Ditefo di ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e tsamayang ka Vuka.',
+        + 'Vuka ha e bone nomoro yohle ya karete ya hao; e bolokwa ke Paystack.\n'
+        + '{testModeNote}',
     },
     'get-more-work': {
       title: 'Ho fumana mesebetsi e mengata',
@@ -347,17 +350,17 @@ export const msiziSt: MsiziLang = {
         + '• Tlatsa profaele ya hao le ditsebo tseo o nang le tsona ka nnete, hore o hlahe bakeng sa mosebetsi o nepahetseng.\n'
         + '• Netefatsa ID ya hao ka tlasa Nna. Ha a na le batho ba babedi, mohiri o nka ya netefaditsweng.\n'
         + '• Bulela Mesebetsi e metjha haufi le nna, ka tlasa Nna ebe Ditsebiso, hore o utlwe ka mosebetsi hang ha o kenngwa mme o etse kopo kapele.\n'
-        + '• Kgetha mesebetsi e bontshang Tjhelete e sireleditswe, le e haufi le wena — o fihla ka nako, mme tefo e o emetse.\n'
+        + '• Kenya dintlha tsa hao tsa banka ka tlasa Nna, ebe Lefshwa, hore o tle o lefuwe hang ha mosebetsi o netefatswa.\n'
+        + '• Kgetha mesebetsi e haufi le wena — o fihla ka nako, mme bahiri ba a hlokomela.\n'
         + '• Etsa mosebetsi o mong le o mong hantle mme o o tshwaye o phethilwe. Mosebetsi o mong le o mong o netefaditsweng le tekanyetso e ntle di nyolla Vuka Score ya hao le boemo ba hao.',
     },
     'banking-details': {
       title: 'Dintlha tsa hao tsa banka',
-      asks: ['Hobaneng Vuka e batla dintlha tsa ka tsa banka?', 'Na dintlha tsa ka tsa banka di bolokehile?', 'Ke kenya akhaonto ya ka ya banka jwang?'],
-      keywords: ['banka', 'dintlha tsa banka', 'nomoro ya akhaonto', 'branch code', 'capitec', 'fnb', 'absa'],
+      asks: ['Hobaneng Vuka e batla dintlha tsa ka tsa banka?', 'Na dintlha tsa ka tsa banka di bolokehile?', 'Ke kenya akhaonto ya ka ya banka jwang?', 'Ke kenya dintlha tsa banka kae?'],
+      keywords: ['banka', 'dintlha tsa banka', 'nomoro ya akhaonto', 'branch code', 'bank', 'payout', 'paystack', 'capitec', 'fnb', 'absa'],
       body:
-        'O ka boloka dintlha tsa hao tsa banka ka tlasa Nna, hore o be le tsona di loketse ho di fa mohiri ntle le ho batla karete.\n'
+        'Dintlha tsa hao tsa banka ke moo moputso wa hao o romelwang teng. Di kenye ka tlasa Nna, ebe Lefshwa. Ha mosebetsi o netefatswa, Paystack, khampani ya ditefo eo Vuka e e sebedisang, e lefa akhaontong ena — kahoo nomoro ya hao ya akhaonto e arolelanwa le Paystack bakeng sa seo, mme ha e sebediswe bakeng sa letho le leng.\n'
         + 'Di patilwe ka khoutu ho seva mme ha di kgutliselwe ho app. Le wena o bona feela sesupo se patilweng — banka ya hao, mofuta wa akhaonto, le dinomoro tse nne tsa ho qetela. Ha ho letho la lekunutu le bolokwang mohaleng wa hao.\n'
-        + 'Ke moo sepache sa hao se romelang tefo ya hao ha o e ntsha. Ditefo di ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e romelwang ho tsona.\n'
         + 'Ha ho motho wa Vuka ya tla o letsetsa kapa a o romela molaetsa a kopa nomoro ya hao ya akhaonto, PIN ya hao kapa OTP. Mang kapa mang ya etsang jwalo hase wa Vuka.',
     },
     'fair-pay': {
@@ -386,7 +389,7 @@ export const msiziSt: MsiziLang = {
       body:
         'Bula mosebetsi skrineng sa hao sa Lehae mme o o tshwaye o phethilwe. O tla kopuwa ho fa mohiri tekanyetso ya dinaledi ho tse hlano pele o ka etsa jwalo — ke karolo ena e bolokang bahiri ba tshepahala, mme ke ka hona basebeletsi ba bang ba ka bona hore na ke mang ya lokileng ho mo sebeletsa.\n'
         + 'Haeba ho na le se neng se sa bolokeha mosebetsing, ho na le lebokose la ho phahamisa temoso ya polokeho ka nako e tshwanang. Motho o a di bala.\n'
-        + 'Ebe mohiri o kopuwa ho netefatsa. Ha a se a netefaditse, mosebetsi o kena rekotong ya hao le tekanyetso le maikutlo a hae, mme tefo e neng e sireleditswe bakeng sa ona e kena sepacheng sa hao, ka mokgwa wa teko hajwale.',
+        + 'Ebe mohiri o kopuwa ho netefatsa. Ha a se a netefaditse, mosebetsi o kena rekotong ya hao le tekanyetso le maikutlo a hae, mme moputso wa hao wa ona o romelwa akhaontong ya hao ya banka.',
     },
     'confirm-work': {
       title: 'Ho emela mohiri hore a netefatse',
@@ -394,7 +397,7 @@ export const msiziSt: MsiziLang = {
       keywords: ['netefatsa', 'netefatso', 'ho ema', 'ha a so netefatse', 'confirm'],
       body:
         'Kamora hore o tshwaye mosebetsi o phethilwe, mohiri o na le {autoReleaseHours} ho o netefatsa.\n'
-        + 'Haeba a sa etse jwalo, mosebetsi o ngolwa ho wena leha ho le jwalo hang ha nako eo e fetile. O fumana ho ngolwa rekotong, tjhelete, tswelopele ya boemo — mme tefo e sireleditsweng e kena sepacheng sa hao. O bolokwa ntle le tekanyetso, kahoo ho kgutsa ha hae ho ke ke ha theola karolelano ya hao — kapa ha e nyolla.\n'
+        + 'Haeba a sa etse jwalo, mosebetsi o ngolwa ho wena leha ho le jwalo hang ha nako eo e fetile. O fumana ho ngolwa rekotong, tjhelete, tswelopele ya boemo — mme karete ya mohiri e a lefiswa, kahoo moputso wa hao o romelwa bankeng ya hao. O bolokwa ntle le tekanyetso, kahoo ho kgutsa ha hae ho ke ke ha theola karolelano ya hao — kapa ha e nyolla.\n'
         + 'Sena se teng hobane mohiri ya neng a mpa a emisa ho araba o ne a kgona ho emisa tswelopele ya mosebeletsi ka ho sa feleng, bakeng sa mosebetsi o entsweng ka nnete. Jwale ha a sa kgona.',
     },
     'post-a-job': {
@@ -404,10 +407,10 @@ export const msiziSt: MsiziLang = {
       body:
         'Tobetsa Kenya. O hlalosa mosebetsi, moo o leng teng, dihora tse kae, le hore o lefa bokae ka hora.\n'
         + '• Mitha ya Tefo e nepahetseng e o bontsha kamoo tefo ya hao e bapisang le moputso o tlase wa naha wa {minWage} ka hora ha o ntse o ngola. Ho lefa ka tlase ho ona ha ho molaong.\n'
-        + '• Sireletsa tefo ha o kenya mosebetsi, kapa hamorao. O ka e nka hape mahala ho fihlela o hira; o ke ke wa hira motho ho fihlela e sireleditswe. Basebeletsi ba bona Tjhelete e sireleditswe mosebetsing wa hao, mme ke sona se etsang hore batho ba lokileng ba etse kopo.\n'
+        + '• Pele o hira motho wa pele o kenya karete. Ha ho letho le lefiswang ho fihlela mosebetsi o phethilwe mme o o netefatsa.\n'
         + '• Mosebetsi wa hao o hlaha hanghang ho basebeletsi ba haufi le wena.\n'
         + '• O bona bohle ba etsang kopo, le rekoto ya bona — tekanyetso, mesebetsi e phethilweng, boemo le dibeche.\n'
-        + 'Ho kenya mosebetsi ke mahala, mme Vuka ha e nke khomishene.',
+        + 'Ho kenya mosebetsi ke mahala. Ha mosebetsi o phethilwe, o lefa moputso wa mosebeletsi hammoho le tefello ya Vuka ya {feePercent}.',
     },
     'choose-worker': {
       title: 'Ho kgetha motho eo o tla mo hira',
@@ -427,15 +430,17 @@ export const msiziSt: MsiziLang = {
         'Ha mosebeletsi a tshwaya mosebetsi o phethilwe o fumana tsebiso. E bule, netefatsa mosebetsi, mme o mo fe tekanyetso ho tse hlano le maikutlo a makgutshwane.\n'
         + 'Ka kopo etsa jwalo kapele. Ho wena ke ho tobetsa hanngwe; ho yena ke ho ngolwa rekotong ho mo bulelang boemo bo latelang le mofuta o latelang wa mosebetsi.\n'
         + 'Haeba o sa netefatse ka hara {autoReleaseHours}, mosebetsi o ngolwa ho mosebeletsi ka bowona, ntle le tekanyetso. Maikutlo a hao ke wona a lahlehang, mme maikutlo ao ke ntho ya bohlokwa ka ho fetisisa eo o ka e fang motho ya ntseng a haha nalane ya hae ya pele ya mosebetsi.\n'
-        + 'Ho netefatsa ho boetse ho lokollela tefo eo o e sireleditseng sepacheng sa Vuka sa mosebeletsi. Ho tloha motsotsong oo o mo hirileng e ne e notletswe bakeng sa hae. Ditefo di ka mokgwa wa teko hajwale — ha ho tjhelete ya nnete e tsamayang.',
+        + 'Ho netefatsa ho boetse ho lefisa karete ya hao: moputso o ya ka kotloloho bankeng ya mosebeletsi, hammoho le tefello ya Vuka ya {feePercent}.\n'
+        + '{testModeNote}',
     },
     'employer-cost': {
       title: 'Seo mohiri a se lefang',
-      asks: ['Ho kenya mosebetsi ho bitsa bokae?', 'Na Vuka e nka khomishene?', 'Mohiri o lefa bokae ho Vuka?'],
-      keywords: ['khomishene', 'tefello', 'theko', 'mahala', 'mohiri'],
+      asks: ['Ho kenya mosebetsi ho bitsa bokae?', 'Na Vuka e nka khomishene?', 'Tefello ya Vuka ke bokae?', 'Mohiri o lefa bokae ho Vuka?'],
+      keywords: ['khomishene', 'tefello', 'theko', 'mahala', 'mohiri', 'phesente', 'lefiswa', 'fee', 'commission', 'percentage'],
       body:
-        'Ho kenya mosebetsi ke mahala mme ho hira ke mahala. Seo o se lefang ke tefo ka boyona, e sireletswang pele o hira, mme o ka e nka hape mahala ho fihlela o hira.\n'
-        + 'Ditefo di ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e tsamayang ka Vuka mme ha ho letho le lefiswang. Tefello efe kapa efe, ha ditefo di se di bulwa, e tla bontshwa pele o lefa.',
+        'Ho kenya mosebetsi le ho hira ke mahala. Ha mosebetsi o phethilwe, karete ya hao e lefiswa moputso wa mosebeletsi hammoho le tefello ya Vuka ya {feePercent} ya moputso. Mosebeletsi o fumana moputso wohle; tefello ke yona e bolokang Vuka e ntse e sebetsa.\n'
+        + 'Kakaretso eo o tla e lefa e bontshwa mosebetsing pele o hira.\n'
+        + '{testModeNote}',
     },
     'is-it-safe': {
       title: 'Ho dula o bolokehile',
@@ -557,9 +562,9 @@ export const msiziSt: MsiziLang = {
       keywords: ['dibeche tsa ka', 'beche ya ka'],
     },
     'my-wallet': {
-      title: 'Sepache sa hao',
-      asks: ['Ho na le bokae sepacheng sa ka?', 'Balance ya ka ke bokae?', 'Nka ntsha bokae?', 'Ho na le bokae ho wallet ya ka?'],
-      keywords: ['sepache sa ka', 'wallet ya ka', 'balance ya ka', 'nka ntsha'],
+      title: 'Moputso wa hao',
+      asks: ['Ke lefilwe bokae?', 'Ho na le bokae sepacheng sa ka?', 'Balance ya ka ke bokae?', 'Nka ntsha bokae?', 'Ho na le bokae ho wallet ya ka?'],
+      keywords: ['ke lefilwe', 'moputso wa ka', 'sepache sa ka', 'wallet ya ka', 'balance ya ka', 'nka ntsha', 'my pay', 'been paid'],
     },
     'my-applications': {
       title: 'Mesebetsi eo o e etseditseng kopo',
@@ -595,6 +600,9 @@ export const msiziSt: MsiziLang = {
     'fill.days_one': 'letsatsi le le {count}',
     'fill.days_other': 'matsatsi a {count}',
     'fill.listSep': ', ',
+    'fill.testMode': 'Ditefo di ka mokgwa wa teko hajwale: ho sebetsa dikarete tsa teko feela, mme ha ho so be le tjhelete ya nnete e tsamayang.',
+    'fill.feeUnknown': 'phesente e nyenyane',
+    'fill.cardCheckUnknown': 'tjhelete e nyenyane',
 
     'score.value': 'Vuka Score ya hao ke {rep} ho tse 100.',
     'score.built': 'E hahilwe ka {jobs}, karolelano ya dinaledi tse {avg}, le {safety}.',
@@ -623,8 +631,8 @@ export const msiziSt: MsiziLang = {
     'jobs.kinds_one': 'mofuta o le {count} wa mosebetsi',
     'jobs.kinds_other': 'mefuta e {count} ya mosebetsi',
 
-    'earn.total_one': 'O fumane {amount} ho tswa mosebetsing o le {count} o phethilweng, ho baltswe ka tefo eo mosebetsi o mong le o mong o neng o e bontsha. Se leng sepacheng sa hao hona jwale ke palo e nngwe — mpotse “ho na le bokae sepacheng sa ka”.',
-    'earn.total_other': 'O fumane {amount} ho tswa mesebetsing e {count} e phethilweng, ho baltswe ka tefo eo mosebetsi o mong le o mong o neng o e bontsha. Se leng sepacheng sa hao hona jwale ke palo e nngwe — mpotse “ho na le bokae sepacheng sa ka”.',
+    'earn.total_one': 'O fumane {amount} ho tswa mosebetsing o le {count} o phethilweng, ho baltswe ka tefo eo mosebetsi o mong le o mong o neng o e bontsha. Seo o se lefilweng ka nnete ke palo e nngwe — mpotse “ke lefilwe bokae”.',
+    'earn.total_other': 'O fumane {amount} ho tswa mesebetsing e {count} e phethilweng, ho baltswe ka tefo eo mosebetsi o mong le o mong o neng o e bontsha. Seo o se lefilweng ka nnete ke palo e nngwe — mpotse “ke lefilwe bokae”.',
 
     'badges.none': 'Ha o so fumane beche. Ya pele, Mosebetsi wa Pele, e fihla hang ha mosebetsi wa hao wa pele o netefatswa.',
     'badges.earned': 'O fumane dibeche tse {earned} ho tse {total}: {list}.',
@@ -640,6 +648,13 @@ export const msiziSt: MsiziLang = {
     'wallet.pending': '{amount} e nngwe e sireleditswe mesebetsing eo o e etsang. E tla fihla ha o mong le o mong o netefatswa.',
     'wallet.howLands': 'Tefo e kena mona ha mohiri a netefatsa mosebetsi oo o o entseng.',
     'wallet.test': 'Ditefo di ka mokgwa wa teko hajwale, kahoo ha ho tjhelete ya nnete e tsamaileng.',
+
+    'pay.loading': 'Ditefo tsa hao di sa ntse di laisa. Mpotse hape kapelenyana, kapa o bule Nna, ebe Moputso wa ka.',
+    'pay.error': 'Ha ke a kgona ho bala ditefo tsa hao hona jwale. Bula Nna, ebe Moputso wa ka, ho di bona.',
+    'pay.paid': '{amount} e se e lefilwe akhaontong ya hao ya banka bakeng sa mesebetsi ya hao ho fihlela jwale.',
+    'pay.none': 'Ha o so lefuwe letho.',
+    'pay.waiting': '{amount} e nngwe e emetse ho lefuwa. Bula Nna, ebe Moputso wa ka, ho bona hore na hobaneng.',
+    'pay.howLands': 'Ha mohiri a netefatsa mosebetsi oo o o entseng, moputso wa hao o ya ka kotloloho akhaontong ya hao ya banka.',
 
     'apps.none': 'Ha o so etse kopo ya letho. Fumana mosebetsi e bontsha mesebetsi e haufi le wena, mme ho etsa kopo ke ho tobetsa hanngwe.',
     'apps.some_one': 'O entse kopo ya mosebetsi o le {count}. Bahiri ba bona bohle ba entseng kopo mme ba kgetha ho bona, kahoo ho se utlwe letho ka o mong ho a tlwaeleha — tswela pele ho etsa dikopo.',

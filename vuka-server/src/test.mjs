@@ -661,6 +661,8 @@ async function run() {
         const listed = (await api('GET', `/gigs/${gig.json.id}`)).json;
         ok(listed?.paymentsMode === 'card' && listed.funding === undefined, 'payments: jobs show card mode and no "funds secured" state');
         ok((await api('POST', `/gigs/${gig.json.id}/fund`, { token: eTok })).json?.reason === 'card_payments', 'payments: the old fund button is refused');
+        const oldApp = await api('POST', '/gigs', { token: eTok, body: { fund: true, title: 'Old app posting', category: 'carwash', hours: 1, payPerHour: 50, location: 'Soweto', when: 'Sun 10:00', description: 'x' } });
+        ok(oldApp.status === 201 && !(await (await import('./db.mjs')).get('SELECT 1 AS x FROM escrow WHERE gig_id = ?', [oldApp.json.id])), 'payments: a post asking to "secure the pay" holds nothing in card mode');
         await api('POST', `/gigs/${gig.json.id}/apply`, { token: pwTok });
         const noCard = await api('POST', `/gigs/${gig.json.id}/hire`, { token: eTok, body: { workerId: pw.json.user.id } });
         ok(noCard.status === 409 && noCard.json?.reason === 'needs_card', 'payments: no hiring without a card on file');
@@ -777,6 +779,14 @@ async function run() {
       'a fair-pay answer is not given a payments note');
     ok(/test mode/.test(A.withTestNote('There is a test you can take. Your wallet shows your balance.', 'en')),
       'the word "test" alone does not count as a test-mode note');
+    // Card payments (Paystack): the ledger's truths become the errors.
+    ok(A.violatesFacts('The pay moves into your Vuka wallet and you withdraw it to your bank.', 'card'), 'card mode: wallet talk is caught');
+    ok(A.violatesFacts('The employer secures the pay before hiring.', 'card'), 'card mode: "secures the pay" is caught');
+    ok(!A.violatesFacts('Vuka does not hold your money. Paystack sends your pay straight to your bank account.', 'card'), 'card mode: "Vuka does not hold the money" is true now');
+    ok(A.violatesFacts('After you hire, you can take the money back.', 'card'), 'card mode: late reversal is still caught');
+    ok(!A.factsFor('card').some((f) => /wallet into|secured pay stays locked|Funds secured/.test(f)), 'card facts carry no ledger wording');
+    ok(A.factsFor('ledger').some((f) => /Funds secured/.test(f)) && !A.factsFor('ledger').some((f) => /Paystack/.test(f)), 'ledger facts unchanged');
+    ok(/Paystack/.test(A.paymentAnswer('employer', 'card')) && /wallet/.test(A.paymentAnswer('worker', 'ledger')), 'the safe answer follows the model');
 
     // The natural voice: gated, bounded, and honest when it is off.
     ok((await api('POST', '/assistant/voice', { body: { text: 'Hello' } })).status === 401, 'voice requires auth');

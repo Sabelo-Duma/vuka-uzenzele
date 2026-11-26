@@ -69,7 +69,7 @@ export const OPERATOR = {
   /** Where the servers are. Render's Frankfurt region + a managed Postgres. */
   hostingRegion: 'Frankfurt, Germany (EU)',
   /** Last substantive change to the notice and terms. */
-  lastUpdated: '25 November 2026',
+  lastUpdated: '26 November 2026',
 } as const;
 
 /** True once the notice can honestly be presented as final. */

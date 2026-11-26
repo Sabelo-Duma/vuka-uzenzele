@@ -9,7 +9,8 @@
  * Screen and button names are the ones the app shows in isiZulu: Mina (Me),
  * Thola umsebenzi (Find work), Irekhodi lami (My Record), Izingxoxo (Chats),
  * Faka (Post), Amakhono (Talent), Izaziso (Notifications), Ulimi (Language),
- * Isikhungo sokuphepha (Safety centre), Isikhwama sami (My wallet),
+ * Isikhungo sokuphepha (Safety centre), Iholo lami (My pay),
+ * Isikhwama sami (My wallet),
  * Thola inkokhelo (Get paid), Imali ivikelwe (Funds secured),
  * Kulindwe imali (Awaiting funds), Kukhokhiwe (Paid out),
  * Imisebenzi emisha eseduze (New gigs near me).
@@ -31,11 +32,11 @@ export const msiziZu: MsiziLang = {
     },
     'is-it-free': {
       title: 'Kubiza malini',
-      asks: ['Ingabe i-Vuka imahhala?', 'Ibiza malini le app?', 'Kufanele ngikhokhe ukuze ngiyisebenzise?', 'Is it free?'],
-      keywords: ['mahhala', 'imahhala', 'kumahhala', 'ibiza', 'intengo', 'imali yokubhalisa', 'inkokhelo yanyanga zonke'],
+      asks: ['Ingabe i-Vuka imahhala?', 'Ibiza malini le app?', 'Kufanele ngikhokhe ukuze ngiyisebenzise?', 'Ingabe i-Vuka ithatha ingxenye yeholo lami?', 'Is it free?'],
+      keywords: ['mahhala', 'imahhala', 'kumahhala', 'ibiza', 'intengo', 'imali yokubhalisa', 'imali ekhokhwayo', 'ingxenye', 'ikhomishini', 'fee', 'commission'],
       body:
-        'I-Vuka imahhala. Ayikho imali yokubhalisa, ayikho imali yanyanga zonke, futhi awukhokhi lutho ukuze ufake isicelo somsebenzi noma ufake umsebenzi.\n'
-        + 'I-Vuka ayithathi ingxenye yalokho okuholayo. Inkokhelo yomsebenzi ivikelwa umqashi ngaphambi kokuba umsebenzi uqale, bese ingena esikhwameni sakho uma umsebenzi uqinisekisiwe — okwamanje lokhu kusesemodini yokuhlola, ngakho ayikho imali yangempela ehamba nge-Vuka okwamanje.\n'
+        'I-Vuka imahhala kubasebenzi. Ayikho imali yokubhalisa, ayikho imali yanyanga zonke, futhi awukhokhi lutho ukuze ufake isicelo somsebenzi. Uthola inkokhelo ephelele yawo wonke umsebenzi — i-Vuka ayithathi lutho kuyo.\n'
+        + 'Ukufaka umsebenzi nakho kumahhala. Uma umsebenzi uqediwe, umqashi ukhokha inkokhelo yesisebenzi kanye nemali ye-Vuka engu-{feePercent} ngaphezulu. Leyo mali yiyo egcina i-Vuka iqhubeka.\n'
         + 'Uma noma ubani ekucela ukuthi ukhokhe imali ukuze uthole umsebenzi ku-Vuka, lokho kungumkhonyovu. Kubike.',
     },
     'who-is-msizi': {
@@ -301,59 +302,62 @@ export const msiziZu: MsiziLang = {
     /* ---------------- Money ---------------- */
     'how-payment-works': {
       title: 'Ukhokhelwa kanjani',
-      asks: ['Ngikhokhelwa kanjani?', 'Ingabe i-Vuka iyayigcina imali yami?', 'Ngizoyithola nini imali yami?', 'Imali ngiyithola kanjani?'],
-      keywords: ['khokhelwa', 'inkokhelo', 'imali', 'iholo', 'ukheshi', 'eft', 'umholo', 'hola', 'ivikelwe', 'isikhwama'],
+      asks: ['Ngikhokhelwa kanjani?', 'Ingabe i-Vuka iyayigcina imali yami?', 'Ngizoyithola nini imali yami?', 'Imali ingena kanjani ebhange lami?'],
+      keywords: ['khokhelwa', 'inkokhelo', 'imali', 'iholo', 'umholo', 'ukheshi', 'eft', 'hola', 'ibhange', 'bank', 'ikhadi', 'card', 'paystack', 'isikhwama', 'wallet'],
       body:
-        'Inkokhelo yomsebenzi ivikelwa ngaphambi kokuba umsebenzi uqale. Umqashi ufaka imali ephelele lapho efaka umsebenzi, noma kamuva — kodwa njalo ngaphambi kokuba akwazi ukuqasha noma ubani.\n'
-        + '• Bheka okuthi Imali ivikelwe emsebenzini. Kusho ukuthi inkokhelo isivele ikulindile. Umsebenzi okhombisa okuthi Kulindwe imali usengafakelwa isicelo, kodwa akekho ongaqashwa kuwo kuze kube umqashi usefake imali.\n'
-        + '• Kuze kube kuqashwe othile, umqashi angayibuyisa imali mahhala. Kusukela ngesikhathi uqashwa, imali ivalelwe wena.\n'
-        + '• Uma umqashi eqinisekisa umsebenzi wakho oqediwe — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} ukhombise ukuthi uqedile futhi engakaze aphendule — inkokhelo ingena esikhwameni sakho se-Vuka ngaphansi kokuthi Mina. Uyikhiphela ku-akhawunti yakho yasebhange noma nini uma uthanda.\n'
-        + 'Okwamanje lokhu kuseMODINI YOKUHLOLA: isikhwama siwukuzilolonga futhi ayikho imali yangempela ehamba nge-Vuka okwamanje. Kuze kube kuvulwa, vumelana nomqashi ukuthi uzokukhokhela kanjani ngempela, ngaphambi kokuthi uqale.\n'
-        + 'Uma umqashi engakukhokheli, kubike. Yilokho kanye umbiko wokuphepha owenzelwe khona.',
+        'Ukhokhelwa ngqo ku-akhawunti yakho yasebhange, nge-Paystack, inkampani yezinkokhelo i-Vuka eyisebenzisayo. Imali ayidluli ku-akhawunti ye-Vuka uqobo.\n'
+        + '• Ngaphambi kokuba umqashi akwazi ukuqasha noma ubani, kufanele afake ikhadi. Akukho okukhokhiswayo ngomsebenzi ngaleso sikhathi.\n'
+        + '• Uma umqashi eqinisekisa umsebenzi wakho oqediwe — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} ukhombise ukuthi uqedile futhi engakaze aphendule — ikhadi lakhe liyakhokhiswa, bese inkokhelo yakho ephelele ithunyelwa ku-akhawunti yakho yasebhange.\n'
+        + '• Faka imininingwane yakho yasebhange ngaphansi kokuthi Mina, bese kuba Thola inkokhelo. Uma ingekho lapho umsebenzi uqinisekiswa, inkokhelo yakho iyalinda, bese ithunyelwa ngokushesha nje uma usuyifakile.\n'
+        + 'Ngaphansi kokuthi Mina, bese kuba Iholo lami, ungabona okusekukhokhiwe nanoma yini esalindile.\n'
+        + 'Uma inkokhelo yehluleka noma umqashi engakukhokheli, kubike. Yilokho kanye umbiko wokuphepha owenzelwe khona.\n'
+        + '{testModeNote}',
     },
     'funds-secured': {
-      title: 'Kusho ukuthini okuthi Imali ivikelwe',
-      asks: ['Kusho ukuthini okuthi Imali ivikelwe?', 'Kusho ukuthini okuthi Kulindwe imali?', 'Umqashi angayibuyisa imali?', 'Imali ikhona ngempela?'],
-      keywords: ['imali ivikelwe', 'kulindwe imali', 'ivikelwe', 'buyisa', 'buyisa imali', 'ivaliwe', 'kukhokhiwe', 'funds secured'],
+      title: 'Ingabe inkokhelo iqinisekisiwe?',
+      asks: ['Ingabe inkokhelo yami iqinisekisiwe?', 'Kwenzekani uma umqashi engakhokhi?', 'Umqashi angayibuyisa imali?', 'Imali ikhona ngempela?'],
+      keywords: ['iqinisekisiwe', 'engakhokhi', 'akakhokhanga', 'angikhokhelwanga', 'buyisa', 'buyisa imali', 'khokhisiwe', 'yehlulekile', 'declined', 'failed', 'guaranteed'],
       body:
-        'Wonke umsebenzi wesikhashana ukhombisa elilodwa kulawa malebula amathathu, ukuze wazi ngenkokhelo ngaphambi kokuba ufake isicelo:\n'
-        + '• Imali ivikelwe — umqashi usefake inkokhelo ephelele. Ikulindile.\n'
-        + '• Kulindwe imali — okwamanje akukenzeki. Usengafaka isicelo, kodwa akekho ongaqashwa kuwo kuze kube umqashi usefake imali.\n'
-        + '• Kukhokhiwe — umsebenzi uqediwe futhi inkokhelo iye kusisebenzi.\n'
-        + 'Umqashi angayibuyisa? Kuphela ngaphambi kokuba kuqashwe umuntu. Kusukela ngesikhathi uqashwa, imali ivalelwe wena, futhi ingena esikhwameni sakho uma umsebenzi uqinisekisiwe — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} ukhombise ukuthi uqedile, uma umqashi engakaze aphendule.\n'
-        + 'Lokhu kusesemodini yokuhlola okwamanje, ngakho ayikho imali yangempela ehamba nge-Vuka okwamanje.',
+        'Wonke umqashi kufanele afake ikhadi ngaphambi kokuba akwazi ukuqasha noma ubani, futhi ikhadi liyahlolwa lapho elifaka. Ngakho kunendlela yokukukhokhela kusukela ekuqaleni.\n'
+        + '• Ikhadi likhokhiswa uma umsebenzi uqinisekiswa — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} ukhombise ukuthi uqedile, uma umqashi engakaze aphendule. Ukuthula kwakhe akukumisi lokho.\n'
+        + '• Ukuqasha akukwazi ukuhoxiswa ku-app, ngakho umqashi akakwazi ukukukhipha emsebenzini ukuze agweme ukukhokha.\n'
+        + 'Kodwa ikhadi alikwazi ukuthembisa ukuthi imali izoba khona ngalolo suku. Uma ukukhokhisa kwehluleka, umqashi uyacelwa ukuthi akhokhe, futhi ungayibona inkokhelo emsebenzini. Uma esengakhokhi nangemva kwalokho, kubike.\n'
+        + '{testModeNote}',
     },
     'wallet-withdraw': {
-      title: 'Isikhwama sakho, nokukhipha imali',
-      asks: ['Ngiyikhipha kanjani imali yami?', 'Sikuphi isikhwama sami?', 'Ukukhipha imali kuthatha isikhathi esingakanani?', 'Ngiyi-withdraw kanjani imali?'],
-      keywords: ['isikhwama', 'khipha', 'ukukhipha', 'withdraw', 'ibhalansi', 'dlulisela', 'wallet'],
+      title: 'Iholo lakho liya kuphi',
+      asks: ['Ngiyikhipha kanjani imali yami?', 'Sikuphi isikhwama sami?', 'Imali ifika nini ebhange lami?', 'Ngiyi-withdraw kanjani imali?'],
+      keywords: ['isikhwama', 'wallet', 'khipha', 'ukukhipha', 'withdraw', 'ibhalansi', 'balance', 'dlulisela', 'payout', 'iholo lami', 'ebhange lami'],
       body:
-        'Isikhwama sakho singaphansi kokuthi Mina, bese kuba Isikhwama sami. Sikhombisa lokho ongakukhipha manje, nalokho okuvikelwe emisebenzini osayenza.\n'
-        + '• Inkokhelo ingena esikhwameni uma umqashi eqinisekisa umsebenzi wakho.\n'
-        + '• Ukukhipha kuthumela yonke ibhalansi ku-akhawunti yasebhange oyilondoloze ngaphansi kokuthi Thola inkokhelo. Qala ngokwengeza imininingwane yakho yasebhange lapho.\n'
-        + 'Ngoba izinkokhelo zisesemodini yokuhlola, ayikho imali ethunyelwayo ngempela okwamanje, ngakho asikho isikhathi sokulinda engingakutshela ngaso. Uma izinkokhelo zangempela sezivuliwe, isikhathi ukukhipha okuthatha sona sizokhonjiswa ngaphambi kokuba ukuqinisekise.\n'
-        + 'Ngibuze ukuthi "kungakanani esikhwameni sami" futhi ngizokufundela ibhalansi yakho.',
+        'Akukho okufanele ukukhiphe: inkokhelo yakho iya ngqo ku-akhawunti yakho yasebhange uma umsebenzi uqinisekisiwe. I-Vuka ayinaso isikhwama sokuyigcina.\n'
+        + '• Imininingwane yakho yasebhange ifakwa ngaphansi kokuthi Mina, bese kuba Thola inkokhelo. Yifake ngaphambi komsebenzi wakho wokuqala, ukuze kungabikho okulindayo.\n'
+        + '• Okuthi Mina, bese kuba Iholo lami, kukhombisa umsebenzi ngamunye, ukuthi ukhokhelwe malini, nanoma yini esalindile.\n'
+        + 'I-Paystack ithumela inkokhelo ebhange lakho ngohlelo lwayo olujwayelekile lokukhokha, bese ibhange lakho liyayikhombisa. Uma ingakafiki ngemva kwezinsuku ezimbalwa zokusebenza, kubike ngaphansi kokuthi Mina.\n'
+        + 'Ngibuze ukuthi "sengikhokhelwe malini" futhi ngizokufundela khona.\n'
+        + '{testModeNote}',
     },
     'test-mode': {
       title: 'Kusho ukuthini imodi yokuhlola',
       asks: ['Iyini imodi yokuhlola?', 'Ingabe le mali ingeyangempela?', 'Kungani kubhalwe ukuthi imodi yokuhlola?', 'Test mode yini?'],
-      keywords: ['imodi yokuhlola', 'ukuhlola', 'ukuzilolonga', 'imali yangempela', 'imali mbumbulu', 'akusiyo yangempela', 'test mode'],
+      keywords: ['imodi yokuhlola', 'ukuhlola', 'ukuzilolonga', 'imali yangempela', 'imali mbumbulu', 'akusiyo yangempela', 'ikhadi lokuhlola', 'test mode', 'test card'],
       body:
-        'I-Vuka ikhombisa yonke indlela inkokhelo ezosebenza ngayo — inkokhelo ivikelwa ngaphambi komsebenzi, ingena esikhwameni sesisebenzi uma umsebenzi uqinisekisiwe, bese ikhishelwa ebhange. Okwamanje lokho kuwukuzilolonga: ayikho imali yangempela ehamba nge-Vuka okwamanje.\n'
-        + 'Kuze kube izinkokhelo zivuliwe, vumelana nomunye umuntu ukuthi inkokhelo izokwenziwa kanjani ngempela, ngaphambi kokuba umsebenzi uqale. Konke okunye — irekhodi lakho, izilinganiso, amazinga namabheji — kungokwangempela futhi kuyabalwa.\n'
-        + 'Uma izinkokhelo zangempela seziqala, i-app izokusho lokho ngokucacile, futhi imodi yokuhlola izonyamalala kulezi zikrini.',
+        'Ngesikhathi i-Vuka isahlolwa, izinkokhelo zisebenza ngemodi yokuhlola ye-Paystack. Konke kusebenza ngendlela okuzosebenza ngayo ngempela — ikhadi, ukukhokhiswa uma umsebenzi uqediwe, inkokhelo eya ebhange lesisebenzi — kodwa kwamukelwa amakhadi okuhlola kuphela, futhi ayikho imali yangempela ehambayo.\n'
+        + 'Ngakho okwamanje, vumelana nomunye umuntu ukuthi inkokhelo izokwenziwa kanjani ngempela, ngaphambi kokuba umsebenzi uqale. Konke okunye — irekhodi lakho, izilinganiso, amazinga namabheji — kungokwangempela futhi kuyabalwa.\n'
+        + 'Uma izinkokhelo zangempela seziqala, imodi yokuhlola izonyamalala kulezi zikrini.',
     },
     'employer-fund-job': {
-      title: 'Ukuvikela inkokhelo yomsebenzi',
-      asks: ['Ngiwufakela kanjani imali umsebenzi?', 'Kungani ngingakwazi ukuqasha muntu?', 'Ngiyibuyisa kanjani imali yami?', 'Ngingakhansela ngemva kokuqasha?', 'Ngisikhokhela kanjani isisebenzi?', 'Kwenzekani emalini uma ngisusa umsebenzi?'],
-      keywords: ['vikela', 'vikela inkokhelo', 'imali', 'angikwazi ukuqasha', 'buyisa imali', 'imbuyiselo', 'khansela', 'khokhela isisebenzi', 'kulindwe imali'],
+      title: 'Ukukhokhela umsebenzi',
+      asks: ['Ngisikhokhela kanjani isisebenzi?', 'Kungani ngidinga ikhadi ukuze ngiqashe?', 'Ikhadi lami likhokhiswa nini?', 'Ngingakhansela ngemva kokuqasha?', 'Kungani ngingakwazi ukuqasha muntu?'],
+      keywords: ['ikhadi', 'card', 'khokhela isisebenzi', 'khokhisa', 'ukukhokhiswa', 'faka ikhadi', 'add card', 'angikwazi ukuqasha', 'imbuyiselo', 'refund', 'khansela', 'paystack', 'buyisa imali'],
       body:
-        'Inkokhelo yomsebenzi ivikelwa ngaphambi kokuba kuqale muntu. Khetha okuthi Vikela inkokhelo manje lapho ufaka umsebenzi, noma uvule umsebenzi kamuva bese uthepha okuthi Vikela inkokhelo.\n'
-        + '• Akekho ongaqashwa kuze kube inkokhelo ivikelwe. Yingakho inkinobho yokuqasha ithi Vikela inkokhelo ukuze uqashe.\n'
-        + '• Ngaphambi kokuba uqashe, ungayibuyisa imali ngaphandle kwemali ekhokhwayo. Ukuhoxisa umsebenzi okungaqashwanga muntu kuwo nakho kuyayibuyisa.\n'
-        + '• Kusukela ngesikhathi uqasha othile, imali ivalelwe yena. Ingena esikhwameni sesisebenzi uma uqinisekisa umsebenzi — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} sikhombise ukuthi siqedile, uma ungaphendulanga.\n'
+        'Ukhokha ngekhadi, futhi kuphela uma umsebenzi uqediwe.\n'
+        + '• Ngaphambi kokuqasha kwakho kokuqala, ufaka ikhadi ekhasini eliphephile le-Paystack. Ukuze kuhlolwe ukuthi ikhadi liyasebenza, i-Paystack ikhokhisa {cardCheck} bese iyabuyisela ngokushesha (ibhange lakho lingathatha izinsuku ezimbalwa ukukhombisa ukuthi ibuyisiwe). Ikhadi liyagcinwa ukuze lisetshenziswe emisebenzini ezayo.\n'
+        + '• Akukho okukhokhiswayo uma ufaka umsebenzi noma uma uqasha. Uma uqinisekisa umsebenzi oqediwe — noma ngokuzenzakalelayo, uma sekudlule {autoReleaseHours} isisebenzi sikhombise ukuthi siqedile, uma ungaphendulanga — ikhadi lakho likhokhiswa inkokhelo kanye nemali ye-Vuka engu-{feePercent}, bese inkokhelo iya ngqo ebhange lesisebenzi.\n'
+        + '• Uma isisebenzi singakafaki imininingwane yaso yasebhange, ukukhokhiswa kuyalinda kuze kube siyayifaka.\n'
+        + '• Ukuhoxisa umsebenzi ngaphambi kokuba kuqashwe noma ubani akubizi lutho.\n'
         + 'Umsebenzi osuqashelwe umuntu awukwazi ukukhanselwa ku-app. Thumela isisebenzi umyalezo nixazulule, futhi ukubike ngaphansi kokuthi Mina uma kukhona okungalungile.\n'
-        + 'Izinkokhelo zisesemodini yokuhlola okwamanje, ngakho ayikho imali yangempela ehamba nge-Vuka okwamanje.',
+        + 'I-Vuka ayisoze yayibona inombolo yakho yekhadi ephelele; igcinwa yi-Paystack.\n'
+        + '{testModeNote}',
     },
     'get-more-work': {
       title: 'Ukuthola imisebenzi eminingi',
@@ -364,17 +368,17 @@ export const msiziZu: MsiziLang = {
         + '• Gcwalisa iphrofayela yakho namakhono onawo ngempela, ukuze uvele emsebenzini ofanele.\n'
         + '• Qinisekisa umazisi wakho ngaphansi kokuthi Mina. Uma kunabantu ababili, umqashi uthatha oqinisekisiwe.\n'
         + '• Vula okuthi Imisebenzi emisha eseduze, ngaphansi kokuthi Mina bese kuba Izaziso, ukuze uzwe ngomsebenzi ngokushesha nje uma ufakwa futhi ukwazi ukufaka isicelo kusenesikhathi.\n'
-        + '• Khetha imisebenzi ekhombisa okuthi Imali ivikelwe, neseduze kwakho — ufika ngesikhathi, futhi inkokhelo iyakulinda.\n'
+        + '• Faka imininingwane yakho yasebhange ngaphansi kokuthi Mina, bese kuba Thola inkokhelo, ukuze ukhokhelwe ngokushesha nje uma umsebenzi uqinisekisiwe.\n'
+        + '• Khetha imisebenzi eseduze kwakho — ufika ngesikhathi, futhi abaqashi bayakubona lokho.\n'
         + '• Yenza umsebenzi ngamunye kahle bese ukhombisa ukuthi uqedile. Wonke umsebenzi oqinisekisiwe nesilinganiso esihle kukhuphula i-Vuka Score yakho nezinga lakho.',
     },
     'banking-details': {
       title: 'Imininingwane yakho yasebhange',
       asks: ['Kungani i-Vuka ifuna imininingwane yami yasebhange?', 'Ingabe imininingwane yami yasebhange iphephile?', 'Ngiyengeza kanjani i-akhawunti yami yasebhange?', 'Bank details zami ziphephile?'],
-      keywords: ['ibhange', 'imininingwane yasebhange', 'inombolo ye-akhawunti', 'ikhodi yegatsha', 'capitec', 'fnb', 'absa'],
+      keywords: ['ibhange', 'bank', 'imininingwane yasebhange', 'inombolo ye-akhawunti', 'ikhodi yegatsha', 'payout', 'paystack', 'capitec', 'fnb', 'absa'],
       body:
-        'Ungalondoloza imininingwane yakho yasebhange ngaphansi kokuthi Mina, ukuze ube nayo ilungile ukuyinika umqashi ungadingi ukusesha ikhadi.\n'
+        'Imininingwane yakho yasebhange ikhombisa lapho inkokhelo yakho ithunyelwa khona. Yifake ngaphansi kokuthi Mina, bese kuba Thola inkokhelo. Uma umsebenzi uqinisekisiwe, i-Paystack, inkampani yezinkokhelo i-Vuka eyisebenzisayo, ikhokhela kule akhawunti — ngakho inombolo yakho ye-akhawunti yabelwana ne-Paystack ngenxa yalokho, hhayi ngenxa yokunye.\n'
         + 'Ifihlwe ngekhodi kuseva futhi ayisoze ithunyelwe emuva ku-app. Ngisho nawe ubona kuphela isifinyezo esifihliwe — ibhange lakho, uhlobo lwe-akhawunti, nezinombolo ezine zokugcina. Akukho okubucayi okugcinwa efonini yakho.\n'
-        + 'Yilapho isikhwama sakho sithumela khona inkokhelo yakho uma uyikhipha. Izinkokhelo zisesemodini yokuhlola okwamanje, ngakho ayikho imali yangempela ethunyelwa kuyo okwamanje.\n'
         + 'Akekho umuntu wase-Vuka oyoke akushayele noma akuthumelele umyalezo ecela inombolo yakho ye-akhawunti, i-PIN yakho noma i-OTP. Noma ubani owenza lokho akaveli ku-Vuka.',
     },
     'fair-pay': {
@@ -405,7 +409,7 @@ export const msiziZu: MsiziLang = {
       body:
         'Vula umsebenzi esikrinini sakho sokuthi Ikhaya bese ukhombisa ukuthi uqediwe. Uzocelwa ukuthi ulinganise umqashi ngezinkanyezi kwezinhlanu ngaphambi kokuthi ukwazi — le yingxenye egcina abaqashi bethembekile, futhi yingakho ezinye izisebenzi zikwazi ukubona ukuthi ubani omuhle ukumsebenzela.\n'
         + 'Uma kukhona okwakungaphephile emsebenzini, kukhona ibhokisi lokuphakamisa isexwayiso sokuphepha ngasikhathi sinye. Umuntu uyakufunda lokho.\n'
-        + 'Umqashi ube esecelwa ukuthi aqinisekise. Uma esenzile lokho, umsebenzi ungena erekhodini lakho nesilinganiso nombono wakhe, futhi inkokhelo ebivikelwe yawo ingena esikhwameni sakho — okwamanje kusesemodini yokuhlola.',
+        + 'Umqashi ube esecelwa ukuthi aqinisekise. Uma esenzile lokho, umsebenzi ungena erekhodini lakho nesilinganiso nombono wakhe, futhi inkokhelo yakho yawo ithunyelwa ku-akhawunti yakho yasebhange.',
     },
     'confirm-work': {
       title: 'Ukulinda umqashi aqinisekise',
@@ -413,7 +417,7 @@ export const msiziZu: MsiziLang = {
       keywords: ['qinisekisa', 'ukuqinisekisa', 'ukulinda', 'kulindiwe', 'akakaqinisekisi', 'ngokuzenzakalelayo', 'kubambekile'],
       body:
         'Ngemva kokuthi ukhombise ukuthi umsebenzi uqediwe, umqashi unikezwa {autoReleaseHours} ukuze awuqinisekise.\n'
-        + 'Uma engakaze akwenze, umsebenzi ubalelwa wena noma kunjalo uma leso sikhathi sesiphelile. Uthola ukubhalwa erekhodini, imali oyiholile, inqubekela phambili yezinga — futhi inkokhelo evikelwe ingena esikhwameni sakho. Ugcinwa ungenaso isilinganiso, ngakho ukuthula kwakhe akukwazi ukwehlisa isilinganiso sakho esimaphakathi — noma ukusikhuphula.\n'
+        + 'Uma engakaze akwenze, umsebenzi ubalelwa wena noma kunjalo uma leso sikhathi sesiphelile. Uthola ukubhalwa erekhodini, imali oyiholile, inqubekela phambili yezinga — futhi ikhadi lomqashi liyakhokhiswa, ngakho inkokhelo yakho ithunyelwa ebhange lakho. Ugcinwa ungenaso isilinganiso, ngakho ukuthula kwakhe akukwazi ukwehlisa isilinganiso sakho esimaphakathi — noma ukusikhuphula.\n'
         + 'Lokhu kukhona ngoba umqashi oyeka nje ukuphendula wayejwayele ukumisa inqubekela phambili yesisebenzi unomphela, ngomsebenzi owenziwe ngempela. Manje akasakwazi.',
     },
 
@@ -425,10 +429,10 @@ export const msiziZu: MsiziLang = {
       body:
         'Thepha okuthi Faka. Uchaza umsebenzi, ukuthi ukuphi, amahora amangaki, nokuthi ukhokha malini ngehora.\n'
         + '• Ukuhlolwa kwenkokhelo enhle kukukhombisa ukuthi inkokhelo yakho iqhathaniswa kanjani neholo eliphansi likazwelonke elingu-{minWage} ngehora ngesikhathi usabhala. Ukukhokha ngaphansi kwalo akukho emthethweni.\n'
-        + '• Vikela inkokhelo lapho ufaka umsebenzi, noma kamuva. Ungayibuyisa mahhala kuze kube uyaqasha; awukwazi ukuqasha muntu kuze kube ivikelwe. Izisebenzi zibona okuthi Imali ivikelwe emsebenzini wakho, futhi yilokho okwenza abantu abahle bafake izicelo.\n'
+        + '• Ngaphambi kokuqasha kwakho kokuqala ufaka ikhadi. Akukho okukhokhiswayo kuze kube umsebenzi usuqediwe futhi uwuqinisekisile.\n'
         + '• Umsebenzi wakho uvela ngokushesha kuzisebenzi eziseduze kwakho.\n'
         + '• Ubona wonke umuntu ofaka isicelo, nerekhodi lakhe — isilinganiso, imisebenzi eqediwe, izinga namabheji.\n'
-        + 'Ukufaka umsebenzi kumahhala, futhi i-Vuka ayithathi khomishini.',
+        + 'Ukufaka umsebenzi kumahhala. Uma umsebenzi uqediwe, ukhokha inkokhelo yesisebenzi kanye nemali ye-Vuka engu-{feePercent}.',
     },
     'choose-worker': {
       title: 'Ukukhetha ozomqasha',
@@ -448,15 +452,17 @@ export const msiziZu: MsiziLang = {
         'Uma isisebenzi sikhombisa ukuthi umsebenzi uqediwe, uthola isaziso. Sivule, uqinisekise umsebenzi, bese usilinganisa ngezinkanyezi kwezinhlanu nombono omfushane.\n'
         + 'Sicela ukwenze ngokushesha. Kuwe kuwukuthepha nje; kuso yikho okubhalwa erekhodini laso okuvula izinga elilandelayo nohlobo olulandelayo lomsebenzi.\n'
         + 'Uma ungaqinisekisi kungakadluli {autoReleaseHours}, umsebenzi ubalelwa isisebenzi ngokuzenzakalelayo, ungenaso isilinganiso. Umbono wakho yingxenye elahlekayo, futhi lowo mbono yinto ebaluleke kakhulu ongayinika umuntu owakha umlando wakhe wokuqala womsebenzi.\n'
-        + 'Ukuqinisekisa kuphinde kukhiphe inkokhelo oyivikele iye esikhwameni se-Vuka sesisebenzi. Kusukela ngesikhathi usiqasha, yayivalelwe sona. Izinkokhelo zisesemodini yokuhlola okwamanje — ayikho imali yangempela ehambayo okwamanje.',
+        + 'Ukuqinisekisa kuphinde kukhokhise ikhadi lakho: inkokhelo iya ngqo ebhange lesisebenzi, kanye nemali ye-Vuka engu-{feePercent}.\n'
+        + '{testModeNote}',
     },
     'employer-cost': {
       title: 'Kubiza malini kumqashi',
-      asks: ['Kubiza malini ukufaka umsebenzi?', 'Ingabe i-Vuka ithatha ikhomishini?', 'Ngikhokha malini njengomqashi?'],
-      keywords: ['ibiza', 'imali ekhokhwayo', 'ikhomishini', 'khomishini', 'mahhala', 'intengo', 'umqashi'],
+      asks: ['Kubiza malini ukufaka umsebenzi?', 'Ingabe i-Vuka ithatha ikhomishini?', 'Ingakanani imali ye-Vuka?', 'Ngikhokha malini njengomqashi?'],
+      keywords: ['ibiza', 'imali ekhokhwayo', 'ikhomishini', 'khomishini', 'fee', 'mahhala', 'intengo', 'umqashi', 'iphesenti', 'percentage'],
       body:
-        'Ukufaka umsebenzi kumahhala futhi ukuqasha kumahhala. Okukhokhayo yinkokhelo uqobo, evikelwa ngaphambi kokuba uqashe, futhi ungayibuyisa mahhala kuze kube uyaqasha.\n'
-        + 'Izinkokhelo zisesemodini yokuhlola okwamanje, ngakho ayikho imali yangempela ehamba nge-Vuka okwamanje futhi akukho okukhokhiswayo. Noma iyiphi imali ekhokhwayo, uma izinkokhelo sezivuliwe, izokhonjiswa ngaphambi kokuba ukhokhe.',
+        'Ukufaka umsebenzi nokuqasha kumahhala. Uma umsebenzi uqediwe, ikhadi lakho likhokhiswa inkokhelo yesisebenzi kanye nemali ye-Vuka engu-{feePercent} yenkokhelo. Isisebenzi sithola inkokhelo ephelele; leyo mali ye-Vuka yiyo egcina i-Vuka iqhubeka.\n'
+        + 'Isamba ozosikhokha sikhonjiswa emsebenzini ngaphambi kokuba uqashe.\n'
+        + '{testModeNote}',
     },
 
     /* ---------------- Safety, trust and privacy ---------------- */
@@ -583,9 +589,9 @@ export const msiziZu: MsiziLang = {
       keywords: ['amabheji ami', 'nginamabheji', 'engiwatholile'],
     },
     'my-wallet': {
-      title: 'Isikhwama sakho',
-      asks: ['Kungakanani esikhwameni sami?', 'Ibhalansi yami ingakanani?', 'Ngingakhipha malini?', 'Wallet yami inamalini?'],
-      keywords: ['esikhwameni sami', 'isikhwama sami', 'ibhalansi yami', 'ngingakhipha'],
+      title: 'Iholo lakho',
+      asks: ['Sengikhokhelwe malini?', 'Kungakanani esikhwameni sami?', 'Ibhalansi yami ingakanani?', 'Ngingakhipha malini?', 'Wallet yami inamalini?'],
+      keywords: ['sengikhokhelwe', 'ngikhokhelwe', 'iholo lami', 'inkokhelo yami', 'esikhwameni sami', 'isikhwama sami', 'ibhalansi yami', 'ngingakhipha', 'my pay'],
     },
     'my-applications': {
       title: 'Imisebenzi osufake izicelo kuyo',
@@ -622,6 +628,9 @@ export const msiziZu: MsiziLang = {
     'fill.days_one': 'usuku olungu-{count}',
     'fill.days_other': 'izinsuku ezingu-{count}',
     'fill.listSep': ', ',
+    'fill.testMode': 'Izinkokhelo zisesemodini yokuhlola okwamanje: kusebenza amakhadi okuhlola kuphela, futhi ayikho imali yangempela ehambayo okwamanje.',
+    'fill.feeUnknown': 'iphesenti elincane',
+    'fill.cardCheckUnknown': 'imali encane',
 
     'score.value': 'I-Vuka Score yakho ingu-{rep} kweyi-100.',
     'score.built': 'Yakhiwe ngalokhu: {jobs}, isilinganiso esimaphakathi sezinkanyezi ezingu-{avg}, futhi {safety}.',
@@ -650,8 +659,8 @@ export const msiziZu: MsiziLang = {
     'jobs.kinds_one': 'uhlobo lomsebenzi olungu-{count}',
     'jobs.kinds_other': 'izinhlobo zomsebenzi ezingu-{count}',
 
-    'earn.total_one': 'Usuhole {amount} emsebenzini oqediwe ongu-{count}, kubalwa ngenkokhelo ebibhalwe kulowo msebenzi. Okusesikhwameni sakho manje kuyinombolo ehlukile — ngibuze ukuthi "kungakanani esikhwameni sami".',
-    'earn.total_other': 'Usuhole {amount} emisebenzini eqediwe engu-{count}, kubalwa ngenkokhelo ebibhalwe emsebenzini ngamunye. Okusesikhwameni sakho manje kuyinombolo ehlukile — ngibuze ukuthi "kungakanani esikhwameni sami".',
+    'earn.total_one': 'Usuhole {amount} emsebenzini oqediwe ongu-{count}, kubalwa ngenkokhelo ebibhalwe kulowo msebenzi. Osekukhokhelwe kona ngempela kuyinombolo ehlukile — ngibuze ukuthi "sengikhokhelwe malini".',
+    'earn.total_other': 'Usuhole {amount} emisebenzini eqediwe engu-{count}, kubalwa ngenkokhelo ebibhalwe emsebenzini ngamunye. Osekukhokhelwe kona ngempela kuyinombolo ehlukile — ngibuze ukuthi "sengikhokhelwe malini".',
 
     'badges.none': 'Awukalitholi ibheji okwamanje. Elokuqala, elithi Umsebenzi Wokuqala, lifika ngokushesha nje uma umsebenzi wakho wokuqala wesikhashana uqinisekisiwe.',
     'badges.earned': 'Usuthole amabheji angu-{earned} kuwo wonke angu-{total}: {list}.',
@@ -667,6 +676,13 @@ export const msiziZu: MsiziLang = {
     'wallet.pending': 'Enye imali engu-{amount} ivikelwe emisebenzini osayenza. Izofika uma umsebenzi ngamunye uqinisekisiwe.',
     'wallet.howLands': 'Inkokhelo ingena lapha uma umqashi eqinisekisa umsebenzi owenzile.',
     'wallet.test': 'Izinkokhelo zisesemodini yokuhlola okwamanje, ngakho ayikho imali yangempela esihambile.',
+
+    'pay.loading': 'Izinkokhelo zakho zisalayisha. Ngibuze futhi emzuzwini, noma uvule Mina, bese uvula Iholo lami.',
+    'pay.error': 'Angikwazanga ukufunda izinkokhelo zakho manje. Vula Mina, bese uvula Iholo lami, ukuze uzibone.',
+    'pay.paid': '{amount} isikhokhelwe ku-akhawunti yakho yasebhange ngemisebenzi yakho kuze kube manje.',
+    'pay.none': 'Awukakhokhelwa lutho okwamanje.',
+    'pay.waiting': 'Enye imali engu-{amount} isalindile ukuthi ikhokhwe. Vula Mina, bese uvula Iholo lami, ukuze ubone ukuthi kungani.',
+    'pay.howLands': 'Uma umqashi eqinisekisa umsebenzi owenzile, inkokhelo yakho iya ngqo ku-akhawunti yakho yasebhange.',
 
     'apps.none': 'Awukafaki isicelo nasinye okwamanje. Okuthi Thola umsebenzi kukhombisa imisebenzi yesikhashana eseduze kwakho, futhi ukufaka isicelo kuwukuthepha kanye nje.',
     'apps.some_one': 'Usufake isicelo emsebenzini wesikhashana ongu-{count}. Abaqashi babona bonke abafake izicelo bese bekhetha kubo, ngakho kujwayelekile ukungezwa lutho ngomunye — qhubeka ufaka izicelo.',

@@ -6,6 +6,8 @@ import type { CategoryId } from '../../types';
 import { Button } from '../../components/ui';
 import { FairMeter } from '../../components/bits';
 import { TestModeNote } from '../../components/Funding';
+import { PaystackTestNote } from '../../components/CardPayments';
+import { isCardMode, usePaymentsConfig } from '../../lib/payments';
 import { money } from '../../lib/format';
 import { Icon } from '../../components/Icon';
 import { useT } from '../../providers/LanguageProvider';
@@ -38,6 +40,9 @@ export function PostJob() {
   /* Escrow: secure the pay now, or later — but before hiring either way. On by
      default, because a funded job is the one workers trust enough to take. */
   const [fundNow, setFundNow] = useState(true);
+  /* Card payments: nothing is secured up front; the card is charged when the job is done. */
+  const payConfig = usePaymentsConfig();
+  const card = isCardMode(payConfig);
   // Pinning the job to exact coordinates is what lets workers see a real
   // distance instead of an estimate — so it's offered, and it's optional.
   const [pin, setPin] = useState<Coords | null>(null);
@@ -94,8 +99,10 @@ export function PostJob() {
     }
     setBusy(true);
     try {
-      await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, fund: fundNow, ...(pin ?? {}) });
-      toast(fundNow
+      await postGig({ title, category, hours: Number(hours), payPerHour: rateNum, location: loc.trim(), when, description, urgent: false, fund: !card && fundNow, ...(pin ?? {}) });
+      toast(card
+        ? t('employer.post.postedCard')
+        : fundNow
         ? t('employer.post.postedFunded', { amount: money(total) })
         : t('employer.post.postedUnfunded'));
       navigate('home');
@@ -182,6 +189,13 @@ export function PostJob() {
 
       {/* The pay, secured up front. Workers see whether it is before applying,
           and nobody can be hired until it is. */}
+      {card && payConfig ? (
+      <div className="rounded-2xl border border-line bg-surface p-4 mb-3.5 text-small text-ink leading-relaxed">
+        <b>{t('employer.post.cardTitle')}</b><br />
+        {t('employer.post.cardBody', { fee: payConfig.feePercent })}
+        <PaystackTestNote mode={payConfig.mode} className="mt-3" />
+      </div>
+      ) : (
       <div className="rounded-2xl border border-line bg-surface p-4 mb-3.5">
         <label className="flex gap-3 items-start cursor-pointer min-h-[44px]">
           <input type="checkbox" className="mt-1 w-5 h-5 accent-[var(--v-brand)] shrink-0" checked={fundNow} onChange={(e) => setFundNow(e.target.checked)} />
@@ -193,9 +207,10 @@ export function PostJob() {
         </label>
         <TestModeNote className="mt-3" />
       </div>
+      )}
 
       <Button block variant="primary" disabled={busy} onClick={submit}>
-        {busy ? t('post.publishing') : fundNow ? t('employer.post.submitFunded', { amount: money(total) }) : t('employer.post.submitUnfunded')}
+        {busy ? t('post.publishing') : card ? t('post.publish') : fundNow ? t('employer.post.submitFunded', { amount: money(total) }) : t('employer.post.submitUnfunded')}
       </Button>
       <p className="text-center text-small text-dim leading-relaxed px-4 py-3">{t('employer.post.fairPayNote')}</p>
     </>

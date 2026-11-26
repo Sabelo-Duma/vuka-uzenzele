@@ -1222,7 +1222,7 @@ app.post('/api/gigs', requireAuth, requireRole('employer'), asyncH(async (req, r
   /* Secure the pay in the same step, when the employer chose to. A gig can
      also be posted unfunded and funded later — but nobody can be hired onto
      it until it is (see /hire). */
-  if (req.body?.fund) await fund(row, user.id);
+  if (req.body?.fund && !paystackOn()) await fund(row, user.id); // card mode: nothing is held
   // Fire-and-forget: a slow push service must never slow down posting a job.
   void alertNearbyWorkers(row).catch((e) => captureError(e, 'alertNearbyWorkers'));
   res.status(201).json((await gigsOut([row]))[0]);

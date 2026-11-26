@@ -14,6 +14,7 @@ import { WalletSheet } from './WalletSheet';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 import { useT } from '../../providers/LanguageProvider';
 import { OwnerRoleSwitch } from '../owner/RoleSwitch';
+import { isCardMode, usePaymentsConfig } from '../../lib/payments';
 
 type SheetKey = 'notifications' | 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
 
@@ -38,6 +39,7 @@ export function WorkerProfile() {
 
   const { banking } = useBanking();
   const bank = bankingSummaryText(banking);
+  const cardPay = isCardMode(usePaymentsConfig());
 
   type Row =
     | { kind: 'link'; ic: IconName; title: string; sub: string; go: () => void }
@@ -49,7 +51,9 @@ export function WorkerProfile() {
     { kind: 'toggle', ic: 'signal', title: t('me.dataSaver'), sub: dataSaver ? t('worker.profile.dataOn') : t('worker.profile.dataOff'), on: dataSaver,
       act: () => toggleLocal('dataSaver', dataSaver, setDataSaver, t('worker.profile.dataOnToast'), t('worker.profile.dataOffToast')) },
     { kind: 'link', ic: 'edit', title: t('worker.profile.edit'), sub: t('worker.profile.editSub'), go: () => setSheet('editProfile') },
-    { kind: 'link', ic: 'wallet', title: t('worker.myWallet'), sub: t('worker.profile.walletSub'), go: () => setSheet('wallet') },
+    cardPay
+      ? { kind: 'link', ic: 'wallet', title: t('worker.myPay'), sub: t('worker.profile.walletSubCard'), go: () => setSheet('wallet') }
+      : { kind: 'link', ic: 'wallet', title: t('worker.myWallet'), sub: t('worker.profile.walletSub'), go: () => setSheet('wallet') },
     { kind: 'link', ic: 'card', title: t('worker.getPaid'), sub: bank ? t('worker.profile.bankEdit', { bank }) : t('worker.profile.addBank'), go: () => setSheet('banking') },
     { kind: 'link', ic: 'id', title: t('worker.profile.identity'), sub: w.idVerified ? t('worker.profile.verifiedSaId') : t('worker.profile.notVerified'), go: () => setSheet('identity') },
     { kind: 'link', ic: 'shield', title: t('me.safety'), sub: t('worker.profile.safetySub'), go: () => setSheet('safety') },

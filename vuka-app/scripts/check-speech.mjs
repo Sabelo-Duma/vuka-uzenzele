@@ -520,7 +520,10 @@ for (const entry of KNOWLEDGE) {
     .replace(/\{categories\}/g, '• Cleaning, Gardening.')
     .replace(/\{badges\}/g, '• \u{1F331} First Job — completed your very first gig.')
     .replace(/\{hosting\}/g, 'Frankfurt, Germany (EU)')
-    .replace(/\{youthUnemployment\}/g, '62,8%');
+    .replace(/\{youthUnemployment\}/g, '62,8%')
+    .replace(/\{feePercent\}/g, '10%')
+    .replace(/\{cardCheck\}/g, 'R5')
+    .replace(/\n?\{testModeNote\}/g, '\nPayments are in test mode for now: only test cards work, and no real money moves yet.');
 
   const said = spoken(filled);
   ok(!/[\u{1F300}-\u{1FAFF}]/u.test(said), `${entry.id}: no pictograph is read aloud`, said.slice(0, 90));
