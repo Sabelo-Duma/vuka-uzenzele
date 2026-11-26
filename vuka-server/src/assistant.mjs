@@ -92,12 +92,12 @@ let budgetDay = '';
 let usedToday = 0;
 const perUser = new Map();
 
-function spend(userId) {
+function spend(userId, cap = PER_USER_DAILY) {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== budgetDay) { budgetDay = today; usedToday = 0; perUser.clear(); }
   if (usedToday >= DAILY_CAP) return 'daily';
   const mine = perUser.get(userId) ?? 0;
-  if (mine >= PER_USER_DAILY) return 'user';
+  if (mine >= Math.min(cap, PER_USER_DAILY)) return 'user';
   usedToday += 1;
   perUser.set(userId, mine + 1);
   return null;
@@ -131,10 +131,11 @@ function cardFacts() {
   const out = [
     'HOW PAYMENT WORKS (card, through Paystack, see payments.mjs): before their first hire, the employer adds a card on Paystack\'s secure page. To check the card, Paystack charges a small amount and refunds it straight away. Nothing is charged for a job when it is posted or when someone is hired.',
     `When the employer confirms the job — or automatically, if they never answer within the confirmation window — their card is charged the pay plus Vuka's fee of ${feePercent()}% of the pay, and Paystack sends the full pay straight to the worker's bank account. The job is added to the worker's record ("My Record") either way. Vuka takes nothing from the worker's pay. There is no Vuka wallet and nothing to withdraw; the money does not pass through Vuka's own account.`,
-    'Workers add their bank details under "Me" → "Get paid". If they are missing when a job is confirmed, the payment waits and goes through as soon as they are added. If a card charge fails, the employer is asked to pay again from the job. Workers see what they have been paid under "Me" → "My pay".',
+    'Workers add their bank details under "Me", then "Get paid". If they are missing when a job is confirmed, the payment waits and goes through as soon as they are added. If a card charge fails, the employer is asked to pay again from the job. Workers see what they have been paid under "Me", then "My pay".',
     'Vuka never sees or stores a full card number; Paystack keeps the card. Withdrawing a job before anyone is hired costs nothing.',
+    'CASH, TIPS AND BONUSES: the app has no way to record a cash payment, a tip or a bonus. Pay on Vuka is the job\'s pay, charged to the employer\'s card when the job is confirmed (or automatically after the confirmation window), so an employer who also paid cash would pay twice. Anything extra is between the worker and the employer, outside the app.',
   ];
-  if (paystackMode() !== 'live') out.push('PAYMENTS ARE IN PAYSTACK TEST MODE. Only test cards work and no real money moves yet. Whenever you explain payments, say that it is test mode.');
+  if (paystackMode() !== 'live') out.push('PAYMENTS ARE IN PAYSTACK TEST MODE: only test cards work and no real money moves yet, so for now the worker and employer agree how the pay is really made. Mention test mode only when they ask how to pay, how to get paid, or why money has not arrived.');
   return out;
 }
 
@@ -177,7 +178,7 @@ const FACTS = [
   'Vuka is a small, independent South African project. The privacy notice under "Me" says who runs it and how to ask about your data.',
 ];
 
-function systemPrompt(lang, role = 'worker') {
+export function systemPrompt(lang, role = 'worker') {
   const language = LANGS[lang] ?? 'English';
   const who = role === 'employer'
     ? 'The person asking is an EMPLOYER: someone who posts jobs, hires and pays. Answer from their side.'
@@ -189,21 +190,25 @@ function systemPrompt(lang, role = 'worker') {
     '',
     'RULES — follow all of them:',
     `1. Reply in ${language}. If they wrote in a different South African language, reply in the language they wrote in.`,
-    '2. Answer ONLY from the FACTS and the HELP ENTRIES below. Do not use outside knowledge about Vuka or about other apps.',
-    '3. If the facts and entries do not answer the question, say honestly that you are not sure, and suggest where in the app to look or what they could ask instead. Never invent a feature, a figure, an amount, a law or a time limit.',
-    '4. Never quote a rand amount, wage or number of hours unless it appears word for word in the entries.',
-    '5. You ONLY help with: Vuka and how to use it; finding, applying for and doing work (including general job advice such as CVs, interviews and fair pay); getting paid; the person\'s record, ratings and tiers; and staying safe. If the question is about anything else — sport, news, general knowledge, homework, jokes, recipes, other apps — do NOT answer it, not even partly. Reply with exactly the one word OFFTOPIC and nothing else.',
-    '6. Keep it short: two to five plain sentences, or a few lines starting with "• ". No markdown, no headings, no bold, no emoji, no links.',
-    '7. Talk like a kind person, not a manual. Use "you". Your answer may be read out loud, so write it to be spoken.',
-    '8. You cannot take any action in the app. If asked to, explain where they can do it themselves.',
-    '9. If someone says they are in danger, tell them to phone 10111 (or 112 from a cellphone) first.',
+    '2. Everything you say about Vuka, money, payments, laws, wages or time limits must come from the FACTS or the HELP ENTRIES below — never from what other apps usually do. For general job advice (writing a CV, an interview, what to wear, talking to an employer) you may give two or three short common-sense tips of your own, but never state a law, an amount or a Vuka feature that is not written below.',
+    '3. The HELP ENTRIES were found by a word search, so they may NOT be about the question at all — "safe" finds the safety page even when someone asks about swimming. Use an entry only if it really answers what was asked. Never answer a different question from the one asked just because an entry is nearby.',
+    '4. If a question is in scope (rule 6) but the facts and entries do not answer it, say plainly that you are not sure, then say where to look in the app or who to ask (for example, the employer in Chats). Never invent a feature, a button, a figure, an amount, a law or a time limit.',
+    '5. Never quote a rand amount, wage or number of hours unless it appears word for word in the entries.',
+    '6. You ONLY help with: Vuka and how to use it; finding, applying for and doing work (including general job advice such as CVs, interviews and fair pay in South Africa); getting paid on Vuka; the person\'s record, ratings and tiers; and staying safe at work. These are IN scope even with no written answer: being paid in cash, tips or a bonus, bringing a child or a friend to a job, getting to a job, what to wear, how to behave at a job. Sharing your record on WhatsApp, Paystack, and the bank account your pay goes into are also in scope. Anything else — sport, weather, news, general knowledge, homework, jokes, recipes, other apps, loans, grants, shopping, relationships, money owed by a partner, family or friend, and pay, work or laws in other countries — is OFF topic, even when it shares a word like "pay", "safe", "money", "bank" or "job". For an off-topic question, begin your reply with OFFTOPIC: and then write one or two warm sentences in their language: say kindly that you cannot help with that, naming it in a few words so they know you understood, and say in a few words that you can help with work, pay and safety on Vuka. If they sound upset, you may first say you are sorry they are dealing with it. Do not answer it, not even partly, not even with a tip, and do not mention any Vuka feature, screen, figure or fact in an off-topic reply. For another country, do not offer the South African figure instead.',
+    '7. If part of the question is in scope and part is not, answer the in-scope part, add one short sentence that you cannot help with the rest, and do NOT start with OFFTOPIC:.',
+    '8. Talk like a kind, down-to-earth person, not a manual or a call centre. Answer what they actually asked in your first sentence. Do not repeat their question back, do not start with "Great question" or "Certainly", and do not list everything you know — pick the two or three things that matter most. Use "you" and simple everyday words. Your answer may be read out loud, so write it to be spoken.',
+    '9. If they sound worried, upset or frustrated, acknowledge it in a few words before you help. If the question is unclear or could mean two different things, ask one short question back instead of guessing — for example, "my CV" could mean a document they already have or their Vuka record.',
+    '10. Use the conversation so far to understand short follow-ups ("and how long does that take?").',
+    '11. Keep it short: one to four plain sentences, or a few lines starting with "• ". No markdown, no headings, no bold, no emoji, no links.',
+    '12. You cannot take any action in the app. If asked to, explain where they can do it themselves.',
+    '13. If someone says they are in danger, tell them to phone 10111 (or 112 from a cellphone) first.',
     '',
     'FACTS:',
     ...factsFor().map((f) => `- ${f}`),
   ].join('\n');
 }
 
-function entriesBlock(entries) {
+export function entriesBlock(entries) {
   if (!entries.length) return 'HELP ENTRIES: (none matched this question)';
   return ['HELP ENTRIES:', ...entries.map((e) => `## ${e.title}\n${e.body}`)].join('\n\n');
 }
@@ -236,6 +241,20 @@ export function isOffTopic(raw) {
   return /^OFF[\s_-]?TOPIC\b/i.test(t);
 }
 
+/**
+ * The model's own kind "I can't help with that" after the OFFTOPIC marker —
+ * it names what was asked, in the person's language, which a fixed sentence
+ * cannot. Empty when there is none, or when what follows is not a decline at
+ * all (a model that answered anyway): the app then says its own.
+ */
+export function offTopicReply(raw) {
+  const t = String(raw ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+    .replace(/^[\s*_`"'\[(]+/, '').replace(/^OFF[\s_-]?TOPIC\b[\s:.\-—–*_`"'\])]*/i, '');
+  const text = tidy(t);
+  if (!text || text.length > 400 || /\d{2,}/.test(text)) return '';
+  return text;
+}
+
 /** Models sometimes ignore "no markdown". The app renders plain text only. */
 export function tidy(text) {
   return String(text ?? '')
@@ -246,6 +265,9 @@ export function tidy(text) {
     .replace(/^\s*[-*]\s+/gm, '• ')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    /* No emoji: the app does not show them in answers, and a voice reads them out. */
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '')
+    .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -371,11 +393,11 @@ async function callProvider(p, messages) {
  * Answer one question. Resolves to { answer, provider } or throws an Error
  * with `.code` of 'not_configured' | 'over_budget' | 'unavailable'.
  */
-export async function askAssistant({ userId, role = 'worker', question, lang, entries, history }) {
+export async function askAssistant({ userId, role = 'worker', question, lang, entries, history, perUserCap }) {
   const list = providers();
   if (list.length === 0) throw Object.assign(new Error('AI not configured'), { code: 'not_configured' });
 
-  const over = spend(userId);
+  const over = spend(userId, perUserCap);
   if (over) throw Object.assign(new Error(`AI budget reached (${over})`), { code: 'over_budget' });
 
   const safeLang = LANGS[lang] ? lang : 'en';
@@ -395,7 +417,7 @@ export async function askAssistant({ userId, role = 'worker', question, lang, en
       /* Not a Vuka question. Answered by the app with its own honest "I only
          help with Vuka" in the person's language — never by the model having
          a go at the football results. */
-      if (isOffTopic(raw)) return { provider: p.name, answer: '', offTopic: true };
+      if (isOffTopic(raw)) return { provider: p.name, answer: offTopicReply(raw), offTopic: true };
       const answer = tidy(raw);
       if (!answer) throw new Error(`${p.name}: empty answer`);
       if (violatesFacts(answer)) {

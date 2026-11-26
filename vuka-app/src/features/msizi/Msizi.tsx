@@ -33,7 +33,7 @@ import { useLanguage, useT } from '../../providers/LanguageProvider';
 import { computeCv } from '../../lib/engine';
 import { autoReleaseHours } from '../../data/catalog';
 import { isCardMode, usePaymentsConfig } from '../../lib/payments';
-import { SURE_SCORE, ask, askById, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
+import { ask, askById, sureEnough, groundingFor, lookup, openers, type MsiziContext, type MsiziReply } from '../../lib/msizi';
 import { peelGreeting, smallTalk } from '../../lib/msiziChat';
 import { api } from '../../lib/api';
 import {
@@ -251,12 +251,15 @@ export function Msizi() {
   /* The natural voice for English answers (vuka-server/src/voice.mjs). Only
      while signed in — the route needs a session — and the phone's own voice
      covers everything it cannot. */
+  /* Voice — listening and speaking — is the owner's only, for now. Everyone
+     else types and reads; the server refuses the voice routes to them too. */
+  const voiceOn = !!state.user?.features?.msiziVoice;
   useEffect(() => {
-    if (!state.user) return undefined;
+    if (!state.user || !voiceOn) return undefined;
     setNeuralVoice((text) => api.assistantVoice(text));
     setNeuralCheck((clips) => api.assistantVoiceCheck(clips));
     return () => { setNeuralVoice(null); setNeuralCheck(null); };
-  }, [state.user]);
+  }, [state.user, voiceOn]);
 
   /* The orb swells with her voice. Written straight onto the element, once a
      frame, so a talking Msizi does not re-render the whole conversation. */
@@ -298,7 +301,9 @@ export function Msizi() {
        is what tells you Msizi understood before the detail starts. Newlines
        are kept — speak() uses them as sentence boundaries, which is what gives
        the voice a cadence instead of one flat run-on. */
-    const text = r.kind === 'miss'
+    const text = r.kind === 'miss' && r.offTopic && r.body
+      ? r.body
+      : r.kind === 'miss'
       ? `${t(r.offTopic ? 'msizi.offTopicTitle' : 'msizi.missTitle')}.\n${t(r.offTopic ? 'msizi.missBody' : 'msizi.unsureBody')}`
       : r.title ? `${r.title}.\n${r.body}` : r.body;
     setSpeakingTurn(turn.id);
@@ -367,7 +372,7 @@ export function Msizi() {
     if (!spoken) setConversation(false);
 
     /* 1. Conversation: "hello", "thanks", "what can you do". */
-    const chat = smallTalk(q, lang, firstName, ctx.role);
+    const chat = smallTalk(q, lang, firstName, ctx.role, voiceOn);
     /* "Say that again" — mostly asked by voice, by somebody who missed a word.
        The last real answer is shown and read again, not re-looked-up. */
     if (chat?.intent === 'repeat') {
@@ -387,10 +392,11 @@ export function Msizi() {
     /* 2. The written answers. "Hi, how do I get paid" is asked without the hi. */
     const query = peelGreeting(q).rest || q;
     const reply = ask(query, ctx);
-    /* A live answer is built from the person's own record, which never goes to
-       the model, so it is shown as it is. A written answer is shown only when
-       the match is sure; a near one is a guess (see SURE_SCORE). */
-    if (reply.kind === 'live' || (reply.kind === 'answer' && reply.score >= SURE_SCORE)) { put(q, reply, spoken); return; }
+    /* Shown as it is only when the match is sure AND Msizi understood the
+       question — not merely one shared word of it (see sureEnough). A live
+       answer that is not sure stays one tap away as a chip; the person's own
+       record never goes to the model. */
+    if (sureEnough(reply, query, lang)) { put(q, reply, spoken); return; }
 
     /* 3. Nothing written covers it, or only roughly. Ask the model, grounded on
           the nearest entries. Offline, unconfigured or over quota, it says
@@ -412,7 +418,7 @@ export function Msizi() {
       .then(({ answer, offTopic }) => settleTurn(pending, offTopic || !answer
         /* Not a Vuka question: a polite no, in the person's own language, and
            what Msizi can help with instead. */
-        ? { ...reply, kind: 'miss', offTopic: true, suggestions: openers(ctx.role).slice(0, 4) }
+        ? { kind: 'miss', id: null, title: '', body: offTopic ? (answer ?? '') : '', offTopic: true, suggestions: openers(ctx.role).slice(0, 4), score: reply.score }
         /* The near written answer stays one tap away as a chip. */
         : { kind: 'ai', id: null, title: '', body: answer, suggestions: nearIds, score: reply.score },
       epoch))
@@ -521,10 +527,10 @@ export function Msizi() {
 
   /* ---- what this device can actually do ---- */
 
-  const listenSupported = canListen() || canTranscribe(lang);
+  const listenSupported = voiceOn && (canListen() || canTranscribe(lang));
   /* Having the API is not the same as being able to use it: a browser can
      expose speechSynthesis and ship no voices. */
-  const speakSupported = canSpeak() && speechCoverage !== 'none';
+  const speakSupported = voiceOn && canSpeak() && speechCoverage !== 'none';
   /* Offer "read aloud" only where it will actually read: an answer written
      in a language this phone has no voice for is left to the screen. */
   const canRead = (r: MsiziReply): boolean => {
@@ -533,7 +539,7 @@ export function Msizi() {
     return textLang === 'en' || pickVoice(textLang).coverage === 'native';
   };
 
-  const capabilityNote = !listenSupported
+  const capabilityNote = !voiceOn ? null : !listenSupported
     ? t('msizi.voiceUnsupported')
     : !speakSupported
       ? t('msizi.speakUnsupported')
@@ -664,6 +670,10 @@ export function Msizi() {
                     </span>
                     {t('msizi.thinking')}
                   </p>
+                ) : turn.reply.kind === 'miss' && turn.reply.offTopic && turn.reply.body ? (
+                  /* The model's own kind no, naming what was asked — a person
+                     says "I can't help with the weather", not "off topic". */
+                  <p className="m-0 text-body text-ink leading-relaxed">{turn.reply.body}</p>
                 ) : turn.reply.kind === 'miss' ? (
                   <>
                     <h2 className="m-0 mb-1.5 text-lead font-display font-bold text-ink">

@@ -181,6 +181,36 @@ for (const e of KNOWLEDGE) {
   ok(/350/.test(paid.body) && /bank/.test(paid.body), 'card mode: "how much have I been paid" reads the paid total', paid.body);
 }
 
+/* Sharing one word with an answer is not understanding the question
+   (2026-11-26: "is it safe to swim at Durban beach" got the safety page).
+   These must reach the model, which can say they are not about Vuka. */
+{
+  const notSure = [
+    ['is it safe to swim at Durban beach', worker],
+    ['how much data do i need to watch netflix', worker],
+    ['how do i stay safe from load shedding damaging my fridge', employer],
+    ['my boyfriend doesn\'t pay me back', worker],
+    ['isonka sixabisa malini eShoprite', { ...worker, lang: 'xh' }],
+    ['is dit veilig om by Muizenberg te swem', { ...worker, lang: 'af' }],
+  ];
+  for (const [q, ctx] of notSure) {
+    const r = M.ask(q, ctx);
+    ok(!M.sureEnough(r, q, ctx.lang ?? 'en'), `not answered directly: "${q}"`, `${r.kind}:${r.id} ${r.score.toFixed(2)}`);
+  }
+  const sure = [
+    ['how do i withdraw my money', worker],
+    ['how much have i earned', worker],
+    ['whats my score', worker],
+    ['hoe plaas ek \'n werk', { ...employer, lang: 'af' }],
+    ['angiyitholanga i-OTP', { ...worker, lang: 'zu' }],
+  ];
+  for (const [q, ctx] of sure) {
+    const r = M.ask(q, ctx);
+    ok(M.sureEnough(r, q, ctx.lang ?? 'en'), `still answered directly: "${q}"`, `${r.kind}:${r.id} ${r.score.toFixed(2)}`);
+  }
+  ok(M.ask('whats my score', worker).id === 'my-score', '"whats my score" reads the person\'s own score');
+}
+
 /* ---- 3. Real questions reach the right answer -------------------------- */
 
 const SHOULD_MATCH = [
@@ -448,10 +478,44 @@ for (const [q, id] of [['Hi, how do I get paid?', 'how-payment-works'], ['Sawubo
 
 /* More ways people actually say these. */
 for (const [text, intent] of [['ok cool', 'ack'], ['sounds good', 'ack'], ['how are you doing today', 'howAreYou'],
-  ['can you repeat that', 'repeat'], ['say that again', 'repeat'], ['phinda', 'repeat']]) {
+  ['can you repeat that', 'repeat'], ['say that again', 'repeat'], ['phinda', 'repeat'],
+  /* The human moments: checking she is there, an apology, a compliment, being
+     worn down, "and you?" answered, good night (a goodbye — it ends voice). */
+  ['are you there?', 'there'], ['Msizi?', 'there'], ['ukhona', 'there'], ['sorry', 'sorry'], ['uxolo', 'sorry'],
+  ['Sorry?', 'repeat'], ["you're so helpful", 'praise'], ['good bot', 'praise'],
+  ["I'm tired of looking", 'down'], ['nobody hires me', 'down'], ['ngikhathele', 'down'], ['ek is moeg', 'down'],
+  ["I'm good, and you?", 'imWell'], ['ngiyaphila', 'imWell'], ['good night', 'bye'], ['lala kahle', 'bye'],
+  ['hi, how are you?', 'howAreYou'], ['hellooo', 'greet'], ['thanks, bye', 'bye'], ['goeiemore', 'greet']]) {
   const r = C.smallTalk(text, 'en', 'Thandeka', 'worker');
   ok(r?.intent === intent, `"${text}" is small talk (${intent})`, `got ${r?.intent ?? 'nothing'}`);
 }
+
+/* ...without swallowing the questions that look like them. */
+for (const q of ['thanks, how do I get paid', "sorry, how do I get paid", "I can't find work near me",
+  'are you there? how do I apply', 'good night shift work']) {
+  ok(C.smallTalk(q, 'en', '', 'worker') === null, `"${q}" is a question, not small talk`);
+}
+
+/* Every line of every intent, in every language: filled, and whoAreYou still
+   ends on the "type or talk" sentence that is cut without voice. Run often
+   enough to see each random variant. */
+for (const lang of ['en', 'zu', 'xh', 'st', 'af']) {
+  for (let i = 0; i < 40; i++) {
+    for (const text of ['hello', 'thanks', 'are you there', 'sorry', 'nobody hires me', 'who are you', 'good night', 'ngiyaphila']) {
+      const r = C.smallTalk(text, lang, 'Thandeka', 'worker');
+      if (!r || r.body.length <= 5 || /\{\w+\}/.test(r.body)) { ok(false, `${lang}: "${text}" has a real reply`, r?.body); break; }
+    }
+    const talk = { en: 'You can type to me or talk to me.', zu: 'Ungangibhalela noma ukhulume nami.',
+      xh: 'Ungandibhalela okanye uthethe nam.', st: 'O ka ngolla kapa wa bua le nna.', af: 'Jy kan vir my tik of met my praat.' }[lang];
+    const withVoice = C.smallTalk('who are you', lang, '', 'worker', true).body;
+    const without = C.smallTalk('who are you', lang, '', 'worker', false).body;
+    if (!withVoice.endsWith(talk) || without.includes(talk) || !/Msizi/.test(without)) {
+      ok(false, `${lang}: whoAreYou ends on "type or talk", and only that is dropped without voice`, `${withVoice} | ${without}`); break;
+    }
+  }
+}
+ok(C.smallTalk('nobody hires me', 'en', '', 'worker').offerOpeners, 'a discouraged message is offered the openers');
+ok(C.smallTalk('Sawubona, unjani?', 'zu', '', 'worker').body.startsWith('Sawubona. '), 'a greeting in front of "how are you" is greeted back');
 
 /* The ledger wallet answer (no Paystack key) reads the person's own figure, and is honest when it
    cannot — loading, unreadable — rather than saying R0. */

@@ -64,7 +64,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export interface ApiUser {
   id: string; role: Role; name: string; phone: string; email?: string | null;
   /** Switched on per account by the server. Msizi is owner-only for now. */
-  features?: { msizi?: boolean; owner?: boolean };
+  features?: { msizi?: boolean; msiziVoice?: boolean; owner?: boolean };
 }
 export interface ApiProfile {
   age: number; location: string; education: string; bio: string;

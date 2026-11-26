@@ -369,8 +369,10 @@ const SAY_AS: [RegExp, string][] = [
      long respellings (Msee-zee, Sah-woo-boh-nah) made the voice drag every
      syllable, so the greetings — Sawubona, Molo, Dumela, Ngiyabonga — are
      left as written, and only the words it actually got wrong are respelled. */
-  [/\bumsizi\b/gi, 'umse-ze'],
-  [/\bMsizi\b/gi, 'Mse-ze'],
+  /* 2026-11-26: "Mse-ze" came out as "Msi" — the hyphen let the voice drop
+     the last syllable. One unbroken word keeps both, without the drag. */
+  [/\bumsizi\b/gi, 'oomseezee'],
+  [/\bMsizi\b/gi, 'Mseezee'],
   [/\bisiZulu\b/gi, 'isi-Zoo-loo'],
   [/\bisiXhosa\b/gi, 'isi-Kaw-sah'],
   [/\bSesotho\b/gi, 'Seh-soo-too'],
