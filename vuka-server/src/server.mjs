@@ -207,9 +207,15 @@ const msiziAllowed = (u) => {
   return !!msiziOwnerId && u.id === msiziOwnerId;
 };
 
+/* Msizi's text answers are for everyone (VUKA_MSIZI_PUBLIC=0 takes them back
+   to the owner only). Its voice — listening and speaking — stays with the
+   owner while it is still being worked on. */
+const MSIZI_PUBLIC = process.env.VUKA_MSIZI_PUBLIC !== '0';
+const msiziTextAllowed = (u) => !!u && (MSIZI_PUBLIC || msiziAllowed(u));
+
 const userOut = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, email: u.email ?? null,
-  features: { msizi: msiziAllowed(u), owner: msiziAllowed(u) },
+  features: { msizi: msiziTextAllowed(u), msiziVoice: msiziAllowed(u), owner: msiziAllowed(u) },
 });
 function profileOut(p, verified) {
   if (!p) return null;
@@ -2391,7 +2397,17 @@ const assistantLimiter = rateLimit({
 await refreshMsiziOwner();
 setInterval(() => { refreshMsiziOwner().catch((e) => captureError(e, 'msizi:owner')); }, 10 * 60_000).unref?.();
 
-/** Every Msizi route: the owner only, until it is ready for everyone. */
+/** Msizi's text answers: everyone, unless VUKA_MSIZI_PUBLIC=0. */
+async function requireMsiziText(req, res, next) {
+  try {
+    const u = await userById(req.user.id);
+    if (!msiziTextAllowed(u)) return res.status(403).json({ error: 'Msizi is not available yet.', reason: 'msizi_off' });
+    req.msiziOwner = msiziAllowed(u);
+    next();
+  } catch (e) { next(e); }
+}
+
+/** Msizi's voice (listening and speaking): the owner only, while it is being worked on. */
 async function requireMsizi(req, res, next) {
   try {
     const u = await userById(req.user.id);
@@ -2400,7 +2416,7 @@ async function requireMsizi(req, res, next) {
   } catch (e) { next(e); }
 }
 
-app.post('/api/assistant/ask', requireAuth, requireMsizi, assistantLimiter, asyncH(async (req, res) => {
+app.post('/api/assistant/ask', requireAuth, requireMsiziText, assistantLimiter, asyncH(async (req, res) => {
   const question = String(req.body?.question ?? '').trim();
   if (!question) return res.status(400).json({ error: 'Ask a question first.', reason: 'empty' });
   if (!aiConfigured()) return res.status(503).json({ error: 'Msizi is answering from its own notes only.', reason: 'not_configured' });
@@ -2412,6 +2428,8 @@ app.post('/api/assistant/ask', requireAuth, requireMsizi, assistantLimiter, asyn
       lang: String(req.body?.lang ?? 'en'),
       entries: req.body?.entries,
       history: req.body?.history,
+      /* The free quota is shared: everyone else gets a smaller daily share. */
+      perUserCap: req.msiziOwner ? undefined : Number(process.env.VUKA_AI_PUBLIC_DAILY || 25),
     });
     res.json(out);
   } catch (e) {

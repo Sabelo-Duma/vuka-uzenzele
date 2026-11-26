@@ -193,7 +193,7 @@ export const LIVE_INTENTS: LiveIntent[] = [
   {
     id: 'my-score',
     title: 'Your Vuka Score',
-    asks: ['What is my score?', 'How am I doing?', 'What is my Vuka Score right now?'],
+    asks: ['What is my score?', 'Whats my score?', 'How am I doing?', 'What is my Vuka Score right now?'],
     keywords: ['my score', 'my rep', 'my reputation', 'my points', 'how am i doing'],
     role: 'worker',
     resolve: (ctx) => {
@@ -560,6 +560,26 @@ function indexFor(lang: Lang) {
 }
 
 /**
+ * How much of a question the knowledge base recognises at all: content words
+ * it has seen somewhere, and the ones it never has.
+ *
+ * Ranking ignores the unknown words on purpose (see rank). Deciding whether
+ * to answer directly must not: "is it safe to swim at Durban beach" matches
+ * the safety page on "safe" alone, and "swim", "durban" and "beach" are the
+ * evidence that the question is about something else.
+ */
+export function understood(query: string, lang: Lang = 'en'): { known: number; unknown: string[] } {
+  const idx = indexFor(lang);
+  const unknown: string[] = [];
+  let known = 0;
+  for (const t of new Set(tokenise(query))) {
+    if (idx.idf.has(t)) known += 1;
+    else unknown.push(t);
+  }
+  return { known, unknown };
+}
+
+/**
  * Answers written for the other role are not hidden, only pushed down.
  *
  * A worker asking "how do I post a job" is usually confused rather than wrong,
@@ -591,6 +611,35 @@ export const CONFIDENCE_FLOOR = 0.34;
  * answer as the fallback when the model cannot be reached.
  */
 export const SURE_SCORE = 0.9;
+
+/**
+ * A strong match still needs this much when the question has one word the
+ * knowledge base has never seen.
+ */
+export const SURE_WITH_ONE_UNKNOWN = 1.0;
+
+/**
+ * May this reply be shown as it is, without asking the model first?
+ *
+ * Measured 2026-11-26 on 234 questions (91 off-topic, many sharing Vuka's
+ * words on purpose). Right answers given directly had at most one word the
+ * knowledge base did not recognise, almost always none; off-topic questions
+ * that slipped through on one shared word — "safe", "pay", "data", "money" —
+ * had two to four ("swim, durban, beach", "boyfriend", "netflix",
+ * "load shedding, fridge"). So:
+ *  · nothing unknown: the usual bar (SURE_SCORE for a written answer, the
+ *    match floor for a live one, which reads the person's own record);
+ *  · one unknown word: a written or live answer needs SURE_WITH_ONE_UNKNOWN;
+ *  · two or more: never direct. The model sees the question and can say it
+ *    is not about Vuka, which is what it usually is.
+ */
+export function sureEnough(reply: MsiziReply, query: string, lang: Lang = 'en'): boolean {
+  if (reply.kind !== 'answer' && reply.kind !== 'live') return false;
+  const { unknown } = understood(query, lang);
+  if (unknown.length >= 2) return false;
+  if (unknown.length === 1) return reply.score >= SURE_WITH_ONE_UNKNOWN;
+  return reply.kind === 'live' || reply.score >= SURE_SCORE;
+}
 
 /**
  * How much recognised weight a question needs before its score is taken at

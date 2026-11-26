@@ -742,12 +742,14 @@ async function run() {
     }
 
     ok((await api('POST', '/assistant/ask', { body: { question: 'hi' } })).status === 401, 'assistant requires auth');
-    // Owner-only: switched on for the configured account, off for everyone else.
-    ok(wReg.json.user?.features?.msizi === true, 'the owner account is told Msizi is on');
-    ok((await api('GET', '/auth/me', { token: eTok })).json?.user?.features?.msizi === false, 'every other account is told it is off');
-    const offForOthers = await api('POST', '/assistant/ask', { token: eTok, body: { question: 'how do I post a job?' } });
-    ok(offForOthers.status === 403 && offForOthers.json?.reason === 'msizi_off', 'and the server refuses them, not just the app');
-    ok((await api('POST', '/assistant/voice/check', { token: eTok, body: { texts: ['Hello.'] } })).status === 403, 'voice is owner-only too');
+    // Text answers for everyone; the voice stays with the owner.
+    ok(wReg.json.user?.features?.msizi === true && wReg.json.user?.features?.msiziVoice === true, 'the owner account has Msizi and its voice');
+    const otherMe = (await api('GET', '/auth/me', { token: eTok })).json?.user?.features;
+    ok(otherMe?.msizi === true && otherMe?.msiziVoice === false, 'every other account has text Msizi, without the voice');
+    const forOthers = await api('POST', '/assistant/ask', { token: eTok, body: { question: 'how do I post a job?' } });
+    ok(forOthers.status !== 403, 'and the server lets them ask', String(forOthers.status));
+    ok((await api('POST', '/assistant/voice/check', { token: eTok, body: { texts: ['Hello.'] } })).status === 403, 'voice is owner-only');
+    ok((await api('POST', '/assistant/voice', { token: eTok, body: { text: 'Hello.' } })).status === 403, 'speaking is owner-only');
     ok((await api('POST', '/assistant/ask', { token: wTok, body: { question: '  ' } })).status === 400, 'empty question rejected');
     const off = await api('POST', '/assistant/ask', { token: wTok, body: { question: 'can I bring my child to a job?', lang: 'en' } });
     ok(off.status === 503 && off.json?.reason === 'not_configured', 'with no key, it says so rather than failing');
@@ -779,6 +781,11 @@ async function run() {
       'a fair-pay answer is not given a payments note');
     ok(/test mode/.test(A.withTestNote('There is a test you can take. Your wallet shows your balance.', 'en')),
       'the word "test" alone does not count as a test-mode note');
+    ok(A.tidy('You start on 🌱 New, then 🥉 Trusted.') === 'You start on New, then Trusted.', 'emoji are taken out of AI answers');
+    // Off-topic: the model's own kind no is kept, the marker is not.
+    ok(A.offTopicReply('OFFTOPIC: I can\'t help with the weather, sorry. I can help you find work or get paid on Vuka.') === 'I can\'t help with the weather, sorry. I can help you find work or get paid on Vuka.', 'an off-topic reply keeps the model\'s own words, without the marker');
+    ok(A.offTopicReply('OFFTOPIC') === '' && A.offTopicReply('**OFFTOPIC**') === '', 'a bare marker leaves the app to say its own');
+    ok(A.offTopicReply('OFFTOPIC: The Springboks won 27 to 22.') === '', 'a "decline" that answers with figures anyway is dropped');
     // Card payments (Paystack): the ledger's truths become the errors.
     ok(A.violatesFacts('The pay moves into your Vuka wallet and you withdraw it to your bank.', 'card'), 'card mode: wallet talk is caught');
     ok(A.violatesFacts('The employer secures the pay before hiring.', 'card'), 'card mode: "secures the pay" is caught');
