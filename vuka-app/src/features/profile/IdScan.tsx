@@ -7,9 +7,12 @@
      1. What happens and why, and consent — a face photo used for matching is
         special personal information under POPIA, so this is asked, not assumed.
      2. The front of the card: a photo, for the reviewer.
-     3. The back of the card: the barcodes are read live on the phone. The
-        details fill themselves in; nobody retypes a 13-digit number. If a card
-        will not scan, a photo of the back, or typing the number, still works.
+     3. The back of the card: a photo, like the front, kept for the reviewer.
+        The barcode is read from that photo when it can be, and the details
+        fill themselves in. When it cannot (glare, a worn card, an old phone),
+        that is fine: the person types the ID number and the reviewer reads
+        it off the photo. (Until 2026-11-27 this was a live scan, and a card
+        that would not scan held people up; a photo always works.)
      4. Confirm the name, as it is on the card.
      5. A selfie, looking straight ahead.
      6. A second selfie following a random instruction chosen by the server. A
@@ -27,7 +30,7 @@ import { createPortal } from 'react-dom';
 import { api, type IdChecks } from '../../lib/api';
 import { checkIdNumber, displayName, parseIdBarcode, type IdBarcode } from '../../lib/saId';
 import {
-  CameraError, capturePhoto, closeCamera, openCamera, readFrame, readImageFile, warmBarcodeReader, type Facing,
+  CameraError, capturePhoto, closeCamera, openCamera, readImageFile, warmBarcodeReader, type Facing,
 } from '../../lib/camera';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
@@ -36,15 +39,10 @@ import { useT } from '../../providers/LanguageProvider';
 type Step = 'intro' | 'front' | 'back' | 'details' | 'selfie' | 'challenge' | 'sending' | 'done';
 const STEPS: Step[] = ['intro', 'front', 'back', 'details', 'selfie', 'challenge'];
 
-/** How long the live scan runs before offering the other ways in. */
-const SCAN_HELP_AFTER_MS = 20_000;
-/** Having read only the ID number, keep looking this long for the details barcode. */
-const WAIT_FOR_DETAILS_MS = 4_000;
-
 /* The server picks the liveness instruction and sends it in English (that is
    what the reviewer sees). Known ones are shown in the chosen language; an
    instruction the app does not know yet is shown as the server sent it. */
-const CHALLENGE_KEYS: Record<string, string> = {
+export const CHALLENGE_KEYS: Record<string, string> = {
   'Turn your head to your left': 'profile.scan.challenge.left',
   'Turn your head to your right': 'profile.scan.challenge.right',
   'Look up': 'profile.scan.challenge.up',
@@ -122,13 +120,14 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
   const [busy, setBusy] = useState(false);
 
   const [front, setFront] = useState<Blob | null>(null);
+  const [back, setBack] = useState<Blob | null>(null);
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [challengeShot, setChallengeShot] = useState<Blob | null>(null);
 
   const [barcode, setBarcode] = useState<IdBarcode | null>(null);
+  /** What reading the barcode off the back photo came to. */
+  const [backRead, setBackRead] = useState<'idle' | 'reading' | 'read' | 'none'>('idle');
   const [typedId, setTypedId] = useState('');
-  const [typing, setTyping] = useState(false);
-  const [scanHelp, setScanHelp] = useState(false);
   const [fullName, setFullName] = useState('');
 
   const [verificationId, setVerificationId] = useState<string | null>(null);
@@ -151,46 +150,6 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
 
   const onCameraReady = useCallback((v: HTMLVideoElement) => { videoRef.current = v; setCameraReady(true); }, []);
 
-  /* ---- the live barcode scan ---- */
-  useEffect(() => {
-    if (step !== 'back' || !cameraReady || barcode || typing) return undefined;
-    let stop = false;
-    let idOnly: IdBarcode | null = null;
-    let idOnlyAt = 0;
-    const started = Date.now();
-    const helpTimer = window.setTimeout(() => setScanHelp(true), SCAN_HELP_AFTER_MS);
-    const loop = async () => {
-      while (!stop) {
-        const v = videoRef.current;
-        if (v) {
-          try {
-            for (const r of await readFrame(v)) {
-              const parsed = parseIdBarcode(r.text, r.format);
-              if (!parsed) continue;
-              /* The details barcode is what we want; the number-only one is
-                 kept as a fallback in case the details will not read. */
-              if (parsed.surname || parsed.names) { setBarcode(parsed); return; }
-              if (!idOnly) { idOnly = parsed; idOnlyAt = Date.now(); }
-            }
-          } catch (e) {
-            /* The reader failed to load: most likely the app updated while
-               open and the old reader file is gone. A reload fixes it. */
-            if (Date.now() - started > 2000) {
-              setError(t('profile.scan.scannerFailed'));
-              return;
-            }
-            void e;
-          }
-          if (idOnly && Date.now() - idOnlyAt > WAIT_FOR_DETAILS_MS) { setBarcode(idOnly); return; }
-        }
-        await new Promise((r) => window.setTimeout(r, 250));
-      }
-    };
-    void loop();
-    return () => { stop = true; window.clearTimeout(helpTimer); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, cameraReady, barcode, typing]);
-
   /* Pre-fill the name from the card when there is one. */
   useEffect(() => {
     if (barcode && !fullName) setFullName(displayName(barcode));
@@ -199,22 +158,34 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
   const idNumber = barcode?.idNumber ?? typedId.replace(/\D/g, '');
   const idInfo = checkIdNumber(idNumber);
 
-  const scanPhotoOfBack = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
+  /* The photo of the back is kept whatever happens; reading its barcode is a
+     bonus that saves typing. A reader that fails to load (the app updated
+     while open) is treated like a barcode that did not read. */
+  const keepBackPhoto = async (photo: Blob | undefined) => {
+    if (!photo) return;
     setError(null);
+    setBack(photo);
+    setBarcode(null);
+    setFullName('');
+    setBackRead('reading');
     try {
-      const found = (await readImageFile(file))
+      const found = (await readImageFile(photo))
         .map((r) => parseIdBarcode(r.text, r.format))
         .filter((x): x is IdBarcode => !!x);
       const best = found.find((x) => x.surname || x.names) ?? found[0];
-      if (best) setBarcode(best);
-      else setError(t('profile.scan.noBarcode'));
+      if (best) { setBarcode(best); setBackRead('read'); } else setBackRead('none');
     } catch {
-      setError(t('profile.scan.photoUnreadable'));
-    } finally {
-      setBusy(false);
+      setBackRead('none');
     }
+  };
+
+  const retakeBack = () => {
+    setBack(null);
+    setBarcode(null);
+    setFullName('');
+    setTypedId('');
+    setBackRead('idle');
+    setCameraReady(false);
   };
 
   const take = async (setter: (b: Blob) => void, mirror = false) => {
@@ -243,6 +214,7 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
       setChallenge(res.challenge ?? 'Turn your head to your left');
       setChecks(res.checks);
       if (front && res.id) await api.uploadIdDocument(res.id, 'card_front', front);
+      if (back && res.id) await api.uploadIdDocument(res.id, 'card_back', back);
       go('selfie');
     } catch (e) {
       setError((e as Error).message);
@@ -377,7 +349,15 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
               </p>
             </div>
 
-            {barcode ? (
+            {back ? <Preview blob={back} /> : (
+              <CameraView facing="environment" guide="card" onReady={onCameraReady} onError={setError} />
+            )}
+
+            {backRead === 'reading' && (
+              <p role="status" className="m-0 text-small text-dim text-center">{t('profile.scan.reading')}</p>
+            )}
+
+            {barcode && (
               <div className="rounded-3xl border border-line bg-surface p-4">
                 <p className="m-0 flex items-center gap-2 text-body font-bold text-verified"><Icon name="check" size={18} />{t('profile.scan.cardRead')}</p>
                 <dl className="m-0 mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-small">
@@ -386,8 +366,15 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
                   {idInfo.dateOfBirth && <><dt className="text-dim">{t('auth.dateOfBirth')}</dt><dd className="m-0 text-ink font-semibold">{idInfo.dateOfBirth}</dd></>}
                 </dl>
               </div>
-            ) : typing ? (
+            )}
+
+            {/* The barcode did not read. Not a problem: the photo still goes to
+                the reviewer, and the number is typed. */}
+            {backRead === 'none' && (
               <div className="flex flex-col gap-2">
+                <p className="m-0 rounded-2xl border border-line bg-surface-2 px-3.5 py-2.5 text-small text-ink leading-snug">
+                  {t('profile.scan.typeAfterPhoto')}
+                </p>
                 <label className="text-micro font-bold uppercase tracking-wide text-dim" htmlFor="idnum">{t('profile.scan.idNumber')}</label>
                 <input
                   id="idnum"
@@ -401,38 +388,23 @@ export function IdScan({ onClose, onDone }: { onClose: () => void; onDone: () =>
                 />
                 {typedId.length === 13 && !idInfo.ok && <p className="m-0 text-small text-danger">{idInfo.reason}</p>}
               </div>
-            ) : (
-              <CameraView facing="environment" guide="card" onReady={onCameraReady} onError={(m) => { setError(m); setScanHelp(true); }} />
             )}
 
-            {!barcode && !typing && (
-              <p role="status" className="m-0 text-small text-dim text-center">{cameraReady ? t('profile.scan.looking') : t('profile.scan.starting')}</p>
-            )}
-
-            {barcode || (typing && idInfo.ok) ? (
-              <Button block onClick={() => go('details')}>{t('action.continue')}</Button>
-            ) : null}
-
-            {/* The other ways in are always offered — a card that will not scan
-                should never be a dead end — but the photo option leads once
-                the live scan has struggled for a while. */}
-            {!barcode && (
-              <div className="flex flex-col gap-2">
-                {!typing && (
-                  <label className={`inline-flex items-center justify-center gap-2 min-h-[48px] rounded-pill border text-body font-bold cursor-pointer active:scale-[.975] transition
-                    ${scanHelp ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink'}`}>
-                    <Icon name="image" size={18} />
-                    {busy ? t('profile.scan.reading') : t('profile.scan.photoBack')}
-                    <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => scanPhotoOfBack(e.target.files?.[0])} />
-                  </label>
-                )}
-                <Button variant="ghost" block onClick={() => setTyping((x) => !x)}>
-                  {typing ? t('profile.scan.scanInstead') : t('profile.id.typeInstead')}
-                </Button>
+            {back ? (
+              <div className="flex gap-2.5">
+                <Button variant="ghost" className="flex-1" icon="retry" onClick={retakeBack}>{t('profile.scan.retake')}</Button>
+                <Button className="flex-1" disabled={backRead === 'reading' || !(barcode || idInfo.ok)} onClick={() => go('details')}>{t('action.continue')}</Button>
               </div>
-            )}
-            {barcode && (
-              <Button variant="ghost" block onClick={() => { setBarcode(null); setFullName(''); setCameraReady(false); }}>{t('profile.scan.scanAgain')}</Button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Button block icon="camera" disabled={!cameraReady} onClick={() => take((b) => { void keepBackPhoto(b); })}>{t('profile.scan.takePhoto')}</Button>
+                {/* For a camera that will not open here, or a photo already taken. */}
+                <label className="inline-flex items-center justify-center gap-2 min-h-[48px] rounded-pill border border-line bg-surface text-body font-bold text-ink cursor-pointer active:scale-[.975] transition">
+                  <Icon name="image" size={18} />
+                  {t('profile.scan.choosePhoto')}
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void keepBackPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+              </div>
             )}
           </div>
         )}

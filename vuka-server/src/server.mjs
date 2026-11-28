@@ -1799,7 +1799,11 @@ app.post('/api/me/id-verification', requireAuth, asyncH(async (req, res) => {
      3. POST .../:id/submit            all three present: the Home Affairs step
                           runs (test mode) and the submission goes to review.
    See idcheck.mjs for what is and is not proven by each check. */
-const ID_DOC_KINDS = ['card_front', 'selfie', 'selfie_challenge'];
+const ID_DOC_KINDS = ['card_front', 'card_back', 'selfie', 'selfie_challenge'];
+/* The back is sent by the app since 2026-11-27 (a photo replaced the live
+   barcode scan). Not required, so a phone still running the older app can
+   finish a submission it has started. */
+const ID_DOC_REQUIRED = ['card_front', 'selfie', 'selfie_challenge'];
 const ID_DOC_MAX_BYTES = Number(process.env.VUKA_ID_DOC_MAX_BYTES || 3 * 1024 * 1024);
 const ID_DOC_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -1869,7 +1873,7 @@ app.post('/api/me/id-verification/:id/submit', requireAuth, asyncH(async (req, r
   const draft = await myDraft(req, res);
   if (!draft) return;
   const have = new Set((await all('SELECT kind FROM id_documents WHERE verification_id = ?', [draft.id])).map((r) => r.kind));
-  const missing = ID_DOC_KINDS.filter((k) => !have.has(k));
+  const missing = ID_DOC_REQUIRED.filter((k) => !have.has(k));
   if (missing.length) return res.status(409).json({ error: 'Some photos are missing. Please take them again.', reason: 'missing', missing });
 
   const homeAffairs = await homeAffairsCheck({ verificationId: draft.id });
@@ -1896,7 +1900,10 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.get('/api/admin/id-verifications', requireAdmin, asyncH(async (_req, res) => {
+/* The same three review routes twice: for ops with the admin token (curl),
+   and for the owner's own account, signed in, from the app (Profile → ID
+   checks). requireOwner is a function declaration further down. */
+const listIdQueue = asyncH(async (_req, res) => {
   const rows = await all("SELECT v.*, u.name, u.phone FROM id_verifications v JOIN users u ON u.id = v.user_id WHERE v.status = 'pending' ORDER BY v.submitted_at ASC LIMIT 200");
   const docs = await all("SELECT verification_id, kind FROM id_documents WHERE verification_id IN (SELECT id FROM id_verifications WHERE status = 'pending')");
   const byVerif = new Map();
@@ -1908,10 +1915,10 @@ app.get('/api/admin/id-verifications', requireAdmin, asyncH(async (_req, res) =>
     /* The reviewer checks the second selfie actually follows this. */
     challenge: r.challenge, documents: byVerif.get(r.id) ?? [], homeAffairs: parseJson(r.home_affairs),
   })));
-}));
+});
 
 /* A reviewer opens an image. Decrypted only on the way out, never cached. */
-app.get('/api/admin/id-verifications/:id/documents/:kind', requireAdmin, asyncH(async (req, res) => {
+const idPhoto = asyncH(async (req, res) => {
   const doc = await get('SELECT * FROM id_documents WHERE verification_id = ? AND kind = ?', [req.params.id, req.params.kind]);
   if (!doc) return res.status(404).json({ error: 'That photo is not there. It is deleted once a submission is decided.' });
   const bytes = decryptBytes(toBytes(doc.bytes_enc));
@@ -1920,9 +1927,9 @@ app.get('/api/admin/id-verifications/:id/documents/:kind', requireAdmin, asyncH(
   res.set('Cache-Control', 'no-store');
   res.set('X-Content-Type-Options', 'nosniff');
   res.send(bytes);
-}));
+});
 
-app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (req, res) => {
+const decideId = asyncH(async (req, res) => {
   const row = await get('SELECT * FROM id_verifications WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'That submission does not exist.' });
   if (row.status !== 'pending') return res.status(409).json({ error: 'That submission has already been decided.' });
@@ -1943,7 +1950,13 @@ app.post('/api/admin/id-verifications/:id/decide', requireAdmin, asyncH(async (r
     ? { type: 'id-decision', title: 'Your ID is verified', body: 'Your Verified badge is now on your profile.', url: '/?tab=me', tag: 'id-decision' }
     : { type: 'id-decision', title: 'We could not verify your ID', body: `${reason ? `${reason} ` : ''}You can try again from Profile, then Identity.`, url: '/?tab=me', tag: 'id-decision' });
   res.json({ ok: true, status: approve ? 'verified' : 'rejected' });
-}));
+});
+app.get('/api/admin/id-verifications', requireAdmin, listIdQueue);
+app.get('/api/admin/id-verifications/:id/documents/:kind', requireAdmin, idPhoto);
+app.post('/api/admin/id-verifications/:id/decide', requireAdmin, decideId);
+app.get('/api/owner/id-verifications', requireAuth, requireOwner, listIdQueue);
+app.get('/api/owner/id-verifications/:id/documents/:kind', requireAuth, requireOwner, idPhoto);
+app.post('/api/owner/id-verifications/:id/decide', requireAuth, requireOwner, decideId);
 
 /* ---- ops triage --------------------------------------------------------
    These exist so that "who is on the other end of this?" has an answer today,

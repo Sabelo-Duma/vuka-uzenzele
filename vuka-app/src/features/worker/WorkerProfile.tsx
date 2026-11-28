@@ -14,6 +14,7 @@ import { WalletSheet } from './WalletSheet';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 import { useT } from '../../providers/LanguageProvider';
 import { OwnerRoleSwitch } from '../owner/RoleSwitch';
+import { OwnerIdChecks } from '../owner/IdChecks';
 import { isCardMode, usePaymentsConfig } from '../../lib/payments';
 
 type SheetKey = 'notifications' | 'editProfile' | 'wallet' | 'banking' | 'identity' | 'safety' | 'blocked' | 'language' | 'privacy' | 'terms';
@@ -82,6 +83,7 @@ export function WorkerProfile() {
       </Card>
 
       <OwnerRoleSwitch />
+      <OwnerIdChecks />
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
 
