@@ -12,6 +12,7 @@ import { PrivacySheet, TermsSheet } from '../profile/LegalSheets';
 import { NotificationSettingsSheet, notifySummary } from '../../components/NotificationSettings';
 import { useT } from '../../providers/LanguageProvider';
 import { OwnerRoleSwitch } from '../owner/RoleSwitch';
+import { OwnerIdChecks } from '../owner/IdChecks';
 
 type SheetKey = 'notifications' | 'banking' | 'identity' | 'safety' | 'blocked' | 'privacy' | 'terms';
 
@@ -71,6 +72,7 @@ export function EmployerProfile() {
       </Card>
 
       <OwnerRoleSwitch />
+      <OwnerIdChecks />
 
       <div className="lg:hidden mb-2.5"><InstallButton className="w-full py-3" /></div>
 

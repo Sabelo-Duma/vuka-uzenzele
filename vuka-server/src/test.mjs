@@ -1922,11 +1922,11 @@ async function run() {
     ok((await put(A.token, vid, 'card_front', jpeg, 'text/plain')).status === 415, 'a photo must be an image');
     ok((await put(A.token, vid, 'passport')).status === 400, 'an unknown photo kind is refused');
     ok((await put(B.token, vid, 'card_front')).status === 404, 'nobody can add photos to someone else\'s submission');
-    for (const kind of ['card_front', 'selfie', 'selfie_challenge']) ok((await put(A.token, vid, kind)).status === 200, `the ${kind} photo is accepted`);
+    for (const kind of ['card_front', 'card_back', 'selfie', 'selfie_challenge']) ok((await put(A.token, vid, kind)).status === 200, `the ${kind} photo is accepted`);
     ok((await put(A.token, vid, 'selfie')).status === 200, 'a retaken photo replaces the first');
     const { all: dbAll, get: dbGet } = await import('./db.mjs');
     const stored = await dbAll('SELECT kind, bytes_enc FROM id_documents WHERE verification_id = ?', [vid]);
-    ok(stored.length === 3, 'one photo per kind is kept, not every retake', String(stored.length));
+    ok(stored.length === 4, 'one photo per kind is kept, not every retake', String(stored.length));
     ok(stored.every((r) => { const b = Buffer.from(r.bytes_enc); return b[0] === 1 && b.indexOf(Buffer.from([0xff, 0xd8, 0xff])) === -1; }),
       'the photos are encrypted at rest — no JPEG is readable in the database');
 
@@ -1941,12 +1941,22 @@ async function run() {
     ok((await api('POST', '/me/id-verification', { token: B.token, body: { fullName: 'Someone Else', idNumber: ID } })).json?.reason === 'id_in_use',
       'nor typed in by hand');
 
+    // The owner reviews from the app, signed in, with no admin token.
+    const ownerQueue = await api('GET', '/owner/id-verifications', { token: wTok });
+    ok(ownerQueue.status === 200 && ownerQueue.json?.some((q) => q.id === vid && q.documents.includes('card_back')),
+      'the owner sees the waiting ID check, with the photo of the back', String(ownerQueue.status));
+    const ownerImg = await fetch(`${BASE}/owner/id-verifications/${vid}/documents/card_back`, { headers: { Authorization: `Bearer ${wTok}` } });
+    ok(ownerImg.status === 200 && Buffer.from(await ownerImg.arrayBuffer()).equals(jpeg), 'and can open its photos');
+    ok((await api('GET', '/owner/id-verifications', { token: A.token })).status === 403, 'nobody else can see the ID checks');
+    ok((await api('POST', `/owner/id-verifications/${vid}/decide`, { token: A.token, body: { approve: true } })).status === 403, 'or decide one');
+    ok((await api('GET', '/owner/id-verifications')).status === 401, 'not even without signing in');
+
     // Review.
     process.env.VUKA_ADMIN_TOKEN = 'test-admin-token';
     const adminHeaders = { 'x-admin-token': 'test-admin-token' };
     const queue = await (await fetch(`${BASE}/admin/id-verifications`, { headers: adminHeaders })).json();
     const mine = queue.find((q) => q.id === vid);
-    ok(mine?.method === 'scan' && mine?.documents?.length === 3 && mine?.challenge && mine?.scan?.surname === 'MOKOENA',
+    ok(mine?.method === 'scan' && mine?.documents?.length === 4 && mine?.challenge && mine?.scan?.surname === 'MOKOENA',
       'the reviewer sees the scan, the checks, the instruction and the three photos', JSON.stringify(mine));
     ok(mine && !('idNumber' in (mine.scan ?? {})), 'the barcode\'s copy of the ID number is not kept');
     const img = await fetch(`${BASE}/admin/id-verifications/${vid}/documents/selfie`, { headers: adminHeaders });

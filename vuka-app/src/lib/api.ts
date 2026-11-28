@@ -282,7 +282,25 @@ export interface IdChecks {
   name: boolean | null;
   mismatches: string[];
 }
-export type IdDocumentKind = 'card_front' | 'selfie' | 'selfie_challenge';
+export type IdDocumentKind = 'card_front' | 'card_back' | 'selfie' | 'selfie_challenge';
+/** One ID check waiting for the owner to decide (Profile, ID checks). */
+export interface OwnerIdCheck {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string | null;
+  fullName: string;
+  last4: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  submittedAt: string;
+  method: string;
+  scan: Record<string, string | null> | null;
+  checks: IdChecks | null;
+  challenge: string | null;
+  documents: IdDocumentKind[];
+  homeAffairs: { mode: string; status: string } | null;
+}
 export interface IdScanInput {
   consent: true;
   fullName: string;
@@ -488,6 +506,23 @@ export interface OwnerPeople {
 export const api = {
   /** Everyone who has joined. Owner only; the server refuses anyone else. */
   ownerPeople: () => request<OwnerPeople>('GET', '/owner/people'),
+  ownerIdChecks: () => request<OwnerIdCheck[]>('GET', '/owner/id-verifications'),
+  ownerIdDecide: (id: string, approve: boolean, reason?: string) =>
+    request<{ ok: true; status: string }>('POST', `/owner/id-verifications/${encodeURIComponent(id)}/decide`, { approve, reason }),
+  /** A photo from an ID check, as a Blob: it needs the sign-in header, so an <img src> cannot fetch it. */
+  ownerIdPhoto: async (id: string, kind: IdDocumentKind): Promise<Blob> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/owner/id-verifications/${encodeURIComponent(id)}/documents/${kind}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Vuka-Lang': activeLang() },
+        cache: 'no-store',
+      });
+    } catch {
+      throw new ApiError(tr('common.api.unreachable'), 0);
+    }
+    if (!res.ok) throw new ApiError(tr('owner.ids.photoMissing'), res.status);
+    return res.blob();
+  },
   /** Owner only: use the same account as a worker or as an employer. */
   ownerSwitchRole: (role: Role) => request<AuthResult>('POST', '/owner/role', { role }),
   register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
